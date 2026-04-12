@@ -1,0 +1,6 @@
+goal preserve_session_consistency
+derive identify_transition_gap
+prove deterministic_state_transition
+apply patch_session_machine
+converge verify_repl_stability
+rollback previous_safe_state
