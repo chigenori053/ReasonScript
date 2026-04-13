@@ -1,0 +1,3 @@
+goal scalar_math
+compute 1/2 + 3/4
+converge verify_numeric_result

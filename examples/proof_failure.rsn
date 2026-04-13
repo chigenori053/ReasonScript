@@ -1,0 +1,4 @@
+goal preserve_session_consistency
+apply patch_session_machine
+prove invalid_transition
+converge verify_repl_stability

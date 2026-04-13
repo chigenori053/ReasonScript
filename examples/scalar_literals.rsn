@@ -1,0 +1,5 @@
+goal numeric_state_test
+apply 42
+apply -3
+apply 1/2
+converge verify_scalar_literals
