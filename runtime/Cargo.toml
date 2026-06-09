@@ -1,6 +1,11 @@
 [package]
-name = "runtime"
+name = "reasonscript-runtime"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+ndarray = { version = "0.15", features = ["serde"] }
+indexmap = { version = "2.0", features = ["serde"] }
