@@ -1,8 +1,27 @@
 use crate::ir::TensorIR;
 use crate::graph::ReasonGraph;
 use crate::executor::ExecutionContext;
+use crate::core::SemanticContext;
 use ndarray::Array2;
 use uuid::Uuid;
+
+#[derive(Debug)]
+pub enum InferenceError {
+    TypeError(crate::core::type_system::TypeError),
+    SemanticError(crate::core::semantic_validator::SemanticError),
+}
+
+impl From<crate::core::type_system::TypeError> for InferenceError {
+    fn from(err: crate::core::type_system::TypeError) -> Self {
+        InferenceError::TypeError(err)
+    }
+}
+
+impl From<crate::core::semantic_validator::SemanticError> for InferenceError {
+    fn from(err: crate::core::semantic_validator::SemanticError) -> Self {
+        InferenceError::SemanticError(err)
+    }
+}
 
 pub struct Executor;
 
@@ -28,14 +47,23 @@ impl Executor {
 
     /// Perform a single inference step on the ReasonGraph (higher level)
     /// Infer(Gt, n) = Gt+1
-    pub fn infer(graph: &mut ReasonGraph, context: &mut ExecutionContext, node_id: Uuid) -> Result<bool, crate::core::type_system::TypeError> {
-        // Runtime Type Check before execution
+    pub fn infer(
+        graph: &mut ReasonGraph, 
+        context: &mut ExecutionContext, 
+        semantic_context: &SemanticContext,
+        node_id: Uuid
+    ) -> Result<bool, InferenceError> {
+        
+        // 1. Runtime Type Check before execution
         crate::core::type_system::TypeChecker::check_graph(graph)?;
 
-        // 1. Activate
+        // 2. Semantic Check
+        crate::core::semantic_validator::SemanticValidator::validate_graph(graph, semantic_context)?;
+
+        // 3. Activate
         context.activate(node_id);
         
-        // 2. Edge Search (find transitions from active node)
+        // 4. Edge Search (find transitions from active node)
         let reachable_edges: Vec<_> = graph.edges.iter()
             .filter(|e| e.source == node_id)
             .cloned()
@@ -45,17 +73,12 @@ impl Executor {
             return Ok(false);
         }
 
-        // 3. Transition (Simple deterministic: take first reachable for v0.1)
+        // 5. Transition
         for edge in reachable_edges {
-            // 4. State Update & Graph Update
-            // In v0.1, we simulate state evolution by activating the target node
+            // 6. State Update & Graph Update
             context.activate(edge.target);
             context.history.push(edge.id);
             context.timestamp += 1;
-            
-            // Note: Full StateEvolutionRule S_t -> S_t+1 often involves 
-            // the lowering to Tensor IR and execution, but for a single graph step,
-            // we track the activated path.
         }
 
         Ok(true)
