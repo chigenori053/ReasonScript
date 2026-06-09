@@ -28,7 +28,10 @@ impl Executor {
 
     /// Perform a single inference step on the ReasonGraph (higher level)
     /// Infer(Gt, n) = Gt+1
-    pub fn infer(graph: &mut ReasonGraph, context: &mut ExecutionContext, node_id: Uuid) -> bool {
+    pub fn infer(graph: &mut ReasonGraph, context: &mut ExecutionContext, node_id: Uuid) -> Result<bool, crate::core::type_system::TypeError> {
+        // Runtime Type Check before execution
+        crate::core::type_system::TypeChecker::check_graph(graph)?;
+
         // 1. Activate
         context.activate(node_id);
         
@@ -39,7 +42,7 @@ impl Executor {
             .collect();
 
         if reachable_edges.is_empty() {
-            return false;
+            return Ok(false);
         }
 
         // 3. Transition (Simple deterministic: take first reachable for v0.1)
@@ -55,6 +58,6 @@ impl Executor {
             // we track the activated path.
         }
 
-        true
+        Ok(true)
     }
 }

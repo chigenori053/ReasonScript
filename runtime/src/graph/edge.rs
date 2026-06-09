@@ -1,4 +1,5 @@
-use crate::core::{Transition, Type};
+use crate::core::Transition;
+use crate::core::types::RelationType;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -7,13 +8,13 @@ pub struct Edge {
     pub id: Uuid,
     pub source: Uuid,
     pub target: Uuid,
-    pub relation: Type,
+    pub relation: RelationType,
     pub transition: Transition,
     pub cost: f64,
 }
 
 impl Edge {
-    pub fn new(source: Uuid, target: Uuid, relation: Type, transition: Transition) -> Self {
+    pub fn new(source: Uuid, target: Uuid, relation: RelationType, transition: Transition) -> Self {
         Self {
             id: Uuid::new_v4(),
             source,

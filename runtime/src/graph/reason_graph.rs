@@ -1,19 +1,35 @@
 use crate::graph::{Node, Edge};
 use crate::core::State;
+use crate::core::types::GraphType;
 use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReasonGraph {
+    pub graph_type: GraphType,
     pub nodes: IndexMap<Uuid, Node>,
     pub edges: Vec<Edge>,
     pub states: IndexMap<Uuid, State>,
 }
 
+impl Default for ReasonGraph {
+    fn default() -> Self {
+        Self {
+            graph_type: GraphType::ReasonGraph,
+            nodes: IndexMap::new(),
+            edges: Vec::new(),
+            states: IndexMap::new(),
+        }
+    }
+}
+
 impl ReasonGraph {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(graph_type: GraphType) -> Self {
+        Self {
+            graph_type,
+            ..Default::default()
+        }
     }
 
     pub fn add_node(&mut self, node: Node) -> Uuid {

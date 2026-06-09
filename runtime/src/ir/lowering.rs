@@ -20,8 +20,8 @@ impl Lowering {
 
         let mut transition_ops = Vec::new();
         for edge in &graph_ir.graph.edges {
-            match &edge.transition {
-                crate::core::Transition::Addition(unit) => {
+            match &edge.transition.op {
+                crate::core::transition::TransitionOp::Addition(unit) => {
                     let mut mat = Array2::zeros((n_nodes, dim));
                     // Simple broadcast addition for now
                     for i in 0..n_nodes {
@@ -31,7 +31,7 @@ impl Lowering {
                     }
                     transition_ops.push(TensorOp::Add(mat));
                 }
-                crate::core::Transition::Refinement { target, alpha } => {
+                crate::core::transition::TransitionOp::Refinement { target, alpha } => {
                     let mut mat = Array2::zeros((n_nodes, dim));
                     for i in 0..n_nodes {
                         for j in 0..dim {

@@ -1,10 +1,56 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum Type {
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum UnitType {
+    Symbolic,
+    Real,
+    Vector,
+    Tensor,
+    Composite,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum StateType {
     Concept,
+    Event,
+    Object,
+    Action,
+    Attribute,
     Goal,
     Constraint,
-    Fact,
-    Action,
+    Unknown,
 }
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RelationType {
+    IsA,
+    PartOf,
+    Cause,
+    Similar,
+    Temporal,
+    Spatial,
+    Dependency,
+    Constraint,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TransitionType {
+    Deduction,
+    Induction,
+    Abduction,
+    Search,
+    Optimization,
+    Simulation,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum GraphType {
+    KnowledgeGraph,
+    MemoryGraph,
+    WorldGraph,
+    ReasonGraph,
+    PlanningGraph,
+}
+
+// Re-exporting legacy Type as StateType for transition period if needed
+pub type Type = StateType;
