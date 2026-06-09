@@ -1,21 +1,18 @@
 use crate::core::ReasonUnit;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct State {
-    pub current: ReasonUnit,
-    pub history: Vec<ReasonUnit>,
+    pub id: Uuid,
+    pub value: ReasonUnit,
 }
 
 impl State {
-    pub fn new(initial: ReasonUnit) -> Self {
+    pub fn new(value: ReasonUnit) -> Self {
         Self {
-            current: initial,
-            history: Vec::new(),
+            id: Uuid::new_v4(),
+            value,
         }
-    }
-
-    pub fn update(&mut self, next: ReasonUnit) {
-        self.history.push(std::mem::replace(&mut self.current, next));
     }
 }

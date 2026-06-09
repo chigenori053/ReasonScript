@@ -11,8 +11,10 @@ impl Lowering {
         let mut state_matrix = Array2::zeros((n_nodes, dim));
         
         for (i, node) in graph_ir.graph.nodes.values().enumerate() {
-            for j in 0..dim {
-                state_matrix[[i, j]] = node.unit.vector[j];
+            if let Some(state) = graph_ir.graph.states.get(&node.state_id) {
+                for j in 0..dim {
+                    state_matrix[[i, j]] = state.value.vector[j];
+                }
             }
         }
 
