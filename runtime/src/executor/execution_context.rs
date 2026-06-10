@@ -1,11 +1,13 @@
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use crate::core::DynamicsContext;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionContext {
     pub active_nodes: Vec<Uuid>,
     pub history: Vec<Uuid>, // Edge IDs representing transitions
     pub timestamp: u64,
+    pub dynamics: DynamicsContext,
 }
 
 impl ExecutionContext {
@@ -14,6 +16,7 @@ impl ExecutionContext {
             active_nodes: Vec::new(),
             history: Vec::new(),
             timestamp: 0,
+            dynamics: DynamicsContext::new(10), // Default max depth 10
         }
     }
 

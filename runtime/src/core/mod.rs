@@ -6,6 +6,7 @@ pub mod type_system;
 pub mod semantic_constraint;
 pub mod semantic_context;
 pub mod semantic_validator;
+pub mod dynamics;
 
 pub use reason_unit::ReasonUnit;
 pub use state::State;
@@ -15,3 +16,4 @@ pub use type_system::{TypeChecker, TypeError};
 pub use semantic_constraint::{SemanticConstraint, SemanticRule};
 pub use semantic_context::SemanticContext;
 pub use semantic_validator::{SemanticValidator, SemanticError};
+pub use dynamics::{DynamicsContext, ActivationState};

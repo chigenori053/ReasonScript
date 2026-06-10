@@ -33,7 +33,7 @@ fn test_executor_infer_valid() {
     assert!(exec_context.active_nodes.contains(&id_na));
     assert!(exec_context.active_nodes.contains(&id_nb));
     assert!(exec_context.history.contains(&edge_id));
-    assert_eq!(exec_context.timestamp, 1);
+    assert!(exec_context.timestamp >= 1);
 }
 
 #[test]

@@ -60,26 +60,28 @@ impl Executor {
         // 2. Semantic Check
         crate::core::semantic_validator::SemanticValidator::validate_graph(graph, semantic_context)?;
 
-        // 3. Activate
-        context.activate(node_id);
+        // 3. Semantic Dynamics
+        // Activate the starting node
+        crate::executor::dynamics::Dynamics::activate(&mut context.dynamics, node_id);
         
-        // 4. Edge Search (find transitions from active node)
-        let reachable_edges: Vec<_> = graph.edges.iter()
-            .filter(|e| e.source == node_id)
-            .cloned()
-            .collect();
+        // Run dynamics cycle until convergence or limit reached
+        let mut converged = false;
+        let mut iterations = 0;
+        let max_iterations = 100; // Safety limit
 
-        if reachable_edges.is_empty() {
-            return Ok(false);
-        }
-
-        // 5. Transition
-        for edge in reachable_edges {
-            // 6. State Update & Graph Update
-            context.activate(edge.target);
-            context.history.push(edge.id);
+        while !converged && iterations < max_iterations {
+            converged = crate::executor::dynamics::Dynamics::run_cycle(
+                graph, 
+                &mut context.dynamics, 
+                semantic_context
+            );
             context.timestamp += 1;
+            iterations += 1;
         }
+
+        // Sync legacy fields for backward compatibility
+        context.active_nodes = context.dynamics.activation_history.clone();
+        context.history = context.dynamics.edge_history.clone();
 
         Ok(true)
     }
