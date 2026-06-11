@@ -94,6 +94,12 @@ impl ReasonGraph {
         self.nodes.get(node_id)
     }
 
+    pub fn nodes(&self) -> impl Iterator<Item = (&str, &HybridReasonUnit)> {
+        self.nodes
+            .iter()
+            .map(|(node_id, unit)| (node_id.as_str(), unit))
+    }
+
     pub fn node_count(&self) -> usize {
         self.nodes.len()
     }

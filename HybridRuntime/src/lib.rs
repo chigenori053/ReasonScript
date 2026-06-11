@@ -3,6 +3,7 @@ pub mod closure;
 pub mod decision;
 pub mod error;
 pub mod graph;
+pub mod graph_ir;
 pub mod resolver;
 pub mod runtime;
 pub mod state;
@@ -24,6 +25,11 @@ pub use error::RuntimeError;
 pub use graph::{
     GraphRelation, GraphTraceEventKind, GraphTraceLogger, GraphTraceRecord, ReasonGraph,
     ReasonGraphRuntime,
+};
+pub use graph_ir::{
+    GraphIR, GraphIRClosure, GraphIRConversionType, GraphIRConverter, GraphIRNode,
+    GraphIRProvenance, GraphIRReconstruction, GraphIRRelation, GraphIRTraceEventKind,
+    GraphIRTraceLogger, GraphIRTraceRecord,
 };
 pub use resolver::IdentityResolver;
 pub use runtime::HybridRuntime;
