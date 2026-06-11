@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ClosureTraceEventKind {
     Closure,
+    Saturation,
     CycleDetected,
     MathematicalClosure,
 }
@@ -16,8 +17,10 @@ pub struct ClosureTraceRecord {
     pub test_id: Option<String>,
     pub graph_id: String,
     pub closure_id: String,
+    pub closure_level: usize,
     pub source_relations: Vec<GraphRelation>,
     pub derived_relation: Option<GraphRelation>,
+    pub closure_provenance: Vec<GraphRelation>,
     pub visited_nodes: Vec<String>,
     pub visited_edges: Vec<String>,
     pub derivation_steps: Vec<String>,
@@ -51,6 +54,8 @@ impl ClosureTraceLogger {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClosureResult {
     pub derived_relations: Vec<GraphRelation>,
+    pub closure_levels: usize,
+    pub saturated: bool,
 }
 
 pub struct GraphClosureEngine {
@@ -113,7 +118,81 @@ impl GraphClosureEngine {
             }
         }
 
-        Ok(ClosureResult { derived_relations })
+        Ok(ClosureResult {
+            closure_levels: usize::from(!derived_relations.is_empty()),
+            saturated: derived_relations.is_empty(),
+            derived_relations,
+        })
+    }
+
+    pub fn derive_recursive(
+        &mut self,
+        graph: &mut ReasonGraph,
+    ) -> Result<ClosureResult, RuntimeError> {
+        let initial_relations = graph.relations().to_vec();
+        if let Some(cycle) = detect_cycle(&initial_relations) {
+            self.record_cycle(graph, &initial_relations, cycle.clone());
+            return Err(RuntimeError::GraphCycleDetected { nodes: cycle });
+        }
+
+        let mut provenance = initial_relations
+            .iter()
+            .map(|edge| (relation_key(edge), vec![edge.clone()]))
+            .collect::<BTreeMap<_, _>>();
+        let mut all_derived = Vec::new();
+        let mut closure_level = 0;
+
+        loop {
+            let snapshot = graph.relations().to_vec();
+            let mut candidates = BTreeMap::<String, RecursiveCandidate>::new();
+
+            for left in &snapshot {
+                for right in snapshot
+                    .iter()
+                    .filter(|edge| edge.source == left.target && edge.relation == left.relation)
+                {
+                    if left.source == right.target
+                        || graph.has_relation(&left.source, &left.relation, &right.target)
+                    {
+                        continue;
+                    }
+                    let derived = GraphRelation::new(&left.source, &left.relation, &right.target);
+                    let key = relation_key(&derived);
+                    let base_provenance = merge_provenance(
+                        provenance
+                            .get(&relation_key(left))
+                            .cloned()
+                            .unwrap_or_else(|| vec![left.clone()]),
+                        provenance
+                            .get(&relation_key(right))
+                            .cloned()
+                            .unwrap_or_else(|| vec![right.clone()]),
+                    );
+                    candidates.entry(key).or_insert_with(|| RecursiveCandidate {
+                        derived,
+                        immediate_sources: vec![left.clone(), right.clone()],
+                        base_provenance,
+                    });
+                }
+            }
+
+            if candidates.is_empty() {
+                self.record_saturation(graph, closure_level);
+                return Ok(ClosureResult {
+                    derived_relations: all_derived,
+                    closure_levels: closure_level,
+                    saturated: true,
+                });
+            }
+
+            closure_level += 1;
+            for (key, candidate) in candidates {
+                graph.add_relation(candidate.derived.clone())?;
+                provenance.insert(key, candidate.base_provenance.clone());
+                all_derived.push(candidate.derived.clone());
+                self.record_recursive_closure(graph, closure_level, candidate);
+            }
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -173,8 +252,10 @@ impl GraphClosureEngine {
             test_id: self.trace_test_id.clone(),
             graph_id: graph.graph_id().to_string(),
             closure_id,
+            closure_level: 1,
             source_relations: path_relations.to_vec(),
             derived_relation: Some(derived_relation.clone()),
+            closure_provenance: path_relations.to_vec(),
             visited_nodes: path_nodes.to_vec(),
             visited_edges: path_relations.iter().map(GraphRelation::id).collect(),
             derivation_steps: path_relations
@@ -214,8 +295,10 @@ impl GraphClosureEngine {
             test_id: self.trace_test_id.clone(),
             graph_id: graph.graph_id().to_string(),
             closure_id,
+            closure_level: 0,
             source_relations: cycle_edges.clone(),
             derived_relation: None,
+            closure_provenance: cycle_edges.clone(),
             visited_nodes: cycle,
             visited_edges: cycle_edges.iter().map(GraphRelation::id).collect(),
             derivation_steps: vec!["cycle detected; closure aborted".to_string()],
@@ -227,11 +310,102 @@ impl GraphClosureEngine {
         });
     }
 
+    fn record_recursive_closure(
+        &mut self,
+        graph: &ReasonGraph,
+        closure_level: usize,
+        candidate: RecursiveCandidate,
+    ) {
+        let closure_id = self.take_closure_id();
+        let visited_nodes = vec![
+            candidate.derived.source.clone(),
+            candidate.immediate_sources[0].target.clone(),
+            candidate.derived.target.clone(),
+        ];
+        self.trace_logger.record(ClosureTraceRecord {
+            test_id: self.trace_test_id.clone(),
+            graph_id: graph.graph_id().to_string(),
+            closure_id,
+            closure_level,
+            source_relations: candidate.immediate_sources.clone(),
+            derived_relation: Some(candidate.derived.clone()),
+            closure_provenance: candidate.base_provenance,
+            visited_nodes,
+            visited_edges: candidate
+                .immediate_sources
+                .iter()
+                .map(GraphRelation::id)
+                .collect(),
+            derivation_steps: candidate
+                .immediate_sources
+                .iter()
+                .map(GraphRelation::id)
+                .chain(std::iter::once(format!(
+                    "derive {} at closure level {closure_level}",
+                    candidate.derived.id()
+                )))
+                .collect(),
+            decision_reason: "two-edge closure reused as a recursive inference resource"
+                .to_string(),
+            final_state: graph
+                .node(&candidate.derived.target)
+                .expect("derived relation target must exist")
+                .state()
+                .clone(),
+            trace_event_kind: ClosureTraceEventKind::Closure,
+            policy_version: self.policy_version.clone(),
+            evaluator_version: self.evaluator_version.clone(),
+        });
+    }
+
+    fn record_saturation(&mut self, graph: &ReasonGraph, closure_level: usize) {
+        let closure_id = self.take_closure_id();
+        self.trace_logger.record(ClosureTraceRecord {
+            test_id: self.trace_test_id.clone(),
+            graph_id: graph.graph_id().to_string(),
+            closure_id,
+            closure_level,
+            source_relations: Vec::new(),
+            derived_relation: None,
+            closure_provenance: Vec::new(),
+            visited_nodes: Vec::new(),
+            visited_edges: Vec::new(),
+            derivation_steps: vec!["no new closure candidates".to_string()],
+            decision_reason: "graph closure reached a fixed point".to_string(),
+            final_state: State::stable("No New Closure"),
+            trace_event_kind: ClosureTraceEventKind::Saturation,
+            policy_version: self.policy_version.clone(),
+            evaluator_version: self.evaluator_version.clone(),
+        });
+    }
+
     fn take_closure_id(&mut self) -> String {
         let id = format!("closure-{:04}", self.next_closure_id);
         self.next_closure_id += 1;
         id
     }
+}
+
+struct RecursiveCandidate {
+    derived: GraphRelation,
+    immediate_sources: Vec<GraphRelation>,
+    base_provenance: Vec<GraphRelation>,
+}
+
+fn relation_key(relation: &GraphRelation) -> String {
+    relation.id()
+}
+
+fn merge_provenance(mut left: Vec<GraphRelation>, right: Vec<GraphRelation>) -> Vec<GraphRelation> {
+    for relation in right {
+        if !left
+            .iter()
+            .any(|existing| relation_key(existing) == relation_key(&relation))
+        {
+            left.push(relation);
+        }
+    }
+    left
 }
 
 fn relation_adjacency(
@@ -333,6 +507,7 @@ pub struct MathClosureEngine {
     pub evaluator_version: String,
     trace_test_id: Option<String>,
     next_closure_id: usize,
+    provenance_by_graph: BTreeMap<String, Vec<GraphRelation>>,
 }
 
 impl Default for MathClosureEngine {
@@ -343,6 +518,7 @@ impl Default for MathClosureEngine {
             evaluator_version: "math-closure-evaluator-v0.1".to_string(),
             trace_test_id: None,
             next_closure_id: 1,
+            provenance_by_graph: BTreeMap::new(),
         }
     }
 }
@@ -410,6 +586,33 @@ impl MathClosureEngine {
         Ok(result)
     }
 
+    pub fn subtract(
+        &mut self,
+        graph_id: &str,
+        left: MathValue,
+        right: MathValue,
+    ) -> Result<MathValue, RuntimeError> {
+        if left.unit != right.unit {
+            return Err(RuntimeError::UnitMismatch {
+                left: left.unit.unwrap_or_else(|| "scalar".to_string()),
+                right: right.unit.unwrap_or_else(|| "scalar".to_string()),
+            });
+        }
+        let result = MathValue {
+            value: left.value - right.value,
+            unit: left.unit.clone(),
+        };
+        let expression = format!("{} - {}", left.label(), right.label());
+        self.record_math(
+            graph_id,
+            expression.clone(),
+            result.clone(),
+            vec![expression, result.label()],
+            "subtraction reused the preceding mathematical state",
+        );
+        Ok(result)
+    }
+
     pub fn solve_linear(
         &mut self,
         graph_id: &str,
@@ -454,6 +657,47 @@ impl MathClosureEngine {
         Ok(result)
     }
 
+    pub fn solve_linear_recursive(
+        &mut self,
+        graph_id: &str,
+        coefficient: f64,
+        constant: f64,
+        rhs: f64,
+    ) -> Result<MathValue, RuntimeError> {
+        if coefficient == 0.0 {
+            return Err(RuntimeError::InvalidMathematicalExpression(
+                "linear coefficient must be non-zero".to_string(),
+            ));
+        }
+        let initial = format!(
+            "{}x + {} = {}",
+            format_number(coefficient),
+            format_number(constant),
+            format_number(rhs)
+        );
+        let isolated = rhs - constant;
+        let intermediate = format!(
+            "{}x = {}",
+            format_number(coefficient),
+            format_number(isolated)
+        );
+        self.record_math_transition(
+            graph_id,
+            initial,
+            intermediate.clone(),
+            "subtraction isolated the variable term",
+        );
+
+        let result = MathValue::scalar(isolated / coefficient);
+        self.record_math_transition(
+            graph_id,
+            intermediate,
+            format!("x = {}", result.label()),
+            "division reused the derived intermediate state",
+        );
+        Ok(result)
+    }
+
     fn record_math(
         &mut self,
         graph_id: &str,
@@ -464,12 +708,16 @@ impl MathClosureEngine {
     ) {
         let source = GraphRelation::new(expression.clone(), "Evaluates", result.label());
         let derived = GraphRelation::new(expression.clone(), "EvaluatesTo", result.label());
+        let closure_level = self.next_math_level(graph_id);
+        let closure_provenance = self.extend_math_provenance(graph_id, source.clone());
         self.trace_logger.record(ClosureTraceRecord {
             test_id: self.trace_test_id.clone(),
             graph_id: graph_id.to_string(),
             closure_id: format!("math-closure-{:04}", self.next_closure_id),
+            closure_level,
             source_relations: vec![source.clone()],
             derived_relation: Some(derived),
+            closure_provenance,
             visited_nodes: vec![expression, result.label()],
             visited_edges: vec![source.id()],
             derivation_steps,
@@ -480,6 +728,55 @@ impl MathClosureEngine {
             evaluator_version: self.evaluator_version.clone(),
         });
         self.next_closure_id += 1;
+    }
+
+    fn record_math_transition(
+        &mut self,
+        graph_id: &str,
+        source_state: String,
+        target_state: String,
+        decision_reason: &str,
+    ) {
+        let source = GraphRelation::new(&source_state, "TransformsTo", &target_state);
+        let closure_level = self.next_math_level(graph_id);
+        let closure_provenance = self.extend_math_provenance(graph_id, source.clone());
+        self.trace_logger.record(ClosureTraceRecord {
+            test_id: self.trace_test_id.clone(),
+            graph_id: graph_id.to_string(),
+            closure_id: format!("math-closure-{:04}", self.next_closure_id),
+            closure_level,
+            source_relations: vec![source.clone()],
+            derived_relation: Some(source.clone()),
+            closure_provenance,
+            visited_nodes: vec![source_state.clone(), target_state.clone()],
+            visited_edges: vec![source.id()],
+            derivation_steps: vec![source_state, target_state.clone()],
+            decision_reason: decision_reason.to_string(),
+            final_state: State::stable(target_state),
+            trace_event_kind: ClosureTraceEventKind::MathematicalClosure,
+            policy_version: self.policy_version.clone(),
+            evaluator_version: self.evaluator_version.clone(),
+        });
+        self.next_closure_id += 1;
+    }
+
+    fn next_math_level(&self, graph_id: &str) -> usize {
+        self.provenance_by_graph
+            .get(graph_id)
+            .map_or(1, |provenance| provenance.len() + 1)
+    }
+
+    fn extend_math_provenance(
+        &mut self,
+        graph_id: &str,
+        source: GraphRelation,
+    ) -> Vec<GraphRelation> {
+        let provenance = self
+            .provenance_by_graph
+            .entry(graph_id.to_string())
+            .or_default();
+        provenance.push(source);
+        provenance.clone()
     }
 }
 
