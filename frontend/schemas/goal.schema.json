@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GoalNode",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["node_type", "node_id", "kind", "target"],
+  "properties": {
+    "node_type": {"const": "GoalNode"},
+    "node_id": {"type": "string", "minLength": 1},
+    "kind": {"type": "string", "minLength": 1},
+    "target": {"type": "string", "minLength": 1}
+  }
+}

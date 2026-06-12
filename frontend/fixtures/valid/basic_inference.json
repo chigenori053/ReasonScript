@@ -1,0 +1,13 @@
+{
+  "node_type": "ModuleNode",
+  "version": "reasonscript-ast/0.1",
+  "node_id": "module-basic",
+  "imports": [],
+  "declarations": [
+    {"node_type": "GoalNode", "node_id": "goal", "kind": "reach_state", "target": "Animal"},
+    {"node_type": "StateNode", "node_id": "state", "state_id": "Dog", "state_type": "symbolic", "data": {"label": "dog"}},
+    {"node_type": "TransitionNode", "node_id": "transition-1", "transition_id": "dog-is-mammal", "source": "Dog", "relation": "IsA", "target": "Mammal", "expected_cost": 1.0},
+    {"node_type": "TransitionNode", "node_id": "transition-2", "transition_id": "mammal-is-animal", "source": "Mammal", "relation": "IsA", "target": "Animal", "expected_cost": 1.0}
+  ],
+  "metadata": []
+}

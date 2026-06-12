@@ -1,0 +1,11 @@
+{
+  "node_type": "ModuleNode",
+  "version": "reasonscript-ast/0.1",
+  "node_id": "module-constraint",
+  "declarations": [
+    {"node_type": "GoalNode", "node_id": "goal", "kind": "reach_state", "target": "Adult"},
+    {"node_type": "StateNode", "node_id": "state", "state_id": "Person", "state_type": "entity", "data": {"age": 20}},
+    {"node_type": "ConstraintNode", "node_id": "constraint", "constraint_id": "adult-only", "kind": "numeric", "expression": "age >= 18"},
+    {"node_type": "TransitionNode", "node_id": "transition", "transition_id": "become-adult", "source": "Person", "relation": "IsA", "target": "Adult"}
+  ]
+}

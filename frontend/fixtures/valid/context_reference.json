@@ -1,0 +1,10 @@
+{
+  "node_type": "ModuleNode",
+  "version": "reasonscript-ast/0.1",
+  "node_id": "module-context",
+  "declarations": [
+    {"node_type": "GoalNode", "node_id": "goal", "kind": "produce_answer", "target": "Known"},
+    {"node_type": "StateNode", "node_id": "state", "state_id": "Unknown", "state_type": "query", "data": {}},
+    {"node_type": "ContextNode", "node_id": "context", "context_id": "knowledge-base", "context_type": "database", "uri": "db://knowledge/main"}
+  ]
+}

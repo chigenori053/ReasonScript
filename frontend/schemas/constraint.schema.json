@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ConstraintNode",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["node_type", "node_id", "constraint_id", "kind", "expression"],
+  "properties": {
+    "node_type": {"const": "ConstraintNode"},
+    "node_id": {"type": "string", "minLength": 1},
+    "constraint_id": {"type": "string", "minLength": 1},
+    "kind": {"type": "string", "minLength": 1},
+    "expression": {"type": "string", "minLength": 1}
+  }
+}

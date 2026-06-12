@@ -1,0 +1,9 @@
+{
+  "node_type": "ModuleNode",
+  "version": "reasonscript-ast/0.1",
+  "node_id": "module",
+  "declarations": [
+    {"node_type": "GoalNode", "node_id": "duplicate", "kind": "reach_state", "target": "B"},
+    {"node_type": "StateNode", "node_id": "duplicate", "state_id": "A", "state_type": "symbolic", "data": {}}
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TransitionNode",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "node_type", "node_id", "transition_id", "source", "relation", "target"
+  ],
+  "properties": {
+    "node_type": {"const": "TransitionNode"},
+    "node_id": {"type": "string", "minLength": 1},
+    "transition_id": {"type": "string", "minLength": 1},
+    "source": {"type": "string", "minLength": 1},
+    "relation": {"type": "string", "minLength": 1},
+    "target": {"type": "string", "minLength": 1},
+    "expected_cost": {"type": "number", "minimum": 0, "default": 1.0},
+    "guard": {"type": ["string", "null"]},
+    "effect": true
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "framework_version": "0.1",
+  "ast_abi_version": "reasonscript-ast/0.1",
+  "reason_ir_version": "reason-ir/0.1",
+  "generated_on": "2026-06-13",
+  "layers": [
+    {
+      "layer": 0,
+      "suite": "schema_tests",
+      "status": "pass",
+      "has_skips": false,
+      "output": "test_invalid_fixtures_fail (test_schema.AstSchemaConformanceTests.test_invalid_fixtures_fail) ... ok\ntest_valid_fixtures_pass (test_schema.AstSchemaConformanceTests.test_valid_fixtures_pass) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.021s\n\nOK"
+    },
+    {
+      "layer": 1,
+      "suite": "dto_tests",
+      "status": "pass",
+      "has_skips": true,
+      "output": "test_go_binding_compiles_when_available (test_dto.AstDtoConformanceTests.test_go_binding_compiles_when_available) ... skipped 'Go toolchain is not installed'\ntest_java_binding_compiles (test_dto.AstDtoConformanceTests.test_java_binding_compiles) ... ok\ntest_python_round_trip_and_immutability (test_dto.AstDtoConformanceTests.test_python_round_trip_and_immutability) ... ok\ntest_rust_binding_round_trip (test_dto.AstDtoConformanceTests.test_rust_binding_round_trip) ... ok\ntest_typescript_binding_type_checks (test_dto.AstDtoConformanceTests.test_typescript_binding_type_checks) ... ok\n\n----------------------------------------------------------------------\nRan 5 tests in 1.276s\n\nOK (skipped=1)"
+    },
+    {
+      "layer": 2,
+      "suite": "lowering_tests",
+      "status": "pass",
+      "has_skips": false,
+      "output": "test_every_valid_fixture_lowers_to_reason_ir (test_lowering.AstLoweringConformanceTests.test_every_valid_fixture_lowers_to_reason_ir) ... ok\ntest_lowering_is_deterministic (test_lowering.AstLoweringConformanceTests.test_lowering_is_deterministic) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.002s\n\nOK"
+    },
+    {
+      "layer": 3,
+      "suite": "cross_language_tests",
+      "status": "pass",
+      "has_skips": false,
+      "output": "test_python_rust_and_typescript_round_trips_agree (test_cross_language.CrossLanguageAstTests.test_python_rust_and_typescript_round_trips_agree) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 2.096s\n\nOK"
+    },
+    {
+      "layer": 4,
+      "suite": "reason_ir_tests",
+      "status": "pass",
+      "has_skips": false,
+      "output": "test_executable_fixtures_reach_their_goals (test_reason_ir.AstReasonIrCompatibilityTests.test_executable_fixtures_reach_their_goals) ... ok\ntest_required_node_mappings_are_preserved (test_reason_ir.AstReasonIrCompatibilityTests.test_required_node_mappings_are_preserved) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.001s\n\nOK"
+    }
+  ]
+}

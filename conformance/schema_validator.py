@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from conformance.framework import ConformanceError, load_json
 
@@ -66,10 +67,18 @@ class SchemaValidator:
                         item, schema["additionalProperties"], source, f"{location}.{name}"
                     )
         if isinstance(value, list) and "items" in schema:
+            if len(value) < schema.get("minItems", 0):
+                raise ConformanceError(f"{location}: array is too short")
             for index, item in enumerate(value):
                 self._validate(item, schema["items"], source, f"{location}[{index}]")
         if isinstance(value, str) and len(value) < schema.get("minLength", 0):
             raise ConformanceError(f"{location}: string is too short")
+        if (
+            isinstance(value, str)
+            and schema.get("format") == "uri"
+            and not urlparse(value).scheme
+        ):
+            raise ConformanceError(f"{location}: URI must be absolute")
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             if "minimum" in schema and value < schema["minimum"]:
                 raise ConformanceError(f"{location}: below minimum")

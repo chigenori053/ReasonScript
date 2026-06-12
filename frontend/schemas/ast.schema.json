@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/ast/0.1",
+  "title": "ReasonScript AST ABI 0.1",
+  "$ref": "module.schema.json"
+}

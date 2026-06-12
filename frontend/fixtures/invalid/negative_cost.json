@@ -1,0 +1,10 @@
+{
+  "node_type": "ModuleNode",
+  "version": "reasonscript-ast/0.1",
+  "node_id": "module",
+  "declarations": [
+    {"node_type": "GoalNode", "node_id": "goal", "kind": "reach_state", "target": "B"},
+    {"node_type": "StateNode", "node_id": "state", "state_id": "A", "state_type": "symbolic", "data": {}},
+    {"node_type": "TransitionNode", "node_id": "transition", "transition_id": "t1", "source": "A", "relation": "Next", "target": "B", "expected_cost": -1}
+  ]
+}
