@@ -15,3 +15,7 @@ cargo run --manifest-path HybridRuntime/Cargo.toml \
 
 Conformance fixtures are stored under `fixtures/valid` and
 `fixtures/invalid`.
+
+Common DTO bindings for Rust, Python, TypeScript, Go, and Java are stored under
+`dto/`. The normative DTO contract is
+`docs/Common_DTO_Specification_v0.1.md`.

@@ -47,7 +47,7 @@ impl ValidationChecks {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PreparedDelta {
     candidate_id: String,
     transaction_id: String,
@@ -104,6 +104,7 @@ pub enum TransactionStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TransactionRecord {
     pub transaction_id: String,
     pub execution_plan_id: String,

@@ -304,6 +304,7 @@ impl From<MinimalReasonIR> for ReasonIR {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PlanStep {
     pub step_id: String,
     pub transition_id: String,
@@ -312,12 +313,14 @@ pub struct PlanStep {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PlanPath {
     pub step_ids: Vec<String>,
     pub expected_cost: f64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExecutionPlan {
     selected_steps: Vec<PlanStep>,
     alternative_paths: Vec<PlanPath>,
@@ -372,6 +375,7 @@ impl ExecutionPlan {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StateDelta {
     delta_id: String,
     before_state: StateSnapshot,
@@ -488,18 +492,21 @@ pub enum InferenceStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Proof {
     pub selected_step_ids: Vec<String>,
     pub evidence_refs: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Violation {
     pub constraint_id: String,
     pub message: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct InferenceResult {
     pub status: InferenceStatus,
     pub final_state: StateSnapshot,
@@ -537,6 +544,7 @@ pub enum TraceEvent {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Trace {
     pub request_id: String,
     pub reason_ir_version: String,
