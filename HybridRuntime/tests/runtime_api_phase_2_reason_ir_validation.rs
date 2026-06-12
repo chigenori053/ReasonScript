@@ -360,7 +360,11 @@ fn rir_12_minimal_ir_migrates_to_platform_v01() {
     };
     let json = serde_json::to_string(&legacy).unwrap();
 
-    let migrated = ReasonIR::from_json(&json).unwrap();
+    assert_eq!(
+        ReasonIR::from_json(&json),
+        Err(ReasonIrError::MissingField("schema_version".to_string()))
+    );
+    let migrated = ReasonIR::from_legacy_json(&json).unwrap();
 
     assert_eq!(migrated.schema_version, REASON_IR_VERSION);
     assert_eq!(migrated.metadata["migrated_from"], "minimal-ir/unversioned");

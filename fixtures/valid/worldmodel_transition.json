@@ -1,0 +1,37 @@
+{
+  "schema_version": "reason-ir/0.1",
+  "initial_state": {
+    "state_id": "RoomDark",
+    "state_type": "world_model",
+    "data": {
+      "light": "off"
+    }
+  },
+  "goal": {
+    "kind": "reach_state",
+    "target": "RoomLit"
+  },
+  "transitions": [
+    {
+      "transition_id": "switch-light-on",
+      "source": "RoomDark",
+      "relation": "Action",
+      "target": "RoomLit",
+      "expected_cost": 0.1,
+      "effect": {
+        "light": "on"
+      }
+    }
+  ],
+  "planner_policy": null,
+  "execution_policy": {
+    "max_steps": 1,
+    "rollback_on_failure": true,
+    "constraint_mode": "reject"
+  },
+  "trace_policy": {
+    "level": "minimal",
+    "include_alternatives": false,
+    "include_state_data": true
+  }
+}

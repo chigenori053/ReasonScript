@@ -4,8 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 pub const REASON_IR_VERSION: &str = "reason-ir/0.1";
+pub const REASON_IR_SCHEMA_ID: &str = "https://reasonscript.org/schema/reason-ir/0.1";
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StateSnapshot {
     pub state_id: String,
     pub state_type: String,
@@ -23,6 +25,7 @@ impl StateSnapshot {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GoalSpec {
     pub kind: String,
     pub target: String,
@@ -38,6 +41,7 @@ impl GoalSpec {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ContextRef {
     pub context_id: String,
     pub context_type: String,
@@ -45,6 +49,7 @@ pub struct ContextRef {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConstraintSpec {
     pub constraint_id: String,
     pub kind: String,
@@ -52,6 +57,7 @@ pub struct ConstraintSpec {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TransitionSpec {
     pub transition_id: String,
     pub source: String,
@@ -82,6 +88,7 @@ impl TransitionSpec {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PlannerPolicy {
     pub strategy: String,
     pub max_depth: Option<usize>,
@@ -99,6 +106,7 @@ impl Default for PlannerPolicy {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExecutionPolicy {
     pub max_steps: usize,
     pub rollback_on_failure: bool,
@@ -116,6 +124,7 @@ impl Default for ExecutionPolicy {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TracePolicy {
     pub level: String,
     pub include_alternatives: bool,
@@ -133,6 +142,7 @@ impl Default for TracePolicy {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReasonIR {
     pub schema_version: String,
     pub initial_state: StateSnapshot,
@@ -180,11 +190,36 @@ impl ReasonIR {
         require_non_empty("initial_state.state_type", &self.initial_state.state_type)?;
         require_non_empty("goal.kind", &self.goal.kind)?;
         require_non_empty("goal.target", &self.goal.target)?;
+        for context in &self.context_refs {
+            require_non_empty("context.context_id", &context.context_id)?;
+            require_non_empty("context.context_type", &context.context_type)?;
+            if let Some(uri) = &context.uri {
+                if !is_valid_uri(uri) {
+                    return Err(ReasonIrError::InvalidField(format!(
+                        "context.uri:{}",
+                        context.context_id
+                    )));
+                }
+            }
+        }
+        for constraint in &self.constraints {
+            require_non_empty("constraint.constraint_id", &constraint.constraint_id)?;
+            require_non_empty("constraint.kind", &constraint.kind)?;
+            require_non_empty("constraint.expression", &constraint.expression)?;
+        }
+        if let Some(policy) = &self.planner_policy {
+            require_non_empty("planner_policy.strategy", &policy.strategy)?;
+        }
         if self.execution_policy.max_steps == 0 {
             return Err(ReasonIrError::InvalidField(
                 "execution_policy.max_steps".to_string(),
             ));
         }
+        require_non_empty(
+            "execution_policy.constraint_mode",
+            &self.execution_policy.constraint_mode,
+        )?;
+        require_non_empty("trace_policy.level", &self.trace_policy.level)?;
 
         let mut transition_ids = BTreeSet::new();
         for transition in &self.transitions {
@@ -222,14 +257,31 @@ impl ReasonIR {
                 Ok(ir)
             }
             Some(version) => Err(ReasonIrError::UnsupportedVersion(version.to_string())),
-            None => {
-                let legacy: MinimalReasonIR = serde_json::from_value(value)
-                    .map_err(|error| ReasonIrError::Serialization(error.to_string()))?;
-                let ir = Self::from(legacy);
-                ir.validate()?;
-                Ok(ir)
-            }
+            None => Err(ReasonIrError::MissingField("schema_version".to_string())),
         }
+    }
+
+    pub fn from_legacy_json(input: &str) -> Result<Self, ReasonIrError> {
+        let legacy: MinimalReasonIR = serde_json::from_str(input)
+            .map_err(|error| ReasonIrError::Serialization(error.to_string()))?;
+        let ir = Self::from(legacy);
+        ir.validate()?;
+        Ok(ir)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ReasonIrValidator;
+
+impl ReasonIrValidator {
+    pub fn validate_json(input: &str) -> Result<ReasonIR, ReasonIrError> {
+        ReasonIR::from_json(input)
+    }
+
+    pub fn validate_value(value: Value) -> Result<ReasonIR, ReasonIrError> {
+        let input = serde_json::to_string(&value)
+            .map_err(|error| ReasonIrError::Serialization(error.to_string()))?;
+        Self::validate_json(&input)
     }
 }
 
@@ -609,4 +661,19 @@ fn require_non_empty(field: &str, value: &str) -> Result<(), ReasonIrError> {
     } else {
         Ok(())
     }
+}
+
+fn is_valid_uri(value: &str) -> bool {
+    if value.is_empty() || value.chars().any(char::is_whitespace) {
+        return false;
+    }
+    let Some((scheme, remainder)) = value.split_once(':') else {
+        return false;
+    };
+    let mut chars = scheme.chars();
+    matches!(chars.next(), Some(first) if first.is_ascii_alphabetic())
+        && chars.all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.')
+        })
+        && !remainder.is_empty()
 }

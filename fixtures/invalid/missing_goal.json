@@ -1,0 +1,19 @@
+{
+  "schema_version": "reason-ir/0.1",
+  "initial_state": {
+    "state_id": "Dog",
+    "state_type": "symbolic",
+    "data": {}
+  },
+  "transitions": [],
+  "execution_policy": {
+    "max_steps": 128,
+    "rollback_on_failure": true,
+    "constraint_mode": "reject"
+  },
+  "trace_policy": {
+    "level": "standard",
+    "include_alternatives": true,
+    "include_state_data": true
+  }
+}

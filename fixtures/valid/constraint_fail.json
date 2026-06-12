@@ -1,0 +1,40 @@
+{
+  "schema_version": "reason-ir/0.1",
+  "initial_state": {
+    "state_id": "UnverifiedClaim",
+    "state_type": "claim",
+    "data": {
+      "confidence": 0.2
+    }
+  },
+  "goal": {
+    "kind": "evaluate",
+    "target": "Rejected"
+  },
+  "constraints": [
+    {
+      "constraint_id": "minimum-confidence",
+      "kind": "semantic",
+      "expression": "confidence >= 0.8"
+    }
+  ],
+  "transitions": [
+    {
+      "transition_id": "reject-low-confidence",
+      "source": "UnverifiedClaim",
+      "relation": "Reject",
+      "target": "Rejected",
+      "expected_cost": 0
+    }
+  ],
+  "execution_policy": {
+    "max_steps": 4,
+    "rollback_on_failure": true,
+    "constraint_mode": "reject"
+  },
+  "trace_policy": {
+    "level": "standard",
+    "include_alternatives": false,
+    "include_state_data": true
+  }
+}

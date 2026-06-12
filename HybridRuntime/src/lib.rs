@@ -36,8 +36,8 @@ pub use graph_ir::{
 pub use reason_ir::{
     ConstraintSpec, ContextRef, ExecutionPlan, ExecutionPolicy, GoalSpec, InferenceResult,
     InferenceStatus, MinimalReasonIR, PlanPath, PlanStep, PlannerPolicy, Proof, ReasonIR,
-    ReasonIrError, StateDelta, StateKernel, StateSnapshot, Trace, TraceEvent, TracePolicy,
-    TransitionSpec, Violation, REASON_IR_VERSION,
+    ReasonIrError, ReasonIrValidator, StateDelta, StateKernel, StateSnapshot, Trace, TraceEvent,
+    TracePolicy, TransitionSpec, Violation, REASON_IR_SCHEMA_ID, REASON_IR_VERSION,
 };
 pub use resolver::IdentityResolver;
 pub use runtime::HybridRuntime;

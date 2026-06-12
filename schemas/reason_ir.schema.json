@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/reason-ir/0.1",
+  "title": "Reason IR 0.1",
+  "description": "Language-, SDK-, and runtime-independent ReasonScript Platform ABI.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "initial_state",
+    "goal",
+    "transitions",
+    "execution_policy",
+    "trace_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "reason-ir/0.1"
+    },
+    "initial_state": {
+      "$ref": "#/$defs/state_snapshot"
+    },
+    "goal": {
+      "$ref": "#/$defs/goal_spec"
+    },
+    "context_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/context_ref"
+      },
+      "default": []
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/constraint_spec"
+      },
+      "default": []
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transition_spec"
+      },
+      "$comment": "transition_id uniqueness is a document-level semantic constraint enforced by the Reason IR validator."
+    },
+    "planner_policy": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/planner_policy"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "execution_policy": {
+      "$ref": "#/$defs/execution_policy"
+    },
+    "trace_policy": {
+      "$ref": "#/$defs/trace_policy"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "default": {}
+    }
+  },
+  "$defs": {
+    "state_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state_id",
+        "state_type",
+        "data"
+      ],
+      "properties": {
+        "state_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {}
+      }
+    },
+    "goal_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "target"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "context_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context_id",
+        "context_type"
+      ],
+      "properties": {
+        "context_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        }
+      }
+    },
+    "constraint_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "constraint_id",
+        "kind",
+        "expression"
+      ],
+      "properties": {
+        "constraint_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "transition_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transition_id",
+        "source",
+        "relation",
+        "target",
+        "expected_cost"
+      ],
+      "properties": {
+        "transition_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "guard": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "effect": {}
+      }
+    },
+    "planner_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy"
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "minLength": 1,
+          "default": "minimum_expected_cost"
+        },
+        "max_depth": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "default": 128
+        },
+        "max_alternatives": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "default": 8
+        }
+      }
+    },
+    "execution_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_steps",
+        "rollback_on_failure",
+        "constraint_mode"
+      ],
+      "properties": {
+        "max_steps": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 128
+        },
+        "rollback_on_failure": {
+          "type": "boolean",
+          "default": true
+        },
+        "constraint_mode": {
+          "type": "string",
+          "minLength": 1,
+          "default": "reject"
+        }
+      }
+    },
+    "trace_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "include_alternatives",
+        "include_state_data"
+      ],
+      "properties": {
+        "level": {
+          "type": "string",
+          "minLength": 1,
+          "default": "standard"
+        },
+        "include_alternatives": {
+          "type": "boolean",
+          "default": true
+        },
+        "include_state_data": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": "reason-ir/0.1",
+  "initial_state": {
+    "state_id": "Draft",
+    "state_type": "document",
+    "data": {
+      "approved": false
+    }
+  },
+  "goal": {
+    "kind": "satisfy_constraint",
+    "target": "Approved"
+  },
+  "constraints": [
+    {
+      "constraint_id": "requires-review",
+      "kind": "precondition",
+      "expression": "review.score >= 0.8"
+    }
+  ],
+  "transitions": [
+    {
+      "transition_id": "approve-reviewed-draft",
+      "source": "Draft",
+      "relation": "Approve",
+      "target": "Approved",
+      "expected_cost": 0.5,
+      "guard": "review.score >= 0.8"
+    }
+  ],
+  "execution_policy": {
+    "max_steps": 10,
+    "rollback_on_failure": true,
+    "constraint_mode": "reject"
+  },
+  "trace_policy": {
+    "level": "standard",
+    "include_alternatives": true,
+    "include_state_data": false
+  }
+}
