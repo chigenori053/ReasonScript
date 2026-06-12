@@ -1,0 +1,14 @@
+{
+  "initial_state": "StateA",
+  "operations": [
+    {"op": "prepare", "candidate_id": "candidate-1", "transition_id": "t1", "source": "StateA", "target": "StateB"},
+    {"op": "validate", "candidate_id": "candidate-1", "accepted": true},
+    {"op": "commit", "candidate_id": "candidate-1"}
+  ],
+  "expected": {
+    "final_state_id": "StateB",
+    "delta_count": 1,
+    "record_statuses": ["prepared", "accepted", "committed"],
+    "trace_delta_ids": ["delta-1"]
+  }
+}

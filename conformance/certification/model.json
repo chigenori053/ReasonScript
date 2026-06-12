@@ -1,0 +1,17 @@
+{
+  "version": "0.1",
+  "abi": "reason-ir/0.1",
+  "levels": [
+    {"level": 0, "name": "Schema Compatible", "requires": ["layer-0"]},
+    {"level": 1, "name": "ReasonScript SDK Level 1 Certified", "requires": ["layer-0", "layer-1"]},
+    {"level": 2, "name": "ReasonScript SDK Level 2 Certified", "requires": ["layer-0", "layer-1", "layer-2"]},
+    {"level": 3, "name": "ReasonScript SDK Level 3 Certified", "requires": ["layer-0", "layer-1", "layer-2", "layer-3"]},
+    {"level": 4, "name": "ReasonScript SDK Full Compatible", "requires": ["layer-0", "layer-1", "layer-2", "layer-3", "layer-4"]}
+  ],
+  "rules": [
+    "Levels are cumulative.",
+    "Skipped tests do not count as certification evidence.",
+    "Layer 4 requires Rust, Python, TypeScript, Go, and Java in one fixture run.",
+    "Certification evidence is versioned with the ABI and fixture manifest."
+  ]
+}

@@ -6,6 +6,4 @@ publish = false
 
 [dependencies]
 reasonscript-hybrid-runtime = { path = "../../HybridRuntime" }
-
-[dev-dependencies]
 serde_json = "1.0"

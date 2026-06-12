@@ -1,0 +1,17 @@
+{
+  "initial_state": "A",
+  "operations": [
+    {"op": "prepare", "candidate_id": "candidate-1", "transition_id": "t1", "source": "A", "target": "B"},
+    {"op": "validate", "candidate_id": "candidate-1", "accepted": true},
+    {"op": "commit", "candidate_id": "candidate-1"},
+    {"op": "prepare", "candidate_id": "candidate-2", "transition_id": "t2", "source": "B", "target": "C"},
+    {"op": "validate", "candidate_id": "candidate-2", "accepted": true},
+    {"op": "commit", "candidate_id": "candidate-2"}
+  ],
+  "expected": {
+    "final_state_id": "C",
+    "delta_count": 2,
+    "record_statuses": ["prepared", "accepted", "committed", "prepared", "accepted", "committed"],
+    "trace_delta_ids": ["delta-1", "delta-2"]
+  }
+}

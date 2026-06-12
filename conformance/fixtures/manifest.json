@@ -1,0 +1,42 @@
+{
+  "abi_version": "reason-ir/0.1",
+  "core": {
+    "dog_to_animal.json": {
+      "status": "completed",
+      "final_state_id": "Animal",
+      "applied_transition_ids": ["dog-is-mammal", "mammal-is-animal"]
+    },
+    "constraint_pass.json": {
+      "status": "completed",
+      "final_state_id": "Approved",
+      "applied_transition_ids": ["approve-reviewed-draft"]
+    },
+    "constraint_fail.json": {
+      "status": "rejected",
+      "final_state_id": "Rejected",
+      "applied_transition_ids": ["reject-low-confidence"]
+    },
+    "tool_integration.json": {
+      "status": "completed",
+      "final_state_id": "WeatherAnswer",
+      "applied_transition_ids": ["invoke-weather-tool"]
+    },
+    "worldmodel_transition.json": {
+      "status": "completed",
+      "final_state_id": "RoomLit",
+      "applied_transition_ids": ["switch-light-on"]
+    }
+  },
+  "abi_invalid": [
+    "invalid_version.json",
+    "duplicate_transition_id.json",
+    "negative_cost.json",
+    "missing_goal.json"
+  ],
+  "transactions": [
+    "basic_commit.json",
+    "rollback.json",
+    "trace_consistency.json",
+    "multiple_commit.json"
+  ]
+}

@@ -19,3 +19,10 @@ Conformance fixtures are stored under `fixtures/valid` and
 Common DTO bindings for Rust, Python, TypeScript, Go, and Java are stored under
 `dto/`. The normative DTO contract is
 `docs/Common_DTO_Specification_v0.1.md`.
+
+The Phase 3 conformance framework is under `conformance/`. Run every layer and
+refresh the certification report with:
+
+```sh
+python3 conformance/run_conformance.py
+```

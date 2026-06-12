@@ -1,0 +1,94 @@
+{
+  "framework_version": "0.1",
+  "abi_version": "reason-ir/0.1",
+  "generated_on": "2026-06-13",
+  "layers": [
+    {
+      "layer": 0,
+      "suite": "schema_conformance_tests",
+      "status": "pass",
+      "has_skips": false,
+      "output": "test_all_abi_fixtures_are_rejected (test_schema_conformance.SchemaConformanceTests.test_all_abi_fixtures_are_rejected) ... ok\ntest_all_valid_fixtures_pass_schema_and_semantic_validation (test_schema_conformance.SchemaConformanceTests.test_all_valid_fixtures_pass_schema_and_semantic_validation) ... ok\ntest_public_dto_examples_validate_against_every_schema (test_schema_conformance.SchemaConformanceTests.test_public_dto_examples_validate_against_every_schema) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nOK"
+    },
+    {
+      "layer": 1,
+      "suite": "dto_conformance_tests",
+      "status": "pass",
+      "has_skips": false,
+      "output": "test_java_binding_compiles (test_dto_conformance.DtoConformanceTests.test_java_binding_compiles) ... ok\ntest_python_preserves_metadata_and_uint64 (test_dto_conformance.DtoConformanceTests.test_python_preserves_metadata_and_uint64) ... ok\ntest_python_round_trip_preserves_all_core_fixtures (test_dto_conformance.DtoConformanceTests.test_python_round_trip_preserves_all_core_fixtures) ... ok\ntest_rust_binding_round_trip_suite (test_dto_conformance.DtoConformanceTests.test_rust_binding_round_trip_suite) ... ok\ntest_typescript_binding_type_checks (test_dto_conformance.DtoConformanceTests.test_typescript_binding_type_checks) ... ok\n\n----------------------------------------------------------------------\nRan 5 tests in 1.392s\n\nOK"
+    },
+    {
+      "layer": 2,
+      "suite": "runtime_conformance_tests",
+      "status": "pass",
+      "has_skips": false,
+      "output": "test_core_fixtures_have_deterministic_semantic_results (test_runtime_conformance.RuntimeConformanceTests.test_core_fixtures_have_deterministic_semantic_results) ... ok\ntest_repeated_execution_is_identical (test_runtime_conformance.RuntimeConformanceTests.test_repeated_execution_is_identical) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.001s\n\nOK"
+    },
+    {
+      "layer": 3,
+      "suite": "transaction_conformance_tests",
+      "status": "pass",
+      "has_skips": false,
+      "output": "test_reference_runtime_transaction_suite (test_transaction_conformance.TransactionConformanceTests.test_reference_runtime_transaction_suite) ... ok\ntest_transaction_fixtures_match_expected_history (test_transaction_conformance.TransactionConformanceTests.test_transaction_fixtures_match_expected_history) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.040s\n\nOK"
+    },
+    {
+      "layer": 4,
+      "suite": "platform_conformance_tests",
+      "status": "pass",
+      "has_skips": true,
+      "output": "test_available_go_adapter_agrees_with_python (test_platform_conformance.PlatformConformanceTests.test_available_go_adapter_agrees_with_python) ... skipped 'Go toolchain is not installed'\ntest_rust_python_and_typescript_agree_on_core_fixtures (test_platform_conformance.PlatformConformanceTests.test_rust_python_and_typescript_agree_on_core_fixtures) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 2.170s\n\nOK (skipped=1)"
+    }
+  ],
+  "certifications": [
+    {
+      "sdk": "rust",
+      "level": 3,
+      "label": "ReasonScript SDK Level 3 Certified",
+      "evidence": [
+        "layer-0",
+        "layer-1",
+        "layer-2",
+        "layer-3"
+      ]
+    },
+    {
+      "sdk": "python",
+      "level": 1,
+      "label": "ReasonScript SDK Level 1 Certified",
+      "evidence": [
+        "layer-0",
+        "layer-1"
+      ]
+    },
+    {
+      "sdk": "typescript",
+      "level": 0,
+      "label": "Schema Compatible",
+      "evidence": [
+        "layer-0"
+      ]
+    },
+    {
+      "sdk": "go",
+      "level": 0,
+      "label": "Schema Compatible",
+      "evidence": [
+        "layer-0"
+      ]
+    },
+    {
+      "sdk": "java",
+      "level": 0,
+      "label": "Schema Compatible",
+      "evidence": [
+        "layer-0"
+      ]
+    }
+  ],
+  "notes": [
+    "Layer 4 compares Rust, Python, and TypeScript in this environment.",
+    "Go remains unverified when the Go toolchain is unavailable.",
+    "Java DTO declarations compile, but a JSON codec adapter is not implemented.",
+    "Full Compatible certification requires all five SDKs to pass Layer 4."
+  ]
+}
