@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/trace/0.1",
+  "title": "Trace 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "reason_ir_version",
+    "planner_version",
+    "policy_version",
+    "events"
+  ],
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "reason_ir_version": { "const": "reason-ir/0.1" },
+    "planner_version": { "type": ["string", "null"] },
+    "policy_version": { "type": "string", "minLength": 1 },
+    "events": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/plan_selected" },
+          { "$ref": "#/$defs/state_delta_applied" },
+          { "$ref": "#/$defs/constraint_violation" },
+          { "$ref": "#/$defs/evidence_observed" },
+          { "$ref": "#/$defs/tool_invoked" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "plan_selected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_type", "step_ids", "expected_cost"],
+      "properties": {
+        "event_type": { "const": "plan_selected" },
+        "step_ids": { "type": "array", "items": { "type": "string" } },
+        "expected_cost": { "type": "number", "minimum": 0 }
+      }
+    },
+    "state_delta_applied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_type", "delta_id", "transition_id"],
+      "properties": {
+        "event_type": { "const": "state_delta_applied" },
+        "delta_id": { "type": "string", "minLength": 1 },
+        "transition_id": { "type": "string", "minLength": 1 },
+        "transaction_id": { "type": ["string", "null"] }
+      }
+    },
+    "constraint_violation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_type", "constraint_id", "message"],
+      "properties": {
+        "event_type": { "const": "constraint_violation" },
+        "constraint_id": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence_observed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_type", "evidence_ref"],
+      "properties": {
+        "event_type": { "const": "evidence_observed" },
+        "evidence_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "tool_invoked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_type", "tool_ref", "result_ref"],
+      "properties": {
+        "event_type": { "const": "tool_invoked" },
+        "tool_ref": { "type": "string", "minLength": 1 },
+        "result_ref": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

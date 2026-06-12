@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/inference-result/0.1",
+  "title": "InferenceResult 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "final_state",
+    "state_deltas",
+    "proof",
+    "violations",
+    "alternatives",
+    "trace_id"
+  ],
+  "properties": {
+    "status": {
+      "enum": ["completed", "rejected", "decision_required", "failed"]
+    },
+    "final_state": {
+      "$ref": "reason_ir.schema.json#/$defs/state_snapshot"
+    },
+    "state_deltas": {
+      "type": "array",
+      "items": { "$ref": "state_delta.schema.json" }
+    },
+    "proof": {
+      "oneOf": [
+        { "$ref": "#/$defs/proof" },
+        { "type": "null" }
+      ]
+    },
+    "violations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/violation" }
+    },
+    "alternatives": {
+      "type": "array",
+      "items": { "$ref": "execution_plan.schema.json#/$defs/plan_path" }
+    },
+    "trace_id": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected_step_ids", "evidence_refs"],
+      "properties": {
+        "selected_step_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "violation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["constraint_id", "message"],
+      "properties": {
+        "constraint_id": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

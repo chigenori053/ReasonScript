@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/state-delta/0.1",
+  "title": "StateDelta 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "delta_id",
+    "before_state",
+    "after_state",
+    "applied_transition",
+    "timestamp"
+  ],
+  "properties": {
+    "delta_id": { "type": "string", "minLength": 1 },
+    "before_state": { "$ref": "reason_ir.schema.json#/$defs/state_snapshot" },
+    "after_state": { "$ref": "reason_ir.schema.json#/$defs/state_snapshot" },
+    "applied_transition": { "type": "string", "minLength": 1 },
+    "timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    }
+  }
+}

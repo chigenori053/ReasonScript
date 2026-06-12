@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/transaction-record/0.1",
+  "title": "TransactionRecord 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "transaction_id",
+    "execution_plan_id",
+    "candidate_id",
+    "delta_id",
+    "status",
+    "commit_timestamp",
+    "validation_failures",
+    "source_delta_id"
+  ],
+  "properties": {
+    "transaction_id": { "type": "string", "minLength": 1 },
+    "execution_plan_id": { "type": "string", "minLength": 1 },
+    "candidate_id": { "type": "string", "minLength": 1 },
+    "delta_id": { "type": ["string", "null"] },
+    "status": {
+      "enum": ["prepared", "accepted", "rejected", "committed", "rolled_back"]
+    },
+    "commit_timestamp": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        { "type": "null" }
+      ]
+    },
+    "validation_failures": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source_delta_id": { "type": ["string", "null"] }
+  }
+}

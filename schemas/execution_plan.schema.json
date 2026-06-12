@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/execution-plan/0.1",
+  "title": "ExecutionPlan 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "selected_steps",
+    "alternative_paths",
+    "expected_cost",
+    "evidence_refs",
+    "planner_version"
+  ],
+  "properties": {
+    "selected_steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plan_step"
+      }
+    },
+    "alternative_paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plan_path"
+      }
+    },
+    "expected_cost": {
+      "type": "number",
+      "minimum": 0
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "planner_version": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "plan_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step_id",
+        "transition_id",
+        "source",
+        "target"
+      ],
+      "properties": {
+        "step_id": { "type": "string", "minLength": 1 },
+        "transition_id": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "plan_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step_ids",
+        "expected_cost"
+      ],
+      "properties": {
+        "step_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "expected_cost": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
