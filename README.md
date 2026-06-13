@@ -22,6 +22,10 @@ Release documentation:
 
 - `docs/ReasonScript_Platform_v0.1_Alpha_Release_Specification.md`
 - `docs/ReasonScript_Platform_v0.1_Alpha_Release_Report.md`
+- `docs/ReasonScript_Language_Specification_v0.1.md`
+- `docs/ReasonScript_Language_Phase_1_Validation_Report.md`
+- `docs/ReasonScript_Operational_Semantics_v0.1.md`
+- `Operational_Semantics_Validation_Report.md`
 - `release/v0.1-alpha/manifest.json`
 - `CHANGELOG.md`
 
@@ -53,4 +57,22 @@ refresh the certification report with:
 
 ```sh
 python3 conformance/run_conformance.py
+```
+
+Validate the Language v0.1 core model and module system with:
+
+```sh
+python3 -m unittest discover \
+  -s language_spec_validation_tests -p 'test_*.py' -v
+```
+
+Validate Operational Semantics v0.1 and the Runtime contract with:
+
+```sh
+python3 -m unittest discover \
+  -s operational_semantics_tests -p 'test_*.py' -v
+python3 -m unittest discover \
+  -s runtime_semantics_validation_tests -p 'test_*.py' -v
+cargo test --manifest-path HybridRuntime/Cargo.toml \
+  --test operational_semantics_validation
 ```

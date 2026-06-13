@@ -13,8 +13,8 @@
     },
     "constraint_fail.json": {
       "status": "rejected",
-      "final_state_id": "Rejected",
-      "applied_transition_ids": ["reject-low-confidence"]
+      "final_state_id": "UnverifiedClaim",
+      "applied_transition_ids": []
     },
     "tool_integration.json": {
       "status": "completed",

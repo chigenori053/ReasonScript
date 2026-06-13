@@ -118,35 +118,44 @@ def execute_reason_ir(value: Mapping[str, Any]) -> dict[str, Any]:
     applied: list[str] = []
     trace_events: list[dict[str, Any]] = []
     total_cost = 0.0
-
-    for transition in ir["transitions"]:
-        if transition["source"] != current["state_id"]:
-            continue
-        current = {
-            "state_id": transition["target"],
-            "state_type": current["state_type"],
-            "data": copy.deepcopy(
-                transition.get("effect", {"identity": transition["target"]})
-            ),
-        }
-        applied.append(transition["transition_id"])
-        total_cost += transition["expected_cost"]
-        trace_events.append(
-            {
-                "event_type": "state_delta_applied",
-                "delta_id": f"delta-{len(applied)}",
-                "transition_id": transition["transition_id"],
-            }
+    violations = [
+        constraint["constraint_id"]
+        for constraint in ir["constraints"]
+        if not _constraint_passes(
+            constraint["expression"], ir["initial_state"]["data"]
         )
-        if len(applied) >= ir["execution_policy"]["max_steps"]:
-            break
+    ]
 
-    status = "completed" if current["state_id"] == ir["goal"]["target"] else "failed"
-    violations: list[str] = []
-    for constraint in ir["constraints"]:
-        if not _constraint_passes(constraint["expression"], ir["initial_state"]["data"]):
-            status = "rejected"
-            violations.append(constraint["constraint_id"])
+    if not violations:
+        for transition in ir["transitions"]:
+            if transition["source"] != current["state_id"]:
+                continue
+            current = {
+                "state_id": transition["target"],
+                "state_type": current["state_type"],
+                "data": copy.deepcopy(
+                    transition.get("effect", {"identity": transition["target"]})
+                ),
+            }
+            applied.append(transition["transition_id"])
+            total_cost += transition["expected_cost"]
+            trace_events.append(
+                {
+                    "event_type": "state_delta_applied",
+                    "delta_id": f"delta-{len(applied)}",
+                    "transition_id": transition["transition_id"],
+                }
+            )
+            if len(applied) >= ir["execution_policy"]["max_steps"]:
+                break
+
+    status = (
+        "rejected"
+        if violations
+        else "completed"
+        if current["state_id"] == ir["goal"]["target"]
+        else "failed"
+    )
 
     return {
         "status": status,
