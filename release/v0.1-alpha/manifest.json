@@ -1,0 +1,41 @@
+{
+  "release": {
+    "name": "ReasonScript Platform v0.1 Alpha",
+    "version": "0.1.0-alpha",
+    "status": "released",
+    "date": "2026-06-13"
+  },
+  "interfaces": {
+    "reason_ir": "reason-ir/0.1",
+    "ast": "reasonscript-ast/0.1",
+    "parser": "parser/0.1",
+    "compiler": "compiler/0.1",
+    "transaction": "transaction/0.1",
+    "common_dto": "common-dto/0.1",
+    "conformance_framework": "conformance-framework/0.1"
+  },
+  "release_gates": {
+    "hybrid_runtime_tests": 121,
+    "ast_validation_tests": 12,
+    "platform_conformance_layers": [0, 1, 2, 3, 4],
+    "ast_conformance_layers": [0, 1, 2, 3, 4],
+    "parser_conformance_layers": [0, 1, 2, 3, 4],
+    "compiler_conformance_layers": [0, 1, 2, 3, 4, 5],
+    "end_to_end": true
+  },
+  "bindings": {
+    "rust": "executable",
+    "python": "executable",
+    "typescript": "executable",
+    "go": "declared_toolchain_unavailable",
+    "java": "declared_compile_only"
+  },
+  "artifacts": [
+    "schemas/reason_ir.schema.json",
+    "frontend/schemas/ast.schema.json",
+    "docs/ReasonScript_ABI_Specification_v0.1.md",
+    "docs/Common_DTO_Specification_v0.1.md",
+    "docs/Parser_Validation_Specification_v0.1.md",
+    "docs/Compiler_Validation_Specification_v0.1.md"
+  ]
+}

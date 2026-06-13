@@ -1,0 +1,71 @@
+{
+  "release_version": "0.1.0-alpha",
+  "validated_on": "2026-06-13",
+  "status": "pass",
+  "failures": [],
+  "results": [
+    {
+      "name": "hybrid_runtime",
+      "status": "pass",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "HybridRuntime/Cargo.toml"
+      ],
+      "test_count": 121
+    },
+    {
+      "name": "ast_validation",
+      "status": "pass",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "ast_validation_tests",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "test_count": 12
+    },
+    {
+      "name": "platform_conformance",
+      "status": "pass",
+      "command": [
+        "python3",
+        "conformance/run_conformance.py"
+      ],
+      "test_count": 0
+    },
+    {
+      "name": "ast_conformance",
+      "status": "pass",
+      "command": [
+        "python3",
+        "frontend/conformance/run_conformance.py"
+      ],
+      "test_count": 0
+    },
+    {
+      "name": "parser_conformance",
+      "status": "pass",
+      "command": [
+        "python3",
+        "frontend/parser_conformance/run_conformance.py"
+      ],
+      "test_count": 0
+    },
+    {
+      "name": "compiler_conformance",
+      "status": "pass",
+      "command": [
+        "python3",
+        "frontend/compiler_conformance/run_conformance.py"
+      ],
+      "test_count": 0
+    }
+  ]
+}
