@@ -1,0 +1,5 @@
+import tools.weather
+goal WeatherAnswer
+state WeatherQuery
+context tool://weather.lookup
+transition WeatherQuery InvokeTool WeatherAnswer

@@ -1,0 +1,4 @@
+goal Animal
+state Dog
+transition Dog IsA Mammal
+transition Mammal IsA Animal

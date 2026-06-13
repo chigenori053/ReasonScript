@@ -1,0 +1,15 @@
+{
+  "schema_version": "reason-ir/0.1",
+  "initial_state": {"state_id": "WeatherQuery", "state_type": "tool_request", "data": {"city": "Tokyo"}},
+  "goal": {"kind": "produce_answer", "target": "WeatherAnswer"},
+  "transitions": [
+    {"transition_id": "invoke-weather", "source": "WeatherQuery", "relation": "InvokeTool", "target": "WeatherAnswer", "expected_cost": 2, "effect": {"tool_ref": "weather.lookup"}}
+  ],
+  "execution_policy": {"max_steps": 128, "rollback_on_failure": true, "constraint_mode": "reject"},
+  "trace_policy": {"level": "standard", "include_alternatives": true, "include_state_data": true},
+  "planner_policy": {"strategy": "minimum_expected_cost", "max_depth": 128, "max_alternatives": 8},
+  "context_refs": [
+    {"context_id": "weather-tool", "context_type": "tool", "uri": "tool://weather.lookup"}
+  ],
+  "metadata": {"producer": "compiler-fixture/0.1"}
+}

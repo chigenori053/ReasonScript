@@ -1,0 +1,14 @@
+{
+  "node_type": "ModuleNode",
+  "version": "reasonscript-ast/0.1",
+  "node_id": "module-tool",
+  "declarations": [
+    {"node_type": "GoalNode", "node_id": "goal", "kind": "produce_answer", "target": "WeatherAnswer"},
+    {"node_type": "StateNode", "node_id": "state", "state_id": "WeatherQuery", "state_type": "tool_request", "data": {"city": "Tokyo"}},
+    {"node_type": "ContextNode", "node_id": "context", "context_id": "weather-tool", "context_type": "tool", "uri": "tool://weather.lookup"},
+    {"node_type": "TransitionNode", "node_id": "transition", "transition_id": "invoke-weather", "source": "WeatherQuery", "relation": "InvokeTool", "target": "WeatherAnswer", "expected_cost": 2, "effect": {"tool_ref": "weather.lookup"}}
+  ],
+  "metadata": [
+    {"node_type": "MetadataNode", "node_id": "metadata", "key": "producer", "value": "compiler-fixture/0.1"}
+  ]
+}

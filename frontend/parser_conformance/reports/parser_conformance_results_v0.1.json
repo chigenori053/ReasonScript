@@ -1,0 +1,39 @@
+{
+  "framework_version": "0.1",
+  "parser_version": "parser/0.1",
+  "ast_abi_version": "reasonscript-ast/0.1",
+  "reason_ir_version": "reason-ir/0.1",
+  "generated_on": "2026-06-13",
+  "layers": [
+    {
+      "layer": 0,
+      "suite": "lexer_tests",
+      "status": "pass",
+      "output": "test_contract_token_categories (test_lexer.LexerConformanceTests.test_contract_token_categories) ... ok\ntest_fixture_tokenization_is_deterministic (test_lexer.LexerConformanceTests.test_fixture_tokenization_is_deterministic) ... ok\ntest_positions_and_utf8_identifiers (test_lexer.LexerConformanceTests.test_positions_and_utf8_identifiers) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.001s\n\nOK"
+    },
+    {
+      "layer": 1,
+      "suite": "parser_tests",
+      "status": "pass",
+      "output": "test_ast_generation_is_deterministic (test_parser.ParserConformanceTests.test_ast_generation_is_deterministic) ... ok\ntest_duplicate_state_and_reserved_argument_are_rejected (test_parser.ParserConformanceTests.test_duplicate_state_and_reserved_argument_are_rejected) ... ok\ntest_invalid_fixtures_return_structured_errors (test_parser.ParserConformanceTests.test_invalid_fixtures_return_structured_errors) ... ok\ntest_transition_ids_and_node_ids_are_stable (test_parser.ParserConformanceTests.test_transition_ids_and_node_ids_are_stable) ... ok\ntest_valid_fixtures_produce_module_nodes (test_parser.ParserConformanceTests.test_valid_fixtures_produce_module_nodes) ... ok\n\n----------------------------------------------------------------------\nRan 5 tests in 0.002s\n\nOK"
+    },
+    {
+      "layer": 2,
+      "suite": "ast_abi_tests",
+      "status": "pass",
+      "output": "test_every_generated_ast_satisfies_the_ast_abi (test_ast_abi.ParserAstAbiTests.test_every_generated_ast_satisfies_the_ast_abi) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.005s\n\nOK"
+    },
+    {
+      "layer": 3,
+      "suite": "lowering_tests",
+      "status": "pass",
+      "output": "test_every_source_lowers_to_valid_reason_ir (test_lowering.ParserLoweringTests.test_every_source_lowers_to_valid_reason_ir) ... ok\ntest_source_to_reason_ir_is_deterministic (test_lowering.ParserLoweringTests.test_source_to_reason_ir_is_deterministic) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.002s\n\nOK"
+    },
+    {
+      "layer": 4,
+      "suite": "end_to_end_tests",
+      "status": "pass",
+      "output": "test_basic_inference_applies_both_transitions (test_end_to_end.ParserEndToEndTests.test_basic_inference_applies_both_transitions) ... ok\ntest_source_to_inference_result (test_end_to_end.ParserEndToEndTests.test_source_to_inference_result) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.001s\n\nOK"
+    }
+  ]
+}

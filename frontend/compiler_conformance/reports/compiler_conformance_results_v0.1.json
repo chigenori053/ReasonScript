@@ -1,0 +1,45 @@
+{
+  "framework_version": "0.1",
+  "compiler_version": "compiler/0.1",
+  "ast_abi_version": "reasonscript-ast/0.1",
+  "reason_ir_version": "reason-ir/0.1",
+  "generated_on": "2026-06-13",
+  "layers": [
+    {
+      "layer": 0,
+      "suite": "ast_validation_tests",
+      "status": "pass",
+      "output": "test_invalid_fixtures_return_compiler_errors (test_ast_validation.CompilerAstValidationTests.test_invalid_fixtures_return_compiler_errors) ... ok\ntest_unsupported_node_has_specific_error (test_ast_validation.CompilerAstValidationTests.test_unsupported_node_has_specific_error) ... ok\ntest_valid_fixtures_pass_ast_validation (test_ast_validation.CompilerAstValidationTests.test_valid_fixtures_pass_ast_validation) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.015s\n\nOK"
+    },
+    {
+      "layer": 1,
+      "suite": "default_expansion_tests",
+      "status": "pass",
+      "output": "test_expansion_is_deterministic_and_does_not_mutate_input (test_defaults.CompilerDefaultExpansionTests.test_expansion_is_deterministic_and_does_not_mutate_input) ... ok\ntest_omitted_transition_cost_expands_to_one (test_defaults.CompilerDefaultExpansionTests.test_omitted_transition_cost_expands_to_one) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.001s\n\nOK"
+    },
+    {
+      "layer": 2,
+      "suite": "policy_tests",
+      "status": "pass",
+      "output": "test_default_policies_match_contract (test_policy.CompilerPolicyTests.test_default_policies_match_contract) ... ok\ntest_invalid_policy_returns_specific_error (test_policy.CompilerPolicyTests.test_invalid_policy_returns_specific_error) ... ok\ntest_valid_override_is_preserved (test_policy.CompilerPolicyTests.test_valid_override_is_preserved) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.000s\n\nOK"
+    },
+    {
+      "layer": 3,
+      "suite": "lowering_tests",
+      "status": "pass",
+      "output": "test_compilation_is_deterministic (test_lowering.CompilerLoweringTests.test_compilation_is_deterministic) ... ok\ntest_compilation_matches_expected_reason_ir (test_lowering.CompilerLoweringTests.test_compilation_matches_expected_reason_ir) ... ok\ntest_state_transition_constraint_and_metadata_semantics_are_preserved (test_lowering.CompilerLoweringTests.test_state_transition_constraint_and_metadata_semantics_are_preserved) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.031s\n\nOK"
+    },
+    {
+      "layer": 4,
+      "suite": "reason_ir_tests",
+      "status": "pass",
+      "output": "test_all_outputs_pass_reason_ir_schema_and_semantics (test_reason_ir.CompilerReasonIrCompatibilityTests.test_all_outputs_pass_reason_ir_schema_and_semantics) ... ok\ntest_compiler_has_no_runtime_dependency (test_reason_ir.CompilerReasonIrCompatibilityTests.test_compiler_has_no_runtime_dependency) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 0.017s\n\nOK"
+    },
+    {
+      "layer": 5,
+      "suite": "end_to_end_tests",
+      "status": "pass",
+      "output": "test_ast_to_reference_inference_result (test_end_to_end.CompilerEndToEndTests.test_ast_to_reference_inference_result) ... ok\ntest_basic_inference_reaches_animal (test_end_to_end.CompilerEndToEndTests.test_basic_inference_reaches_animal) ... ok\ntest_source_parser_compiler_runtime_chain (test_end_to_end.CompilerEndToEndTests.test_source_parser_compiler_runtime_chain) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.013s\n\nOK"
+    }
+  ]
+}

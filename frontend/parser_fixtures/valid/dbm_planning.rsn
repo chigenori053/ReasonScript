@@ -1,0 +1,4 @@
+goal PlanComplete
+state PlanStart
+constraint WithinBudget
+transition PlanStart Plan PlanComplete

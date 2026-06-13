@@ -1,0 +1,10 @@
+{
+  "node_type": "ModuleNode",
+  "version": "reasonscript-ast/0.1",
+  "node_id": "module-world",
+  "declarations": [
+    {"node_type": "GoalNode", "node_id": "goal", "kind": "reach_state", "target": "RoomLit"},
+    {"node_type": "StateNode", "node_id": "state", "state_id": "RoomDark", "state_type": "world_model", "data": {"light": "off"}},
+    {"node_type": "TransitionNode", "node_id": "transition", "transition_id": "switch-light-on", "source": "RoomDark", "relation": "Action", "target": "RoomLit", "expected_cost": 0.1, "effect": {"light": "on"}}
+  ]
+}

@@ -1,0 +1,2 @@
+state Dog
+transition Dog IsA Animal

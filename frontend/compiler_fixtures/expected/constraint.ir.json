@@ -1,0 +1,14 @@
+{
+  "schema_version": "reason-ir/0.1",
+  "initial_state": {"state_id": "Person", "state_type": "entity", "data": {"age": 20}},
+  "goal": {"kind": "reach_state", "target": "Adult"},
+  "transitions": [
+    {"transition_id": "become-adult", "source": "Person", "relation": "IsA", "target": "Adult", "expected_cost": 1.0}
+  ],
+  "execution_policy": {"max_steps": 128, "rollback_on_failure": true, "constraint_mode": "reject"},
+  "trace_policy": {"level": "standard", "include_alternatives": true, "include_state_data": true},
+  "planner_policy": {"strategy": "minimum_expected_cost", "max_depth": 128, "max_alternatives": 8},
+  "constraints": [
+    {"constraint_id": "adult-only", "kind": "numeric", "expression": "age >= 18"}
+  ]
+}

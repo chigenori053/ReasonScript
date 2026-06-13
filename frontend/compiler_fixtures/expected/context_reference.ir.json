@@ -1,0 +1,12 @@
+{
+  "schema_version": "reason-ir/0.1",
+  "initial_state": {"state_id": "Unknown", "state_type": "query", "data": {}},
+  "goal": {"kind": "produce_answer", "target": "Known"},
+  "transitions": [],
+  "execution_policy": {"max_steps": 128, "rollback_on_failure": true, "constraint_mode": "reject"},
+  "trace_policy": {"level": "standard", "include_alternatives": true, "include_state_data": true},
+  "planner_policy": {"strategy": "minimum_expected_cost", "max_depth": 128, "max_alternatives": 8},
+  "context_refs": [
+    {"context_id": "knowledge-base", "context_type": "database", "uri": "db://knowledge/main"}
+  ]
+}
