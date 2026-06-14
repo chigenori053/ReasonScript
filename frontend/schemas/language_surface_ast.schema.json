@@ -8,6 +8,40 @@
       "type": "string",
       "minLength": 1
     },
+    "type_node": {
+      "oneOf": [
+        {"$ref": "#/$defs/primitive_type"},
+        {"$ref": "#/$defs/state_type"}
+      ]
+    },
+    "primitive_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "node_type"],
+      "properties": {
+        "kind": {"enum": ["Int", "Float", "Bool", "String", "Null"]},
+        "node_type": {"const": "PrimitiveTypeNode"}
+      }
+    },
+    "state_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "node_type"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "Concept",
+            "Object",
+            "Event",
+            "Action",
+            "Attribute",
+            "Goal",
+            "Constraint"
+          ]
+        },
+        "node_type": {"const": "StateTypeNode"}
+      }
+    },
     "expression": {
       "type": "object",
       "additionalProperties": false,
@@ -25,6 +59,7 @@
         {"$ref": "#/$defs/string_literal"},
         {"$ref": "#/$defs/null_literal"},
         {"$ref": "#/$defs/identifier_expression"},
+        {"$ref": "#/$defs/qualified_identifier"},
         {"$ref": "#/$defs/unary_expression"},
         {"$ref": "#/$defs/binary_expression"},
         {"$ref": "#/$defs/comparison_expression"},
@@ -85,6 +120,21 @@
       "properties": {
         "name": {"$ref": "#/$defs/identifier"},
         "node_type": {"const": "IdentifierNode"}
+      }
+    },
+    "qualified_identifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "symbol", "resolved_name", "node_type"],
+      "properties": {
+        "path": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "symbol": {"$ref": "#/$defs/identifier"},
+        "resolved_name": {"type": ["string", "null"]},
+        "node_type": {"const": "QualifiedIdentifierNode"}
       }
     },
     "unary_expression": {
@@ -275,7 +325,7 @@
     "import": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "alias", "node_type"],
+      "required": ["path", "alias", "resolution", "node_type"],
       "properties": {
         "path": {
           "type": "array",
@@ -285,7 +335,32 @@
         "alias": {
           "type": ["string", "null"]
         },
+        "resolution": {
+          "oneOf": [
+            {"$ref": "#/$defs/import_resolution"},
+            {"type": "null"}
+          ]
+        },
         "node_type": {"const": "ImportNode"}
+      }
+    },
+    "import_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "symbol",
+        "exposed_names",
+        "node_type"
+      ],
+      "properties": {
+        "namespace": {"type": "string", "minLength": 1},
+        "symbol": {"type": ["string", "null"]},
+        "exposed_names": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "node_type": {"const": "ImportResolutionNode"}
       }
     },
     "named_declaration": {
@@ -332,10 +407,16 @@
     "let": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["identifier", "expression", "node_type"],
+      "required": ["identifier", "expression", "type_annotation", "node_type"],
       "properties": {
         "identifier": {"$ref": "#/$defs/identifier"},
         "expression": {"$ref": "#/$defs/expression"},
+        "type_annotation": {
+          "oneOf": [
+            {"$ref": "#/$defs/type_node"},
+            {"type": "null"}
+          ]
+        },
         "node_type": {"const": "LetStatementNode"}
       }
     },
@@ -499,7 +580,14 @@
     "calculation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "visibility", "goal_annotation", "body", "node_type"],
+      "required": [
+        "name",
+        "visibility",
+        "goal_annotation",
+        "body",
+        "return_type",
+        "node_type"
+      ],
       "properties": {
         "name": {"$ref": "#/$defs/identifier"},
         "visibility": {
@@ -511,6 +599,12 @@
         "body": {
           "type": "array",
           "items": {"$ref": "#/$defs/statement"}
+        },
+        "return_type": {
+          "oneOf": [
+            {"$ref": "#/$defs/type_node"},
+            {"type": "null"}
+          ]
         },
         "node_type": {"const": "CalculationNode"}
       }

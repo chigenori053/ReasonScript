@@ -35,11 +35,13 @@ from .nodes import (
     to_json_value,
 )
 from .validation import validate
+from .namespace import resolve_program
 
 
 def project_program(program: ProgramNode) -> tuple[semantic.ModuleNode, ...]:
-    validate(program)
-    return tuple(project_module(module) for module in program.modules)
+    resolved_program, _ = resolve_program(program)
+    validate(resolved_program)
+    return tuple(project_module(module) for module in resolved_program.modules)
 
 
 def project_module(module: ModuleNode) -> semantic.ModuleNode:
@@ -146,6 +148,11 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
                             "calculation": node.name,
                             "visibility": node.visibility.value,
                             "goal_annotation": node.goal_annotation,
+                            "return_type": (
+                                to_json_value(node.return_type)
+                                if node.return_type is not None
+                                else None
+                            ),
                             "target": identifier,
                             "statement": statement_data,
                             **(
@@ -166,6 +173,20 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
                 f"{module.name}-surface-version",
                 "language_surface",
                 "reasonscript-language-surface/0.1",
+            ),
+            semantic.MetadataNode(
+                f"{module.name}-namespace",
+                "namespace",
+                module.name,
+            ),
+            semantic.MetadataNode(
+                f"{module.name}-import-resolution",
+                "import_resolution",
+                [
+                    to_json_value(node.resolution)
+                    for node in module.body
+                    if isinstance(node, ImportNode) and node.resolution is not None
+                ],
             ),
         ),
     )

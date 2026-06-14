@@ -32,6 +32,7 @@ from .nodes import (
     IdentifierNode,
     IdentifierPatternNode,
     ImportNode,
+    ImportResolutionNode,
     IntegerLiteralNode,
     LetStatementNode,
     LiteralPatternNode,
@@ -45,19 +46,25 @@ from .nodes import (
     NullLiteralNode,
     ParenthesizedExpressionNode,
     PatternNode,
+    PrimitiveKind,
+    PrimitiveTypeNode,
     ProgramNode,
+    QualifiedIdentifierNode,
     ReachStatementNode,
     RelationNode,
     RelationType,
     RequireStatementNode,
     ResultStatementNode,
     StringLiteralNode,
+    StateKind,
+    StateTypeNode,
     TransitionNode,
     UnaryExpressionNode,
     UnaryOperator,
     Visibility,
     WildcardPatternNode,
 )
+from .namespace import ModuleNamespace, NamespaceResolutionError, resolve_program
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -76,6 +83,7 @@ KNOWN_NODE_TYPES = (
     ProgramNode,
     ModuleNode,
     ImportNode,
+    ImportResolutionNode,
     *DECLARATION_NODES,
     RelationNode,
     LetStatementNode,
@@ -98,6 +106,7 @@ KNOWN_NODE_TYPES = (
     StringLiteralNode,
     NullLiteralNode,
     IdentifierNode,
+    QualifiedIdentifierNode,
     UnaryExpressionNode,
     BinaryExpressionNode,
     ComparisonExpressionNode,
@@ -108,6 +117,8 @@ KNOWN_NODE_TYPES = (
     IdentifierPatternNode,
     WildcardPatternNode,
     LiteralPatternNode,
+    PrimitiveTypeNode,
+    StateTypeNode,
 )
 
 
@@ -115,21 +126,31 @@ class SurfaceValidationError(ValueError):
     pass
 
 
+_CURRENT_NAMESPACE: ModuleNamespace | None = None
+
+
 def validate(program: ProgramNode) -> None:
+    global _CURRENT_NAMESPACE
     if not isinstance(program, ProgramNode):
         raise SurfaceValidationError("AST-V001 root must be ProgramNode")
     if not program.modules:
         raise SurfaceValidationError("ProgramNode requires at least one module")
+    try:
+        resolved_program, namespaces = resolve_program(program, strict=False)
+    except NamespaceResolutionError as error:
+        raise SurfaceValidationError(str(error)) from error
     module_names: set[str] = set()
-    for module in program.modules:
+    for module in resolved_program.modules:
+        _CURRENT_NAMESPACE = namespaces[module.name]
         _validate_node_types(module)
-        _identifier(module.name, "M-001 ModuleNode.name")
+        _identifier(module.name, "NS-V001 ModuleNode.name")
         if module.name in module_names:
             raise SurfaceValidationError(f"M-002 duplicate module name: {module.name}")
         module_names.add(module.name)
         if not isinstance(module.visibility, Visibility):
             raise SurfaceValidationError("AST-V001 invalid module visibility")
         _validate_module(module)
+    _CURRENT_NAMESPACE = None
 
 
 def _validate_module(module: ModuleNode) -> None:
@@ -201,9 +222,13 @@ def _validate_ast_node(node: Any) -> None:
         _identifier(node.name, "CAL-V001 CalculationNode.name")
         if not isinstance(node.visibility, Visibility):
             raise SurfaceValidationError("CAL-V001 invalid calculation visibility")
+        if node.return_type is not None:
+            _validate_type_node(node.return_type)
     elif isinstance(node, LetStatementNode):
         _identifier(node.identifier, "ST-001 LetStatementNode.identifier")
         _expression(node.expression, "ST-002 LetStatementNode.expression")
+        if node.type_annotation is not None:
+            _validate_type_node(node.type_annotation)
     elif isinstance(node, AssignmentStatementNode):
         _identifier(node.target, "AssignmentStatementNode.target")
         _expression(node.expression, "AssignmentStatementNode.expression")
@@ -264,8 +289,9 @@ def _validate_calculation(node: CalculationNode, symbols: dict[str, Any]) -> Non
     _validate_calculation_statements(
         node.body,
         symbols=symbols,
-        bindings=set(),
+        bindings={},
         allow_terminal_result=True,
+        return_type=node.return_type,
     )
     if not _statement_list_terminates_with_result(node.body):
         raise SurfaceValidationError(
@@ -321,7 +347,8 @@ def _validate_statement_list(
                 )
             if not isinstance(reference, ConstraintNode):
                 raise SurfaceValidationError(
-                    f"ST-031 reference is not a Constraint: {statement.constraint}"
+                    "ST-031 TYPE-010 TYPE-V008 require must reference Constraint: "
+                    f"{statement.constraint}"
                 )
         elif isinstance(statement, (GoalStatementNode, ReachStatementNode)):
             reference = symbols.get(statement.goal)
@@ -333,7 +360,8 @@ def _validate_statement_list(
             if not isinstance(reference, GoalNode):
                 code = "ST-041" if isinstance(statement, GoalStatementNode) else "ST-051"
                 raise SurfaceValidationError(
-                    f"{code} reference is not a Goal: {statement.goal}"
+                    f"TYPE-011 TYPE-V007 {code} reference is not a Goal: "
+                    f"{statement.goal}"
                 )
         elif isinstance(statement, IfStatementNode):
             _validate_statement_list(
@@ -375,8 +403,9 @@ def _validate_calculation_statements(
     statements: tuple[Any, ...],
     *,
     symbols: dict[str, Any],
-    bindings: set[str],
+    bindings: dict[str, Any],
     allow_terminal_result: bool,
+    return_type: Any = None,
 ) -> None:
     allowed = (
         LetStatementNode,
@@ -393,7 +422,7 @@ def _validate_calculation_statements(
         raise SurfaceValidationError(
             "CAL-011 calculation path contains multiple ResultStatementNode values"
         )
-    local_bindings = set(bindings)
+    local_bindings = dict(bindings)
     for index, statement in enumerate(statements):
         if not isinstance(statement, allowed):
             raise SurfaceValidationError(
@@ -409,7 +438,20 @@ def _validate_calculation_statements(
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
-            local_bindings.add(statement.identifier)
+            expression_type = _expression_type(
+                statement.expression.expression, symbols, local_bindings
+            )
+            if statement.type_annotation is not None:
+                _require_compatible(
+                    statement.type_annotation,
+                    expression_type,
+                    statement.expression,
+                    symbols,
+                    "TYPE-V003 assignment mismatch",
+                )
+                local_bindings[statement.identifier] = statement.type_annotation
+            else:
+                local_bindings[statement.identifier] = expression_type
         elif isinstance(statement, AssignmentStatementNode):
             if (
                 statement.target not in local_bindings
@@ -421,6 +463,16 @@ def _validate_calculation_statements(
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
+            if statement.target in local_bindings:
+                _require_compatible(
+                    local_bindings[statement.target],
+                    _expression_type(
+                        statement.expression.expression, symbols, local_bindings
+                    ),
+                    statement.expression,
+                    symbols,
+                    "TYPE-V003 assignment mismatch",
+                )
         elif isinstance(statement, ExpressionStatementNode):
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
@@ -433,6 +485,16 @@ def _validate_calculation_statements(
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
+            if return_type is not None:
+                _require_compatible(
+                    return_type,
+                    _expression_type(
+                        statement.expression.expression, symbols, local_bindings
+                    ),
+                    statement.expression,
+                    symbols,
+                    "TYPE-V003 calculation return mismatch",
+                )
         elif isinstance(statement, IfStatementNode):
             _validate_calculation_expression(
                 statement.condition, symbols, local_bindings
@@ -442,6 +504,7 @@ def _validate_calculation_statements(
                 symbols=symbols,
                 bindings=local_bindings,
                 allow_terminal_result=is_last,
+                return_type=return_type,
             )
             for branch in statement.elif_branches:
                 _validate_calculation_expression(
@@ -452,6 +515,7 @@ def _validate_calculation_statements(
                     symbols=symbols,
                     bindings=local_bindings,
                     allow_terminal_result=is_last,
+                    return_type=return_type,
                 )
             if statement.else_branch:
                 _validate_calculation_statements(
@@ -459,6 +523,7 @@ def _validate_calculation_statements(
                     symbols=symbols,
                     bindings=local_bindings,
                     allow_terminal_result=is_last,
+                    return_type=return_type,
                 )
         elif isinstance(statement, MatchStatementNode):
             _validate_calculation_expression(
@@ -470,6 +535,7 @@ def _validate_calculation_statements(
                     symbols=symbols,
                     bindings=local_bindings,
                     allow_terminal_result=is_last,
+                    return_type=return_type,
                 )
 
 
@@ -496,14 +562,30 @@ def _statement_list_terminates_with_result(statements: tuple[Any, ...]) -> bool:
 def _validate_calculation_expression(
     expression: ExpressionNode,
     symbols: dict[str, Any],
-    bindings: set[str],
+    bindings: dict[str, Any],
 ) -> None:
     def visit(value: Any, *, callee: bool = False) -> None:
         if isinstance(value, IdentifierNode):
-            if not callee and value.name not in bindings and value.name not in symbols:
+            imported = None
+            if (
+                value.name not in bindings
+                and value.name not in symbols
+                and _CURRENT_NAMESPACE is not None
+            ):
+                imported = _CURRENT_NAMESPACE.imported(value.name)
+            if (
+                not callee
+                and value.name not in bindings
+                and value.name not in symbols
+                and imported is None
+            ):
                 raise SurfaceValidationError(
                     f"CAL-020 undefined variable: {value.name}"
                 )
+        elif isinstance(value, QualifiedIdentifierNode):
+            if _CURRENT_NAMESPACE is None:
+                raise SurfaceValidationError("NS-V005 namespace is unavailable")
+            _CURRENT_NAMESPACE.resolve_qualified(value)
         elif isinstance(value, UnaryExpressionNode):
             visit(value.operand)
         elif isinstance(
@@ -527,6 +609,176 @@ def _validate_calculation_expression(
 
     _expression(expression, "CAL-V006 expression")
     visit(expression.expression)
+    _expression_type(expression.expression, symbols, bindings)
+
+
+_UNKNOWN_TYPE = object()
+
+
+def _expression_type(
+    value: Any,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> Any:
+    if isinstance(value, IntegerLiteralNode):
+        return PrimitiveTypeNode(PrimitiveKind.INT)
+    if isinstance(value, FloatLiteralNode):
+        return PrimitiveTypeNode(PrimitiveKind.FLOAT)
+    if isinstance(value, BooleanLiteralNode):
+        return PrimitiveTypeNode(PrimitiveKind.BOOL)
+    if isinstance(value, StringLiteralNode):
+        return PrimitiveTypeNode(PrimitiveKind.STRING)
+    if isinstance(value, NullLiteralNode):
+        return PrimitiveTypeNode(PrimitiveKind.NULL)
+    if isinstance(value, IdentifierNode):
+        if value.name in bindings:
+            return bindings[value.name]
+        declaration = symbols.get(value.name)
+        if declaration is None and _CURRENT_NAMESPACE is not None:
+            imported = _CURRENT_NAMESPACE.imported(value.name)
+            declaration = imported.node if imported is not None else None
+        state_kind = {
+            ConceptNode: StateKind.CONCEPT,
+            ObjectNode: StateKind.OBJECT,
+            EventNode: StateKind.EVENT,
+            ActionNode: StateKind.ACTION,
+            GoalNode: StateKind.GOAL,
+            ConstraintNode: StateKind.CONSTRAINT,
+        }.get(type(declaration))
+        return StateTypeNode(state_kind) if state_kind is not None else _UNKNOWN_TYPE
+    if isinstance(value, QualifiedIdentifierNode):
+        if _CURRENT_NAMESPACE is None:
+            return _UNKNOWN_TYPE
+        symbol = _CURRENT_NAMESPACE.resolve_qualified(value)
+        declaration = symbol.node
+        state_kind = {
+            ConceptNode: StateKind.CONCEPT,
+            ObjectNode: StateKind.OBJECT,
+            EventNode: StateKind.EVENT,
+            ActionNode: StateKind.ACTION,
+            GoalNode: StateKind.GOAL,
+            ConstraintNode: StateKind.CONSTRAINT,
+        }.get(type(declaration))
+        return StateTypeNode(state_kind) if state_kind is not None else _UNKNOWN_TYPE
+    if isinstance(value, ParenthesizedExpressionNode):
+        return _expression_type(value.expression, symbols, bindings)
+    if isinstance(value, UnaryExpressionNode):
+        operand = _expression_type(value.operand, symbols, bindings)
+        expected = (
+            PrimitiveTypeNode(PrimitiveKind.BOOL)
+            if value.operator == UnaryOperator.NOT
+            else None
+        )
+        if expected is not None and operand is not _UNKNOWN_TYPE and operand != expected:
+            raise SurfaceValidationError("TYPE-V006 logical operand must be Bool")
+        if value.operator == UnaryOperator.NEGATE:
+            if operand is not _UNKNOWN_TYPE and operand not in {
+                PrimitiveTypeNode(PrimitiveKind.INT),
+                PrimitiveTypeNode(PrimitiveKind.FLOAT),
+            }:
+                raise SurfaceValidationError(
+                    "TYPE-V004 arithmetic operand must be Int or Float"
+                )
+        return operand
+    if isinstance(value, BinaryExpressionNode):
+        left = _expression_type(value.left, symbols, bindings)
+        right = _expression_type(value.right, symbols, bindings)
+        if left is _UNKNOWN_TYPE or right is _UNKNOWN_TYPE:
+            return _UNKNOWN_TYPE
+        numeric = {
+            PrimitiveTypeNode(PrimitiveKind.INT),
+            PrimitiveTypeNode(PrimitiveKind.FLOAT),
+        }
+        if left not in numeric or right not in numeric or left != right:
+            raise SurfaceValidationError(
+                "TYPE-V004 TYPE-001 mixed or non-numeric arithmetic invalid"
+            )
+        return left
+    if isinstance(value, ComparisonExpressionNode):
+        left = _expression_type(value.left, symbols, bindings)
+        right = _expression_type(value.right, symbols, bindings)
+        if (
+            left is not _UNKNOWN_TYPE
+            and right is not _UNKNOWN_TYPE
+            and left != right
+        ):
+            raise SurfaceValidationError(
+                "TYPE-V005 comparison operands must have the same type"
+            )
+        return PrimitiveTypeNode(PrimitiveKind.BOOL)
+    if isinstance(value, LogicalExpressionNode):
+        bool_type = PrimitiveTypeNode(PrimitiveKind.BOOL)
+        left = _expression_type(value.left, symbols, bindings)
+        right = _expression_type(value.right, symbols, bindings)
+        if any(item is not _UNKNOWN_TYPE and item != bool_type for item in (left, right)):
+            raise SurfaceValidationError("TYPE-V006 logical operands must be Bool")
+        return bool_type
+    if isinstance(value, (MemberAccessNode, CallExpressionNode)):
+        return _UNKNOWN_TYPE
+    return _UNKNOWN_TYPE
+
+
+def _require_compatible(
+    expected: Any,
+    actual: Any,
+    expression: ExpressionNode,
+    symbols: dict[str, Any],
+    location: str,
+) -> None:
+    if expected == actual:
+        return
+    if isinstance(expected, StateTypeNode):
+        value = expression.expression
+        if isinstance(value, IdentifierNode):
+            declaration = symbols.get(value.name)
+            expected_node = {
+                StateKind.CONCEPT: ConceptNode,
+                StateKind.OBJECT: ObjectNode,
+                StateKind.EVENT: EventNode,
+                StateKind.ACTION: ActionNode,
+                StateKind.ATTRIBUTE: AttributeNode,
+                StateKind.GOAL: GoalNode,
+                StateKind.CONSTRAINT: ConstraintNode,
+            }[expected.kind]
+            if isinstance(declaration, expected_node):
+                return
+            if declaration is None:
+                raise SurfaceValidationError(
+                    f"TYPE-V002 unresolved typed reference: {value.name}"
+                )
+            if expected.kind == StateKind.GOAL:
+                raise SurfaceValidationError(
+                    f"TYPE-V007 TYPE-011 Goal type integrity failed: {value.name}"
+                )
+            if expected.kind == StateKind.CONSTRAINT:
+                raise SurfaceValidationError(
+                    f"TYPE-V008 TYPE-010 Constraint type integrity failed: {value.name}"
+                )
+    if actual is _UNKNOWN_TYPE:
+        return
+    if actual == PrimitiveTypeNode(PrimitiveKind.NULL):
+        return
+    raise SurfaceValidationError(
+        f"{location}: expected {_type_name(expected)}, received {_type_name(actual)}"
+    )
+
+
+def _validate_type_node(value: Any) -> None:
+    if isinstance(value, PrimitiveTypeNode):
+        if not isinstance(value.kind, PrimitiveKind):
+            raise SurfaceValidationError("TYPE-V001 unknown primitive type")
+        return
+    if isinstance(value, StateTypeNode):
+        if not isinstance(value.kind, StateKind):
+            raise SurfaceValidationError("TYPE-V001 unknown state type")
+        return
+    raise SurfaceValidationError("TYPE-V002 invalid TypeNode")
+
+
+def _type_name(value: Any) -> str:
+    if isinstance(value, (PrimitiveTypeNode, StateTypeNode)):
+        return value.kind.value
+    return "Unknown"
 
 
 def _validate_node_types(value: Any) -> None:
@@ -556,6 +808,16 @@ def _expression(value: ExpressionNode, location: str) -> None:
 def _expression_value(value: Any) -> None:
     if isinstance(value, IdentifierNode):
         _identifier(value.name, "EX-001 IdentifierNode.name")
+    elif isinstance(value, QualifiedIdentifierNode):
+        if not value.path:
+            raise SurfaceValidationError("NS-030 qualified path is required")
+        for part in value.path:
+            _identifier(part, "NS-V001 QualifiedIdentifierNode.path")
+        _identifier(value.symbol, "NS-V001 QualifiedIdentifierNode.symbol")
+        if value.resolved_name is not None and "::" not in value.resolved_name:
+            raise SurfaceValidationError(
+                "NS-V005 QualifiedIdentifierNode.resolved_name is invalid"
+            )
     elif isinstance(value, IntegerLiteralNode):
         if (
             isinstance(value.value, bool)

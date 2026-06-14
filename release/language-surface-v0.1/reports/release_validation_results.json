@@ -1,0 +1,57 @@
+{
+  "release": "reasonscript-language-surface/0.1",
+  "status": "released",
+  "date": "2026-06-14",
+  "result": "pass",
+  "suites": {
+    "phase_1_1_ast_mapping": {
+      "tests": 16,
+      "result": "pass"
+    },
+    "phase_1_2_expression_pattern": {
+      "tests": 18,
+      "result": "pass"
+    },
+    "phase_1_3_statement": {
+      "tests": 16,
+      "result": "pass"
+    },
+    "phase_1_6_calculation": {
+      "tests": 16,
+      "result": "pass"
+    },
+    "ls_1_type": {
+      "tests": 13,
+      "result": "pass"
+    },
+    "ls_2_namespace": {
+      "tests": 13,
+      "result": "pass"
+    },
+    "core_conformance": {
+      "tests": 8,
+      "result": "pass"
+    },
+    "release_certification": {
+      "tests": 3,
+      "result": "pass"
+    },
+    "full_python_regression": {
+      "tests": 217,
+      "skipped": 1,
+      "result": "pass"
+    },
+    "hybrid_runtime_regression": {
+      "tests": 129,
+      "result": "pass"
+    }
+  },
+  "compatibility": {
+    "reasonscript_ast": "reasonscript-ast/0.1",
+    "parser": "parser/0.1",
+    "compiler": "compiler/0.1",
+    "reason_ir": "reason-ir/0.1",
+    "execution_plan": "execution-plan/0.1",
+    "calculation_semantics": "reasonscript-calculation-semantics/0.1"
+  }
+}

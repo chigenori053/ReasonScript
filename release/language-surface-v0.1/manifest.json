@@ -1,0 +1,36 @@
+{
+  "release": {
+    "name": "ReasonScript Language Surface v0.1",
+    "version": "reasonscript-language-surface/0.1",
+    "status": "released",
+    "date": "2026-06-14"
+  },
+  "interfaces": [
+    "reasonscript-ast/0.1",
+    "parser/0.1",
+    "compiler/0.1",
+    "reason-ir/0.1",
+    "execution-plan/0.1",
+    "reasonscript-calculation-semantics/0.1"
+  ],
+  "layers": [
+    "module-namespace",
+    "declarations-relations",
+    "expressions-patterns",
+    "statements",
+    "calculations",
+    "type-annotations"
+  ],
+  "phase_reports": [
+    "Language_Surface_Phase_1_1_AST_Mapping_Validation_Report.md",
+    "Language_Surface_Phase_1_2_Expression_Pattern_Validation_Report.md",
+    "Language_Surface_Phase_1_3_Statement_Validation_Report.md",
+    "Language_Surface_Phase_1_6_Calculation_Integration_Validation_Report.md",
+    "Language_Surface_LS1_Type_Validation_Report.md",
+    "Language_Surface_LS2_Namespace_Validation_Report.md"
+  ],
+  "normative_specification": "docs/ReasonScript_Language_Surface_v0.1_Release_Specification.md",
+  "validation_report": "Language_Surface_v0.1_Release_Validation_Report.md",
+  "validation_results": "release/language-surface-v0.1/reports/release_validation_results.json",
+  "release_gate": "release/language-surface-v0.1/run_release_validation.py"
+}

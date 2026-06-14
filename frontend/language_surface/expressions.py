@@ -26,6 +26,7 @@ from .nodes import (
     NullLiteralNode,
     ParenthesizedExpressionNode,
     PatternNode,
+    QualifiedIdentifierNode,
     StringLiteralNode,
     UnaryExpressionNode,
     UnaryOperator,
@@ -47,6 +48,7 @@ class _Kind(str, Enum):
     RIGHT_PAREN = "right_paren"
     COMMA = "comma"
     DOT = "dot"
+    QUALIFIER = "qualifier"
     EOF = "eof"
 
 
@@ -155,6 +157,18 @@ class _Parser:
                 return BooleanLiteralNode(False)
             if token.value == "null":
                 return NullLiteralNode()
+            if self.current.kind == _Kind.QUALIFIER:
+                parts = [token.value]
+                while self.current.kind == _Kind.QUALIFIER:
+                    self.take()
+                    if self.current.kind != _Kind.IDENTIFIER:
+                        raise ExpressionSyntaxError(
+                            "NS-030 qualified name requires an identifier"
+                        )
+                    parts.append(self.take().value)
+                if len(parts) < 2:
+                    raise AssertionError("qualified name requires at least two parts")
+                return QualifiedIdentifierNode(tuple(parts[:-1]), parts[-1])
             return IdentifierNode(token.value)
         if token.value in {"-", "!"}:
             if self.current.kind == _Kind.EOF:
@@ -242,13 +256,14 @@ def _tokenize(source: str) -> tuple[_Token, ...]:
         matched = next(
             (
                 operator
-                for operator in ("==", "!=", ">=", "<=", "&&", "||")
+                for operator in ("::", "==", "!=", ">=", "<=", "&&", "||")
                 if source.startswith(operator, index)
             ),
             None,
         )
         if matched:
-            tokens.append(_Token(_Kind.OPERATOR, matched, index))
+            kind = _Kind.QUALIFIER if matched == "::" else _Kind.OPERATOR
+            tokens.append(_Token(kind, matched, index))
             index += len(matched)
             continue
         kind = {

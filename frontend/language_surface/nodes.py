@@ -50,6 +50,37 @@ class LogicalOperator(str, Enum):
     OR = "Or"
 
 
+class PrimitiveKind(str, Enum):
+    INT = "Int"
+    FLOAT = "Float"
+    BOOL = "Bool"
+    STRING = "String"
+    NULL = "Null"
+
+
+class StateKind(str, Enum):
+    CONCEPT = "Concept"
+    OBJECT = "Object"
+    EVENT = "Event"
+    ACTION = "Action"
+    ATTRIBUTE = "Attribute"
+    GOAL = "Goal"
+    CONSTRAINT = "Constraint"
+
+
+@dataclass(frozen=True)
+class PrimitiveTypeNode:
+    kind: PrimitiveKind
+
+
+@dataclass(frozen=True)
+class StateTypeNode:
+    kind: StateKind
+
+
+TypeNode: TypeAlias = PrimitiveTypeNode | StateTypeNode
+
+
 @dataclass(frozen=True)
 class IntegerLiteralNode:
     value: int
@@ -78,6 +109,13 @@ class NullLiteralNode:
 @dataclass(frozen=True)
 class IdentifierNode:
     name: str
+
+
+@dataclass(frozen=True)
+class QualifiedIdentifierNode:
+    path: tuple[str, ...]
+    symbol: str
+    resolved_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -131,6 +169,7 @@ Expression: TypeAlias = (
     | StringLiteralNode
     | NullLiteralNode
     | IdentifierNode
+    | QualifiedIdentifierNode
     | UnaryExpressionNode
     | BinaryExpressionNode
     | ComparisonExpressionNode
@@ -176,9 +215,17 @@ class PatternNode:
 
 
 @dataclass(frozen=True)
+class ImportResolutionNode:
+    namespace: str
+    symbol: str | None
+    exposed_names: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ImportNode:
     path: tuple[str, ...]
     alias: str | None = None
+    resolution: ImportResolutionNode | None = None
 
 
 @dataclass(frozen=True)
@@ -227,6 +274,7 @@ class RelationNode:
 class LetStatementNode:
     identifier: str
     expression: ExpressionNode
+    type_annotation: TypeNode | None = None
 
 
 @dataclass(frozen=True)
@@ -325,6 +373,7 @@ class CalculationNode:
     goal_annotation: str | None
     body: tuple[StatementNode, ...]
     visibility: Visibility = Visibility.PRIVATE
+    return_type: TypeNode | None = None
 
 
 AstNode: TypeAlias = (
@@ -379,6 +428,7 @@ _NODE_TYPES = {
         IdentifierPatternNode,
         IfStatementNode,
         ImportNode,
+        ImportResolutionNode,
         IntegerLiteralNode,
         LetStatementNode,
         LiteralPatternNode,
@@ -391,12 +441,15 @@ _NODE_TYPES = {
         ObjectNode,
         ParenthesizedExpressionNode,
         PatternNode,
+        PrimitiveTypeNode,
         ProgramNode,
+        QualifiedIdentifierNode,
         ReachStatementNode,
         RelationNode,
         RequireStatementNode,
         ResultStatementNode,
         StringLiteralNode,
+        StateTypeNode,
         TransitionNode,
         UnaryExpressionNode,
         WildcardPatternNode,
@@ -470,6 +523,13 @@ def statement_from_json(value: Mapping[str, Any]) -> StatementNode:
     return node
 
 
+def type_from_json(value: Mapping[str, Any]) -> TypeNode:
+    node = _from_json_node(value)
+    if not isinstance(node, (PrimitiveTypeNode, StateTypeNode)):
+        raise ValueError("document must contain TypeNode")
+    return node
+
+
 def calculation_from_json(value: Mapping[str, Any]) -> CalculationNode:
     node = _from_json_node(value)
     if not isinstance(node, CalculationNode):
@@ -493,6 +553,10 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return ExpressionNode(_from_json_node(value["expression"]))
     if node_type == "PatternNode":
         return PatternNode(_from_json_node(value["pattern"]))
+    if node_type == "PrimitiveTypeNode":
+        return PrimitiveTypeNode(PrimitiveKind(value["kind"]))
+    if node_type == "StateTypeNode":
+        return StateTypeNode(StateKind(value["kind"]))
     if node_type == "IntegerLiteralNode":
         return IntegerLiteralNode(value["value"])
     if node_type == "FloatLiteralNode":
@@ -505,6 +569,12 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return NullLiteralNode()
     if node_type == "IdentifierNode":
         return IdentifierNode(value["name"])
+    if node_type == "QualifiedIdentifierNode":
+        return QualifiedIdentifierNode(
+            tuple(value["path"]),
+            value["symbol"],
+            value.get("resolved_name"),
+        )
     if node_type == "UnaryExpressionNode":
         return UnaryExpressionNode(
             UnaryOperator(value["operator"]), _from_json_node(value["operand"])
@@ -545,7 +615,21 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
     if node_type == "LiteralPatternNode":
         return LiteralPatternNode(_from_json_node(value["value"]))
     if node_type == "ImportNode":
-        return ImportNode(tuple(value["path"]), value.get("alias"))
+        return ImportNode(
+            tuple(value["path"]),
+            value.get("alias"),
+            (
+                _from_json_node(value["resolution"])
+                if value.get("resolution")
+                else None
+            ),
+        )
+    if node_type == "ImportResolutionNode":
+        return ImportResolutionNode(
+            value["namespace"],
+            value.get("symbol"),
+            tuple(value["exposed_names"]),
+        )
     if node_type == "RelationNode":
         return RelationNode(
             value["source"], RelationType(value["relation"]), value["target"]
@@ -562,7 +646,13 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return _NODE_TYPES[node_type](value["name"])
     if node_type in {"LetNode", "LetStatementNode"}:
         return LetStatementNode(
-            value["identifier"], _from_json_node(value["expression"])
+            value["identifier"],
+            _from_json_node(value["expression"]),
+            (
+                _from_json_node(value["type_annotation"])
+                if value.get("type_annotation")
+                else None
+            ),
         )
     if node_type == "AssignmentStatementNode":
         return AssignmentStatementNode(
@@ -617,5 +707,10 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
             value.get("goal_annotation"),
             tuple(_from_json_node(item) for item in value["body"]),
             Visibility(value.get("visibility", Visibility.PRIVATE.value)),
+            (
+                _from_json_node(value["return_type"])
+                if value.get("return_type")
+                else None
+            ),
         )
     raise AssertionError(f"unhandled surface node_type: {node_type}")

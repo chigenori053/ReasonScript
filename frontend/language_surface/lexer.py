@@ -104,7 +104,17 @@ def tokenize(source: str) -> tuple[SurfaceToken, ...]:
         matched = next(
             (
                 operator
-                for operator in ("->", "=>", ">=", "<=", "==", "!=", "&&", "||")
+                for operator in (
+                    "->",
+                    "=>",
+                    "::",
+                    ">=",
+                    "<=",
+                    "==",
+                    "!=",
+                    "&&",
+                    "||",
+                )
                 if source.startswith(operator, index)
             ),
             None,

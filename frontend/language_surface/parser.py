@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .expressions import ExpressionSyntaxError, parse_expression, parse_pattern
 from .lexer import tokenize
+from .namespace import NamespaceResolutionError, resolve_program
 from .nodes import (
     ActionNode,
     AssignmentStatementNode,
@@ -28,11 +29,15 @@ from .nodes import (
     ModuleNode,
     ObjectNode,
     ProgramNode,
+    PrimitiveKind,
+    PrimitiveTypeNode,
     RelationNode,
     RelationType,
     ReachStatementNode,
     RequireStatementNode,
     ResultStatementNode,
+    StateKind,
+    StateTypeNode,
     TransitionNode,
     Visibility,
 )
@@ -70,8 +75,9 @@ def parse(source: str) -> ProgramNode:
         modules.append(_parse_module(cursor))
     program = ProgramNode(tuple(modules))
     try:
+        program, _ = resolve_program(program)
         validate(program)
-    except SurfaceValidationError as error:
+    except (SurfaceValidationError, NamespaceResolutionError) as error:
         raise SurfaceSyntaxError(str(error)) from error
     return program
 
@@ -152,9 +158,16 @@ def _parse_simple(line: str, *, context: str):
     )
     if match:
         return RelationNode(match.group(1), RelationType(match.group(2)), match.group(3))
-    match = re.fullmatch(r"let\s+([A-Za-z_]\w*)\s*=\s*(.+)", line)
+    match = re.fullmatch(
+        r"let\s+([A-Za-z_]\w*)(?:\s*:\s*([A-Za-z_]\w*))?\s*=\s*(.+)",
+        line,
+    )
     if match:
-        return LetStatementNode(match.group(1), _expression(match.group(2)))
+        return LetStatementNode(
+            match.group(1),
+            _expression(match.group(3)),
+            _type_annotation(match.group(2)) if match.group(2) else None,
+        )
     match = re.fullmatch(r"result\s*=\s*(.+)", line)
     if match:
         return ResultStatementNode(_expression(match.group(1)))
@@ -207,14 +220,22 @@ def _parse_transition(cursor: _Cursor) -> TransitionNode:
 
 def _parse_calculation(cursor: _Cursor) -> CalculationNode:
     match = re.fullmatch(
-        r"(?:(pub)\s+)?calculation\s+([A-Za-z_]\w*)(?:\s+goal:([A-Za-z_]\w*))?\s*\{",
+        r"(?:(pub)\s+)?calculation\s+([A-Za-z_]\w*)"
+        r"(?:\s+goal:([A-Za-z_]\w*))?"
+        r"(?:\s*->\s*([A-Za-z_]\w*))?\s*\{",
         cursor.take(),
     )
     if not match:
         raise SurfaceSyntaxError("invalid calculation declaration")
     body = _parse_body(cursor, context="calculation")
     visibility = Visibility.PUBLIC if match.group(1) else Visibility.PRIVATE
-    return CalculationNode(match.group(2), match.group(3), tuple(body), visibility)
+    return CalculationNode(
+        match.group(2),
+        match.group(3),
+        tuple(body),
+        visibility,
+        _type_annotation(match.group(4)) if match.group(4) else None,
+    )
 
 
 def _parse_if(cursor: _Cursor, *, context: str) -> IfStatementNode:
@@ -278,3 +299,14 @@ def _pattern(source: str):
         return parse_pattern(source.strip())
     except ExpressionSyntaxError as error:
         raise SurfaceSyntaxError(str(error)) from error
+
+
+def _type_annotation(source: str):
+    try:
+        return PrimitiveTypeNode(PrimitiveKind(source))
+    except ValueError:
+        pass
+    try:
+        return StateTypeNode(StateKind(source))
+    except ValueError as error:
+        raise SurfaceSyntaxError(f"TYPE-V001 unknown type: {source}") from error

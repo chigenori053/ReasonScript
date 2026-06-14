@@ -35,9 +35,10 @@ Run the integrated release gate with:
 python3 release/v0.1-alpha/run_release_validation.py
 ```
 
-# Language Surface Core v0.1 RC
+# Language Surface v0.1
 
-The Language Surface Core release candidate fixes the deterministic path:
+ReasonScript Language Surface v0.1 was released on 2026-06-14. It fixes the
+deterministic path:
 
 ```text
 ReasonScript Source
@@ -47,14 +48,14 @@ ReasonScript Source
   -> ExecutionPlan
 ```
 
-Run its conformance and regression gate with:
+Run its release gate with:
 
 ```sh
-python3 release/language-surface-v0.1-rc/run_release_validation.py
+python3 release/language-surface-v0.1/run_release_validation.py
 ```
 
-The normative RC specification is
-`docs/ReasonScript_Language_Surface_Core_v0.1_RC.md`.
+The normative release specification is
+`docs/ReasonScript_Language_Surface_v0.1_Release_Specification.md`.
 
 # Reason IR schema and validator
 

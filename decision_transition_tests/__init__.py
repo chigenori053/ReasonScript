@@ -1,0 +1,1 @@
+"""Decision transition validation."""

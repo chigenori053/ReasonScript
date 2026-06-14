@@ -1,5 +1,30 @@
 # Changelog
 
+## reasonscript-language-surface/0.1 - 2026-06-14
+
+ReasonScript Language Surface v0.1 release.
+
+### Released
+
+- Deterministic Source -> Surface AST -> Semantic AST -> Reason IR ->
+  ExecutionPlan pipeline
+- Module namespaces, imports, aliases, visibility, and qualified names
+- Declarations, relations, expressions, patterns, statements, and Calculations
+- Primitive and Reason State type annotations as validation contracts
+- Canonical `node_type` serialization and round-trip compatibility
+- Fixed AST, expression, pattern, statement, Calculation, type, and namespace
+  validation families
+
+### Fixed Interfaces
+
+- `reasonscript-language-surface/0.1`
+- `reasonscript-ast/0.1`
+- `parser/0.1`
+- `compiler/0.1`
+- `reason-ir/0.1`
+- `execution-plan/0.1`
+- `reasonscript-calculation-semantics/0.1`
+
 ## 0.1.0-alpha - 2026-06-13
 
 First integrated ReasonScript Platform alpha release.
