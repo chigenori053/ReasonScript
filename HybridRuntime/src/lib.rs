@@ -7,6 +7,10 @@ pub mod graph_ir;
 pub mod reason_ir;
 pub mod resolver;
 pub mod runtime;
+pub mod semantic_closure;
+pub mod semantic_constraint;
+pub mod semantic_contradiction;
+pub mod semantic_type;
 pub mod state;
 pub mod strategy;
 pub mod trace;
@@ -41,6 +45,26 @@ pub use reason_ir::{
 };
 pub use resolver::IdentityResolver;
 pub use runtime::HybridRuntime;
+pub use semantic_closure::{
+    ClosureMetadata, SemanticClosure, SemanticClosureConstraintIr, SemanticClosureEngine,
+    SemanticClosureError, SemanticClosureIrNode, SEMANTIC_CLOSURE_NODE, SEMANTIC_CLOSURE_VERSION,
+};
+pub use semantic_constraint::{
+    ConstraintKind, ConstraintPolarity, SemanticConstraint, SemanticConstraintDeclaration,
+    SemanticConstraintError, SemanticConstraintId, SemanticConstraintIrNode,
+    SemanticConstraintRegistry, SEMANTIC_CONSTRAINT_NODE,
+};
+pub use semantic_contradiction::{
+    ConsistencyStatus, ContradictionKind, SemanticContradiction, SemanticContradictionEngine,
+    SemanticContradictionError, SemanticContradictionIrNode, SemanticValidationReport,
+    SemanticValidationReportIrNode, SEMANTIC_CONTRADICTION_NODE, SEMANTIC_CONTRADICTION_VERSION,
+    SEMANTIC_VALIDATION_REPORT_NODE,
+};
+pub use semantic_type::{
+    SemanticRelation, SemanticType, SemanticTypeDeclaration, SemanticTypeError, SemanticTypeId,
+    SemanticTypeIrNode, SemanticTypeMetadata, SemanticTypeRegistry, IS_A_RELATION,
+    SEMANTIC_RELATION_NODE, SEMANTIC_TYPE_DECLARATION_NODE, SEMANTIC_TYPE_NODE,
+};
 pub use state::{
     AmbiguousState, Candidate, Evidence, HybridReasonUnit, StableState, State, StateKind,
     StateManager, StatePayload,
