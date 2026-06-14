@@ -11,6 +11,8 @@ pub struct Edge {
     pub relation: RelationType,
     pub transition: Transition,
     pub cost: f64,
+    #[serde(default = "default_confidence")]
+    pub confidence: f64,
 }
 
 impl Edge {
@@ -22,6 +24,11 @@ impl Edge {
             relation,
             transition,
             cost: 1.0, // Default cost
+            confidence: default_confidence(),
         }
     }
+}
+
+fn default_confidence() -> f64 {
+    1.0
 }

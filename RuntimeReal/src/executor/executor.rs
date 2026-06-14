@@ -1,7 +1,7 @@
-use crate::ir::TensorIR;
-use crate::graph::ReasonGraph;
-use crate::executor::ExecutionContext;
 use crate::core::SemanticContext;
+use crate::executor::ExecutionContext;
+use crate::graph::ReasonGraph;
+use crate::ir::TensorIR;
 use ndarray::Array2;
 use uuid::Uuid;
 
@@ -48,33 +48,32 @@ impl Executor {
     /// Perform a single inference step on the ReasonGraph (higher level)
     /// Infer(Gt, n) = Gt+1
     pub fn infer(
-        graph: &mut ReasonGraph, 
-        context: &mut ExecutionContext, 
+        graph: &mut ReasonGraph,
+        context: &mut ExecutionContext,
         semantic_context: &SemanticContext,
-        node_id: Uuid
+        node_id: Uuid,
     ) -> Result<bool, InferenceError> {
-        
-        // 1. Runtime Type Check before execution
-        crate::core::type_system::TypeChecker::check_graph(graph)?;
+        // 1. Semantic structure and context checks before execution
+        crate::core::semantic_validator::SemanticValidator::validate_graph(
+            graph,
+            semantic_context,
+        )?;
 
-        // 2. Semantic Check
-        crate::core::semantic_validator::SemanticValidator::validate_graph(graph, semantic_context)?;
+        // 2. Runtime type check
+        crate::core::type_system::TypeChecker::check_graph(graph)?;
 
         // 3. Semantic Dynamics
         // Activate the starting node
         crate::executor::dynamics::Dynamics::activate(context, node_id);
-        
+
         // Run dynamics cycle until convergence or limit reached
         let mut converged = false;
         let mut iterations = 0;
         let max_iterations = 100; // Safety limit
 
         while !converged && iterations < max_iterations {
-            converged = crate::executor::dynamics::Dynamics::run_cycle(
-                graph, 
-                context, 
-                semantic_context
-            );
+            converged =
+                crate::executor::dynamics::Dynamics::run_cycle(graph, context, semantic_context);
             context.timestamp += 1;
             iterations += 1;
         }

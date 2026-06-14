@@ -1,6 +1,7 @@
 use crate::graph::{ReasonGraph, Edge};
 use crate::core::dynamics::{DynamicsContext, ActivationState};
 use crate::core::SemanticContext;
+use crate::core::StructuralConstraintValidator;
 use crate::core::types::RelationType;
 use crate::executor::ExecutionContext;
 use crate::executor::execution_context::TraceEvent;
@@ -106,8 +107,21 @@ impl Dynamics {
                         let e1 = &graph.edges[idx1];
                         let e2 = &graph.edges[idx2];
                         let key = (e1.source, e2.target, relation);
+                        let structurally_valid = graph
+                            .get_node_state(&e1.source)
+                            .zip(graph.get_node_state(&e2.target))
+                            .is_some_and(|(source, target)| {
+                                StructuralConstraintValidator::is_compatible(
+                                    source.state_type,
+                                    relation,
+                                    target.state_type,
+                                )
+                            });
                         
-                        if e1.source != e2.target && !existing_set.contains(&key) {
+                        if e1.source != e2.target
+                            && !existing_set.contains(&key)
+                            && structurally_valid
+                        {
                             let mut new_edge = Edge::new(
                                 e1.source, 
                                 e2.target, 
@@ -115,6 +129,7 @@ impl Dynamics {
                                 e1.transition.clone()
                             );
                             new_edge.cost = e1.cost + e2.cost;
+                            new_edge.confidence = e1.confidence * e2.confidence;
                             
                             // Update metrics on the source ReasonUnit
                             if let Some(node) = graph.nodes.get(&e1.source) {
