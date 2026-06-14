@@ -10,6 +10,11 @@ pub mod runtime;
 pub mod semantic_closure;
 pub mod semantic_constraint;
 pub mod semantic_contradiction;
+pub mod semantic_planning;
+pub mod semantic_search;
+pub mod semantic_similarity;
+pub mod semantic_simulation;
+pub mod semantic_transformation;
 pub mod semantic_type;
 pub mod state;
 pub mod strategy;
@@ -59,6 +64,32 @@ pub use semantic_contradiction::{
     SemanticContradictionError, SemanticContradictionIrNode, SemanticValidationReport,
     SemanticValidationReportIrNode, SEMANTIC_CONTRADICTION_NODE, SEMANTIC_CONTRADICTION_VERSION,
     SEMANTIC_VALIDATION_REPORT_NODE,
+};
+pub use semantic_planning::{
+    PlanStep as SemanticPlanStep, PlanningGoal, PlanningResult, PlanningResultIrNode,
+    PlanningState, SemanticPlan, SemanticPlanIrNode, SemanticPlanningEngine, SemanticPlanningError,
+    PLANNING_RESULT_NODE, SEMANTIC_PLANNING_VERSION, SEMANTIC_PLAN_NODE,
+};
+pub use semantic_search::{
+    PathSearchResult, PathSearchResultIrNode, SearchKind, SearchQuery, SearchResult,
+    SearchResultIrNode, SearchResultItem, SearchResultItemIrNode, SemanticSearchEngine,
+    SemanticSearchError, PATH_SEARCH_RESULT_NODE, SEARCH_RESULT_ITEM_NODE, SEARCH_RESULT_NODE,
+    SEMANTIC_SEARCH_VERSION,
+};
+pub use semantic_similarity::{
+    SemanticSimilarityEngine, SemanticSimilarityError, SimilarityReport, SimilarityReportIrNode,
+    SimilarityResult, SimilarityResultIrNode, SEMANTIC_SIMILARITY_VERSION, SIMILARITY_REPORT_NODE,
+    SIMILARITY_RESULT_NODE,
+};
+pub use semantic_simulation::{
+    SemanticSimulationEngine, SemanticSimulationError, SimulationResult, SimulationResultIrNode,
+    SimulationState, SimulationStep, SimulationTrace, SimulationTraceIrNode,
+    SEMANTIC_SIMULATION_VERSION, SIMULATION_RESULT_NODE, SIMULATION_TRACE_NODE,
+};
+pub use semantic_transformation::{
+    SemanticTransformationEngine, SemanticTransformationError, TransformationKind,
+    TransformationPath, TransformationPathIrNode, TransformationResult, TransformationResultIrNode,
+    SEMANTIC_TRANSFORMATION_VERSION, TRANSFORMATION_PATH_NODE, TRANSFORMATION_RESULT_NODE,
 };
 pub use semantic_type::{
     SemanticRelation, SemanticType, SemanticTypeDeclaration, SemanticTypeError, SemanticTypeId,

@@ -323,6 +323,12 @@ impl SemanticTypeRegistry {
         self.types.get(id)
     }
 
+    pub fn type_ids(&self) -> Vec<SemanticTypeId> {
+        let mut ids = self.types.keys().cloned().collect::<Vec<_>>();
+        ids.sort();
+        ids
+    }
+
     pub fn get_parent(&self, id: &SemanticTypeId) -> Option<&SemanticType> {
         self.types
             .get(id)
