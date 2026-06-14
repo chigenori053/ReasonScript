@@ -1,0 +1,23 @@
+{
+  "release": "reasonscript-language-surface-core/0.1-rc",
+  "status": "release-candidate",
+  "validation_date": "2026-06-14",
+  "interfaces": [
+    "reasonscript-language-surface/0.1",
+    "reasonscript-ast/0.1",
+    "parser/0.1",
+    "compiler/0.1",
+    "reason-ir/0.1",
+    "execution-plan/0.1",
+    "reasonscript-calculation-semantics/0.1"
+  ],
+  "phase_reports": [
+    "Language_Surface_Phase_1_1_AST_Mapping_Validation_Report.md",
+    "Language_Surface_Phase_1_2_Expression_Pattern_Validation_Report.md",
+    "Language_Surface_Phase_1_3_Statement_Validation_Report.md",
+    "Language_Surface_Phase_1_6_Calculation_Integration_Validation_Report.md"
+  ],
+  "normative_specification": "docs/ReasonScript_Language_Surface_Core_v0.1_RC.md",
+  "conformance_suite": "language_surface_core_conformance_tests",
+  "release_gate": "release/language-surface-v0.1-rc/run_release_validation.py"
+}

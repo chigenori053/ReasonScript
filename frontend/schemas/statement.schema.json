@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/statement/0.1",
+  "title": "ReasonScript Statement AST 0.1",
+  "$ref": "language_surface_ast.schema.json#/$defs/statement"
+}

@@ -35,6 +35,27 @@ Run the integrated release gate with:
 python3 release/v0.1-alpha/run_release_validation.py
 ```
 
+# Language Surface Core v0.1 RC
+
+The Language Surface Core release candidate fixes the deterministic path:
+
+```text
+ReasonScript Source
+  -> Surface AST
+  -> Semantic AST
+  -> Reason IR
+  -> ExecutionPlan
+```
+
+Run its conformance and regression gate with:
+
+```sh
+python3 release/language-surface-v0.1-rc/run_release_validation.py
+```
+
+The normative RC specification is
+`docs/ReasonScript_Language_Surface_Core_v0.1_RC.md`.
+
 # Reason IR schema and validator
 
 The versioned Reason IR 0.1 contract is defined in

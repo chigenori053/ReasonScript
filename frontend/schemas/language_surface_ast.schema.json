@@ -1,0 +1,519 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/language-surface-ast/0.1",
+  "title": "ReasonScript Language Surface AST 0.1",
+  "$ref": "#/$defs/program",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expression", "node_type"],
+      "properties": {
+        "expression": {"$ref": "#/$defs/expression_value"},
+        "node_type": {"const": "ExpressionNode"}
+      }
+    },
+    "expression_value": {
+      "oneOf": [
+        {"$ref": "#/$defs/integer_literal"},
+        {"$ref": "#/$defs/float_literal"},
+        {"$ref": "#/$defs/boolean_literal"},
+        {"$ref": "#/$defs/string_literal"},
+        {"$ref": "#/$defs/null_literal"},
+        {"$ref": "#/$defs/identifier_expression"},
+        {"$ref": "#/$defs/unary_expression"},
+        {"$ref": "#/$defs/binary_expression"},
+        {"$ref": "#/$defs/comparison_expression"},
+        {"$ref": "#/$defs/logical_expression"},
+        {"$ref": "#/$defs/parenthesized_expression"},
+        {"$ref": "#/$defs/member_access"},
+        {"$ref": "#/$defs/call_expression"}
+      ]
+    },
+    "integer_literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "node_type"],
+      "properties": {
+        "value": {"type": "integer"},
+        "node_type": {"const": "IntegerLiteralNode"}
+      }
+    },
+    "float_literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "node_type"],
+      "properties": {
+        "value": {"type": "number"},
+        "node_type": {"const": "FloatLiteralNode"}
+      }
+    },
+    "boolean_literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "node_type"],
+      "properties": {
+        "value": {"type": "boolean"},
+        "node_type": {"const": "BooleanLiteralNode"}
+      }
+    },
+    "string_literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "node_type"],
+      "properties": {
+        "value": {"type": "string"},
+        "node_type": {"const": "StringLiteralNode"}
+      }
+    },
+    "null_literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_type"],
+      "properties": {
+        "node_type": {"const": "NullLiteralNode"}
+      }
+    },
+    "identifier_expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "IdentifierNode"}
+      }
+    },
+    "unary_expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operator", "operand", "node_type"],
+      "properties": {
+        "operator": {"enum": ["Negate", "Not"]},
+        "operand": {"$ref": "#/$defs/expression_value"},
+        "node_type": {"const": "UnaryExpressionNode"}
+      }
+    },
+    "binary_expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "operator", "right", "node_type"],
+      "properties": {
+        "left": {"$ref": "#/$defs/expression_value"},
+        "operator": {
+          "enum": ["Add", "Subtract", "Multiply", "Divide", "Modulo"]
+        },
+        "right": {"$ref": "#/$defs/expression_value"},
+        "node_type": {"const": "BinaryExpressionNode"}
+      }
+    },
+    "comparison_expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "operator", "right", "node_type"],
+      "properties": {
+        "left": {"$ref": "#/$defs/expression_value"},
+        "operator": {
+          "enum": [
+            "Equal",
+            "NotEqual",
+            "GreaterThan",
+            "GreaterThanOrEqual",
+            "LessThan",
+            "LessThanOrEqual"
+          ]
+        },
+        "right": {"$ref": "#/$defs/expression_value"},
+        "node_type": {"const": "ComparisonExpressionNode"}
+      }
+    },
+    "logical_expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "operator", "right", "node_type"],
+      "properties": {
+        "left": {"$ref": "#/$defs/expression_value"},
+        "operator": {"enum": ["And", "Or"]},
+        "right": {"$ref": "#/$defs/expression_value"},
+        "node_type": {"const": "LogicalExpressionNode"}
+      }
+    },
+    "parenthesized_expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expression", "node_type"],
+      "properties": {
+        "expression": {"$ref": "#/$defs/expression_value"},
+        "node_type": {"const": "ParenthesizedExpressionNode"}
+      }
+    },
+    "member_access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["object", "member", "node_type"],
+      "properties": {
+        "object": {"$ref": "#/$defs/expression_value"},
+        "member": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "MemberAccessNode"}
+      }
+    },
+    "call_expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["callee", "arguments", "node_type"],
+      "properties": {
+        "callee": {"$ref": "#/$defs/expression_value"},
+        "arguments": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/expression_value"}
+        },
+        "node_type": {"const": "CallExpressionNode"}
+      }
+    },
+    "pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pattern", "node_type"],
+      "properties": {
+        "pattern": {"$ref": "#/$defs/pattern_value"},
+        "node_type": {"const": "PatternNode"}
+      }
+    },
+    "pattern_value": {
+      "oneOf": [
+        {"$ref": "#/$defs/identifier_pattern"},
+        {"$ref": "#/$defs/wildcard_pattern"},
+        {"$ref": "#/$defs/literal_pattern"}
+      ]
+    },
+    "identifier_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "IdentifierPatternNode"}
+      }
+    },
+    "wildcard_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_type"],
+      "properties": {
+        "node_type": {"const": "WildcardPatternNode"}
+      }
+    },
+    "literal_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "node_type"],
+      "properties": {
+        "value": {
+          "oneOf": [
+            {"$ref": "#/$defs/integer_literal"},
+            {"$ref": "#/$defs/float_literal"},
+            {"$ref": "#/$defs/boolean_literal"},
+            {"$ref": "#/$defs/string_literal"},
+            {"$ref": "#/$defs/null_literal"}
+          ]
+        },
+        "node_type": {"const": "LiteralPatternNode"}
+      }
+    },
+    "program": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modules", "node_type"],
+      "properties": {
+        "modules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/module"}
+        },
+        "node_type": {"const": "ProgramNode"}
+      }
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "visibility", "body", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "visibility": {"enum": ["Public", "Private"]},
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/ast_node"}
+        },
+        "node_type": {"const": "ModuleNode"}
+      }
+    },
+    "ast_node": {
+      "oneOf": [
+        {"$ref": "#/$defs/import"},
+        {"$ref": "#/$defs/named_declaration"},
+        {"$ref": "#/$defs/relation"},
+        {"$ref": "#/$defs/transition"},
+        {"$ref": "#/$defs/calculation"}
+      ]
+    },
+    "statement": {
+      "oneOf": [
+        {"$ref": "#/$defs/let"},
+        {"$ref": "#/$defs/assignment"},
+        {"$ref": "#/$defs/result_statement"},
+        {"$ref": "#/$defs/require_statement"},
+        {"$ref": "#/$defs/goal_statement"},
+        {"$ref": "#/$defs/reach_statement"},
+        {"$ref": "#/$defs/expression_statement"},
+        {"$ref": "#/$defs/if"},
+        {"$ref": "#/$defs/match"}
+      ]
+    },
+    "import": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "alias", "node_type"],
+      "properties": {
+        "path": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "alias": {
+          "type": ["string", "null"]
+        },
+        "node_type": {"const": "ImportNode"}
+      }
+    },
+    "named_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "node_type": {
+          "enum": [
+            "ConceptNode",
+            "ObjectNode",
+            "EventNode",
+            "ActionNode",
+            "AttributeNode",
+            "GoalNode",
+            "ConstraintNode"
+          ]
+        }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "relation", "target", "node_type"],
+      "properties": {
+        "source": {"$ref": "#/$defs/identifier"},
+        "relation": {
+          "enum": [
+            "IsA",
+            "PartOf",
+            "Cause",
+            "Dependency",
+            "Constraint",
+            "Temporal",
+            "Spatial",
+            "Similar"
+          ]
+        },
+        "target": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "RelationNode"}
+      }
+    },
+    "let": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identifier", "expression", "node_type"],
+      "properties": {
+        "identifier": {"$ref": "#/$defs/identifier"},
+        "expression": {"$ref": "#/$defs/expression"},
+        "node_type": {"const": "LetStatementNode"}
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "expression", "node_type"],
+      "properties": {
+        "target": {"$ref": "#/$defs/identifier"},
+        "expression": {"$ref": "#/$defs/expression"},
+        "node_type": {"const": "AssignmentStatementNode"}
+      }
+    },
+    "result_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expression", "node_type"],
+      "properties": {
+        "expression": {"$ref": "#/$defs/expression"},
+        "node_type": {"const": "ResultStatementNode"}
+      }
+    },
+    "require_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["constraint", "node_type"],
+      "properties": {
+        "constraint": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "RequireStatementNode"}
+      }
+    },
+    "goal_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goal", "node_type"],
+      "properties": {
+        "goal": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "GoalStatementNode"}
+      }
+    },
+    "reach_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["goal", "node_type"],
+      "properties": {
+        "goal": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "ReachStatementNode"}
+      }
+    },
+    "expression_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expression", "node_type"],
+      "properties": {
+        "expression": {"$ref": "#/$defs/expression"},
+        "node_type": {"const": "ExpressionStatementNode"}
+      }
+    },
+    "else_if": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition", "body", "node_type"],
+      "properties": {
+        "condition": {"$ref": "#/$defs/expression"},
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/statement"}
+        },
+        "node_type": {"const": "ElseIfStatementNode"}
+      }
+    },
+    "else": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body", "node_type"],
+      "properties": {
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/statement"}
+        },
+        "node_type": {"const": "ElseStatementNode"}
+      }
+    },
+    "if": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "condition",
+        "body",
+        "elif_branches",
+        "else_branch",
+        "node_type"
+      ],
+      "properties": {
+        "condition": {"$ref": "#/$defs/expression"},
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/statement"}
+        },
+        "elif_branches": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/else_if"}
+        },
+        "else_branch": {
+          "oneOf": [
+            {"$ref": "#/$defs/else"},
+            {"type": "null"}
+          ]
+        },
+        "node_type": {"const": "IfStatementNode"}
+      }
+    },
+    "match_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pattern", "body", "node_type"],
+      "properties": {
+        "pattern": {"$ref": "#/$defs/pattern"},
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/statement"}
+        },
+        "node_type": {"const": "MatchArmNode"}
+      }
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expression", "arms", "node_type"],
+      "properties": {
+        "expression": {"$ref": "#/$defs/expression"},
+        "arms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/match_arm"}
+        },
+        "node_type": {"const": "MatchStatementNode"}
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "from_state",
+        "to_state",
+        "body",
+        "node_type"
+      ],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "from_state": {"$ref": "#/$defs/identifier"},
+        "to_state": {"$ref": "#/$defs/identifier"},
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/statement"}
+        },
+        "node_type": {"const": "TransitionNode"}
+      }
+    },
+    "calculation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "visibility", "goal_annotation", "body", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "visibility": {
+          "enum": ["Public", "Private"]
+        },
+        "goal_annotation": {
+          "type": ["string", "null"]
+        },
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/statement"}
+        },
+        "node_type": {"const": "CalculationNode"}
+      }
+    }
+  }
+}
