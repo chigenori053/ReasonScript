@@ -132,22 +132,24 @@ to the Reasoning Space and is not stored in it.
 
 ### Simulation
 
-Partially validated. `TransitionType::Simulation` is representable, and the
-existing runtime executor supports graph dynamics. A dedicated API that
-evaluates alternative SemanticPlan trajectories and emits a validated
-simulation result is not part of this draft implementation.
+Validated by SSV-1. `TransitionType::Simulation` remains representable, and the
+dedicated `SemanticSimulation` layer now evaluates `SemanticPlan` trajectories
+without mutating the Reasoning Space. It emits deterministic
+`SimulationResult` values containing reachability, path, distance, cost,
+confidence, complete trace data, and predicted states.
 
 ### Knowledge emergence
 
-Partially validated. Closure produces validated inferred relations, but no
-result is promoted into a persistent knowledge object or repository. This is
-consistent with the non-goals, but the complete:
+Not validated. Closure produces validated inferred relations and SSV-1
+produces structured simulation results, but no result is promoted into a
+persistent knowledge object or repository. This is consistent with the
+non-goals. The remaining pipeline boundary is:
 
 ```text
-SemanticPlan -> SemanticSimulation -> Validated Result -> Knowledge
+SimulationResult -> Knowledge
 ```
 
-pipeline remains future work.
+That transformation remains future KEV-1 work.
 
 ## Adoption Criteria
 
@@ -162,8 +164,7 @@ pipeline remains future work.
 Formal adoption remains conditional because:
 
 1. `Custom(...)` relations are not supported by the closed `RelationType` enum.
-2. Dedicated multi-trajectory SemanticSimulation validation is not implemented.
-3. SCV-2 and later temporal/causal/spatial/dependency constraints remain
+2. SCV-2 and later temporal/causal/spatial/dependency constraints remain
    experimental.
 
 ## Conclusion

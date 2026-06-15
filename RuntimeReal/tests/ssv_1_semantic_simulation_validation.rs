@@ -172,10 +172,40 @@ fn plan_constraints_are_applied_during_simulation() {
 }
 
 #[test]
-fn invalid_cost_or_confidence_is_rejected() {
+fn invalid_edge_metrics_are_rejected() {
     let (space, dog, _, animal) = dog_space();
     let mut graph = space.into_graph();
     graph.edges[0].confidence = 1.5;
+    let space = ReasoningSpace::from_graph(graph).unwrap();
+
+    assert!(matches!(
+        SemanticSimulation::new().simulate_goal(&space, dog, animal),
+        Err(SemanticSimulationError::InvalidEdgeConfidence { .. })
+    ));
+
+    let (space, dog, _, animal) = dog_space();
+    let mut graph = space.into_graph();
+    graph.edges[0].cost = -1.0;
+    let space = ReasoningSpace::from_graph(graph).unwrap();
+
+    assert!(matches!(
+        SemanticSimulation::new().simulate_goal(&space, dog, animal),
+        Err(SemanticSimulationError::InvalidEdgeCost { .. })
+    ));
+
+    let (space, dog, _, animal) = dog_space();
+    let mut graph = space.into_graph();
+    graph.edges[0].cost = f64::INFINITY;
+    let space = ReasoningSpace::from_graph(graph).unwrap();
+
+    assert!(matches!(
+        SemanticSimulation::new().simulate_goal(&space, dog, animal),
+        Err(SemanticSimulationError::InvalidEdgeCost { .. })
+    ));
+
+    let (space, dog, _, animal) = dog_space();
+    let mut graph = space.into_graph();
+    graph.edges[0].confidence = f64::NAN;
     let space = ReasoningSpace::from_graph(graph).unwrap();
 
     assert!(matches!(

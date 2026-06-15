@@ -64,7 +64,7 @@ rejected. Closure-generated edges now compose both metrics correctly.
 Additional validation:
 
 - Plan avoidance constraints are enforced.
-- Invalid confidence is rejected.
+- Negative/non-finite cost and invalid/non-finite confidence are rejected.
 - `SimulationResult` JSON round trips without loss.
 
 Dedicated SSV result: 9 passed, 0 failed.

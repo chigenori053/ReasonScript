@@ -1,5 +1,5 @@
 use crate::graph::{ReasonGraph, Edge};
-use crate::core::dynamics::{DynamicsContext, ActivationState};
+use crate::core::dynamics::ActivationState;
 use crate::core::SemanticContext;
 use crate::core::StructuralConstraintValidator;
 use crate::core::types::RelationType;
