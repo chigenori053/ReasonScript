@@ -194,12 +194,15 @@ Reasoning Space
     +-- closure-generated relations
 ```
 
-Closure-generated relations are emergent reasoning results. They remain graph
-relations and are not promoted to a persistent knowledge repository by this
-API.
+Closure-generated relations remain graph relations. KEV-1 now provides the
+separate validated promotion boundary:
 
-A separate validated simulation-result-to-knowledge pipeline is not yet
-implemented in `RuntimeReal`.
+```text
+SimulationResult -> Knowledge
+```
+
+This creates an explicit traceable Knowledge value. It does not persist the
+value or turn the Reasoning Space into a knowledge repository.
 
 ## Non-Goals
 

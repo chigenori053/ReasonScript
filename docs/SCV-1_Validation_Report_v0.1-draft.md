@@ -5,7 +5,8 @@
 - Date: 2026-06-15
 - Target crate: `RuntimeReal`
 - Specification: SCV-1 v0.1-draft
-- Overall result: PASS with one unrelated benchmark not completed
+- Adoption status: ADOPTED by ReasonScript Semantic Language v0.2 Core
+- Overall result: PASS
 
 ## Implemented Components
 
@@ -74,7 +75,7 @@ cargo test -- --skip vs2_scaling_benchmarks
 
 Result:
 
-- 54 tests passed
+- 93 tests passed
 - 0 tests failed
 - 1 test filtered out
 - Documentation tests passed
@@ -92,8 +93,8 @@ introduced by the SCV-1 module or test suite.
 | Criterion | Status | Evidence |
 | --- | --- | --- |
 | All SCV tests pass | Met | 11/11 SCV tests passed |
-| SemanticPlan consistency | Partially met | Validation is enforced at `Executor::infer`; `RuntimeReal` has no standalone `SemanticPlan` API |
-| No SemanticSimulation conflict | Met within current runtime | All available non-scaling runtime tests passed; simulation correctness remains outside SCV-1 |
+| SemanticPlan consistency | Met | `ReasoningSpace::execute_plan` and `SemanticSimulation` apply SCV-1 before trajectory evaluation |
+| SemanticSimulation compatibility | Met | SSV-1 and the Semantic Language v0.2 Core gate pass |
 | Reason IR conversion possible | Met for current graph IR | `GraphIR` wraps the serializable `ReasonGraph`; relation names are enum-validated during deserialization |
 
 ## Limitations
@@ -103,14 +104,11 @@ introduced by the SCV-1 module or test suite.
    deserialization rather than inside `validate_graph`.
 2. SCV-1 intentionally does not validate `Temporal`, `Spatial`, or `Dependency`
    relation matrices.
-3. `RuntimeReal` still needs a dedicated `SemanticPlan` abstraction if the
-   specification requires validation at a distinct plan-generation API.
-4. The scaling benchmark should be moved to an ignored or release-mode
+3. The scaling benchmark should be moved to an ignored or release-mode
    performance suite so ordinary regression runs complete predictably.
 
 ## Conclusion
 
-SCV-1 is implemented as an executable structural type system for
-`RuntimeReal`. Invalid semantic topology is rejected before inference
-dynamics, while valid SCV-1 graphs remain compatible with the existing runtime
-and closure tests.
+SCV-1 is adopted as the executable structural type system for ReasonScript
+Semantic Language v0.2 Core. Invalid semantic topology is rejected before
+reasoning, simulation, or Knowledge emergence.

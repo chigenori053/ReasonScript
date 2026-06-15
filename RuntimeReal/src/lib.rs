@@ -5,3 +5,4 @@ pub mod executor;
 pub mod storage;
 pub mod api;
 pub mod semantic_simulation;
+pub mod knowledge;

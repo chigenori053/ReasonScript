@@ -3,6 +3,36 @@
 ReasonScript is a reasoning-first language for proofable AI workflows,
 deterministic execution, and rollback-safe systems.
 
+# Semantic Language v0.2 Core
+
+ReasonScript Semantic Language v0.2 Core was frozen on 2026-06-15 as:
+
+```text
+A Deterministic Semantic State Transition Language
+with Validated Knowledge Emergence
+```
+
+Its canonical pipeline is:
+
+```text
+SemanticUnit
+  -> SemanticRelation
+  -> Reasoning Space
+  -> SemanticPlan
+  -> SemanticSimulation
+  -> SimulationResult
+  -> Knowledge
+```
+
+The normative specification is
+`docs/ReasonScript_Semantic_Language_Core_v0.2.md`.
+
+Run the Core freeze gate with:
+
+```sh
+python3 release/semantic-language-v0.2/run_release_validation.py
+```
+
 # Platform v0.1 Alpha
 
 The current platform release is `0.1.0-alpha` (2026-06-13). It integrates:

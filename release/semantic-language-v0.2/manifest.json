@@ -1,0 +1,56 @@
+{
+  "release": {
+    "name": "ReasonScript Semantic Language v0.2 Core",
+    "version": "reasonscript-semantic-language/0.2",
+    "status": "core_frozen",
+    "release_type": "semantic_language_foundation",
+    "date": "2026-06-15"
+  },
+  "runtime": {
+    "crate": "RuntimeReal",
+    "package": "reasonscript-runtime-real"
+  },
+  "frozen_concepts": [
+    "SemanticUnit",
+    "SemanticRelation",
+    "SCV-1",
+    "Reasoning Space",
+    "SemanticPlan",
+    "SemanticSimulation",
+    "SimulationResult",
+    "Knowledge"
+  ],
+  "adopted_validations": [
+    "SCV-1",
+    "Reasoning Space v0.1-draft",
+    "SSV-1 v0.1-draft",
+    "KEV-1 v0.1-draft"
+  ],
+  "normative_specification": "docs/ReasonScript_Semantic_Language_Core_v0.2.md",
+  "validation_report": "docs/ReasonScript_Semantic_Language_Core_v0.2_Validation_Report.md",
+  "validation_results": "release/semantic-language-v0.2/reports/release_validation_results.json",
+  "release_gate": "release/semantic-language-v0.2/run_release_validation.py",
+  "artifacts": [
+    "docs/ReasonScript_Semantic_Language_Core_v0.2.md",
+    "docs/ReasonScript_Semantic_Language_Core_v0.2_Validation_Report.md",
+    "docs/SCV-1_Structural_Constraint_Validation_Specification_v0.1-draft.md",
+    "docs/SCV-1_Validation_Report_v0.1-draft.md",
+    "docs/Reasoning_Space_Specification_v0.1-draft.md",
+    "docs/Reasoning_Space_Validation_Report_v0.1-draft.md",
+    "docs/SSV-1_Semantic_Simulation_Validation_Specification_v0.1-draft.md",
+    "docs/SSV-1_Semantic_Simulation_Validation_Report_v0.1-draft.md",
+    "docs/KEV-1_Knowledge_Emergence_Validation_Specification_v0.1-draft.md",
+    "docs/KEV-1_Knowledge_Emergence_Validation_Report_v0.1-draft.md",
+    "RuntimeReal/src/semantic_simulation.rs",
+    "RuntimeReal/src/knowledge/mod.rs",
+    "RuntimeReal/tests/semantic_language_v02_core_validation.rs"
+  ],
+  "release_gates": {
+    "scv_1_tests": 11,
+    "reasoning_space_tests": 11,
+    "ssv_1_tests": 9,
+    "kev_1_tests": 11,
+    "core_tests": 8,
+    "runtime_regression_tests": 93
+  }
+}

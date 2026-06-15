@@ -113,6 +113,7 @@ the canonical `ReasoningSpace` input.
 
 ```text
 SimulationResult
+├─ source_plan
 ├─ success
 ├─ path
 ├─ distance
@@ -121,6 +122,10 @@ SimulationResult
 ├─ trace
 └─ predicted_states
 ```
+
+Each `SimulationStep` also records the source and target semantic unit types.
+These fields let later validation layers reapply SCV-1 without mutable access
+to the original Reasoning Space.
 
 ### Successful result
 
@@ -164,6 +169,10 @@ Closure-generated relations compose:
 derived cost       = first cost + second cost
 derived confidence = first confidence * second confidence
 ```
+
+Aggregated simulation metrics are normalized to 12 decimal places. This makes
+their serialized representation reproducible across a JSON round trip while
+retaining substantially more precision than the draft validation requires.
 
 ## Validation Rules
 

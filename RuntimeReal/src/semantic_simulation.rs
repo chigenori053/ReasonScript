@@ -1,4 +1,4 @@
-use crate::core::types::{RelationType, TransitionType};
+use crate::core::types::{RelationType, StateType, TransitionType};
 use crate::graph::{
     ReasonGraph, ReasoningSpace, ReasoningSpaceError, SemanticPlan, SemanticPlanConstraints,
 };
@@ -13,6 +13,8 @@ pub const SEMANTIC_SIMULATION_VERSION: &str = "ssv-1/0.1-draft";
 pub struct SimulationStep {
     pub source: Uuid,
     pub target: Uuid,
+    pub source_type: StateType,
+    pub target_type: StateType,
     pub relation: RelationType,
     pub transition: TransitionType,
     pub cost: f64,
@@ -29,6 +31,7 @@ pub struct SimulationTrace {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SimulationResult {
+    pub source_plan: SemanticPlan,
     pub success: bool,
     pub path: Vec<Uuid>,
     pub distance: usize,
@@ -122,6 +125,7 @@ impl SemanticSimulation {
             Ok(path) => path.nodes,
             Err(ReasoningSpaceError::GoalUnreachable { .. }) => {
                 return Ok(SimulationResult {
+                    source_plan: plan.clone(),
                     success: false,
                     path: vec![plan.start],
                     distance: 0,
@@ -152,11 +156,23 @@ impl SemanticSimulation {
                     target: nodes[1],
                 })?;
             validate_edge_metrics(edge.id, edge.cost, edge.confidence)?;
-            cost += edge.cost;
-            confidence *= edge.confidence;
+            let source_type = space
+                .graph()
+                .get_node_state(&edge.source)
+                .ok_or(SemanticSimulationError::NodeNotFound(edge.source))?
+                .state_type;
+            let target_type = space
+                .graph()
+                .get_node_state(&edge.target)
+                .ok_or(SemanticSimulationError::NodeNotFound(edge.target))?
+                .state_type;
+            cost = normalize_metric(cost + edge.cost);
+            confidence = normalize_metric(confidence * edge.confidence);
             steps.push(SimulationStep {
                 source: edge.source,
                 target: edge.target,
+                source_type,
+                target_type,
                 relation: edge.relation,
                 transition: edge.transition.transition_type,
                 cost: edge.cost,
@@ -165,6 +181,7 @@ impl SemanticSimulation {
         }
 
         Ok(SimulationResult {
+            source_plan: plan.clone(),
             success: true,
             distance: path.len().saturating_sub(1),
             cost,
@@ -261,6 +278,11 @@ fn validate_edge_metrics(
         });
     }
     Ok(())
+}
+
+fn normalize_metric(value: f64) -> f64 {
+    const SCALE: f64 = 1_000_000_000_000.0;
+    (value * SCALE).round() / SCALE
 }
 
 fn map_space_error(error: ReasoningSpaceError) -> SemanticSimulationError {

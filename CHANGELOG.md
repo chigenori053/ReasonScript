@@ -1,5 +1,32 @@
 # Changelog
 
+## reasonscript-semantic-language/0.2 - 2026-06-15
+
+ReasonScript Semantic Language v0.2 Core freeze.
+
+### Frozen Core
+
+- SemanticUnit and the seven adopted SemanticUnit types
+- SemanticRelation and the eight core relation types
+- SCV-1 structural validation
+- Reasoning Space and SemanticPlan
+- deterministic SemanticSimulation and SimulationResult
+- validated Knowledge emergence with complete evidence
+
+### Guarantees
+
+- deterministic reasoning for identical graph, plan, and constraints
+- SCV-1 enforcement throughout the reasoning pipeline
+- immutable Reasoning Space during simulation
+- trace, evidence, and confidence preservation
+- reproducible SimulationResult and Knowledge JSON
+
+### Out of Scope
+
+- SCV-2 through SCV-5
+- Knowledge repositories, persistence, retrieval, and re-reasoning
+- MemorySpace, WorldModel, natural language parsing, and external execution
+
 ## reasonscript-language-surface/0.1 - 2026-06-14
 
 ReasonScript Language Surface v0.1 release.

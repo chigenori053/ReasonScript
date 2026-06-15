@@ -1,0 +1,87 @@
+{
+  "release_version": "reasonscript-semantic-language/0.2",
+  "validated_on": "2026-06-15",
+  "status": "pass",
+  "failures": [],
+  "results": [
+    {
+      "name": "scv_1",
+      "status": "pass",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "RuntimeReal/Cargo.toml",
+        "--test",
+        "scv_1_structural_constraint_validation"
+      ],
+      "test_count": 11
+    },
+    {
+      "name": "reasoning_space",
+      "status": "pass",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "RuntimeReal/Cargo.toml",
+        "--test",
+        "reasoning_space_validation"
+      ],
+      "test_count": 11
+    },
+    {
+      "name": "ssv_1",
+      "status": "pass",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "RuntimeReal/Cargo.toml",
+        "--test",
+        "ssv_1_semantic_simulation_validation"
+      ],
+      "test_count": 9
+    },
+    {
+      "name": "kev_1",
+      "status": "pass",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "RuntimeReal/Cargo.toml",
+        "--test",
+        "kev_1_knowledge_emergence_validation"
+      ],
+      "test_count": 11
+    },
+    {
+      "name": "core",
+      "status": "pass",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "RuntimeReal/Cargo.toml",
+        "--test",
+        "semantic_language_v02_core_validation"
+      ],
+      "test_count": 8
+    },
+    {
+      "name": "runtime_regression",
+      "status": "pass",
+      "command": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "RuntimeReal/Cargo.toml",
+        "--",
+        "--skip",
+        "vs2_scaling_benchmarks"
+      ],
+      "test_count": 93
+    }
+  ]
+}

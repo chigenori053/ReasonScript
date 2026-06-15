@@ -6,7 +6,7 @@
 - Target: ReasonScript Semantic Language v0.2
 - Runtime: `RuntimeReal`
 - Result: PASS for the implemented draft scope
-- Formal adoption recommendation: Conditional
+- Adoption status: ADOPTED by ReasonScript Semantic Language v0.2 Core
 
 ## Implementation
 
@@ -140,16 +140,16 @@ confidence, complete trace data, and predicted states.
 
 ### Knowledge emergence
 
-Not validated. Closure produces validated inferred relations and SSV-1
-produces structured simulation results, but no result is promoted into a
-persistent knowledge object or repository. This is consistent with the
-non-goals. The remaining pipeline boundary is:
+Validated by KEV-1. Closure produces validated inferred relations, SSV-1
+produces structured simulation results, and KEV-1 promotes successful,
+SCV-compatible results into explicit traceable `Knowledge` values:
 
 ```text
 SimulationResult -> Knowledge
 ```
 
-That transformation remains future KEV-1 work.
+Knowledge persistence, retrieval, and re-reasoning remain separate future
+layers.
 
 ## Adoption Criteria
 
@@ -161,11 +161,9 @@ That transformation remains future KEV-1 work.
 | SemanticGraph validated | Satisfied by construction and GraphIR round trip |
 | SemanticPlan integration validated | Satisfied for shortest-path requests |
 
-Formal adoption remains conditional because:
-
-1. `Custom(...)` relations are not supported by the closed `RelationType` enum.
-2. SCV-2 and later temporal/causal/spatial/dependency constraints remain
-   experimental.
+The Reasoning Space contract is adopted for the Semantic Language v0.2 Core
+scope. `Custom(...)` relations and SCV-2 through SCV-5 are explicit future
+extensions rather than adoption blockers.
 
 ## Conclusion
 

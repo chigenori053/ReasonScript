@@ -5,7 +5,7 @@
 - Specification: SCV-1 Structural Constraint Validation
 - Version: 0.1-draft
 - Target: ReasonScript Semantic Language v0.2
-- Status: Experimental Validation
+- Status: ADOPTED by ReasonScript Semantic Language v0.2 Core
 - Runtime mapping: `RuntimeReal`
 
 ## Purpose

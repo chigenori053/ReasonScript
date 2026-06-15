@@ -23,6 +23,9 @@ The layer borrows a `ReasoningSpace` immutably. It evaluates trajectories but
 does not execute graph dynamics, create closure relations, write storage, or
 produce knowledge.
 
+For downstream KEV-1 validation, `SimulationResult` preserves its source plan
+and each trace step preserves source and target semantic unit types.
+
 ## Plan Integration
 
 `SemanticPlan` now includes defaulted optional constraints:
@@ -48,6 +51,8 @@ confidence = product(path edge confidences)
 
 Negative or non-finite costs and confidence values outside `[0.0, 1.0]` are
 rejected. Closure-generated edges now compose both metrics correctly.
+Aggregated simulation metrics are normalized to 12 decimal places so their
+JSON representation round trips without floating-point drift.
 
 ## Validation Results
 
@@ -77,14 +82,14 @@ cargo test -- --skip vs2_scaling_benchmarks
 
 Regression result:
 
-- 74 tests passed
+- 85 tests passed
 - 0 tests failed
 - 1 pre-existing scaling benchmark filtered out
 - Documentation tests passed
 
 The excluded benchmark performs debug-mode closure over 100, 500, and
-1000-node graphs. All normal closure, SCV-1, Reasoning Space, executor, IR, and
-simulation tests passed.
+1000-node graphs. All normal closure, SCV-1, Reasoning Space, executor, IR,
+simulation, and Knowledge tests passed.
 
 ## Behavioral Decisions
 
@@ -128,8 +133,8 @@ still reachable from the start.
 2. Confidence is an input metric; SSV-1 does not establish its real-world
    calibration.
 3. Temporal and spatial causal correctness remain outside SSV-1.
-4. SSV-1 produces no `Knowledge` object. That transformation belongs to a
-   future KEV-1 phase.
+4. SSV-1 itself produces no `Knowledge` object. The separate KEV-1 layer now
+   performs the validated `SimulationResult -> Knowledge` transformation.
 
 ## Conclusion
 
