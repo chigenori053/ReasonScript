@@ -1,0 +1,15 @@
+{
+  "containment": [
+    { "parent": "Room", "children": ["Chair", "Lamp", "Table"] },
+    { "parent": "RoomB", "children": ["Bed", "Desk"] },
+    { "parent": "World", "children": ["Room", "RoomB"] }
+  ],
+  "spatial_relations": [
+    { "source": "Bed", "relation": "far", "target": "Desk" },
+    { "source": "Chair", "relation": "right_of", "target": "Table" },
+    { "source": "Chair", "relation": "near", "target": "Table" },
+    { "source": "Lamp", "relation": "above", "target": "Table" },
+    { "source": "Table", "relation": "left_of", "target": "Chair" },
+    { "source": "Table", "relation": "below", "target": "Lamp" }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "cases": [
+    {
+      "case": "ST-011 Direct Horizontal Conflict",
+      "passed": false,
+      "checks": ["Circle left_of Rectangle", "Circle right_of Rectangle"],
+      "conflicts": [
+        { "type": "DirectConflict", "description": "left_of and right_of cannot both be true", "nodes": ["Circle", "Rectangle"] }
+      ]
+    },
+    {
+      "case": "ST-012 Direct Vertical Conflict",
+      "passed": false,
+      "checks": ["Triangle above Rectangle", "Triangle below Rectangle"],
+      "conflicts": [
+        { "type": "DirectConflict", "description": "above and below cannot both be true", "nodes": ["Triangle", "Rectangle"] }
+      ]
+    },
+    {
+      "case": "ST-013 Containment Conflict",
+      "passed": false,
+      "checks": ["Rectangle inside Star", "Star inside Rectangle"],
+      "conflicts": [
+        { "type": "ContainmentConflict", "description": "containment graph must be acyclic", "nodes": ["Rectangle", "Star"] }
+      ]
+    },
+    {
+      "case": "ST-014 Ordering Cycle",
+      "passed": false,
+      "checks": ["A left_of B", "B left_of C", "C left_of A"],
+      "conflicts": [
+        { "type": "CyclicConflict", "description": "left_of ordering cycle detected", "nodes": ["A", "B", "C"] }
+      ]
+    },
+    {
+      "case": "ST-015 Containment Cycle",
+      "passed": false,
+      "checks": ["A inside B", "B inside C", "C inside A"],
+      "conflicts": [
+        { "type": "ContainmentConflict", "description": "containment graph must be acyclic", "nodes": ["A", "B", "C"] }
+      ]
+    },
+    {
+      "case": "CF-005 Above Cycle",
+      "passed": false,
+      "checks": ["A above B", "B above C", "C above A"],
+      "conflicts": [
+        { "type": "CyclicConflict", "description": "above ordering cycle detected", "nodes": ["A", "B", "C"] }
+      ]
+    },
+    {
+      "case": "CF-006 Self Containment",
+      "passed": false,
+      "checks": ["Rectangle inside Rectangle"],
+      "conflicts": [
+        { "type": "ContainmentConflict", "description": "containment graph must be acyclic", "nodes": ["Rectangle"] },
+        { "type": "ContainmentConflict", "description": "object cannot contain itself", "nodes": ["Rectangle"] }
+      ]
+    },
+    {
+      "case": "CF-008 Containment Ordering Contradiction",
+      "passed": false,
+      "checks": ["A inside B", "B left_of A"],
+      "conflicts": [
+        { "type": "GeometricConflict", "description": "parent object cannot be ordered relative to its contained child", "nodes": ["B", "A"] }
+      ]
+    }
+  ]
+}

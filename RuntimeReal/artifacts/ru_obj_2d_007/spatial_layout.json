@@ -1,0 +1,10 @@
+{
+  "Bed": { "x": 600, "y": 500, "width": 60, "height": 60 },
+  "Chair": { "x": 390, "y": 535, "width": 60, "height": 60 },
+  "Desk": { "x": 920, "y": 500, "width": 60, "height": 60 },
+  "Lamp": { "x": 300, "y": 450, "width": 50, "height": 50 },
+  "Room": { "x": 350, "y": 500, "width": 380, "height": 360 },
+  "RoomB": { "x": 760, "y": 500, "width": 380, "height": 360 },
+  "Table": { "x": 300, "y": 535, "width": 60, "height": 60 },
+  "World": { "x": 500, "y": 500, "width": 900, "height": 700 }
+}

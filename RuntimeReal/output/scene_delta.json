@@ -1,0 +1,8 @@
+{
+  "added_objects": [],
+  "removed_objects": [],
+  "moved_objects": ["Circle"],
+  "changed_relations": [
+    { "source": "Circle", "relation_before": "left_of", "relation_after": "right_of", "target": "Rectangle" }
+  ]
+}

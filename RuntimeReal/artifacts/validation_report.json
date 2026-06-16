@@ -1,0 +1,5 @@
+{
+  "passed": true,
+  "checks": ["Circle left_of Rectangle", "Triangle above Rectangle", "Star inside Rectangle"],
+  "violations": []
+}

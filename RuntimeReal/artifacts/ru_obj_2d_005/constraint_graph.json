@@ -1,0 +1,62 @@
+{
+  "cases": [
+    {
+      "case": "ST-011 Direct Horizontal Conflict",
+      "constraints": [
+      { "source": "Circle", "relation": "left_of", "target": "Rectangle" },
+      { "source": "Circle", "relation": "right_of", "target": "Rectangle" }
+      ]
+    },
+    {
+      "case": "ST-012 Direct Vertical Conflict",
+      "constraints": [
+      { "source": "Triangle", "relation": "above", "target": "Rectangle" },
+      { "source": "Triangle", "relation": "below", "target": "Rectangle" }
+      ]
+    },
+    {
+      "case": "ST-013 Containment Conflict",
+      "constraints": [
+      { "source": "Rectangle", "relation": "inside", "target": "Star" },
+      { "source": "Star", "relation": "inside", "target": "Rectangle" }
+      ]
+    },
+    {
+      "case": "ST-014 Ordering Cycle",
+      "constraints": [
+      { "source": "A", "relation": "left_of", "target": "B" },
+      { "source": "B", "relation": "left_of", "target": "C" },
+      { "source": "C", "relation": "left_of", "target": "A" }
+      ]
+    },
+    {
+      "case": "ST-015 Containment Cycle",
+      "constraints": [
+      { "source": "A", "relation": "inside", "target": "B" },
+      { "source": "B", "relation": "inside", "target": "C" },
+      { "source": "C", "relation": "inside", "target": "A" }
+      ]
+    },
+    {
+      "case": "CF-005 Above Cycle",
+      "constraints": [
+      { "source": "A", "relation": "above", "target": "B" },
+      { "source": "B", "relation": "above", "target": "C" },
+      { "source": "C", "relation": "above", "target": "A" }
+      ]
+    },
+    {
+      "case": "CF-006 Self Containment",
+      "constraints": [
+      { "source": "Rectangle", "relation": "inside", "target": "Rectangle" }
+      ]
+    },
+    {
+      "case": "CF-008 Containment Ordering Contradiction",
+      "constraints": [
+      { "source": "A", "relation": "inside", "target": "B" },
+      { "source": "B", "relation": "left_of", "target": "A" }
+      ]
+    }
+  ]
+}

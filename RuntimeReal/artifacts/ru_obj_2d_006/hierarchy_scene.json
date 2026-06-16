@@ -1,0 +1,25 @@
+{
+  "root": {
+    "name": "World",
+    "children": [
+    {
+      "name": "House",
+      "children": [
+      {
+        "name": "RoomA",
+        "children": [
+        { "name": "Chair", "children": [] },
+        { "name": "Table", "children": [] }
+        ]
+      },
+      {
+        "name": "RoomB",
+        "children": [
+        { "name": "Bed", "children": [] }
+        ]
+      }
+      ]
+    }
+    ]
+  }
+}

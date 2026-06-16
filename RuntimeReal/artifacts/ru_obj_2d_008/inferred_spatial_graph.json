@@ -1,0 +1,6 @@
+{
+  "relations": [
+    { "source": "Chair", "relation": "near", "target": "Table" },
+    { "source": "Lamp", "relation": "above", "target": "Table" }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "Chair": { "x": 390, "y": 500, "width": 50, "height": 50 },
+  "Lamp": { "x": 300, "y": 430, "width": 40, "height": 40 },
+  "Table": { "x": 300, "y": 500, "width": 80, "height": 60 }
+}

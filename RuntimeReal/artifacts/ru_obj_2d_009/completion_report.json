@@ -1,0 +1,7 @@
+{
+  "status": "Incomplete",
+  "completed": true,
+  "added_objects": ["Chair"],
+  "added_relations": [{ "source": "Chair", "relation": "near", "target": "Table" }],
+  "explanation": ["DiningRoom expects Chair near Table"]
+}

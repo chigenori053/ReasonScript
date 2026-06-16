@@ -1,0 +1,5 @@
+{
+  "passed": true,
+  "checks": ["required objects exist", "Table inside scene", "Chair inside scene", "Lamp inside scene", "Chair near Table", "Lamp above Table"],
+  "violations": []
+}

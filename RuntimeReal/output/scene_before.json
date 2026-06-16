@@ -1,0 +1,9 @@
+{
+  "scene": [
+    { "name": "Rectangle", "type": "rectangle", "x": 300, "y": 300, "width": 120, "height": 80 },
+    { "name": "Circle", "type": "circle", "x": 150, "y": 300, "radius": 40 }
+  ],
+  "relations": [
+    { "source": "Circle", "relation": "left_of", "target": "Rectangle" }
+  ]
+}

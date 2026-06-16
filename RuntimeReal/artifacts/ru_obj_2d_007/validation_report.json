@@ -1,0 +1,5 @@
+{
+  "passed": true,
+  "checks": ["Chair inside Room", "Lamp inside Room", "Table inside Room", "Bed inside RoomB", "Desk inside RoomB", "Room inside World", "RoomB inside World", "Bed far Desk", "Chair right_of Table", "Chair near Table", "Lamp above Table", "Table left_of Chair", "Table below Lamp"],
+  "violations": []
+}
