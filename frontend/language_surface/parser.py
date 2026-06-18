@@ -309,10 +309,15 @@ def _parse_match(cursor: _Cursor, *, context: str) -> MatchStatementNode:
         arm = re.fullmatch(r"(.+?)\s*=>\s*(.+)", line)
         if not arm:
             raise SurfaceSyntaxError(f"invalid match arm: {line}")
+        arm_body = (
+            tuple(_parse_body(cursor, context=context))
+            if arm.group(2).strip() == "{"
+            else (_parse_simple(arm.group(2).strip(), context=context),)
+        )
         arms.append(
             MatchArmNode(
                 _pattern(arm.group(1)),
-                (_parse_simple(arm.group(2).strip(), context=context),),
+                arm_body,
             )
         )
     raise SurfaceSyntaxError("unterminated match block")
@@ -333,6 +338,15 @@ def _pattern(source: str):
 
 
 def _type_annotation(source: str):
+    primitive_aliases = {
+        "int": PrimitiveKind.INT,
+        "float": PrimitiveKind.FLOAT,
+        "bool": PrimitiveKind.BOOL,
+        "string": PrimitiveKind.STRING,
+        "null": PrimitiveKind.NULL,
+    }
+    if source in primitive_aliases:
+        return PrimitiveTypeNode(primitive_aliases[source])
     try:
         return PrimitiveTypeNode(PrimitiveKind(source))
     except ValueError:

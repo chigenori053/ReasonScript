@@ -71,6 +71,14 @@ from .namespace import ModuleNamespace, NamespaceResolutionError, resolve_progra
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+RESERVED_IDENTIFIERS = {
+    "bool",
+    "true",
+    "false",
+    "if",
+    "else",
+    "match",
+}
 DECLARATION_NODES = (
     ConceptNode,
     ObjectNode,
@@ -285,8 +293,24 @@ def _validate_ast_node(node: Any) -> None:
         _expression(node.expression, "MT-001 MatchNode.expression")
         if not node.arms:
             raise SurfaceValidationError("MT-002 MatchNode requires at least one arm")
-        for arm in node.arms:
+        arm_keys: set[tuple[str, Any]] = set()
+        default_seen = False
+        for index, arm in enumerate(node.arms):
             _pattern(arm.pattern)
+            key = _pattern_key(arm.pattern)
+            if key[0] == "wildcard":
+                if default_seen:
+                    raise SurfaceValidationError(
+                        "CV-6 only one default match arm is permitted"
+                    )
+                default_seen = True
+                if index != len(node.arms) - 1:
+                    raise SurfaceValidationError(
+                        "CV-7 default match arm must be last"
+                    )
+            elif key in arm_keys:
+                raise SurfaceValidationError("CV-5 duplicate match arm")
+            arm_keys.add(key)
     elif isinstance(node, ConstraintNode):
         _identifier(node.name, "AST-V002 ConstraintNode.name")
     elif isinstance(node, DECLARATION_NODES):
@@ -565,6 +589,7 @@ def _validate_calculation_statements(
             _validate_calculation_expression(
                 statement.condition, symbols, local_bindings
             )
+            _require_bool_condition(statement.condition, symbols, local_bindings)
             _validate_calculation_statements(
                 statement.body,
                 symbols=symbols,
@@ -576,6 +601,7 @@ def _validate_calculation_statements(
                 _validate_calculation_expression(
                     branch.condition, symbols, local_bindings
                 )
+                _require_bool_condition(branch.condition, symbols, local_bindings)
                 _validate_calculation_statements(
                     branch.body,
                     symbols=symbols,
@@ -717,6 +743,7 @@ def _validate_function_statements(
             _validate_calculation_expression(
                 statement.condition, symbols, local_bindings
             )
+            _require_bool_condition(statement.condition, symbols, local_bindings)
             _validate_function_statements(
                 statement.body,
                 symbols=symbols,
@@ -727,6 +754,7 @@ def _validate_function_statements(
                 _validate_calculation_expression(
                     branch.condition, symbols, local_bindings
                 )
+                _require_bool_condition(branch.condition, symbols, local_bindings)
                 _validate_function_statements(
                     branch.body,
                     symbols=symbols,
@@ -912,13 +940,22 @@ def _expression_type(
     if isinstance(value, ComparisonExpressionNode):
         left = _expression_type(value.left, symbols, bindings)
         right = _expression_type(value.right, symbols, bindings)
-        if (
-            left is not _UNKNOWN_TYPE
-            and right is not _UNKNOWN_TYPE
-            and left != right
-        ):
+        if left is _UNKNOWN_TYPE or right is _UNKNOWN_TYPE:
+            return PrimitiveTypeNode(PrimitiveKind.BOOL)
+        if left != right:
             raise SurfaceValidationError(
                 "TYPE-V005 comparison operands must have the same type"
+            )
+        numeric = {
+            PrimitiveTypeNode(PrimitiveKind.INT),
+            PrimitiveTypeNode(PrimitiveKind.FLOAT),
+        }
+        if value.operator not in {
+            ComparisonOperator.EQUAL,
+            ComparisonOperator.NOT_EQUAL,
+        } and left not in numeric:
+            raise SurfaceValidationError(
+                "CV-2 comparison operands must be comparable"
             )
         return PrimitiveTypeNode(PrimitiveKind.BOOL)
     if isinstance(value, LogicalExpressionNode):
@@ -996,6 +1033,17 @@ def _type_name(value: Any) -> str:
     return "Unknown"
 
 
+def _require_bool_condition(
+    expression: ExpressionNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    expression_type = _expression_type(expression.expression, symbols, bindings)
+    bool_type = PrimitiveTypeNode(PrimitiveKind.BOOL)
+    if expression_type is _UNKNOWN_TYPE or expression_type != bool_type:
+        raise SurfaceValidationError("CV-1 ConditionMustBeBoolean")
+
+
 def _validate_node_types(value: Any) -> None:
     if is_dataclass(value) and not isinstance(value, type):
         if not isinstance(value, KNOWN_NODE_TYPES):
@@ -1012,6 +1060,8 @@ def _validate_node_types(value: Any) -> None:
 def _identifier(value: Any, location: str) -> None:
     if not isinstance(value, str) or not IDENTIFIER.fullmatch(value):
         raise SurfaceValidationError(f"{location} is not a valid identifier")
+    if value in RESERVED_IDENTIFIERS:
+        raise SurfaceValidationError(f"{location} is a reserved keyword: {value}")
 
 
 def _expression(value: ExpressionNode, location: str) -> None:
@@ -1109,3 +1159,21 @@ def _pattern(value: PatternNode) -> None:
     raise SurfaceValidationError(
         f"PT-V001 unknown pattern type: {type(pattern).__name__}"
     )
+
+
+def _pattern_key(value: PatternNode) -> tuple[str, Any]:
+    pattern = value.pattern
+    if isinstance(pattern, WildcardPatternNode):
+        return ("wildcard", "_")
+    if isinstance(pattern, IdentifierPatternNode):
+        return ("identifier", pattern.name)
+    if isinstance(pattern, LiteralPatternNode):
+        literal = pattern.value
+        if isinstance(literal, NullLiteralNode):
+            return ("literal", "Null", None)
+        return (
+            "literal",
+            type(literal).__name__,
+            getattr(literal, "value", None),
+        )
+    return ("unknown", type(pattern).__name__)

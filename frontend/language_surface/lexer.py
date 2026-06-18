@@ -10,6 +10,7 @@ KEYWORDS = {
     "action",
     "as",
     "attribute",
+    "bool",
     "calculation",
     "concept",
     "constraint",
@@ -17,6 +18,7 @@ KEYWORDS = {
     "elif",
     "else",
     "event",
+    "false",
     "fn",
     "goal",
     "if",
@@ -32,6 +34,7 @@ KEYWORDS = {
     "result",
     "return",
     "transition",
+    "true",
 }
 
 
