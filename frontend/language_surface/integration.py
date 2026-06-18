@@ -17,9 +17,11 @@ from .nodes import (
     ComparisonExpressionNode,
     ConstStatementNode,
     ContinueStatementNode,
+    EnumDeclarationNode,
     ExpressionNode,
     ConstraintNode,
     ExpressionStatementNode,
+    FieldAssignmentStatementNode,
     ForStatementNode,
     FunctionDeclarationNode,
     GoalNode,
@@ -37,6 +39,8 @@ from .nodes import (
     RequireStatementNode,
     ResultStatementNode,
     ReturnStatementNode,
+    StructDeclarationNode,
+    StructLiteralNode,
     TransitionNode,
     UnaryExpressionNode,
     WhileStatementNode,
@@ -205,6 +209,15 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
                     if isinstance(node, FunctionDeclarationNode)
                 ],
             ),
+            semantic.MetadataNode(
+                f"{module.name}-composite-types",
+                "composite_declarations",
+                [
+                    to_json_value(node)
+                    for node in module.body
+                    if isinstance(node, (StructDeclarationNode, EnumDeclarationNode))
+                ],
+            ),
         ),
     )
 
@@ -252,6 +265,8 @@ def _expression_relation(expression: ExpressionNode) -> str:
         return "UnaryTransition"
     if isinstance(value, MemberAccessNode):
         return "MemberAccessTransition"
+    if isinstance(value, StructLiteralNode):
+        return "StructLiteralTransition"
     if isinstance(value, CallExpressionNode):
         return "CallTransition"
     return "ExpressionTransition"
@@ -277,6 +292,12 @@ def _statement_projection(
             statement.target,
             to_json_value(statement),
             "StateUpdateTransition",
+        )
+    if isinstance(statement, FieldAssignmentStatementNode):
+        return (
+            "field_assignment",
+            to_json_value(statement),
+            "FieldAssignmentTransition",
         )
     if isinstance(statement, ResultStatementNode):
         return (

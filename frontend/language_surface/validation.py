@@ -23,11 +23,15 @@ from .nodes import (
     ConstraintNode,
     ConstStatementNode,
     ContinueStatementNode,
+    EnumDeclarationNode,
+    EnumValueNode,
+    EnumValuePatternNode,
     ElseIfStatementNode,
     ElseStatementNode,
     EventNode,
     ExpressionStatementNode,
     ExpressionNode,
+    FieldAssignmentStatementNode,
     FloatLiteralNode,
     ForStatementNode,
     FunctionDeclarationNode,
@@ -48,6 +52,7 @@ from .nodes import (
     MatchStatementNode,
     MemberAccessNode,
     ModuleNode,
+    NamedTypeNode,
     ObjectNode,
     NullLiteralNode,
     ParenthesizedExpressionNode,
@@ -65,6 +70,10 @@ from .nodes import (
     StringLiteralNode,
     StateKind,
     StateTypeNode,
+    StructDeclarationNode,
+    StructFieldNode,
+    StructLiteralFieldNode,
+    StructLiteralNode,
     TransitionNode,
     UnaryExpressionNode,
     UnaryOperator,
@@ -87,6 +96,8 @@ RESERVED_IDENTIFIERS = {
     "break",
     "continue",
     "in",
+    "struct",
+    "enum",
     "else",
     "match",
 }
@@ -98,6 +109,8 @@ DECLARATION_NODES = (
     AttributeNode,
     GoalNode,
     ConstraintNode,
+    StructDeclarationNode,
+    EnumDeclarationNode,
     CalculationNode,
     FunctionDeclarationNode,
     TransitionNode,
@@ -109,9 +122,12 @@ KNOWN_NODE_TYPES = (
     ImportResolutionNode,
     *DECLARATION_NODES,
     RelationNode,
+    StructFieldNode,
+    EnumValueNode,
     LetStatementNode,
     ConstStatementNode,
     AssignmentStatementNode,
+    FieldAssignmentStatementNode,
     ResultStatementNode,
     ReturnStatementNode,
     ForStatementNode,
@@ -144,7 +160,11 @@ KNOWN_NODE_TYPES = (
     ParenthesizedExpressionNode,
     MemberAccessNode,
     CallExpressionNode,
+    NamedTypeNode,
+    StructLiteralFieldNode,
+    StructLiteralNode,
     IdentifierPatternNode,
+    EnumValuePatternNode,
     WildcardPatternNode,
     LiteralPatternNode,
     PrimitiveTypeNode,
@@ -214,6 +234,7 @@ def _validate_module(module: ModuleNode) -> None:
                 LetStatementNode,
                 ConstStatementNode,
                 AssignmentStatementNode,
+                FieldAssignmentStatementNode,
                 ResultStatementNode,
                 ReturnStatementNode,
                 ForStatementNode,
@@ -245,6 +266,10 @@ def _validate_module(module: ModuleNode) -> None:
                 )
         if isinstance(node, TransitionNode):
             _validate_transition(node, symbols)
+        elif isinstance(node, StructDeclarationNode):
+            _validate_struct(node, symbols)
+        elif isinstance(node, EnumDeclarationNode):
+            _validate_enum(node)
         elif isinstance(node, CalculationNode):
             _validate_calculation(node, symbols)
         elif isinstance(node, FunctionDeclarationNode):
@@ -279,6 +304,15 @@ def _validate_ast_node(node: Any) -> None:
             if parameter in seen:
                 raise SurfaceValidationError(f"FN-003 duplicate parameter: {parameter}")
             seen.add(parameter)
+    elif isinstance(node, StructDeclarationNode):
+        _identifier(node.name, "TV-1 StructDeclarationNode.name")
+    elif isinstance(node, StructFieldNode):
+        _identifier(node.name, "TV-3 StructFieldNode.name")
+        _validate_type_node(node.field_type)
+    elif isinstance(node, EnumDeclarationNode):
+        _identifier(node.name, "TV-2 EnumDeclarationNode.name")
+    elif isinstance(node, EnumValueNode):
+        _identifier(node.name, "TV-7 EnumValueNode.name")
     elif isinstance(node, LetStatementNode):
         _identifier(node.identifier, "ST-001 LetStatementNode.identifier")
         _expression(node.expression, "ST-002 LetStatementNode.expression")
@@ -292,6 +326,9 @@ def _validate_ast_node(node: Any) -> None:
     elif isinstance(node, AssignmentStatementNode):
         _identifier(node.target, "AssignmentStatementNode.target")
         _expression(node.expression, "AssignmentStatementNode.expression")
+    elif isinstance(node, FieldAssignmentStatementNode):
+        _expression(node.target, "TV-10 FieldAssignmentStatementNode.target")
+        _expression(node.expression, "TV-10 FieldAssignmentStatementNode.expression")
     elif isinstance(node, ResultStatementNode):
         _expression(node.expression, "ST-020 ResultStatementNode.expression")
     elif isinstance(node, ReturnStatementNode):
@@ -360,6 +397,30 @@ def _validate_transition(node: TransitionNode, symbols: dict[str, Any]) -> None:
     )
 
 
+def _validate_struct(node: StructDeclarationNode, symbols: dict[str, Any]) -> None:
+    _validate_ast_node(node)
+    field_names: set[str] = set()
+    for field in node.fields:
+        _validate_ast_node(field)
+        if field.name in field_names:
+            raise SurfaceValidationError(f"TV-3 duplicate struct field: {field.name}")
+        field_names.add(field.name)
+        _resolve_type(field.field_type, symbols)
+        if isinstance(field.field_type, NamedTypeNode) and field.field_type.name == node.name:
+            raise SurfaceValidationError("TV-8 RecursiveStructDefinition")
+    _reject_indirect_struct_recursion(node, symbols)
+
+
+def _validate_enum(node: EnumDeclarationNode) -> None:
+    _validate_ast_node(node)
+    values: set[str] = set()
+    for value in node.values:
+        _validate_ast_node(value)
+        if value.name in values:
+            raise SurfaceValidationError(f"TV-7 duplicate enum value: {value.name}")
+        values.add(value.name)
+
+
 def _validate_calculation(node: CalculationNode, symbols: dict[str, Any]) -> None:
     _validate_ast_node(node)
     if node.goal_annotation is not None:
@@ -373,6 +434,8 @@ def _validate_calculation(node: CalculationNode, symbols: dict[str, Any]) -> Non
             raise SurfaceValidationError(
                 f"CAL-V008 annotation is not a Goal: {node.goal_annotation}"
             )
+    if node.return_type is not None:
+        _resolve_type(node.return_type, symbols)
     _validate_calculation_statements(
         node.body,
         symbols=symbols,
@@ -426,6 +489,7 @@ def _validate_statement_list(
             LetStatementNode,
             ConstStatementNode,
             AssignmentStatementNode,
+            FieldAssignmentStatementNode,
             ForStatementNode,
             WhileStatementNode,
             LoopStatementNode,
@@ -525,6 +589,7 @@ def _validate_calculation_statements(
         LetStatementNode,
         ConstStatementNode,
         AssignmentStatementNode,
+        FieldAssignmentStatementNode,
         ForStatementNode,
         WhileStatementNode,
         LoopStatementNode,
@@ -562,6 +627,7 @@ def _validate_calculation_statements(
                 statement.expression.expression, symbols, local_bindings
             )
             if statement.type_annotation is not None:
+                _resolve_type(statement.type_annotation, symbols)
                 _require_compatible(
                     statement.type_annotation,
                     expression_type,
@@ -604,6 +670,8 @@ def _validate_calculation_statements(
                     symbols,
                     "TYPE-V003 assignment mismatch",
                 )
+        elif isinstance(statement, FieldAssignmentStatementNode):
+            _validate_field_assignment(statement, symbols, local_bindings)
         elif isinstance(statement, ExpressionStatementNode):
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
@@ -715,6 +783,7 @@ def _validate_calculation_statements(
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
+            _validate_enum_match_exhaustiveness(statement, symbols, local_bindings)
             for arm in statement.arms:
                 _validate_calculation_statements(
                     arm.body,
@@ -758,6 +827,7 @@ def _validate_function_statements(
         LetStatementNode,
         ConstStatementNode,
         AssignmentStatementNode,
+        FieldAssignmentStatementNode,
         ForStatementNode,
         WhileStatementNode,
         LoopStatementNode,
@@ -795,6 +865,7 @@ def _validate_function_statements(
                 statement.expression.expression, symbols, local_bindings
             )
             if statement.type_annotation is not None:
+                _resolve_type(statement.type_annotation, symbols)
                 _require_compatible(
                     statement.type_annotation,
                     expression_type,
@@ -828,6 +899,8 @@ def _validate_function_statements(
                 symbols,
                 "TYPE-V003 assignment mismatch",
             )
+        elif isinstance(statement, FieldAssignmentStatementNode):
+            _validate_field_assignment(statement, symbols, local_bindings)
         elif isinstance(statement, ExpressionStatementNode):
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
@@ -923,6 +996,7 @@ def _validate_function_statements(
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
+            _validate_enum_match_exhaustiveness(statement, symbols, local_bindings)
             for arm in statement.arms:
                 _validate_function_statements(
                     arm.body,
@@ -1000,6 +1074,9 @@ def _validate_calculation_expression(
             visit(value.callee, callee=True)
             for argument in value.arguments:
                 visit(argument)
+        elif isinstance(value, StructLiteralNode):
+            for field in value.fields:
+                visit(field.expression.expression)
 
     _expression(expression, "CAL-V006 expression")
     visit(expression.expression)
@@ -1055,6 +1132,9 @@ def _expression_type(
             ConstraintNode: StateKind.CONSTRAINT,
         }.get(type(declaration))
         return StateTypeNode(state_kind) if state_kind is not None else _UNKNOWN_TYPE
+    if isinstance(value, StructLiteralNode):
+        _validate_struct_literal(value, symbols, bindings)
+        return NamedTypeNode(value.type_name)
     if isinstance(value, ParenthesizedExpressionNode):
         return _expression_type(value.expression, symbols, bindings)
     if isinstance(value, UnaryExpressionNode):
@@ -1117,7 +1197,24 @@ def _expression_type(
         if any(item is not _UNKNOWN_TYPE and item != bool_type for item in (left, right)):
             raise SurfaceValidationError("TYPE-V006 logical operands must be Bool")
         return bool_type
-    if isinstance(value, (MemberAccessNode, CallExpressionNode)):
+    if isinstance(value, MemberAccessNode):
+        enum_type = _enum_value_type(value, symbols)
+        if enum_type is not None:
+            return enum_type
+        object_type = _expression_type(value.object, symbols, bindings)
+        if isinstance(object_type, NamedTypeNode):
+            struct = symbols.get(object_type.name)
+            if isinstance(struct, StructDeclarationNode):
+                field_type = _struct_field_type(struct, value.member)
+                if field_type is None:
+                    raise SurfaceValidationError(
+                        f"TV-9 unknown field {value.member} on {object_type.name}"
+                    )
+                return field_type
+        if object_type is _UNKNOWN_TYPE:
+            return _UNKNOWN_TYPE
+        raise SurfaceValidationError("TV-9 field access requires valid field")
+    if isinstance(value, CallExpressionNode):
         return _UNKNOWN_TYPE
     return _UNKNOWN_TYPE
 
@@ -1176,12 +1273,17 @@ def _validate_type_node(value: Any) -> None:
         if not isinstance(value.kind, StateKind):
             raise SurfaceValidationError("TYPE-V001 unknown state type")
         return
+    if isinstance(value, NamedTypeNode):
+        _identifier(value.name, "TV-4 NamedTypeNode.name")
+        return
     raise SurfaceValidationError("TYPE-V002 invalid TypeNode")
 
 
 def _type_name(value: Any) -> str:
     if isinstance(value, (PrimitiveTypeNode, StateTypeNode)):
         return value.kind.value
+    if isinstance(value, NamedTypeNode):
+        return value.name
     return "Unknown"
 
 
@@ -1204,6 +1306,156 @@ def _require_iterable(
     expression_type = _expression_type(expression.expression, symbols, bindings)
     if isinstance(expression_type, PrimitiveTypeNode):
         raise SurfaceValidationError("IV-8 iteration source must be iterable")
+
+
+def _resolve_type(value: Any, symbols: dict[str, Any]) -> None:
+    if isinstance(value, (PrimitiveTypeNode, StateTypeNode)):
+        return
+    if isinstance(value, NamedTypeNode):
+        declaration = symbols.get(value.name)
+        if not isinstance(declaration, (StructDeclarationNode, EnumDeclarationNode)):
+            raise SurfaceValidationError(
+                f"TYPE-V001 TV-4 unresolved composite type: {value.name}"
+            )
+        return
+    raise SurfaceValidationError("TYPE-V002 invalid TypeNode")
+
+
+def _reject_indirect_struct_recursion(
+    node: StructDeclarationNode,
+    symbols: dict[str, Any],
+) -> None:
+    def visit(type_name: str, seen: set[str]) -> bool:
+        target = symbols.get(type_name)
+        if not isinstance(target, StructDeclarationNode):
+            return False
+        for field in target.fields:
+            if isinstance(field.field_type, NamedTypeNode):
+                if field.field_type.name == node.name:
+                    return True
+                if field.field_type.name not in seen and visit(
+                    field.field_type.name,
+                    seen | {field.field_type.name},
+                ):
+                    return True
+        return False
+
+    for field in node.fields:
+        if isinstance(field.field_type, NamedTypeNode) and visit(
+            field.field_type.name,
+            {node.name, field.field_type.name},
+        ):
+            raise SurfaceValidationError("TV-8 RecursiveStructDefinition")
+
+
+def _validate_struct_literal(
+    value: StructLiteralNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    declaration = symbols.get(value.type_name)
+    if not isinstance(declaration, StructDeclarationNode):
+        raise SurfaceValidationError(f"TV-4 unknown struct type: {value.type_name}")
+    expected = {field.name: field for field in declaration.fields}
+    actual = {field.name: field for field in value.fields}
+    if len(actual) != len(value.fields):
+        raise SurfaceValidationError("TV-6 duplicate struct literal field")
+    missing = set(expected) - set(actual)
+    if missing:
+        raise SurfaceValidationError(
+            f"TV-5 MissingFieldInitialization: {sorted(missing)[0]}"
+        )
+    unknown = set(actual) - set(expected)
+    if unknown:
+        raise SurfaceValidationError(f"TV-6 unknown field: {sorted(unknown)[0]}")
+    for name, field in actual.items():
+        _require_compatible(
+            expected[name].field_type,
+            _expression_type(field.expression.expression, symbols, bindings),
+            field.expression,
+            symbols,
+            "TYPE-V003 struct field mismatch",
+        )
+
+
+def _enum_value_type(value: MemberAccessNode, symbols: dict[str, Any]) -> Any:
+    if not isinstance(value.object, IdentifierNode):
+        return None
+    enum = symbols.get(value.object.name)
+    if not isinstance(enum, EnumDeclarationNode):
+        return None
+    if value.member not in {item.name for item in enum.values}:
+        raise SurfaceValidationError(
+            f"TV-7 unknown enum value: {value.object.name}.{value.member}"
+        )
+    return NamedTypeNode(enum.name)
+
+
+def _struct_field_type(struct: StructDeclarationNode, field_name: str) -> Any:
+    for field in struct.fields:
+        if field.name == field_name:
+            return field.field_type
+    return None
+
+
+def _validate_field_assignment(
+    statement: FieldAssignmentStatementNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    target = statement.target.expression
+    if not isinstance(target, MemberAccessNode):
+        raise SurfaceValidationError("TV-10 field assignment target required")
+    root = _member_root(target)
+    if (
+        root is None
+        or root not in bindings
+        or not isinstance(bindings[root], _Binding)
+    ):
+        raise SurfaceValidationError(f"TV-10 unknown field assignment target: {root}")
+    if not bindings[root].mutable:
+        raise SurfaceValidationError(f"TV-10 CannotModifyConstant: {root}")
+    expected = _expression_type(target, symbols, bindings)
+    actual = _expression_type(statement.expression.expression, symbols, bindings)
+    _require_compatible(
+        expected,
+        actual,
+        statement.expression,
+        symbols,
+        "TYPE-V003 field assignment mismatch",
+    )
+
+
+def _member_root(value: Any) -> str | None:
+    current = value
+    while isinstance(current, MemberAccessNode):
+        current = current.object
+    return current.name if isinstance(current, IdentifierNode) else None
+
+
+def _validate_enum_match_exhaustiveness(
+    node: MatchStatementNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    enum_type = _expression_type(node.expression.expression, symbols, bindings)
+    if not isinstance(enum_type, NamedTypeNode):
+        return
+    enum = symbols.get(enum_type.name)
+    if not isinstance(enum, EnumDeclarationNode):
+        return
+    keys = {_pattern_key(arm.pattern) for arm in node.arms}
+    if any(key[0] == "wildcard" for key in keys):
+        return
+    matched: set[str] = set()
+    for key in keys:
+        if key[0] == "identifier":
+            matched.add(key[1])
+        elif key[0] == "enum_value" and key[1] == enum.name:
+            matched.add(key[2])
+    missing = {value.name for value in enum.values} - matched
+    if missing:
+        raise SurfaceValidationError("TV-7 NonExhaustiveMatch")
 
 
 def _validate_node_types(value: Any) -> None:
@@ -1287,6 +1539,17 @@ def _expression_value(value: Any) -> None:
         _expression_value(value.callee)
         for argument in value.arguments:
             _expression_value(argument)
+    elif isinstance(value, StructLiteralNode):
+        _identifier(value.type_name, "TV-4 StructLiteralNode.type_name")
+        names: set[str] = set()
+        for field in value.fields:
+            _expression_value(field)
+            if field.name in names:
+                raise SurfaceValidationError("TV-6 duplicate struct literal field")
+            names.add(field.name)
+    elif isinstance(value, StructLiteralFieldNode):
+        _identifier(value.name, "TV-6 StructLiteralFieldNode.name")
+        _expression(value.expression, "TV-6 StructLiteralFieldNode.expression")
     else:
         raise SurfaceValidationError(
             f"EX-V001 unknown expression type: {type(value).__name__}"
@@ -1318,6 +1581,10 @@ def _pattern(value: PatternNode) -> None:
             raise SurfaceValidationError("PT-V003 invalid literal pattern")
         _expression_value(pattern.value)
         return
+    if isinstance(pattern, EnumValuePatternNode):
+        _identifier(pattern.enum_name, "TV-7 EnumValuePatternNode.enum_name")
+        _identifier(pattern.value_name, "TV-7 EnumValuePatternNode.value_name")
+        return
     raise SurfaceValidationError(
         f"PT-V001 unknown pattern type: {type(pattern).__name__}"
     )
@@ -1329,6 +1596,8 @@ def _pattern_key(value: PatternNode) -> tuple[str, Any]:
         return ("wildcard", "_")
     if isinstance(pattern, IdentifierPatternNode):
         return ("identifier", pattern.name)
+    if isinstance(pattern, EnumValuePatternNode):
+        return ("enum_value", pattern.enum_name, pattern.value_name)
     if isinstance(pattern, LiteralPatternNode):
         literal = pattern.value
         if isinstance(literal, NullLiteralNode):

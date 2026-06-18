@@ -15,6 +15,7 @@ from .nodes import (
     ComparisonOperator,
     Expression,
     ExpressionNode,
+    EnumValuePatternNode,
     FloatLiteralNode,
     IdentifierNode,
     IdentifierPatternNode,
@@ -95,6 +96,13 @@ def parse_pattern(source: str) -> PatternNode:
     expression = parse_expression(text).expression
     if isinstance(expression, IdentifierNode):
         return PatternNode(IdentifierPatternNode(expression.name))
+    if (
+        isinstance(expression, MemberAccessNode)
+        and isinstance(expression.object, IdentifierNode)
+    ):
+        return PatternNode(
+            EnumValuePatternNode(expression.object.name, expression.member)
+        )
     if isinstance(
         expression,
         (

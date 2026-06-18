@@ -18,9 +18,12 @@ from .nodes import (
     ContinueStatementNode,
     ConstraintNode,
     ConstStatementNode,
+    EnumDeclarationNode,
+    EnumValueNode,
     ElseIfStatementNode,
     ElseStatementNode,
     EventNode,
+    ExpressionNode,
     ExpressionStatementNode,
     ForStatementNode,
     FunctionDeclarationNode,
@@ -33,6 +36,7 @@ from .nodes import (
     MatchArmNode,
     MatchStatementNode,
     ModuleNode,
+    NamedTypeNode,
     ObjectNode,
     ProgramNode,
     PrimitiveKind,
@@ -45,6 +49,11 @@ from .nodes import (
     ReturnStatementNode,
     StateKind,
     StateTypeNode,
+    StructDeclarationNode,
+    StructFieldNode,
+    StructLiteralFieldNode,
+    StructLiteralNode,
+    FieldAssignmentStatementNode,
     TransitionNode,
     Visibility,
     WhileStatementNode,
@@ -121,7 +130,13 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
         if line == "}":
             cursor.index += 1
             return nodes
-        if line.startswith("transition "):
+        if line.startswith("struct "):
+            nodes.append(_parse_struct(cursor))
+        elif line.startswith("enum "):
+            nodes.append(_parse_enum(cursor))
+        elif _is_struct_literal_statement(line):
+            nodes.append(_parse_struct_literal_statement(cursor))
+        elif line.startswith("transition "):
             nodes.append(_parse_transition(cursor))
         elif line.startswith("calculation ") or line.startswith("pub calculation "):
             nodes.append(_parse_calculation(cursor))
@@ -200,6 +215,12 @@ def _parse_simple(line: str, *, context: str):
     match = re.fullmatch(r"return\s+(.+)", line)
     if match:
         return ReturnStatementNode(_expression(match.group(1)))
+    match = re.fullmatch(r"(.+\.[A-Za-z_]\w*)\s*=\s*(.+)", line)
+    if match:
+        return FieldAssignmentStatementNode(
+            _expression(match.group(1)),
+            _expression(match.group(2)),
+        )
     if line == "break":
         return BreakStatementNode()
     if line == "continue":
@@ -269,6 +290,38 @@ def _parse_calculation(cursor: _Cursor) -> CalculationNode:
         visibility,
         _type_annotation(match.group(4)) if match.group(4) else None,
     )
+
+
+def _parse_struct(cursor: _Cursor) -> StructDeclarationNode:
+    match = re.fullmatch(r"struct\s+([A-Za-z_]\w*)\s*\{", cursor.take())
+    if not match:
+        raise SurfaceSyntaxError("invalid struct declaration")
+    fields: list[StructFieldNode] = []
+    while cursor.index < len(cursor.lines):
+        line = cursor.take()
+        if line == "}":
+            return StructDeclarationNode(match.group(1), tuple(fields))
+        field = re.fullmatch(r"([A-Za-z_]\w*)\s*:\s*([A-Za-z_]\w*)", line)
+        if not field:
+            raise SurfaceSyntaxError("TV-4 FieldTypeRequired")
+        fields.append(StructFieldNode(field.group(1), _type_annotation(field.group(2))))
+    raise SurfaceSyntaxError("unterminated struct declaration")
+
+
+def _parse_enum(cursor: _Cursor) -> EnumDeclarationNode:
+    match = re.fullmatch(r"enum\s+([A-Za-z_]\w*)\s*\{", cursor.take())
+    if not match:
+        raise SurfaceSyntaxError("invalid enum declaration")
+    values: list[EnumValueNode] = []
+    while cursor.index < len(cursor.lines):
+        line = cursor.take()
+        if line == "}":
+            return EnumDeclarationNode(match.group(1), tuple(values))
+        value = re.fullmatch(r"([A-Za-z_]\w*)", line)
+        if not value:
+            raise SurfaceSyntaxError("invalid enum value")
+        values.append(EnumValueNode(value.group(1)))
+    raise SurfaceSyntaxError("unterminated enum declaration")
 
 
 def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
@@ -374,6 +427,60 @@ def _expression(source: str):
         raise SurfaceSyntaxError(str(error)) from error
 
 
+def _is_struct_literal_statement(line: str) -> bool:
+    return bool(
+        re.fullmatch(
+            r"(?:let|const)\s+[A-Za-z_]\w*(?:\s*:\s*[A-Za-z_]\w*)?\s*=\s*[A-Za-z_]\w*\s*\{",
+            line,
+        )
+        or re.fullmatch(r"(?:return|result\s*=)\s*[A-Za-z_]\w*\s*\{", line)
+    )
+
+
+def _parse_struct_literal_statement(cursor: _Cursor):
+    line = cursor.take()
+    binding = re.fullmatch(
+        r"(let|const)\s+([A-Za-z_]\w*)(?:\s*:\s*([A-Za-z_]\w*))?\s*=\s*([A-Za-z_]\w*)\s*\{",
+        line,
+    )
+    if binding:
+        literal = _parse_struct_literal_body(cursor, binding.group(4))
+        type_annotation = (
+            _type_annotation(binding.group(3)) if binding.group(3) else None
+        )
+        if binding.group(1) == "let":
+            return LetStatementNode(binding.group(2), literal, type_annotation)
+        return ConstStatementNode(binding.group(2), literal, type_annotation)
+    terminal = re.fullmatch(r"(return|result\s*=)\s*([A-Za-z_]\w*)\s*\{", line)
+    if terminal:
+        literal = _parse_struct_literal_body(cursor, terminal.group(2))
+        return (
+            ReturnStatementNode(literal)
+            if terminal.group(1) == "return"
+            else ResultStatementNode(literal)
+        )
+    raise SurfaceSyntaxError(f"invalid struct literal statement: {line}")
+
+
+def _parse_struct_literal_body(cursor: _Cursor, type_name: str) -> ExpressionNode:
+    fields: list[StructLiteralFieldNode] = []
+    while cursor.index < len(cursor.lines):
+        line = cursor.take()
+        if line == "}":
+            return ExpressionNode(StructLiteralNode(type_name, tuple(fields)))
+        field = re.fullmatch(r"([A-Za-z_]\w*)\s*:\s*(.+)", line)
+        if not field:
+            raise SurfaceSyntaxError(f"invalid struct literal field: {line}")
+        nested = re.fullmatch(r"([A-Za-z_]\w*)\s*\{", field.group(2).strip())
+        expression = (
+            _parse_struct_literal_body(cursor, nested.group(1))
+            if nested
+            else _expression(field.group(2))
+        )
+        fields.append(StructLiteralFieldNode(field.group(1), expression))
+    raise SurfaceSyntaxError("unterminated struct literal")
+
+
 def _pattern(source: str):
     try:
         return parse_pattern(source.strip())
@@ -397,8 +504,8 @@ def _type_annotation(source: str):
         pass
     try:
         return StateTypeNode(StateKind(source))
-    except ValueError as error:
-        raise SurfaceSyntaxError(f"TYPE-V001 unknown type: {source}") from error
+    except ValueError:
+        return NamedTypeNode(source)
 
 
 def _parameters(source: str) -> tuple[str, ...]:

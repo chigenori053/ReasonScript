@@ -11,7 +11,8 @@
     "type_node": {
       "oneOf": [
         {"$ref": "#/$defs/primitive_type"},
-        {"$ref": "#/$defs/state_type"}
+        {"$ref": "#/$defs/state_type"},
+        {"$ref": "#/$defs/named_type"}
       ]
     },
     "primitive_type": {
@@ -42,6 +43,15 @@
         "node_type": {"const": "StateTypeNode"}
       }
     },
+    "named_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "NamedTypeNode"}
+      }
+    },
     "expression": {
       "type": "object",
       "additionalProperties": false,
@@ -66,7 +76,8 @@
         {"$ref": "#/$defs/logical_expression"},
         {"$ref": "#/$defs/parenthesized_expression"},
         {"$ref": "#/$defs/member_access"},
-        {"$ref": "#/$defs/call_expression"}
+        {"$ref": "#/$defs/call_expression"},
+        {"$ref": "#/$defs/struct_literal"}
       ]
     },
     "integer_literal": {
@@ -223,6 +234,29 @@
         "node_type": {"const": "CallExpressionNode"}
       }
     },
+    "struct_literal_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "expression", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "expression": {"$ref": "#/$defs/expression"},
+        "node_type": {"const": "StructLiteralFieldNode"}
+      }
+    },
+    "struct_literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type_name", "fields", "node_type"],
+      "properties": {
+        "type_name": {"$ref": "#/$defs/identifier"},
+        "fields": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/struct_literal_field"}
+        },
+        "node_type": {"const": "StructLiteralNode"}
+      }
+    },
     "pattern": {
       "type": "object",
       "additionalProperties": false,
@@ -236,7 +270,8 @@
       "oneOf": [
         {"$ref": "#/$defs/identifier_pattern"},
         {"$ref": "#/$defs/wildcard_pattern"},
-        {"$ref": "#/$defs/literal_pattern"}
+        {"$ref": "#/$defs/literal_pattern"},
+        {"$ref": "#/$defs/enum_value_pattern"}
       ]
     },
     "identifier_pattern": {
@@ -273,6 +308,16 @@
         "node_type": {"const": "LiteralPatternNode"}
       }
     },
+    "enum_value_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enum_name", "value_name", "node_type"],
+      "properties": {
+        "enum_name": {"$ref": "#/$defs/identifier"},
+        "value_name": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "EnumValuePatternNode"}
+      }
+    },
     "program": {
       "type": "object",
       "additionalProperties": false,
@@ -307,7 +352,9 @@
         {"$ref": "#/$defs/relation"},
         {"$ref": "#/$defs/transition"},
         {"$ref": "#/$defs/calculation"},
-        {"$ref": "#/$defs/function_declaration"}
+        {"$ref": "#/$defs/function_declaration"},
+        {"$ref": "#/$defs/struct_declaration"},
+        {"$ref": "#/$defs/enum_declaration"}
       ]
     },
     "statement": {
@@ -315,6 +362,7 @@
         {"$ref": "#/$defs/let"},
         {"$ref": "#/$defs/const_statement"},
         {"$ref": "#/$defs/assignment"},
+        {"$ref": "#/$defs/field_assignment"},
         {"$ref": "#/$defs/result_statement"},
         {"$ref": "#/$defs/return_statement"},
         {"$ref": "#/$defs/require_statement"},
@@ -452,6 +500,16 @@
         "target": {"$ref": "#/$defs/identifier"},
         "expression": {"$ref": "#/$defs/expression"},
         "node_type": {"const": "AssignmentStatementNode"}
+      }
+    },
+    "field_assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "expression", "node_type"],
+      "properties": {
+        "target": {"$ref": "#/$defs/expression"},
+        "expression": {"$ref": "#/$defs/expression"},
+        "node_type": {"const": "FieldAssignmentStatementNode"}
       }
     },
     "result_statement": {
@@ -715,6 +773,51 @@
           "enum": ["Public", "Private"]
         },
         "node_type": {"const": "FunctionDeclarationNode"}
+      }
+    },
+    "struct_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "field_type", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "field_type": {"$ref": "#/$defs/type_node"},
+        "node_type": {"const": "StructFieldNode"}
+      }
+    },
+    "struct_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "fields", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "fields": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/struct_field"}
+        },
+        "node_type": {"const": "StructDeclarationNode"}
+      }
+    },
+    "enum_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "EnumValueNode"}
+      }
+    },
+    "enum_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "values", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "values": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/enum_value"}
+        },
+        "node_type": {"const": "EnumDeclarationNode"}
       }
     }
   }

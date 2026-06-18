@@ -78,7 +78,12 @@ class StateTypeNode:
     kind: StateKind
 
 
-TypeNode: TypeAlias = PrimitiveTypeNode | StateTypeNode
+@dataclass(frozen=True)
+class NamedTypeNode:
+    name: str
+
+
+TypeNode: TypeAlias = PrimitiveTypeNode | StateTypeNode | NamedTypeNode
 
 
 @dataclass(frozen=True)
@@ -162,6 +167,18 @@ class CallExpressionNode:
     arguments: tuple["Expression", ...]
 
 
+@dataclass(frozen=True)
+class StructLiteralFieldNode:
+    name: str
+    expression: "ExpressionNode"
+
+
+@dataclass(frozen=True)
+class StructLiteralNode:
+    type_name: str
+    fields: tuple[StructLiteralFieldNode, ...]
+
+
 Expression: TypeAlias = (
     IntegerLiteralNode
     | FloatLiteralNode
@@ -177,6 +194,7 @@ Expression: TypeAlias = (
     | ParenthesizedExpressionNode
     | MemberAccessNode
     | CallExpressionNode
+    | StructLiteralNode
 )
 
 
@@ -206,7 +224,18 @@ class LiteralPatternNode:
     )
 
 
-Pattern: TypeAlias = IdentifierPatternNode | WildcardPatternNode | LiteralPatternNode
+@dataclass(frozen=True)
+class EnumValuePatternNode:
+    enum_name: str
+    value_name: str
+
+
+Pattern: TypeAlias = (
+    IdentifierPatternNode
+    | WildcardPatternNode
+    | LiteralPatternNode
+    | EnumValuePatternNode
+)
 
 
 @dataclass(frozen=True)
@@ -264,6 +293,29 @@ class ConstraintNode:
 
 
 @dataclass(frozen=True)
+class StructFieldNode:
+    name: str
+    field_type: TypeNode
+
+
+@dataclass(frozen=True)
+class StructDeclarationNode:
+    name: str
+    fields: tuple[StructFieldNode, ...]
+
+
+@dataclass(frozen=True)
+class EnumValueNode:
+    name: str
+
+
+@dataclass(frozen=True)
+class EnumDeclarationNode:
+    name: str
+    values: tuple[EnumValueNode, ...]
+
+
+@dataclass(frozen=True)
 class RelationNode:
     source: str
     relation: RelationType
@@ -287,6 +339,12 @@ class ConstStatementNode:
 @dataclass(frozen=True)
 class AssignmentStatementNode:
     target: str
+    expression: ExpressionNode
+
+
+@dataclass(frozen=True)
+class FieldAssignmentStatementNode:
+    target: ExpressionNode
     expression: ExpressionNode
 
 
@@ -383,6 +441,7 @@ StatementNode: TypeAlias = (
     LetStatementNode
     | ConstStatementNode
     | AssignmentStatementNode
+    | FieldAssignmentStatementNode
     | ResultStatementNode
     | ReturnStatementNode
     | RequireStatementNode
@@ -440,6 +499,8 @@ AstNode: TypeAlias = (
     | AttributeNode
     | GoalNode
     | ConstraintNode
+    | StructDeclarationNode
+    | EnumDeclarationNode
     | RelationNode
     | TransitionNode
     | CalculationNode
@@ -475,9 +536,13 @@ _NODE_TYPES = {
         ConstStatementNode,
         ContinueStatementNode,
         AssignmentStatementNode,
+        FieldAssignmentStatementNode,
         ElseIfStatementNode,
         ElseStatementNode,
         EventNode,
+        EnumDeclarationNode,
+        EnumValueNode,
+        EnumValuePatternNode,
         ExpressionStatementNode,
         ExpressionNode,
         FloatLiteralNode,
@@ -499,6 +564,7 @@ _NODE_TYPES = {
         MatchStatementNode,
         MemberAccessNode,
         ModuleNode,
+        NamedTypeNode,
         NullLiteralNode,
         ObjectNode,
         ParenthesizedExpressionNode,
@@ -512,6 +578,10 @@ _NODE_TYPES = {
         ResultStatementNode,
         ReturnStatementNode,
         StringLiteralNode,
+        StructDeclarationNode,
+        StructFieldNode,
+        StructLiteralFieldNode,
+        StructLiteralNode,
         StateTypeNode,
         TransitionNode,
         UnaryExpressionNode,
@@ -575,6 +645,7 @@ def statement_from_json(value: Mapping[str, Any]) -> StatementNode:
             LetStatementNode,
             ConstStatementNode,
             AssignmentStatementNode,
+            FieldAssignmentStatementNode,
             ResultStatementNode,
             ReturnStatementNode,
             RequireStatementNode,
@@ -596,7 +667,7 @@ def statement_from_json(value: Mapping[str, Any]) -> StatementNode:
 
 def type_from_json(value: Mapping[str, Any]) -> TypeNode:
     node = _from_json_node(value)
-    if not isinstance(node, (PrimitiveTypeNode, StateTypeNode)):
+    if not isinstance(node, (PrimitiveTypeNode, StateTypeNode, NamedTypeNode)):
         raise ValueError("document must contain TypeNode")
     return node
 
@@ -628,6 +699,8 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return PrimitiveTypeNode(PrimitiveKind(value["kind"]))
     if node_type == "StateTypeNode":
         return StateTypeNode(StateKind(value["kind"]))
+    if node_type == "NamedTypeNode":
+        return NamedTypeNode(value["name"])
     if node_type == "IntegerLiteralNode":
         return IntegerLiteralNode(value["value"])
     if node_type == "FloatLiteralNode":
@@ -679,12 +752,23 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
             _from_json_node(value["callee"]),
             tuple(_from_json_node(item) for item in value["arguments"]),
         )
+    if node_type == "StructLiteralFieldNode":
+        return StructLiteralFieldNode(
+            value["name"], _from_json_node(value["expression"])
+        )
+    if node_type == "StructLiteralNode":
+        return StructLiteralNode(
+            value["type_name"],
+            tuple(_from_json_node(item) for item in value["fields"]),
+        )
     if node_type == "IdentifierPatternNode":
         return IdentifierPatternNode(value["name"])
     if node_type == "WildcardPatternNode":
         return WildcardPatternNode()
     if node_type == "LiteralPatternNode":
         return LiteralPatternNode(_from_json_node(value["value"]))
+    if node_type == "EnumValuePatternNode":
+        return EnumValuePatternNode(value["enum_name"], value["value_name"])
     if node_type == "ImportNode":
         return ImportNode(
             tuple(value["path"]),
@@ -715,6 +799,20 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         "ConstraintNode",
     }:
         return _NODE_TYPES[node_type](value["name"])
+    if node_type == "StructFieldNode":
+        return StructFieldNode(value["name"], _from_json_node(value["field_type"]))
+    if node_type == "StructDeclarationNode":
+        return StructDeclarationNode(
+            value["name"],
+            tuple(_from_json_node(item) for item in value["fields"]),
+        )
+    if node_type == "EnumValueNode":
+        return EnumValueNode(value["name"])
+    if node_type == "EnumDeclarationNode":
+        return EnumDeclarationNode(
+            value["name"],
+            tuple(_from_json_node(item) for item in value["values"]),
+        )
     if node_type in {"LetNode", "LetStatementNode"}:
         return LetStatementNode(
             value["identifier"],
@@ -738,6 +836,11 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
     if node_type == "AssignmentStatementNode":
         return AssignmentStatementNode(
             value["target"], _from_json_node(value["expression"])
+        )
+    if node_type == "FieldAssignmentStatementNode":
+        return FieldAssignmentStatementNode(
+            _from_json_node(value["target"]),
+            _from_json_node(value["expression"]),
         )
     if node_type == "ResultStatementNode":
         return ResultStatementNode(_from_json_node(value["expression"]))
