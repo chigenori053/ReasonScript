@@ -20,10 +20,13 @@ KEYWORDS = {
     "event",
     "false",
     "fn",
+    "for",
     "goal",
     "if",
+    "in",
     "import",
     "let",
+    "loop",
     "match",
     "module",
     "object",
@@ -35,6 +38,9 @@ KEYWORDS = {
     "return",
     "transition",
     "true",
+    "while",
+    "break",
+    "continue",
 }
 
 

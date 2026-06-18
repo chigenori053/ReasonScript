@@ -321,6 +321,34 @@ class ExpressionStatementNode:
 
 
 @dataclass(frozen=True)
+class ForStatementNode:
+    iterator: str
+    iterable: ExpressionNode
+    body: tuple["StatementNode", ...]
+
+
+@dataclass(frozen=True)
+class WhileStatementNode:
+    condition: ExpressionNode
+    body: tuple["StatementNode", ...]
+
+
+@dataclass(frozen=True)
+class LoopStatementNode:
+    body: tuple["StatementNode", ...]
+
+
+@dataclass(frozen=True)
+class BreakStatementNode:
+    pass
+
+
+@dataclass(frozen=True)
+class ContinueStatementNode:
+    pass
+
+
+@dataclass(frozen=True)
 class ElseIfStatementNode:
     condition: ExpressionNode
     body: tuple["StatementNode", ...]
@@ -361,6 +389,11 @@ StatementNode: TypeAlias = (
     | GoalStatementNode
     | ReachStatementNode
     | ExpressionStatementNode
+    | ForStatementNode
+    | WhileStatementNode
+    | LoopStatementNode
+    | BreakStatementNode
+    | ContinueStatementNode
     | IfStatementNode
     | MatchStatementNode
 )
@@ -438,7 +471,9 @@ _NODE_TYPES = {
         ComparisonExpressionNode,
         ConceptNode,
         ConstraintNode,
+        BreakStatementNode,
         ConstStatementNode,
+        ContinueStatementNode,
         AssignmentStatementNode,
         ElseIfStatementNode,
         ElseStatementNode,
@@ -446,6 +481,7 @@ _NODE_TYPES = {
         ExpressionStatementNode,
         ExpressionNode,
         FloatLiteralNode,
+        ForStatementNode,
         FunctionDeclarationNode,
         GoalNode,
         GoalStatementNode,
@@ -458,6 +494,7 @@ _NODE_TYPES = {
         LetStatementNode,
         LiteralPatternNode,
         LogicalExpressionNode,
+        LoopStatementNode,
         MatchArmNode,
         MatchStatementNode,
         MemberAccessNode,
@@ -478,6 +515,7 @@ _NODE_TYPES = {
         StateTypeNode,
         TransitionNode,
         UnaryExpressionNode,
+        WhileStatementNode,
         WildcardPatternNode,
     )
 }
@@ -543,6 +581,11 @@ def statement_from_json(value: Mapping[str, Any]) -> StatementNode:
             GoalStatementNode,
             ReachStatementNode,
             ExpressionStatementNode,
+            ForStatementNode,
+            WhileStatementNode,
+            LoopStatementNode,
+            BreakStatementNode,
+            ContinueStatementNode,
             IfStatementNode,
             MatchStatementNode,
         ),
@@ -708,6 +751,25 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return ReachStatementNode(value["goal"])
     if node_type == "ExpressionStatementNode":
         return ExpressionStatementNode(_from_json_node(value["expression"]))
+    if node_type == "ForStatementNode":
+        return ForStatementNode(
+            value["iterator"],
+            _from_json_node(value["iterable"]),
+            tuple(_from_json_node(item) for item in value["body"]),
+        )
+    if node_type == "WhileStatementNode":
+        return WhileStatementNode(
+            _from_json_node(value["condition"]),
+            tuple(_from_json_node(item) for item in value["body"]),
+        )
+    if node_type == "LoopStatementNode":
+        return LoopStatementNode(
+            tuple(_from_json_node(item) for item in value["body"])
+        )
+    if node_type == "BreakStatementNode":
+        return BreakStatementNode()
+    if node_type == "ContinueStatementNode":
+        return ContinueStatementNode()
     if node_type in {"ElseIfNode", "ElseIfStatementNode"}:
         return ElseIfStatementNode(
             _from_json_node(value["condition"]),

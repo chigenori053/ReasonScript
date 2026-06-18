@@ -11,6 +11,7 @@ from .nodes import (
     ActionNode,
     AssignmentStatementNode,
     AttributeNode,
+    BreakStatementNode,
     CalculationNode,
     BinaryExpressionNode,
     BinaryOperator,
@@ -21,12 +22,14 @@ from .nodes import (
     ConceptNode,
     ConstraintNode,
     ConstStatementNode,
+    ContinueStatementNode,
     ElseIfStatementNode,
     ElseStatementNode,
     EventNode,
     ExpressionStatementNode,
     ExpressionNode,
     FloatLiteralNode,
+    ForStatementNode,
     FunctionDeclarationNode,
     GoalNode,
     GoalStatementNode,
@@ -39,6 +42,7 @@ from .nodes import (
     LetStatementNode,
     LiteralPatternNode,
     LogicalExpressionNode,
+    LoopStatementNode,
     LogicalOperator,
     MatchArmNode,
     MatchStatementNode,
@@ -65,6 +69,7 @@ from .nodes import (
     UnaryExpressionNode,
     UnaryOperator,
     Visibility,
+    WhileStatementNode,
     WildcardPatternNode,
 )
 from .namespace import ModuleNamespace, NamespaceResolutionError, resolve_program
@@ -76,6 +81,12 @@ RESERVED_IDENTIFIERS = {
     "true",
     "false",
     "if",
+    "for",
+    "while",
+    "loop",
+    "break",
+    "continue",
+    "in",
     "else",
     "match",
 }
@@ -103,6 +114,11 @@ KNOWN_NODE_TYPES = (
     AssignmentStatementNode,
     ResultStatementNode,
     ReturnStatementNode,
+    ForStatementNode,
+    WhileStatementNode,
+    LoopStatementNode,
+    BreakStatementNode,
+    ContinueStatementNode,
     RequireStatementNode,
     GoalStatementNode,
     ReachStatementNode,
@@ -200,6 +216,11 @@ def _validate_module(module: ModuleNode) -> None:
                 AssignmentStatementNode,
                 ResultStatementNode,
                 ReturnStatementNode,
+                ForStatementNode,
+                WhileStatementNode,
+                LoopStatementNode,
+                BreakStatementNode,
+                ContinueStatementNode,
                 RequireStatementNode,
                 GoalStatementNode,
                 ReachStatementNode,
@@ -285,6 +306,15 @@ def _validate_ast_node(node: Any) -> None:
             raise SurfaceValidationError(
                 "ST-060 ExpressionStatementNode root must be CallExpressionNode"
             )
+    elif isinstance(node, ForStatementNode):
+        _identifier(node.iterator, "IV-1 ForStatementNode.iterator")
+        _expression(node.iterable, "IV-8 ForStatementNode.iterable")
+    elif isinstance(node, WhileStatementNode):
+        _expression(node.condition, "IV-3 WhileStatementNode.condition")
+    elif isinstance(node, LoopStatementNode):
+        return
+    elif isinstance(node, (BreakStatementNode, ContinueStatementNode)):
+        return
     elif isinstance(node, IfStatementNode):
         _expression(node.condition, "IfNode.condition")
         if not node.body:
@@ -349,6 +379,7 @@ def _validate_calculation(node: CalculationNode, symbols: dict[str, Any]) -> Non
         bindings={},
         allow_terminal_result=True,
         return_type=node.return_type,
+        loop_depth=0,
     )
     if not _statement_list_terminates_with_result(node.body):
         raise SurfaceValidationError(
@@ -367,6 +398,7 @@ def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -
         symbols=symbols,
         bindings=bindings,
         allow_terminal_return=True,
+        loop_depth=0,
     )
     if not _statement_list_terminates_with_return(node.body):
         raise SurfaceValidationError(
@@ -394,6 +426,9 @@ def _validate_statement_list(
             LetStatementNode,
             ConstStatementNode,
             AssignmentStatementNode,
+            ForStatementNode,
+            WhileStatementNode,
+            LoopStatementNode,
             IfStatementNode,
             MatchStatementNode,
             ExpressionStatementNode,
@@ -484,11 +519,17 @@ def _validate_calculation_statements(
     bindings: dict[str, Any],
     allow_terminal_result: bool,
     return_type: Any = None,
+    loop_depth: int = 0,
 ) -> None:
     allowed = (
         LetStatementNode,
         ConstStatementNode,
         AssignmentStatementNode,
+        ForStatementNode,
+        WhileStatementNode,
+        LoopStatementNode,
+        BreakStatementNode,
+        ContinueStatementNode,
         IfStatementNode,
         MatchStatementNode,
         ExpressionStatementNode,
@@ -585,6 +626,56 @@ def _validate_calculation_statements(
                     symbols,
                     "TYPE-V003 calculation return mismatch",
                 )
+        elif isinstance(statement, BreakStatementNode):
+            if loop_depth <= 0:
+                raise SurfaceValidationError("IV-4 BreakOutsideLoop")
+        elif isinstance(statement, ContinueStatementNode):
+            if loop_depth <= 0:
+                raise SurfaceValidationError("IV-5 ContinueOutsideLoop")
+        elif isinstance(statement, ForStatementNode):
+            if statement.iterator in local_bindings:
+                raise SurfaceValidationError(
+                    f"IV-1 duplicate iteration variable: {statement.iterator}"
+                )
+            _validate_calculation_expression(
+                statement.iterable, symbols, local_bindings
+            )
+            _require_iterable(statement.iterable, symbols, local_bindings)
+            loop_bindings = dict(local_bindings)
+            loop_bindings[statement.iterator] = _Binding(
+                _UNKNOWN_TYPE,
+                mutable=False,
+            )
+            _validate_calculation_statements(
+                statement.body,
+                symbols=symbols,
+                bindings=loop_bindings,
+                allow_terminal_result=True,
+                return_type=return_type,
+                loop_depth=loop_depth + 1,
+            )
+        elif isinstance(statement, WhileStatementNode):
+            _validate_calculation_expression(
+                statement.condition, symbols, local_bindings
+            )
+            _require_bool_condition(statement.condition, symbols, local_bindings)
+            _validate_calculation_statements(
+                statement.body,
+                symbols=symbols,
+                bindings=local_bindings,
+                allow_terminal_result=True,
+                return_type=return_type,
+                loop_depth=loop_depth + 1,
+            )
+        elif isinstance(statement, LoopStatementNode):
+            _validate_calculation_statements(
+                statement.body,
+                symbols=symbols,
+                bindings=local_bindings,
+                allow_terminal_result=True,
+                return_type=return_type,
+                loop_depth=loop_depth + 1,
+            )
         elif isinstance(statement, IfStatementNode):
             _validate_calculation_expression(
                 statement.condition, symbols, local_bindings
@@ -596,6 +687,7 @@ def _validate_calculation_statements(
                 bindings=local_bindings,
                 allow_terminal_result=is_last,
                 return_type=return_type,
+                loop_depth=loop_depth,
             )
             for branch in statement.elif_branches:
                 _validate_calculation_expression(
@@ -608,6 +700,7 @@ def _validate_calculation_statements(
                     bindings=local_bindings,
                     allow_terminal_result=is_last,
                     return_type=return_type,
+                    loop_depth=loop_depth,
                 )
             if statement.else_branch:
                 _validate_calculation_statements(
@@ -616,6 +709,7 @@ def _validate_calculation_statements(
                     bindings=local_bindings,
                     allow_terminal_result=is_last,
                     return_type=return_type,
+                    loop_depth=loop_depth,
                 )
         elif isinstance(statement, MatchStatementNode):
             _validate_calculation_expression(
@@ -628,6 +722,7 @@ def _validate_calculation_statements(
                     bindings=local_bindings,
                     allow_terminal_result=is_last,
                     return_type=return_type,
+                    loop_depth=loop_depth,
                 )
 
 
@@ -657,11 +752,17 @@ def _validate_function_statements(
     symbols: dict[str, Any],
     bindings: dict[str, _Binding],
     allow_terminal_return: bool,
+    loop_depth: int = 0,
 ) -> None:
     allowed = (
         LetStatementNode,
         ConstStatementNode,
         AssignmentStatementNode,
+        ForStatementNode,
+        WhileStatementNode,
+        LoopStatementNode,
+        BreakStatementNode,
+        ContinueStatementNode,
         IfStatementNode,
         MatchStatementNode,
         ExpressionStatementNode,
@@ -739,6 +840,53 @@ def _validate_function_statements(
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
+        elif isinstance(statement, BreakStatementNode):
+            if loop_depth <= 0:
+                raise SurfaceValidationError("IV-4 BreakOutsideLoop")
+        elif isinstance(statement, ContinueStatementNode):
+            if loop_depth <= 0:
+                raise SurfaceValidationError("IV-5 ContinueOutsideLoop")
+        elif isinstance(statement, ForStatementNode):
+            if statement.iterator in local_bindings:
+                raise SurfaceValidationError(
+                    f"IV-1 duplicate iteration variable: {statement.iterator}"
+                )
+            _validate_calculation_expression(
+                statement.iterable, symbols, local_bindings
+            )
+            _require_iterable(statement.iterable, symbols, local_bindings)
+            loop_bindings = dict(local_bindings)
+            loop_bindings[statement.iterator] = _Binding(
+                _UNKNOWN_TYPE,
+                mutable=False,
+            )
+            _validate_function_statements(
+                statement.body,
+                symbols=symbols,
+                bindings=loop_bindings,
+                allow_terminal_return=True,
+                loop_depth=loop_depth + 1,
+            )
+        elif isinstance(statement, WhileStatementNode):
+            _validate_calculation_expression(
+                statement.condition, symbols, local_bindings
+            )
+            _require_bool_condition(statement.condition, symbols, local_bindings)
+            _validate_function_statements(
+                statement.body,
+                symbols=symbols,
+                bindings=local_bindings,
+                allow_terminal_return=True,
+                loop_depth=loop_depth + 1,
+            )
+        elif isinstance(statement, LoopStatementNode):
+            _validate_function_statements(
+                statement.body,
+                symbols=symbols,
+                bindings=local_bindings,
+                allow_terminal_return=True,
+                loop_depth=loop_depth + 1,
+            )
         elif isinstance(statement, IfStatementNode):
             _validate_calculation_expression(
                 statement.condition, symbols, local_bindings
@@ -749,6 +897,7 @@ def _validate_function_statements(
                 symbols=symbols,
                 bindings=local_bindings,
                 allow_terminal_return=is_last,
+                loop_depth=loop_depth,
             )
             for branch in statement.elif_branches:
                 _validate_calculation_expression(
@@ -760,6 +909,7 @@ def _validate_function_statements(
                     symbols=symbols,
                     bindings=local_bindings,
                     allow_terminal_return=is_last,
+                    loop_depth=loop_depth,
                 )
             if statement.else_branch:
                 _validate_function_statements(
@@ -767,6 +917,7 @@ def _validate_function_statements(
                     symbols=symbols,
                     bindings=local_bindings,
                     allow_terminal_return=is_last,
+                    loop_depth=loop_depth,
                 )
         elif isinstance(statement, MatchStatementNode):
             _validate_calculation_expression(
@@ -778,6 +929,7 @@ def _validate_function_statements(
                     symbols=symbols,
                     bindings=local_bindings,
                     allow_terminal_return=is_last,
+                    loop_depth=loop_depth,
                 )
 
 
@@ -1042,6 +1194,16 @@ def _require_bool_condition(
     bool_type = PrimitiveTypeNode(PrimitiveKind.BOOL)
     if expression_type is _UNKNOWN_TYPE or expression_type != bool_type:
         raise SurfaceValidationError("CV-1 ConditionMustBeBoolean")
+
+
+def _require_iterable(
+    expression: ExpressionNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    expression_type = _expression_type(expression.expression, symbols, bindings)
+    if isinstance(expression_type, PrimitiveTypeNode):
+        raise SurfaceValidationError("IV-8 iteration source must be iterable")
 
 
 def _validate_node_types(value: Any) -> None:

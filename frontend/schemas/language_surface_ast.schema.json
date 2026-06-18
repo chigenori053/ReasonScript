@@ -321,6 +321,11 @@
         {"$ref": "#/$defs/goal_statement"},
         {"$ref": "#/$defs/reach_statement"},
         {"$ref": "#/$defs/expression_statement"},
+        {"$ref": "#/$defs/for_statement"},
+        {"$ref": "#/$defs/while_statement"},
+        {"$ref": "#/$defs/loop_statement"},
+        {"$ref": "#/$defs/break_statement"},
+        {"$ref": "#/$defs/continue_statement"},
         {"$ref": "#/$defs/if"},
         {"$ref": "#/$defs/match"}
       ]
@@ -501,6 +506,61 @@
       "properties": {
         "expression": {"$ref": "#/$defs/expression"},
         "node_type": {"const": "ExpressionStatementNode"}
+      }
+    },
+    "for_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["iterator", "iterable", "body", "node_type"],
+      "properties": {
+        "iterator": {"$ref": "#/$defs/identifier"},
+        "iterable": {"$ref": "#/$defs/expression"},
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/statement"}
+        },
+        "node_type": {"const": "ForStatementNode"}
+      }
+    },
+    "while_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition", "body", "node_type"],
+      "properties": {
+        "condition": {"$ref": "#/$defs/expression"},
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/statement"}
+        },
+        "node_type": {"const": "WhileStatementNode"}
+      }
+    },
+    "loop_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body", "node_type"],
+      "properties": {
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/statement"}
+        },
+        "node_type": {"const": "LoopStatementNode"}
+      }
+    },
+    "break_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_type"],
+      "properties": {
+        "node_type": {"const": "BreakStatementNode"}
+      }
+    },
+    "continue_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_type"],
+      "properties": {
+        "node_type": {"const": "ContinueStatementNode"}
       }
     },
     "else_if": {

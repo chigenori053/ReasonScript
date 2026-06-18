@@ -12,12 +12,15 @@ from .nodes import (
     AssignmentStatementNode,
     BinaryExpressionNode,
     BinaryOperator,
+    BreakStatementNode,
     CallExpressionNode,
     ComparisonExpressionNode,
     ConstStatementNode,
+    ContinueStatementNode,
     ExpressionNode,
     ConstraintNode,
     ExpressionStatementNode,
+    ForStatementNode,
     FunctionDeclarationNode,
     GoalNode,
     GoalStatementNode,
@@ -25,6 +28,7 @@ from .nodes import (
     IfStatementNode,
     LetStatementNode,
     LogicalExpressionNode,
+    LoopStatementNode,
     MemberAccessNode,
     ModuleNode,
     ProgramNode,
@@ -35,6 +39,7 @@ from .nodes import (
     ReturnStatementNode,
     TransitionNode,
     UnaryExpressionNode,
+    WhileStatementNode,
     to_json_value,
 )
 from .validation import validate
@@ -291,6 +296,16 @@ def _statement_projection(
             to_json_value(statement),
             "CallTransition",
         )
+    if isinstance(statement, ForStatementNode):
+        return (f"for_{index}", to_json_value(statement), "ForTransition")
+    if isinstance(statement, WhileStatementNode):
+        return (f"while_{index}", to_json_value(statement), "WhileTransition")
+    if isinstance(statement, LoopStatementNode):
+        return (f"loop_{index}", to_json_value(statement), "LoopTransition")
+    if isinstance(statement, BreakStatementNode):
+        return (f"break_{index}", to_json_value(statement), "BreakTransition")
+    if isinstance(statement, ContinueStatementNode):
+        return (f"continue_{index}", to_json_value(statement), "ContinueTransition")
     if isinstance(statement, IfStatementNode):
         return (f"if_{index}", to_json_value(statement), "DecisionTransition")
     return (

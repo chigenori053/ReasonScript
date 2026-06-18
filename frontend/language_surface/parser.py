@@ -12,20 +12,24 @@ from .nodes import (
     ActionNode,
     AssignmentStatementNode,
     AttributeNode,
+    BreakStatementNode,
     CalculationNode,
     ConceptNode,
+    ContinueStatementNode,
     ConstraintNode,
     ConstStatementNode,
     ElseIfStatementNode,
     ElseStatementNode,
     EventNode,
     ExpressionStatementNode,
+    ForStatementNode,
     FunctionDeclarationNode,
     GoalNode,
     GoalStatementNode,
     IfStatementNode,
     ImportNode,
     LetStatementNode,
+    LoopStatementNode,
     MatchArmNode,
     MatchStatementNode,
     ModuleNode,
@@ -43,6 +47,7 @@ from .nodes import (
     StateTypeNode,
     TransitionNode,
     Visibility,
+    WhileStatementNode,
 )
 from .validation import SurfaceValidationError, validate
 
@@ -122,6 +127,12 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
             nodes.append(_parse_calculation(cursor))
         elif line.startswith("fn ") or line.startswith("pub fn "):
             nodes.append(_parse_function(cursor))
+        elif line.startswith("for "):
+            nodes.append(_parse_for(cursor, context=context))
+        elif line.startswith("while "):
+            nodes.append(_parse_while(cursor, context=context))
+        elif line == "loop {":
+            nodes.append(_parse_loop(cursor, context=context))
         elif line.startswith("if "):
             nodes.append(_parse_if(cursor, context=context))
         elif line.startswith("match "):
@@ -189,6 +200,10 @@ def _parse_simple(line: str, *, context: str):
     match = re.fullmatch(r"return\s+(.+)", line)
     if match:
         return ReturnStatementNode(_expression(match.group(1)))
+    if line == "break":
+        return BreakStatementNode()
+    if line == "continue":
+        return ContinueStatementNode()
     match = re.fullmatch(r"([A-Za-z_]\w*)\s*=\s*(.+)", line)
     if match:
         return AssignmentStatementNode(match.group(1), _expression(match.group(2)))
@@ -267,6 +282,35 @@ def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
     body = _parse_body(cursor, context="function")
     visibility = Visibility.PUBLIC if match.group(1) else Visibility.PRIVATE
     return FunctionDeclarationNode(match.group(2), parameters, tuple(body), visibility)
+
+
+def _parse_for(cursor: _Cursor, *, context: str) -> ForStatementNode:
+    match = re.fullmatch(
+        r"for\s+([A-Za-z_]\w*)\s+in\s+(.+)\s*\{",
+        cursor.take(),
+    )
+    if not match:
+        raise SurfaceSyntaxError("invalid for statement")
+    return ForStatementNode(
+        match.group(1),
+        _expression(match.group(2)),
+        tuple(_parse_body(cursor, context=context)),
+    )
+
+
+def _parse_while(cursor: _Cursor, *, context: str) -> WhileStatementNode:
+    match = re.fullmatch(r"while\s+(.+)\s*\{", cursor.take())
+    if not match:
+        raise SurfaceSyntaxError("invalid while statement")
+    return WhileStatementNode(
+        _expression(match.group(1)),
+        tuple(_parse_body(cursor, context=context)),
+    )
+
+
+def _parse_loop(cursor: _Cursor, *, context: str) -> LoopStatementNode:
+    cursor.take()
+    return LoopStatementNode(tuple(_parse_body(cursor, context=context)))
 
 
 def _parse_if(cursor: _Cursor, *, context: str) -> IfStatementNode:
