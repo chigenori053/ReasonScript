@@ -306,14 +306,17 @@
         {"$ref": "#/$defs/named_declaration"},
         {"$ref": "#/$defs/relation"},
         {"$ref": "#/$defs/transition"},
-        {"$ref": "#/$defs/calculation"}
+        {"$ref": "#/$defs/calculation"},
+        {"$ref": "#/$defs/function_declaration"}
       ]
     },
     "statement": {
       "oneOf": [
         {"$ref": "#/$defs/let"},
+        {"$ref": "#/$defs/const_statement"},
         {"$ref": "#/$defs/assignment"},
         {"$ref": "#/$defs/result_statement"},
+        {"$ref": "#/$defs/return_statement"},
         {"$ref": "#/$defs/require_statement"},
         {"$ref": "#/$defs/goal_statement"},
         {"$ref": "#/$defs/reach_statement"},
@@ -420,6 +423,22 @@
         "node_type": {"const": "LetStatementNode"}
       }
     },
+    "const_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identifier", "expression", "type_annotation", "node_type"],
+      "properties": {
+        "identifier": {"$ref": "#/$defs/identifier"},
+        "expression": {"$ref": "#/$defs/expression"},
+        "type_annotation": {
+          "oneOf": [
+            {"$ref": "#/$defs/type_node"},
+            {"type": "null"}
+          ]
+        },
+        "node_type": {"const": "ConstStatementNode"}
+      }
+    },
     "assignment": {
       "type": "object",
       "additionalProperties": false,
@@ -437,6 +456,15 @@
       "properties": {
         "expression": {"$ref": "#/$defs/expression"},
         "node_type": {"const": "ResultStatementNode"}
+      }
+    },
+    "return_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expression", "node_type"],
+      "properties": {
+        "expression": {"$ref": "#/$defs/expression"},
+        "node_type": {"const": "ReturnStatementNode"}
       }
     },
     "require_statement": {
@@ -607,6 +635,26 @@
           ]
         },
         "node_type": {"const": "CalculationNode"}
+      }
+    },
+    "function_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "parameters", "body", "visibility", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "parameters": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "body": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/statement"}
+        },
+        "visibility": {
+          "enum": ["Public", "Private"]
+        },
+        "node_type": {"const": "FunctionDeclarationNode"}
       }
     }
   }

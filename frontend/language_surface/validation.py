@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import re
 import math
-from dataclasses import fields, is_dataclass
+import re
+from dataclasses import dataclass, fields, is_dataclass
 from typing import Any
 
 from .nodes import (
@@ -20,12 +20,14 @@ from .nodes import (
     ComparisonOperator,
     ConceptNode,
     ConstraintNode,
+    ConstStatementNode,
     ElseIfStatementNode,
     ElseStatementNode,
     EventNode,
     ExpressionStatementNode,
     ExpressionNode,
     FloatLiteralNode,
+    FunctionDeclarationNode,
     GoalNode,
     GoalStatementNode,
     IfStatementNode,
@@ -55,6 +57,7 @@ from .nodes import (
     RelationType,
     RequireStatementNode,
     ResultStatementNode,
+    ReturnStatementNode,
     StringLiteralNode,
     StateKind,
     StateTypeNode,
@@ -77,6 +80,7 @@ DECLARATION_NODES = (
     GoalNode,
     ConstraintNode,
     CalculationNode,
+    FunctionDeclarationNode,
     TransitionNode,
 )
 KNOWN_NODE_TYPES = (
@@ -87,8 +91,10 @@ KNOWN_NODE_TYPES = (
     *DECLARATION_NODES,
     RelationNode,
     LetStatementNode,
+    ConstStatementNode,
     AssignmentStatementNode,
     ResultStatementNode,
+    ReturnStatementNode,
     RequireStatementNode,
     GoalStatementNode,
     ReachStatementNode,
@@ -127,6 +133,12 @@ class SurfaceValidationError(ValueError):
 
 
 _CURRENT_NAMESPACE: ModuleNamespace | None = None
+
+
+@dataclass(frozen=True)
+class _Binding:
+    type_node: Any
+    mutable: bool
 
 
 def validate(program: ProgramNode) -> None:
@@ -176,8 +188,10 @@ def _validate_module(module: ModuleNode) -> None:
             node,
             (
                 LetStatementNode,
+                ConstStatementNode,
                 AssignmentStatementNode,
                 ResultStatementNode,
+                ReturnStatementNode,
                 RequireStatementNode,
                 GoalStatementNode,
                 ReachStatementNode,
@@ -204,6 +218,8 @@ def _validate_module(module: ModuleNode) -> None:
             _validate_transition(node, symbols)
         elif isinstance(node, CalculationNode):
             _validate_calculation(node, symbols)
+        elif isinstance(node, FunctionDeclarationNode):
+            _validate_function(node, symbols)
         else:
             _validate_ast_node(node)
 
@@ -224,9 +240,24 @@ def _validate_ast_node(node: Any) -> None:
             raise SurfaceValidationError("CAL-V001 invalid calculation visibility")
         if node.return_type is not None:
             _validate_type_node(node.return_type)
+    elif isinstance(node, FunctionDeclarationNode):
+        _identifier(node.name, "FN-001 FunctionDeclarationNode.name")
+        if not isinstance(node.visibility, Visibility):
+            raise SurfaceValidationError("FN-001 invalid function visibility")
+        seen: set[str] = set()
+        for parameter in node.parameters:
+            _identifier(parameter, "FN-002 FunctionDeclarationNode.parameter")
+            if parameter in seen:
+                raise SurfaceValidationError(f"FN-003 duplicate parameter: {parameter}")
+            seen.add(parameter)
     elif isinstance(node, LetStatementNode):
         _identifier(node.identifier, "ST-001 LetStatementNode.identifier")
         _expression(node.expression, "ST-002 LetStatementNode.expression")
+        if node.type_annotation is not None:
+            _validate_type_node(node.type_annotation)
+    elif isinstance(node, ConstStatementNode):
+        _identifier(node.identifier, "ST-001 ConstStatementNode.identifier")
+        _expression(node.expression, "ST-002 ConstStatementNode.expression")
         if node.type_annotation is not None:
             _validate_type_node(node.type_annotation)
     elif isinstance(node, AssignmentStatementNode):
@@ -234,6 +265,8 @@ def _validate_ast_node(node: Any) -> None:
         _expression(node.expression, "AssignmentStatementNode.expression")
     elif isinstance(node, ResultStatementNode):
         _expression(node.expression, "ST-020 ResultStatementNode.expression")
+    elif isinstance(node, ReturnStatementNode):
+        _expression(node.expression, "FN-020 ReturnStatementNode.expression")
     elif isinstance(node, RequireStatementNode):
         _identifier(node.constraint, "RequireStatementNode.constraint")
     elif isinstance(node, (GoalStatementNode, ReachStatementNode)):
@@ -299,6 +332,24 @@ def _validate_calculation(node: CalculationNode, symbols: dict[str, Any]) -> Non
         )
 
 
+def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -> None:
+    _validate_ast_node(node)
+    bindings = {
+        parameter: _Binding(_UNKNOWN_TYPE, mutable=False)
+        for parameter in node.parameters
+    }
+    _validate_function_statements(
+        node.body,
+        symbols=symbols,
+        bindings=bindings,
+        allow_terminal_return=True,
+    )
+    if not _statement_list_terminates_with_return(node.body):
+        raise SurfaceValidationError(
+            "FN-010 function requires a terminal ReturnStatementNode"
+        )
+
+
 def _validate_statement_list(
     statements: tuple[Any, ...],
     *,
@@ -317,6 +368,7 @@ def _validate_statement_list(
         ),
         "calculation": (
             LetStatementNode,
+            ConstStatementNode,
             AssignmentStatementNode,
             IfStatementNode,
             MatchStatementNode,
@@ -332,11 +384,13 @@ def _validate_statement_list(
             )
         if isinstance(statement, ResultStatementNode) and not allow_result:
             raise SurfaceValidationError("ST-V002 result is invalid in this body")
+        if isinstance(statement, ReturnStatementNode):
+            raise SurfaceValidationError("ST-V002 return is invalid in this body")
         _validate_ast_node(statement)
-        if isinstance(statement, LetStatementNode):
+        if isinstance(statement, (LetStatementNode, ConstStatementNode)):
             if statement.identifier in bindings:
                 raise SurfaceValidationError(
-                    f"ST-003 duplicate immutable binding: {statement.identifier}"
+                    f"ST-003 duplicate binding: {statement.identifier}"
                 )
             bindings.add(statement.identifier)
         elif isinstance(statement, RequireStatementNode):
@@ -409,6 +463,7 @@ def _validate_calculation_statements(
 ) -> None:
     allowed = (
         LetStatementNode,
+        ConstStatementNode,
         AssignmentStatementNode,
         IfStatementNode,
         MatchStatementNode,
@@ -430,10 +485,10 @@ def _validate_calculation_statements(
             )
         _validate_ast_node(statement)
         is_last = index == len(statements) - 1
-        if isinstance(statement, LetStatementNode):
+        if isinstance(statement, (LetStatementNode, ConstStatementNode)):
             if statement.identifier in local_bindings:
                 raise SurfaceValidationError(
-                    f"CAL-021 duplicate let binding: {statement.identifier}"
+                    f"CAL-021 duplicate binding: {statement.identifier}"
                 )
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
@@ -449,9 +504,13 @@ def _validate_calculation_statements(
                     symbols,
                     "TYPE-V003 assignment mismatch",
                 )
-                local_bindings[statement.identifier] = statement.type_annotation
+                binding_type = statement.type_annotation
             else:
-                local_bindings[statement.identifier] = expression_type
+                binding_type = expression_type
+            local_bindings[statement.identifier] = _Binding(
+                binding_type,
+                mutable=isinstance(statement, LetStatementNode),
+            )
         elif isinstance(statement, AssignmentStatementNode):
             if (
                 statement.target not in local_bindings
@@ -460,12 +519,19 @@ def _validate_calculation_statements(
                 raise SurfaceValidationError(
                     f"CAL-020 undefined assignment target: {statement.target}"
                 )
+            if (
+                statement.target in local_bindings
+                and not local_bindings[statement.target].mutable
+            ):
+                raise SurfaceValidationError(
+                    f"CONST-001 cannot assign to constant: {statement.target}"
+                )
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
             if statement.target in local_bindings:
                 _require_compatible(
-                    local_bindings[statement.target],
+                    local_bindings[statement.target].type_node,
                     _expression_type(
                         statement.expression.expression, symbols, local_bindings
                     ),
@@ -559,6 +625,154 @@ def _statement_list_terminates_with_result(statements: tuple[Any, ...]) -> bool:
     return False
 
 
+def _validate_function_statements(
+    statements: tuple[Any, ...],
+    *,
+    symbols: dict[str, Any],
+    bindings: dict[str, _Binding],
+    allow_terminal_return: bool,
+) -> None:
+    allowed = (
+        LetStatementNode,
+        ConstStatementNode,
+        AssignmentStatementNode,
+        IfStatementNode,
+        MatchStatementNode,
+        ExpressionStatementNode,
+        ReturnStatementNode,
+    )
+    direct_returns = sum(
+        isinstance(statement, ReturnStatementNode) for statement in statements
+    )
+    if direct_returns > 1:
+        raise SurfaceValidationError(
+            "FN-011 function path contains multiple ReturnStatementNode values"
+        )
+    local_bindings = dict(bindings)
+    for index, statement in enumerate(statements):
+        if not isinstance(statement, allowed):
+            raise SurfaceValidationError(
+                f"FN-001 {type(statement).__name__} is invalid in function body"
+            )
+        _validate_ast_node(statement)
+        is_last = index == len(statements) - 1
+        if isinstance(statement, (LetStatementNode, ConstStatementNode)):
+            if statement.identifier in local_bindings:
+                raise SurfaceValidationError(
+                    f"FN-021 duplicate binding: {statement.identifier}"
+                )
+            _validate_calculation_expression(
+                statement.expression, symbols, local_bindings
+            )
+            expression_type = _expression_type(
+                statement.expression.expression, symbols, local_bindings
+            )
+            if statement.type_annotation is not None:
+                _require_compatible(
+                    statement.type_annotation,
+                    expression_type,
+                    statement.expression,
+                    symbols,
+                    "TYPE-V003 assignment mismatch",
+                )
+                expression_type = statement.type_annotation
+            local_bindings[statement.identifier] = _Binding(
+                expression_type,
+                mutable=isinstance(statement, LetStatementNode),
+            )
+        elif isinstance(statement, AssignmentStatementNode):
+            if statement.target not in local_bindings:
+                raise SurfaceValidationError(
+                    f"FN-020 undefined assignment target: {statement.target}"
+                )
+            if not local_bindings[statement.target].mutable:
+                raise SurfaceValidationError(
+                    f"CONST-001 cannot assign to constant: {statement.target}"
+                )
+            _validate_calculation_expression(
+                statement.expression, symbols, local_bindings
+            )
+            _require_compatible(
+                local_bindings[statement.target].type_node,
+                _expression_type(
+                    statement.expression.expression, symbols, local_bindings
+                ),
+                statement.expression,
+                symbols,
+                "TYPE-V003 assignment mismatch",
+            )
+        elif isinstance(statement, ExpressionStatementNode):
+            _validate_calculation_expression(
+                statement.expression, symbols, local_bindings
+            )
+        elif isinstance(statement, ReturnStatementNode):
+            if not allow_terminal_return or not is_last:
+                raise SurfaceValidationError(
+                    "FN-012 ReturnStatementNode must be the final statement"
+                )
+            _validate_calculation_expression(
+                statement.expression, symbols, local_bindings
+            )
+        elif isinstance(statement, IfStatementNode):
+            _validate_calculation_expression(
+                statement.condition, symbols, local_bindings
+            )
+            _validate_function_statements(
+                statement.body,
+                symbols=symbols,
+                bindings=local_bindings,
+                allow_terminal_return=is_last,
+            )
+            for branch in statement.elif_branches:
+                _validate_calculation_expression(
+                    branch.condition, symbols, local_bindings
+                )
+                _validate_function_statements(
+                    branch.body,
+                    symbols=symbols,
+                    bindings=local_bindings,
+                    allow_terminal_return=is_last,
+                )
+            if statement.else_branch:
+                _validate_function_statements(
+                    statement.else_branch.body,
+                    symbols=symbols,
+                    bindings=local_bindings,
+                    allow_terminal_return=is_last,
+                )
+        elif isinstance(statement, MatchStatementNode):
+            _validate_calculation_expression(
+                statement.expression, symbols, local_bindings
+            )
+            for arm in statement.arms:
+                _validate_function_statements(
+                    arm.body,
+                    symbols=symbols,
+                    bindings=local_bindings,
+                    allow_terminal_return=is_last,
+                )
+
+
+def _statement_list_terminates_with_return(statements: tuple[Any, ...]) -> bool:
+    if not statements:
+        return False
+    final = statements[-1]
+    if isinstance(final, ReturnStatementNode):
+        return True
+    if isinstance(final, IfStatementNode):
+        if final.else_branch is None:
+            return False
+        branches = [final.body]
+        branches.extend(branch.body for branch in final.elif_branches)
+        branches.append(final.else_branch.body)
+        return all(_statement_list_terminates_with_return(body) for body in branches)
+    if isinstance(final, MatchStatementNode):
+        return bool(final.arms) and all(
+            _statement_list_terminates_with_return(arm.body) for arm in final.arms
+        )
+    return False
+
+
 def _validate_calculation_expression(
     expression: ExpressionNode,
     symbols: dict[str, Any],
@@ -632,7 +846,8 @@ def _expression_type(
         return PrimitiveTypeNode(PrimitiveKind.NULL)
     if isinstance(value, IdentifierNode):
         if value.name in bindings:
-            return bindings[value.name]
+            binding = bindings[value.name]
+            return binding.type_node if isinstance(binding, _Binding) else binding
         declaration = symbols.get(value.name)
         if declaration is None and _CURRENT_NAMESPACE is not None:
             imported = _CURRENT_NAMESPACE.imported(value.name)

@@ -1,0 +1,14 @@
+// EX-015: Attribute Model (Language Surface)
+// Domain model with typed attributes and similarity relation.
+module AttributeModel {
+concept Entity
+attribute Name
+attribute Weight
+attribute Color
+Name PartOf Entity
+Weight PartOf Entity
+Color PartOf Entity
+Name Similar Weight
+constraint AttributeConstraint
+goal ModelEntity
+}

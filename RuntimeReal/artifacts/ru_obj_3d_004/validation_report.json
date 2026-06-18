@@ -1,0 +1,56 @@
+{
+  "specification": "RU-OBJ-3D-004",
+  "version": "0.1",
+  "passed": true,
+  "snapshot_count": 3,
+  "transition_count": 2,
+  "state_transition_pass": true,
+  "relation_transition_pass": true,
+  "containment_preserved": true,
+  "deterministic_replay": true,
+  "cases": [
+    {
+      "id": "RU-OBJ-3D-004-A",
+      "name": "State Change",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-004-B",
+      "name": "Object Relocation",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-004-C",
+      "name": "Relation Change",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-004-D",
+      "name": "Compound Transition",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-004-E",
+      "name": "Snapshot Validation",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-004-F",
+      "name": "Transition Trace",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-004-G",
+      "name": "Deterministic Replay",
+      "passed": true
+    }
+  ],
+  "generated_artifacts": [
+    "world_t0.json",
+    "world_t1.json",
+    "world_t2.json",
+    "transition_trace.json",
+    "validation_report.json",
+    "world_transition.png"
+  ]
+}

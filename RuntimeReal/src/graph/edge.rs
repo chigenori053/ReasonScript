@@ -1,5 +1,5 @@
-use crate::core::Transition;
 use crate::core::types::RelationType;
+use crate::core::Transition;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

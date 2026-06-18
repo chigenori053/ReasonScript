@@ -1,0 +1,5 @@
+// EX-002: State Transition
+// Two-state navigation: LivingRoom (initial) → Kitchen via Move.
+goal ReachKitchen
+state LivingRoom
+transition LivingRoom Move Kitchen

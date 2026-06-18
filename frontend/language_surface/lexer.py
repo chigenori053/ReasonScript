@@ -13,9 +13,11 @@ KEYWORDS = {
     "calculation",
     "concept",
     "constraint",
+    "const",
     "elif",
     "else",
     "event",
+    "fn",
     "goal",
     "if",
     "import",
@@ -28,6 +30,7 @@ KEYWORDS = {
     "require",
     "requires",
     "result",
+    "return",
     "transition",
 }
 

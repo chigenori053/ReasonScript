@@ -1,0 +1,12 @@
+{
+  "final_state": "Destination",
+  "goal_reached": true,
+  "rollback_applied": false,
+  "status": "success",
+  "trace": [
+    "Start",
+    "Waypoint",
+    "Destination"
+  ],
+  "violations": []
+}

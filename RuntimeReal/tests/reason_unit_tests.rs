@@ -1,6 +1,6 @@
-use reasonscript_runtime_real::core::types::{UnitType, StateType};
-use reasonscript_runtime_real::core::{ReasonUnit, State};
 use ndarray::array;
+use reasonscript_runtime_real::core::types::{StateType, UnitType};
+use reasonscript_runtime_real::core::{ReasonUnit, State};
 
 #[test]
 fn test_reason_unit_creation() {
@@ -14,14 +14,14 @@ fn test_reason_unit_creation() {
 fn test_reason_unit_algebra() {
     let ru_a = ReasonUnit::new("A", UnitType::Vector, array![1.0, 2.0]);
     let ru_b = ReasonUnit::new("B", UnitType::Vector, array![3.0, 4.0]);
-    
+
     let sum = ru_a.add(&ru_b);
     assert_eq!(sum.vector, array![4.0, 6.0]);
     assert_eq!(sum.unit_type, UnitType::Vector);
-    
+
     let diff = ru_b.sub(&ru_a);
     assert_eq!(diff.vector, array![2.0, 2.0]);
-    
+
     let neg = ru_a.neg();
     assert_eq!(neg.vector, array![-1.0, -2.0]);
 }
@@ -30,7 +30,7 @@ fn test_reason_unit_algebra() {
 fn test_state_creation() {
     let ru = ReasonUnit::new("Dog", UnitType::Symbolic, array![1.0]);
     let state = State::new(StateType::Concept, ru);
-    
+
     assert_eq!(state.state_type, StateType::Concept);
     assert_eq!(state.value.label, "Dog");
 }

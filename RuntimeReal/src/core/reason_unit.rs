@@ -1,7 +1,7 @@
 use crate::core::types::UnitType;
+use ndarray::Array1;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use ndarray::Array1;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct ReasonUnitMetrics {

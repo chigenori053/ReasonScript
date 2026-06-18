@@ -1,0 +1,4 @@
+// EX-001: Minimal Goal
+// The simplest valid ReasonScript program.
+goal ReachKitchen
+state Kitchen

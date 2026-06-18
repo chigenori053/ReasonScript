@@ -1,0 +1,46 @@
+{
+  "alternative_paths": [],
+  "constraints": [],
+  "evidence_refs": [],
+  "expected_cost": 2.0,
+  "goal": {
+    "kind": "reach_state",
+    "target": "Destination"
+  },
+  "initial_state": {
+    "data": {},
+    "state_id": "Start",
+    "state_type": "symbolic"
+  },
+  "planner_version": "tp-007-runtime-integration/0.1",
+  "selected_steps": [
+    {
+      "source": "Start",
+      "step_id": "step-1",
+      "target": "Waypoint",
+      "transition_id": "Start-Move-Waypoint"
+    },
+    {
+      "source": "Waypoint",
+      "step_id": "step-2",
+      "target": "Destination",
+      "transition_id": "Waypoint-Move-Destination"
+    }
+  ],
+  "transitions": [
+    {
+      "expected_cost": 1.0,
+      "relation": "Move",
+      "source": "Start",
+      "target": "Waypoint",
+      "transition_id": "Start-Move-Waypoint"
+    },
+    {
+      "expected_cost": 1.0,
+      "relation": "Move",
+      "source": "Waypoint",
+      "target": "Destination",
+      "transition_id": "Waypoint-Move-Destination"
+    }
+  ]
+}

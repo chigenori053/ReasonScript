@@ -1,8 +1,8 @@
-use crate::graph::{Node, Edge};
-use crate::core::State;
 use crate::core::types::GraphType;
-use serde::{Deserialize, Serialize};
+use crate::core::State;
+use crate::graph::{Edge, Node};
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,6 +49,8 @@ impl ReasonGraph {
     }
 
     pub fn get_node_state(&self, node_id: &Uuid) -> Option<&State> {
-        self.nodes.get(node_id).and_then(|n| self.states.get(&n.state_id))
+        self.nodes
+            .get(node_id)
+            .and_then(|n| self.states.get(&n.state_id))
     }
 }

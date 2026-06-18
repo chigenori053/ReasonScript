@@ -1,0 +1,520 @@
+{
+  "snapshots": [
+    {
+      "timestamp": 0,
+      "scene_graph": {
+        "objects": [
+          {
+            "id": "building",
+            "name": "Building",
+            "object_type": "Building",
+            "transform": {
+              "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [],
+            "states": [],
+            "relations": [
+              {
+                "relation_type": "Contains",
+                "target_id": "room_a"
+              },
+              {
+                "relation_type": "Contains",
+                "target_id": "room_b"
+              }
+            ]
+          },
+          {
+            "id": "room_a",
+            "name": "RoomA",
+            "object_type": "Room",
+            "transform": {
+              "position": {
+                "x": 10.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [
+              {
+                "name": "Enterable"
+              }
+            ],
+            "states": [],
+            "relations": [
+              {
+                "relation_type": "Contains",
+                "target_id": "chair"
+              },
+              {
+                "relation_type": "Contains",
+                "target_id": "human"
+              }
+            ]
+          },
+          {
+            "id": "room_b",
+            "name": "RoomB",
+            "object_type": "Room",
+            "transform": {
+              "position": {
+                "x": 20.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [
+              {
+                "name": "Enterable"
+              }
+            ],
+            "states": [],
+            "relations": []
+          },
+          {
+            "id": "chair",
+            "name": "Chair",
+            "object_type": "Furniture",
+            "transform": {
+              "position": {
+                "x": 2.0,
+                "y": 0.0,
+                "z": 1.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [
+              {
+                "name": "Sittable"
+              }
+            ],
+            "states": [
+              {
+                "name": "Available"
+              }
+            ],
+            "relations": [
+              {
+                "relation_type": "Supports",
+                "target_id": "human"
+              }
+            ]
+          },
+          {
+            "id": "human",
+            "name": "Human",
+            "object_type": "Human",
+            "transform": {
+              "position": {
+                "x": 2.0,
+                "y": 0.0,
+                "z": 2.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [],
+            "states": [
+              {
+                "name": "Standing"
+              }
+            ],
+            "relations": []
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": 1,
+      "scene_graph": {
+        "objects": [
+          {
+            "id": "building",
+            "name": "Building",
+            "object_type": "Building",
+            "transform": {
+              "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [],
+            "states": [],
+            "relations": [
+              {
+                "relation_type": "Contains",
+                "target_id": "room_a"
+              },
+              {
+                "relation_type": "Contains",
+                "target_id": "room_b"
+              }
+            ]
+          },
+          {
+            "id": "room_a",
+            "name": "RoomA",
+            "object_type": "Room",
+            "transform": {
+              "position": {
+                "x": 10.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [
+              {
+                "name": "Enterable"
+              }
+            ],
+            "states": [],
+            "relations": [
+              {
+                "relation_type": "Contains",
+                "target_id": "chair"
+              },
+              {
+                "relation_type": "Contains",
+                "target_id": "human"
+              }
+            ]
+          },
+          {
+            "id": "room_b",
+            "name": "RoomB",
+            "object_type": "Room",
+            "transform": {
+              "position": {
+                "x": 20.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [
+              {
+                "name": "Enterable"
+              }
+            ],
+            "states": [],
+            "relations": []
+          },
+          {
+            "id": "chair",
+            "name": "Chair",
+            "object_type": "Furniture",
+            "transform": {
+              "position": {
+                "x": 2.0,
+                "y": 0.0,
+                "z": 1.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [
+              {
+                "name": "Sittable"
+              }
+            ],
+            "states": [
+              {
+                "name": "Occupied"
+              }
+            ],
+            "relations": []
+          },
+          {
+            "id": "human",
+            "name": "Human",
+            "object_type": "Human",
+            "transform": {
+              "position": {
+                "x": 14.0,
+                "y": 0.0,
+                "z": 2.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [],
+            "states": [
+              {
+                "name": "Walking"
+              }
+            ],
+            "relations": []
+          }
+        ]
+      }
+    },
+    {
+      "timestamp": 2,
+      "scene_graph": {
+        "objects": [
+          {
+            "id": "building",
+            "name": "Building",
+            "object_type": "Building",
+            "transform": {
+              "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [],
+            "states": [],
+            "relations": [
+              {
+                "relation_type": "Contains",
+                "target_id": "room_a"
+              },
+              {
+                "relation_type": "Contains",
+                "target_id": "room_b"
+              }
+            ]
+          },
+          {
+            "id": "room_a",
+            "name": "RoomA",
+            "object_type": "Room",
+            "transform": {
+              "position": {
+                "x": 10.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [
+              {
+                "name": "Enterable"
+              }
+            ],
+            "states": [],
+            "relations": [
+              {
+                "relation_type": "Contains",
+                "target_id": "chair"
+              }
+            ]
+          },
+          {
+            "id": "room_b",
+            "name": "RoomB",
+            "object_type": "Room",
+            "transform": {
+              "position": {
+                "x": 20.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [
+              {
+                "name": "Enterable"
+              }
+            ],
+            "states": [],
+            "relations": [
+              {
+                "relation_type": "Contains",
+                "target_id": "human"
+              }
+            ]
+          },
+          {
+            "id": "chair",
+            "name": "Chair",
+            "object_type": "Furniture",
+            "transform": {
+              "position": {
+                "x": 2.0,
+                "y": 0.0,
+                "z": 1.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [
+              {
+                "name": "Sittable"
+              }
+            ],
+            "states": [
+              {
+                "name": "Occupied"
+              }
+            ],
+            "relations": []
+          },
+          {
+            "id": "human",
+            "name": "Human",
+            "object_type": "Human",
+            "transform": {
+              "position": {
+                "x": 22.0,
+                "y": 0.0,
+                "z": 2.0
+              },
+              "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            },
+            "attributes": [],
+            "states": [
+              {
+                "name": "Sitting"
+              }
+            ],
+            "relations": []
+          }
+        ]
+      }
+    }
+  ]
+}

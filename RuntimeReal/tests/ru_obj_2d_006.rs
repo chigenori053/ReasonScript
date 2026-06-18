@@ -1,10 +1,10 @@
+use ndarray::array;
 use reasonscript_runtime_real::core::transition::TransitionOp;
 use reasonscript_runtime_real::core::types::{
     GraphType, RelationType, StateType, TransitionType, UnitType,
 };
 use reasonscript_runtime_real::core::{ReasonUnit, State, Transition};
 use reasonscript_runtime_real::graph::{Edge, Node, ReasonGraph};
-use ndarray::array;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::path::Path;
@@ -47,18 +47,59 @@ fn ru_obj_2d_006_builds_hierarchical_scene_layout_from_containment() {
     assert!(contains_path(&hierarchy.root, &["World", "House"]));
     assert!(contains_path(&hierarchy.root, &["World", "House", "RoomA"]));
     assert!(contains_path(&hierarchy.root, &["World", "House", "RoomB"]));
-    assert!(contains_path(&hierarchy.root, &["World", "House", "RoomA", "Table"]));
-    assert!(contains_path(&hierarchy.root, &["World", "House", "RoomA", "Chair"]));
-    assert!(contains_path(&hierarchy.root, &["World", "House", "RoomB", "Bed"]));
+    assert!(contains_path(
+        &hierarchy.root,
+        &["World", "House", "RoomA", "Table"]
+    ));
+    assert!(contains_path(
+        &hierarchy.root,
+        &["World", "House", "RoomA", "Chair"]
+    ));
+    assert!(contains_path(
+        &hierarchy.root,
+        &["World", "House", "RoomB", "Bed"]
+    ));
 
     let layout = layout_hierarchy(&hierarchy);
     let repeated_layout = layout_hierarchy(&hierarchy);
     assert_eq!(layout, repeated_layout);
 
-    assert_eq!(layout.get("World"), Some(&Bounds { x: 500.0, y: 500.0, width: 800.0, height: 800.0 }));
-    assert_eq!(layout.get("House"), Some(&Bounds { x: 500.0, y: 500.0, width: 600.0, height: 600.0 }));
-    assert_eq!(layout.get("RoomA"), Some(&Bounds { x: 350.0, y: 500.0, width: 250.0, height: 250.0 }));
-    assert_eq!(layout.get("RoomB"), Some(&Bounds { x: 650.0, y: 500.0, width: 250.0, height: 250.0 }));
+    assert_eq!(
+        layout.get("World"),
+        Some(&Bounds {
+            x: 500.0,
+            y: 500.0,
+            width: 800.0,
+            height: 800.0
+        })
+    );
+    assert_eq!(
+        layout.get("House"),
+        Some(&Bounds {
+            x: 500.0,
+            y: 500.0,
+            width: 600.0,
+            height: 600.0
+        })
+    );
+    assert_eq!(
+        layout.get("RoomA"),
+        Some(&Bounds {
+            x: 350.0,
+            y: 500.0,
+            width: 250.0,
+            height: 250.0
+        })
+    );
+    assert_eq!(
+        layout.get("RoomB"),
+        Some(&Bounds {
+            x: 650.0,
+            y: 500.0,
+            width: 250.0,
+            height: 250.0
+        })
+    );
 
     let report = validate_hierarchy_layout(&hierarchy, &layout);
     assert!(report.passed);
@@ -198,12 +239,7 @@ fn build_hierarchy(graph: &ReasonGraph) -> Result<HierarchicalSceneGraph, String
 
     let mut visiting = BTreeSet::new();
     let mut visited = BTreeSet::new();
-    let root = build_scene_node(
-        &roots[0],
-        &children_by_parent,
-        &mut visiting,
-        &mut visited,
-    )?;
+    let root = build_scene_node(&roots[0], &children_by_parent, &mut visiting, &mut visited)?;
 
     if visited.len() != all_nodes.len() {
         return Err("hierarchy contains unreachable or cyclic nodes".to_string());
@@ -218,8 +254,14 @@ fn containment_edges(graph: &ReasonGraph) -> Result<Vec<(String, String)>, Strin
         .iter()
         .filter(|edge| edge.relation == RelationType::Spatial)
         .map(|edge| match relation_label(edge).as_str() {
-            "contains" => Ok((object_name(graph, edge.source)?, object_name(graph, edge.target)?)),
-            "inside" => Ok((object_name(graph, edge.target)?, object_name(graph, edge.source)?)),
+            "contains" => Ok((
+                object_name(graph, edge.source)?,
+                object_name(graph, edge.target)?,
+            )),
+            "inside" => Ok((
+                object_name(graph, edge.target)?,
+                object_name(graph, edge.source)?,
+            )),
             other => Err(format!("unsupported hierarchical relation: {other}")),
         })
         .collect()
@@ -268,7 +310,11 @@ fn layout_hierarchy(hierarchy: &HierarchicalSceneGraph) -> BTreeMap<String, Boun
     layout
 }
 
-fn layout_children(parent: &SceneNode, parent_bounds: Bounds, layout: &mut BTreeMap<String, Bounds>) {
+fn layout_children(
+    parent: &SceneNode,
+    parent_bounds: Bounds,
+    layout: &mut BTreeMap<String, Bounds>,
+) {
     if parent.children.is_empty() {
         return;
     }
@@ -451,7 +497,10 @@ fn json_string_array(values: &[String]) -> String {
     format!("[{body}]")
 }
 
-fn render_hierarchy_png(layout: &BTreeMap<String, Bounds>, output_path: &Path) -> std::io::Result<()> {
+fn render_hierarchy_png(
+    layout: &BTreeMap<String, Bounds>,
+    output_path: &Path,
+) -> std::io::Result<()> {
     let canvas_width = 1000;
     let canvas_height = 1000;
     let mut rgba = vec![255; (canvas_width * canvas_height * 4) as usize];
@@ -462,7 +511,10 @@ fn render_hierarchy_png(layout: &BTreeMap<String, Bounds>, output_path: &Path) -
         }
     }
 
-    fs::write(output_path, encode_png_rgba(canvas_width, canvas_height, &rgba))
+    fs::write(
+        output_path,
+        encode_png_rgba(canvas_width, canvas_height, &rgba),
+    )
 }
 
 fn draw_rectangle(rgba: &mut [u8], canvas_width: u32, bounds: Bounds) {

@@ -1,0 +1,16 @@
+// EX-011: Event-Driven System (Language Surface)
+// Door state machine expressed as events and actions.
+module DoorSystem {
+event DoorOpened
+event DoorClosed
+action OpenDoor
+action CloseDoor
+constraint SafeState
+transition Open {
+DoorClosed -> DoorOpened
+}
+transition Close {
+DoorOpened -> DoorClosed
+}
+goal ManageDoor
+}

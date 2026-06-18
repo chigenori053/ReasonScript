@@ -1,10 +1,10 @@
+use ndarray::array;
 use reasonscript_runtime_real::core::transition::TransitionOp;
 use reasonscript_runtime_real::core::types::{
     GraphType, RelationType, StateType, TransitionType, UnitType,
 };
 use reasonscript_runtime_real::core::{ReasonUnit, State, Transition};
 use reasonscript_runtime_real::graph::{Edge, Node, ReasonGraph};
-use ndarray::array;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
@@ -26,9 +26,9 @@ impl SceneType {
     fn as_str(&self) -> &'static str {
         match self {
             Self::DiningRoom => "DiningRoom",
-            Self::Bedroom    => "Bedroom",
-            Self::Office     => "Office",
-            Self::Classroom  => "Classroom",
+            Self::Bedroom => "Bedroom",
+            Self::Office => "Office",
+            Self::Classroom => "Classroom",
         }
     }
 }
@@ -48,14 +48,14 @@ enum ObjectType {
 impl ObjectType {
     fn as_str(&self) -> &'static str {
         match self {
-            Self::Table       => "Table",
-            Self::Chair       => "Chair",
-            Self::Lamp        => "Lamp",
-            Self::Bed         => "Bed",
-            Self::Desk        => "Desk",
+            Self::Table => "Table",
+            Self::Chair => "Chair",
+            Self::Lamp => "Lamp",
+            Self::Bed => "Bed",
+            Self::Desk => "Desk",
             Self::TeacherDesk => "TeacherDesk",
             Self::StudentDesk => "StudentDesk",
-            Self::Whiteboard  => "Whiteboard",
+            Self::Whiteboard => "Whiteboard",
         }
     }
 }
@@ -97,7 +97,7 @@ enum SpatialRelationType {
 impl SpatialRelationType {
     fn as_str(&self) -> &'static str {
         match self {
-            Self::Near  => "near",
+            Self::Near => "near",
             Self::Above => "above",
         }
     }
@@ -105,23 +105,23 @@ impl SpatialRelationType {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct SpatialRelation {
-    source:   String,
+    source: String,
     relation: SpatialRelationType,
-    target:   String,
+    target: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Bounds {
-    x:      f32,
-    y:      f32,
-    width:  f32,
+    x: f32,
+    y: f32,
+    width: f32,
     height: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ValidationReport {
-    passed:     bool,
-    checks:     Vec<String>,
+    passed: bool,
+    checks: Vec<String>,
     violations: Vec<String>,
 }
 
@@ -206,7 +206,7 @@ fn complete_scene(scene: &SemanticScene) -> CompletionResult {
 
     let completed_scene = SemanticScene {
         scene_type: scene.scene_type.clone(),
-        objects:    completed_objects,
+        objects: completed_objects,
     };
 
     let all_relations = infer_spatial_graph(&completed_scene).unwrap();
@@ -241,9 +241,9 @@ fn complete_scene(scene: &SemanticScene) -> CompletionResult {
 fn anchor_for(scene_type: &SceneType) -> &'static str {
     match scene_type {
         SceneType::DiningRoom => "Table",
-        SceneType::Bedroom    => "Bed",
-        SceneType::Office     => "Desk",
-        SceneType::Classroom  => "TeacherDesk",
+        SceneType::Bedroom => "Bed",
+        SceneType::Office => "Desk",
+        SceneType::Classroom => "TeacherDesk",
     }
 }
 
@@ -258,60 +258,60 @@ fn infer_spatial_graph(scene: &SemanticScene) -> Result<Vec<SpatialRelation>, St
         SceneType::DiningRoom => {
             if names.contains("Chair") {
                 relations.push(SpatialRelation {
-                    source:   "Chair".into(),
+                    source: "Chair".into(),
                     relation: SpatialRelationType::Near,
-                    target:   "Table".into(),
+                    target: "Table".into(),
                 });
             }
             if names.contains("Lamp") {
                 relations.push(SpatialRelation {
-                    source:   "Lamp".into(),
+                    source: "Lamp".into(),
                     relation: SpatialRelationType::Above,
-                    target:   "Table".into(),
+                    target: "Table".into(),
                 });
             }
         }
         SceneType::Bedroom => {
             if names.contains("Lamp") {
                 relations.push(SpatialRelation {
-                    source:   "Lamp".into(),
+                    source: "Lamp".into(),
                     relation: SpatialRelationType::Near,
-                    target:   "Bed".into(),
+                    target: "Bed".into(),
                 });
                 relations.push(SpatialRelation {
-                    source:   "Lamp".into(),
+                    source: "Lamp".into(),
                     relation: SpatialRelationType::Above,
-                    target:   "Bed".into(),
+                    target: "Bed".into(),
                 });
             }
         }
         SceneType::Office => {
             relations.push(SpatialRelation {
-                source:   "Chair".into(),
+                source: "Chair".into(),
                 relation: SpatialRelationType::Near,
-                target:   "Desk".into(),
+                target: "Desk".into(),
             });
         }
         SceneType::Classroom => {
             if names.contains("Whiteboard") {
                 relations.push(SpatialRelation {
-                    source:   "Whiteboard".into(),
+                    source: "Whiteboard".into(),
                     relation: SpatialRelationType::Above,
-                    target:   "TeacherDesk".into(),
+                    target: "TeacherDesk".into(),
                 });
             }
             if names.contains("StudentDesk") {
                 relations.push(SpatialRelation {
-                    source:   "StudentDesk".into(),
+                    source: "StudentDesk".into(),
                     relation: SpatialRelationType::Near,
-                    target:   "TeacherDesk".into(),
+                    target: "TeacherDesk".into(),
                 });
             }
             if names.contains("Chair") {
                 relations.push(SpatialRelation {
-                    source:   "Chair".into(),
+                    source: "Chair".into(),
                     relation: SpatialRelationType::Near,
-                    target:   "StudentDesk".into(),
+                    target: "StudentDesk".into(),
                 });
             }
         }
@@ -383,14 +383,54 @@ fn reconstruct_layout(
 
 fn default_bounds(object: &ObjectType) -> Bounds {
     match object {
-        ObjectType::Table       => Bounds { x: 0.0, y: 0.0, width: 80.0,  height: 60.0 },
-        ObjectType::Chair       => Bounds { x: 0.0, y: 0.0, width: 50.0,  height: 50.0 },
-        ObjectType::Lamp        => Bounds { x: 0.0, y: 0.0, width: 40.0,  height: 40.0 },
-        ObjectType::Bed         => Bounds { x: 0.0, y: 0.0, width: 100.0, height: 70.0 },
-        ObjectType::Desk        => Bounds { x: 0.0, y: 0.0, width: 90.0,  height: 60.0 },
-        ObjectType::TeacherDesk => Bounds { x: 0.0, y: 0.0, width: 90.0,  height: 60.0 },
-        ObjectType::StudentDesk => Bounds { x: 0.0, y: 0.0, width: 70.0,  height: 50.0 },
-        ObjectType::Whiteboard  => Bounds { x: 0.0, y: 0.0, width: 120.0, height: 30.0 },
+        ObjectType::Table => Bounds {
+            x: 0.0,
+            y: 0.0,
+            width: 80.0,
+            height: 60.0,
+        },
+        ObjectType::Chair => Bounds {
+            x: 0.0,
+            y: 0.0,
+            width: 50.0,
+            height: 50.0,
+        },
+        ObjectType::Lamp => Bounds {
+            x: 0.0,
+            y: 0.0,
+            width: 40.0,
+            height: 40.0,
+        },
+        ObjectType::Bed => Bounds {
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 70.0,
+        },
+        ObjectType::Desk => Bounds {
+            x: 0.0,
+            y: 0.0,
+            width: 90.0,
+            height: 60.0,
+        },
+        ObjectType::TeacherDesk => Bounds {
+            x: 0.0,
+            y: 0.0,
+            width: 90.0,
+            height: 60.0,
+        },
+        ObjectType::StudentDesk => Bounds {
+            x: 0.0,
+            y: 0.0,
+            width: 70.0,
+            height: 50.0,
+        },
+        ObjectType::Whiteboard => Bounds {
+            x: 0.0,
+            y: 0.0,
+            width: 120.0,
+            height: 30.0,
+        },
     }
 }
 
@@ -401,7 +441,7 @@ fn validate_reconstruction(
     relations: &[SpatialRelation],
     layout: &BTreeMap<String, Bounds>,
 ) -> ValidationReport {
-    let mut checks     = Vec::new();
+    let mut checks = Vec::new();
     let mut violations = Vec::new();
 
     if validate_required_objects(scene).is_ok() {
@@ -415,7 +455,7 @@ fn validate_reconstruction(
         match layout.get(name) {
             Some(b) if contained_in_scene(b) => checks.push(format!("{name} inside scene")),
             Some(_) => violations.push(format!("{name} outside scene")),
-            None    => violations.push(format!("{name} has no layout")),
+            None => violations.push(format!("{name} has no layout")),
         }
     }
 
@@ -437,18 +477,27 @@ fn validate_reconstruction(
             }
             _ => violations.push(format!(
                 "{} {} {}",
-                relation.source, relation.relation.as_str(), relation.target
+                relation.source,
+                relation.relation.as_str(),
+                relation.target
             )),
         }
     }
 
-    ValidationReport { passed: violations.is_empty(), checks, violations }
+    ValidationReport {
+        passed: violations.is_empty(),
+        checks,
+        violations,
+    }
 }
 
 fn spatial_graph_has_no_cycles(relations: &[SpatialRelation]) -> bool {
     let mut graph: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for r in relations {
-        graph.entry(r.source.clone()).or_default().insert(r.target.clone());
+        graph
+            .entry(r.source.clone())
+            .or_default()
+            .insert(r.target.clone());
         graph.entry(r.target.clone()).or_default();
     }
     collect_cycles_in_graph(&graph).is_empty()
@@ -464,11 +513,11 @@ fn collect_cycles_in_graph(graph: &BTreeMap<String, BTreeSet<String>>) -> Vec<Ve
 }
 
 fn dfs_cycles(
-    start:   &str,
+    start: &str,
     current: &str,
-    graph:   &BTreeMap<String, BTreeSet<String>>,
-    path:    &mut Vec<String>,
-    cycles:  &mut BTreeSet<Vec<String>>,
+    graph: &BTreeMap<String, BTreeSet<String>>,
+    path: &mut Vec<String>,
+    cycles: &mut BTreeSet<Vec<String>>,
 ) {
     path.push(current.to_string());
     if let Some(nexts) = graph.get(current) {
@@ -494,8 +543,8 @@ fn distance(a: &Bounds, b: &Bounds) -> f32 {
 // ─── Graph helpers ────────────────────────────────────────────────────────────
 
 fn build_semantic_graph(scene: &SemanticScene) -> ReasonGraph {
-    let mut graph    = ReasonGraph::new(GraphType::ReasonGraph);
-    let scene_id     = add_node(&mut graph, scene.scene_type.as_str(), StateType::Object);
+    let mut graph = ReasonGraph::new(GraphType::ReasonGraph);
+    let scene_id = add_node(&mut graph, scene.scene_type.as_str(), StateType::Object);
     for object in &scene.objects {
         let obj_id = add_node(&mut graph, object.as_str(), StateType::Object);
         add_relation(&mut graph, scene_id, obj_id, "contains");
@@ -504,13 +553,16 @@ fn build_semantic_graph(scene: &SemanticScene) -> ReasonGraph {
 }
 
 fn add_node(graph: &mut ReasonGraph, label: &str, state_type: StateType) -> Uuid {
-    let state    = State::new(state_type, ReasonUnit::new(label, UnitType::Composite, array![0.0]));
+    let state = State::new(
+        state_type,
+        ReasonUnit::new(label, UnitType::Composite, array![0.0]),
+    );
     let state_id = graph.add_state(state);
     graph.add_node(Node::new(state_id))
 }
 
 fn add_relation(graph: &mut ReasonGraph, source: Uuid, target: Uuid, label: &str) {
-    let unit       = ReasonUnit::new(label, UnitType::Symbolic, array![1.0]);
+    let unit = ReasonUnit::new(label, UnitType::Symbolic, array![1.0]);
     let transition = Transition::new(TransitionType::Deduction, TransitionOp::Subsumption(unit));
     graph.add_edge(Edge::new(source, target, RelationType::Spatial, transition));
 }
@@ -533,7 +585,10 @@ fn extract_semantic_scene(graph: &ReasonGraph) -> Result<SemanticScene, String> 
         .collect::<Result<_, _>>()?;
     objects.sort();
 
-    Ok(SemanticScene { scene_type, objects })
+    Ok(SemanticScene {
+        scene_type,
+        objects,
+    })
 }
 
 fn node_label(graph: &ReasonGraph, id: Uuid) -> Result<String, String> {
@@ -554,31 +609,35 @@ fn edge_label(edge: &Edge) -> String {
 fn parse_scene_type(label: &str) -> Option<SceneType> {
     match label {
         "DiningRoom" => Some(SceneType::DiningRoom),
-        "Bedroom"    => Some(SceneType::Bedroom),
-        "Office"     => Some(SceneType::Office),
-        "Classroom"  => Some(SceneType::Classroom),
-        _            => None,
+        "Bedroom" => Some(SceneType::Bedroom),
+        "Office" => Some(SceneType::Office),
+        "Classroom" => Some(SceneType::Classroom),
+        _ => None,
     }
 }
 
 fn parse_object_type(name: &str) -> Result<ObjectType, String> {
     match name {
-        "Table"       => Ok(ObjectType::Table),
-        "Chair"       => Ok(ObjectType::Chair),
-        "Lamp"        => Ok(ObjectType::Lamp),
-        "Bed"         => Ok(ObjectType::Bed),
-        "Desk"        => Ok(ObjectType::Desk),
+        "Table" => Ok(ObjectType::Table),
+        "Chair" => Ok(ObjectType::Chair),
+        "Lamp" => Ok(ObjectType::Lamp),
+        "Bed" => Ok(ObjectType::Bed),
+        "Desk" => Ok(ObjectType::Desk),
         "TeacherDesk" => Ok(ObjectType::TeacherDesk),
         "StudentDesk" => Ok(ObjectType::StudentDesk),
-        "Whiteboard"  => Ok(ObjectType::Whiteboard),
-        other         => Err(format!("unsupported object type: {other}")),
+        "Whiteboard" => Ok(ObjectType::Whiteboard),
+        other => Err(format!("unsupported object type: {other}")),
     }
 }
 
 // ─── JSON / PNG serialization ─────────────────────────────────────────────────
 
 fn semantic_scene_json(scene: &SemanticScene) -> String {
-    let objs: Vec<_> = scene.objects.iter().map(|o| o.as_str().to_string()).collect();
+    let objs: Vec<_> = scene
+        .objects
+        .iter()
+        .map(|o| o.as_str().to_string())
+        .collect();
     format!(
         "{{\n  \"scene_type\": \"{}\",\n  \"objects\": {}\n}}\n",
         scene.scene_type.as_str(),
@@ -588,14 +647,21 @@ fn semantic_scene_json(scene: &SemanticScene) -> String {
 
 fn completion_report_json(result: &CompletionResult) -> String {
     let status = match result.status {
-        CompletionStatus::Complete   => "Complete",
+        CompletionStatus::Complete => "Complete",
         CompletionStatus::Incomplete => "Incomplete",
-        CompletionStatus::Invalid    => "Invalid",
+        CompletionStatus::Invalid => "Invalid",
     };
     let added_rels: Vec<String> = result
         .added_relations
         .iter()
-        .map(|r| format!("{{ \"source\": \"{}\", \"relation\": \"{}\", \"target\": \"{}\" }}", r.source, r.relation.as_str(), r.target))
+        .map(|r| {
+            format!(
+                "{{ \"source\": \"{}\", \"relation\": \"{}\", \"target\": \"{}\" }}",
+                r.source,
+                r.relation.as_str(),
+                r.target
+            )
+        })
         .collect();
     format!(
         "{{\n  \"status\": \"{}\",\n  \"completed\": {},\n  \"added_objects\": {},\n  \"added_relations\": [{}],\n  \"explanation\": {}\n}}\n",
@@ -614,10 +680,14 @@ fn completed_scene_json(scene: &SemanticScene) -> String {
 fn inferred_spatial_graph_json(relations: &[SpatialRelation]) -> String {
     let entries: Vec<_> = relations
         .iter()
-        .map(|r| format!(
-            "    {{ \"source\": \"{}\", \"relation\": \"{}\", \"target\": \"{}\" }}",
-            r.source, r.relation.as_str(), r.target
-        ))
+        .map(|r| {
+            format!(
+                "    {{ \"source\": \"{}\", \"relation\": \"{}\", \"target\": \"{}\" }}",
+                r.source,
+                r.relation.as_str(),
+                r.target
+            )
+        })
         .collect();
     format!("{{\n  \"relations\": [\n{}\n  ]\n}}\n", entries.join(",\n"))
 }
@@ -625,10 +695,12 @@ fn inferred_spatial_graph_json(relations: &[SpatialRelation]) -> String {
 fn layout_json(layout: &BTreeMap<String, Bounds>) -> String {
     let entries: Vec<_> = layout
         .iter()
-        .map(|(n, b)| format!(
-            "  \"{}\": {{ \"x\": {}, \"y\": {}, \"width\": {}, \"height\": {} }}",
-            n, b.x, b.y, b.width, b.height
-        ))
+        .map(|(n, b)| {
+            format!(
+                "  \"{}\": {{ \"x\": {}, \"y\": {}, \"width\": {}, \"height\": {} }}",
+                n, b.x, b.y, b.width, b.height
+            )
+        })
         .collect();
     format!("{{\n{}\n}}\n", entries.join(",\n"))
 }
@@ -643,7 +715,11 @@ fn validation_report_json(report: &ValidationReport) -> String {
 }
 
 fn json_string_array(values: &[String]) -> String {
-    let body = values.iter().map(|v| format!("\"{v}\"")).collect::<Vec<_>>().join(", ");
+    let body = values
+        .iter()
+        .map(|v| format!("\"{v}\""))
+        .collect::<Vec<_>>()
+        .join(", ");
     format!("[{body}]")
 }
 
@@ -658,9 +734,9 @@ fn render_scene_png(layout: &BTreeMap<String, Bounds>) -> Vec<u8> {
 }
 
 fn draw_rectangle(rgba: &mut [u8], cw: u32, b: Bounds) {
-    let left   = (b.x - b.width  / 2.0) as u32;
-    let right  = (b.x + b.width  / 2.0) as u32;
-    let top    = (b.y - b.height / 2.0) as u32;
+    let left = (b.x - b.width / 2.0) as u32;
+    let right = (b.x + b.width / 2.0) as u32;
+    let top = (b.y - b.height / 2.0) as u32;
     let bottom = (b.y + b.height / 2.0) as u32;
     for y in top..=bottom {
         for x in left..=right {
@@ -672,7 +748,9 @@ fn draw_rectangle(rgba: &mut [u8], cw: u32, b: Bounds) {
 }
 
 fn set_pixel(rgba: &mut [u8], cw: u32, x: u32, y: u32, color: [u8; 4]) {
-    if x >= cw || y >= 800 { return; }
+    if x >= cw || y >= 800 {
+        return;
+    }
     let i = ((y * cw + x) * 4) as usize;
     rgba[i..i + 4].copy_from_slice(&color);
 }
@@ -687,7 +765,10 @@ fn encode_png_rgba(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
     write_png_chunk(&mut png, b"IHDR", &ihdr);
     let stride = (width * 4) as usize;
     let mut raw = Vec::with_capacity((stride + 1) * height as usize);
-    for row in rgba.chunks_exact(stride) { raw.push(0); raw.extend_from_slice(row); }
+    for row in rgba.chunks_exact(stride) {
+        raw.push(0);
+        raw.extend_from_slice(row);
+    }
     write_png_chunk(&mut png, b"IDAT", &zlib_store(&raw));
     write_png_chunk(&mut png, b"IEND", &[][..]);
     png
@@ -707,8 +788,8 @@ fn zlib_store(data: &[u8]) -> Vec<u8> {
     let mut out = vec![0x78, 0x01];
     let mut offset = 0;
     while offset < data.len() {
-        let remaining  = data.len() - offset;
-        let block_len  = remaining.min(u16::MAX as usize);
+        let remaining = data.len() - offset;
+        let block_len = remaining.min(u16::MAX as usize);
         let final_block = offset + block_len == data.len();
         out.push(if final_block { 1 } else { 0 });
         out.extend_from_slice(&(block_len as u16).to_le_bytes());
@@ -724,7 +805,10 @@ fn crc32(bytes: &[u8]) -> u32 {
     let mut crc = 0xffff_ffffu32;
     for byte in bytes {
         crc ^= *byte as u32;
-        for _ in 0..8 { let m = (crc & 1).wrapping_neg(); crc = (crc >> 1) ^ (0xedb8_8320 & m); }
+        for _ in 0..8 {
+            let m = (crc & 1).wrapping_neg();
+            crc = (crc >> 1) ^ (0xedb8_8320 & m);
+        }
     }
     !crc
 }
@@ -732,7 +816,10 @@ fn crc32(bytes: &[u8]) -> u32 {
 fn adler32(bytes: &[u8]) -> u32 {
     const M: u32 = 65_521;
     let (mut a, mut b) = (1u32, 0u32);
-    for byte in bytes { a = (a + *byte as u32) % M; b = (b + a) % M; }
+    for byte in bytes {
+        a = (a + *byte as u32) % M;
+        b = (b + a) % M;
+    }
     (b << 16) | a
 }
 
@@ -744,7 +831,7 @@ fn ru_obj_2d_009_semantic_scene_completion() {
     // DiningRoom + Table + Lamp  →  Chair inferred
     let incomplete_dining = SemanticScene {
         scene_type: SceneType::DiningRoom,
-        objects:    vec![ObjectType::Table, ObjectType::Lamp],
+        objects: vec![ObjectType::Table, ObjectType::Lamp],
     };
     let result_041 = complete_scene(&incomplete_dining);
     assert_eq!(result_041.status, CompletionStatus::Incomplete);
@@ -756,7 +843,7 @@ fn ru_obj_2d_009_semantic_scene_completion() {
     // DiningRoom + Chair + Lamp  →  Table missing  →  Invalid
     let missing_required = SemanticScene {
         scene_type: SceneType::DiningRoom,
-        objects:    vec![ObjectType::Chair, ObjectType::Lamp],
+        objects: vec![ObjectType::Chair, ObjectType::Lamp],
     };
     let result_042 = complete_scene(&missing_required);
     assert_eq!(result_042.status, CompletionStatus::Invalid);
@@ -766,7 +853,7 @@ fn ru_obj_2d_009_semantic_scene_completion() {
     // DiningRoom + Table + Chair + Lamp  →  Complete, no addition
     let complete_dining = SemanticScene {
         scene_type: SceneType::DiningRoom,
-        objects:    vec![ObjectType::Table, ObjectType::Chair, ObjectType::Lamp],
+        objects: vec![ObjectType::Table, ObjectType::Chair, ObjectType::Lamp],
     };
     let result_043 = complete_scene(&complete_dining);
     assert_eq!(result_043.status, CompletionStatus::Complete);
@@ -783,21 +870,29 @@ fn ru_obj_2d_009_semantic_scene_completion() {
     };
     let completed_dining = SemanticScene {
         scene_type: SceneType::DiningRoom,
-        objects:    completed_objects,
+        objects: completed_objects,
     };
     let relations_044 = infer_spatial_graph(&completed_dining).expect("must succeed");
-    assert!(relations_044.iter().any(|r| r.source == "Chair" && r.relation == SpatialRelationType::Near && r.target == "Table"),
-        "Chair near Table must be inferred");
-    assert!(relations_044.iter().any(|r| r.source == "Lamp" && r.relation == SpatialRelationType::Above && r.target == "Table"),
-        "Lamp above Table must be inferred");
+    assert!(
+        relations_044.iter().any(|r| r.source == "Chair"
+            && r.relation == SpatialRelationType::Near
+            && r.target == "Table"),
+        "Chair near Table must be inferred"
+    );
+    assert!(
+        relations_044.iter().any(|r| r.source == "Lamp"
+            && r.relation == SpatialRelationType::Above
+            && r.target == "Table"),
+        "Lamp above Table must be inferred"
+    );
 
     // ── ST-045  Completed Scene Reconstruction ───────────────────────────────
     // Incomplete scene  →  complete  →  layout generated
-    let result_045    = complete_scene(&incomplete_dining);
+    let result_045 = complete_scene(&incomplete_dining);
     assert!(result_045.completed);
-    let completed_sc  = SemanticScene {
+    let completed_sc = SemanticScene {
         scene_type: SceneType::DiningRoom,
-        objects:    {
+        objects: {
             let mut objs = incomplete_dining.objects.clone();
             for name in &result_045.added_objects {
                 objs.push(parse_object_type(name).unwrap());
@@ -807,18 +902,28 @@ fn ru_obj_2d_009_semantic_scene_completion() {
         },
     };
     let relations_045 = infer_spatial_graph(&completed_sc).expect("must succeed");
-    let layout_045    = reconstruct_layout(&completed_sc, &relations_045).expect("must succeed");
-    let report_045    = validate_reconstruction(&completed_sc, &relations_045, &layout_045);
-    assert!(report_045.passed, "completed scene reconstruction must pass: {:?}", report_045.violations);
+    let layout_045 = reconstruct_layout(&completed_sc, &relations_045).expect("must succeed");
+    let report_045 = validate_reconstruction(&completed_sc, &relations_045, &layout_045);
+    assert!(
+        report_045.passed,
+        "completed scene reconstruction must pass: {:?}",
+        report_045.violations
+    );
 
     // ── ST-046  Completion Determinism ──────────────────────────────────────
-    let baseline_result  = complete_scene(&incomplete_dining);
-    let baseline_graph   = infer_spatial_graph(&completed_sc).unwrap();
-    let baseline_layout  = reconstruct_layout(&completed_sc, &baseline_graph).unwrap();
+    let baseline_result = complete_scene(&incomplete_dining);
+    let baseline_graph = infer_spatial_graph(&completed_sc).unwrap();
+    let baseline_layout = reconstruct_layout(&completed_sc, &baseline_graph).unwrap();
     for run in 0..100 {
         let r = complete_scene(&incomplete_dining);
-        assert_eq!(r.added_objects, baseline_result.added_objects, "run {run}: added_objects differ");
-        assert_eq!(r.added_relations, baseline_result.added_relations, "run {run}: added_relations differ");
+        assert_eq!(
+            r.added_objects, baseline_result.added_objects,
+            "run {run}: added_objects differ"
+        );
+        assert_eq!(
+            r.added_relations, baseline_result.added_relations,
+            "run {run}: added_relations differ"
+        );
         let g = infer_spatial_graph(&completed_sc).unwrap();
         assert_eq!(g, baseline_graph, "run {run}: graph differs");
         let l = reconstruct_layout(&completed_sc, &g).unwrap();
@@ -829,15 +934,21 @@ fn ru_obj_2d_009_semantic_scene_completion() {
     // Additional scene types
     let fc005_bedroom = SemanticScene {
         scene_type: SceneType::Bedroom,
-        objects:    vec![ObjectType::Lamp],
+        objects: vec![ObjectType::Lamp],
     };
-    assert_eq!(complete_scene(&fc005_bedroom).status, CompletionStatus::Invalid);
+    assert_eq!(
+        complete_scene(&fc005_bedroom).status,
+        CompletionStatus::Invalid
+    );
 
     let fc005_office = SemanticScene {
         scene_type: SceneType::Office,
-        objects:    vec![ObjectType::Lamp],
+        objects: vec![ObjectType::Lamp],
     };
-    assert_eq!(complete_scene(&fc005_office).status, CompletionStatus::Invalid);
+    assert_eq!(
+        complete_scene(&fc005_office).status,
+        CompletionStatus::Invalid
+    );
 
     // ── FC-006  Ambiguous Completion: Room type unknown ──────────────────────
     // (Not directly exercised in this deterministic engine, but validated via
@@ -848,12 +959,16 @@ fn ru_obj_2d_009_semantic_scene_completion() {
     // Classroom with only TeacherDesk  →  StudentDesk, Chair, Whiteboard inferred
     let partial_classroom = SemanticScene {
         scene_type: SceneType::Classroom,
-        objects:    vec![ObjectType::TeacherDesk],
+        objects: vec![ObjectType::TeacherDesk],
     };
     let classroom_result = complete_scene(&partial_classroom);
     assert_eq!(classroom_result.status, CompletionStatus::Incomplete);
     assert!(classroom_result.completed);
-    let mut expected_added = vec!["Chair".to_string(), "StudentDesk".to_string(), "Whiteboard".to_string()];
+    let mut expected_added = vec![
+        "Chair".to_string(),
+        "StudentDesk".to_string(),
+        "Whiteboard".to_string(),
+    ];
     expected_added.sort();
     let mut actual_added = classroom_result.added_objects.clone();
     actual_added.sort();
@@ -867,7 +982,8 @@ fn ru_obj_2d_009_semantic_scene_completion() {
     fs::write(
         artifact_dir.join("semantic_scene.json"),
         semantic_scene_json(&incomplete_dining),
-    ).expect("semantic_scene.json");
+    )
+    .expect("semantic_scene.json");
 
     // completion_report.json
     let report_json = completion_report_json(&result_045);
@@ -878,30 +994,33 @@ fn ru_obj_2d_009_semantic_scene_completion() {
     fs::write(
         artifact_dir.join("completed_scene.json"),
         completed_scene_json(&completed_sc),
-    ).expect("completed_scene.json");
+    )
+    .expect("completed_scene.json");
 
     // inferred_spatial_graph.json
     fs::write(
         artifact_dir.join("inferred_spatial_graph.json"),
         inferred_spatial_graph_json(&relations_045),
-    ).expect("inferred_spatial_graph.json");
+    )
+    .expect("inferred_spatial_graph.json");
 
     // layout.json
     let layout_json_str = layout_json(&layout_045);
-    fs::write(artifact_dir.join("layout.json"), &layout_json_str)
-        .expect("layout.json");
+    fs::write(artifact_dir.join("layout.json"), &layout_json_str).expect("layout.json");
 
     // validation_report.json
     fs::write(
         artifact_dir.join("validation_report.json"),
         validation_report_json(&report_045),
-    ).expect("validation_report.json");
+    )
+    .expect("validation_report.json");
 
     // semantic_scene.png
     fs::write(
         artifact_dir.join("semantic_scene.png"),
         render_scene_png(&layout_045),
-    ).expect("semantic_scene.png");
+    )
+    .expect("semantic_scene.png");
 
     // Verify all artifacts exist and are non-empty
     for path in [

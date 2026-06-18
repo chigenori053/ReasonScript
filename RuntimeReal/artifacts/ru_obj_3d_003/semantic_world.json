@@ -1,0 +1,226 @@
+{
+  "objects": [
+    {
+      "id": "terrain",
+      "name": "Terrain",
+      "object_type": "Terrain",
+      "transform": {
+        "position": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "attributes": [],
+      "states": [],
+      "relations": []
+    },
+    {
+      "id": "building",
+      "name": "Building",
+      "object_type": "Building",
+      "transform": {
+        "position": {
+          "x": 100.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "attributes": [],
+      "states": [],
+      "relations": [
+        {
+          "relation_type": "Contains",
+          "target_id": "room_a"
+        },
+        {
+          "relation_type": "Contains",
+          "target_id": "room_b"
+        }
+      ]
+    },
+    {
+      "id": "room_a",
+      "name": "RoomA",
+      "object_type": "Room",
+      "transform": {
+        "position": {
+          "x": 10.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "attributes": [
+        {
+          "name": "Enterable"
+        }
+      ],
+      "states": [
+        {
+          "name": "Occupied"
+        }
+      ],
+      "relations": [
+        {
+          "relation_type": "Contains",
+          "target_id": "chair"
+        },
+        {
+          "relation_type": "Contains",
+          "target_id": "table"
+        }
+      ]
+    },
+    {
+      "id": "room_b",
+      "name": "RoomB",
+      "object_type": "Room",
+      "transform": {
+        "position": {
+          "x": 18.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "attributes": [],
+      "states": [],
+      "relations": []
+    },
+    {
+      "id": "chair",
+      "name": "Chair",
+      "object_type": "Furniture",
+      "transform": {
+        "position": {
+          "x": 2.0,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "attributes": [
+        {
+          "name": "Sittable"
+        }
+      ],
+      "states": [
+        {
+          "name": "Available"
+        }
+      ],
+      "relations": [
+        {
+          "relation_type": "Supports",
+          "target_id": "human"
+        }
+      ]
+    },
+    {
+      "id": "table",
+      "name": "Table",
+      "object_type": "Furniture",
+      "transform": {
+        "position": {
+          "x": 3.0,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "attributes": [
+        {
+          "name": "Surface"
+        }
+      ],
+      "states": [],
+      "relations": []
+    },
+    {
+      "id": "human",
+      "name": "Human",
+      "object_type": "Human",
+      "transform": {
+        "position": {
+          "x": 2.0,
+          "y": 0.0,
+          "z": 2.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "attributes": [],
+      "states": [
+        {
+          "name": "Standing"
+        }
+      ],
+      "relations": []
+    }
+  ]
+}

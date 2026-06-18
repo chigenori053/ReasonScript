@@ -1,10 +1,10 @@
+use ndarray::{array, Array1};
 use reasonscript_runtime_real::core::transition::TransitionOp;
 use reasonscript_runtime_real::core::types::{
     GraphType, RelationType, StateType, TransitionType, UnitType,
 };
 use reasonscript_runtime_real::core::{ReasonUnit, State, Transition};
 use reasonscript_runtime_real::graph::{Edge, Node, ReasonGraph};
-use ndarray::{array, Array1};
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::Path;
@@ -80,7 +80,8 @@ struct ValidationReport {
 fn ru_obj_2d_004_multi_object_constraints_solve_to_scene_layout() {
     let (graph, scene_id) = build_relation_only_scene_graph();
 
-    let constraints = generate_constraints(&graph).expect("semantic relations must become constraints");
+    let constraints =
+        generate_constraints(&graph).expect("semantic relations must become constraints");
     assert_eq!(constraints.len(), 3);
 
     let scene = solve_layout(&graph, scene_id, constraints.clone()).expect("layout must solve");
@@ -98,7 +99,8 @@ fn ru_obj_2d_004_multi_object_constraints_solve_to_scene_layout() {
     fs::write("artifacts/scene.json", scene_json(&scene)).expect("scene.json must be generated");
     fs::write("artifacts/validation_report.json", report_json(&report))
         .expect("validation_report.json must be generated");
-    render_scene_png(&scene, Path::new("artifacts/scene.png")).expect("scene.png must be generated");
+    render_scene_png(&scene, Path::new("artifacts/scene.png"))
+        .expect("scene.png must be generated");
 
     for path in [
         "artifacts/scene.png",
@@ -126,8 +128,20 @@ fn build_relation_only_scene_graph() -> (ReasonGraph, Uuid) {
     let star_id = add_object_node(&mut graph, "Star", ObjectType::Star);
 
     add_relation(&mut graph, scene_id, circle_id, RelationType::PartOf, "has");
-    add_relation(&mut graph, scene_id, rectangle_id, RelationType::PartOf, "has");
-    add_relation(&mut graph, scene_id, triangle_id, RelationType::PartOf, "has");
+    add_relation(
+        &mut graph,
+        scene_id,
+        rectangle_id,
+        RelationType::PartOf,
+        "has",
+    );
+    add_relation(
+        &mut graph,
+        scene_id,
+        triangle_id,
+        RelationType::PartOf,
+        "has",
+    );
     add_relation(&mut graph, scene_id, star_id, RelationType::PartOf, "has");
 
     add_relation(
@@ -170,7 +184,13 @@ fn add_object_node(graph: &mut ReasonGraph, name: &str, object_type: ObjectType)
         UnitType::Symbolic,
         array![1.0],
     );
-    add_relation(graph, object_id, shape_id, RelationType::Dependency, "shape");
+    add_relation(
+        graph,
+        object_id,
+        shape_id,
+        RelationType::Dependency,
+        "shape",
+    );
     object_id
 }
 
@@ -301,7 +321,10 @@ fn validate_constraints(scene: &SceneIr) -> ValidationReport {
                         let right = target.x + target.width / 2.0;
                         let top = target.y - target.height / 2.0;
                         let bottom = target.y + target.height / 2.0;
-                        source.x >= left && source.x <= right && source.y >= top && source.y <= bottom
+                        source.x >= left
+                            && source.x <= right
+                            && source.y >= top
+                            && source.y <= bottom
                     }
                 };
 
@@ -344,7 +367,12 @@ fn object_type(graph: &ReasonGraph, object_id: Uuid) -> Result<ObjectType, Strin
             "star" => Some(ObjectType::Star),
             _ => None,
         })
-        .ok_or_else(|| format!("object type is missing for {}", object_name(graph, object_id).unwrap_or_default()))
+        .ok_or_else(|| {
+            format!(
+                "object type is missing for {}",
+                object_name(graph, object_id).unwrap_or_default()
+            )
+        })
 }
 
 fn outgoing_ids(graph: &ReasonGraph, source: Uuid, relation: RelationType) -> Vec<Uuid> {
@@ -467,7 +495,13 @@ fn render_scene_png(scene: &SceneIr, output_path: &Path) -> std::io::Result<()> 
 
     for object in &scene.scene {
         match object.object_type {
-            ObjectType::Circle => draw_circle(&mut rgba, canvas_width, object.x as u32, object.y as u32, 40),
+            ObjectType::Circle => draw_circle(
+                &mut rgba,
+                canvas_width,
+                object.x as u32,
+                object.y as u32,
+                40,
+            ),
             ObjectType::Rectangle => draw_rectangle(
                 &mut rgba,
                 canvas_width,
@@ -484,11 +518,20 @@ fn render_scene_png(scene: &SceneIr, output_path: &Path) -> std::io::Result<()> 
                 object.width as u32,
                 object.height as u32,
             ),
-            ObjectType::Star => draw_star(&mut rgba, canvas_width, object.x as u32, object.y as u32, 15),
+            ObjectType::Star => draw_star(
+                &mut rgba,
+                canvas_width,
+                object.x as u32,
+                object.y as u32,
+                15,
+            ),
         }
     }
 
-    fs::write(output_path, encode_png_rgba(canvas_width, canvas_height, &rgba))
+    fs::write(
+        output_path,
+        encode_png_rgba(canvas_width, canvas_height, &rgba),
+    )
 }
 
 fn draw_rectangle(rgba: &mut [u8], canvas_width: u32, x: u32, y: u32, width: u32, height: u32) {

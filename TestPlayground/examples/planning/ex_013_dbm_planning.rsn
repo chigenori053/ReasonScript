@@ -1,0 +1,6 @@
+// EX-013: DBM Planning (Phase 2)
+// Goal-directed planning with budget constraint.
+goal PlanComplete
+state PlanStart
+constraint WithinBudget
+transition PlanStart Plan PlanComplete

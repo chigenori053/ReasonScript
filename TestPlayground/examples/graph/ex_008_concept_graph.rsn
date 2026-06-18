@@ -1,0 +1,10 @@
+// EX-008: Concept Graph (Language Surface)
+// Graph concepts declared with relations.
+module ConceptGraph {
+concept Node
+concept Edge
+concept Graph
+Node PartOf Graph
+Edge PartOf Graph
+goal Traverse
+}

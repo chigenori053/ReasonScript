@@ -1,5 +1,5 @@
-use crate::core::ReasonUnit;
 use crate::core::types::TransitionType;
+use crate::core::ReasonUnit;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

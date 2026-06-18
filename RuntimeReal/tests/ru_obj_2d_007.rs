@@ -1,10 +1,10 @@
+use ndarray::array;
 use reasonscript_runtime_real::core::transition::TransitionOp;
 use reasonscript_runtime_real::core::types::{
     GraphType, RelationType, StateType, TransitionType, UnitType,
 };
 use reasonscript_runtime_real::core::{ReasonUnit, State, Transition};
 use reasonscript_runtime_real::graph::{Edge, Node, ReasonGraph};
-use ndarray::array;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::path::Path;
@@ -63,7 +63,8 @@ struct ValidationReport {
 fn ru_obj_2d_007_generates_deterministic_spatial_relation_layout() {
     let graph = build_valid_spatial_graph();
     let containment = extract_containment(&graph).expect("containment must be extracted");
-    let constraints = extract_spatial_constraints(&graph).expect("spatial constraints must be extracted");
+    let constraints =
+        extract_spatial_constraints(&graph).expect("spatial constraints must be extracted");
     let validation = validate_spatial_constraints(&containment, &constraints);
     assert!(validation.passed);
 
@@ -79,8 +80,16 @@ fn ru_obj_2d_007_generates_deterministic_spatial_relation_layout() {
     assert_near(&layout, "Chair", "Table");
     assert_far(&layout, "Bed", "Desk");
 
-    assert_rejects(vec![("A", "left_of", "B"), ("B", "left_of", "C"), ("C", "left_of", "A")]);
-    assert_rejects(vec![("A", "above", "B"), ("B", "above", "C"), ("C", "above", "A")]);
+    assert_rejects(vec![
+        ("A", "left_of", "B"),
+        ("B", "left_of", "C"),
+        ("C", "left_of", "A"),
+    ]);
+    assert_rejects(vec![
+        ("A", "above", "B"),
+        ("B", "above", "C"),
+        ("C", "above", "A"),
+    ]);
     assert_rejects(vec![("A", "near", "B"), ("A", "far", "B")]);
     assert_rejects(vec![("A", "left_of", "B"), ("A", "right_of", "B")]);
     assert_rejects(vec![("A", "above", "B"), ("A", "below", "B")]);
@@ -171,17 +180,27 @@ fn add_relation(graph: &mut ReasonGraph, source: Uuid, target: Uuid, relation_la
 
 fn extract_containment(graph: &ReasonGraph) -> Result<BTreeMap<String, BTreeSet<String>>, String> {
     let mut containment = BTreeMap::new();
-    for edge in graph.edges.iter().filter(|edge| edge.relation == RelationType::Spatial) {
+    for edge in graph
+        .edges
+        .iter()
+        .filter(|edge| edge.relation == RelationType::Spatial)
+    {
         match relation_label(edge).as_str() {
             "contains" => {
                 let parent = object_name(graph, edge.source)?;
                 let child = object_name(graph, edge.target)?;
-                containment.entry(parent).or_insert_with(BTreeSet::new).insert(child);
+                containment
+                    .entry(parent)
+                    .or_insert_with(BTreeSet::new)
+                    .insert(child);
             }
             "inside" => {
                 let parent = object_name(graph, edge.target)?;
                 let child = object_name(graph, edge.source)?;
-                containment.entry(parent).or_insert_with(BTreeSet::new).insert(child);
+                containment
+                    .entry(parent)
+                    .or_insert_with(BTreeSet::new)
+                    .insert(child);
             }
             _ => {}
         }
@@ -233,8 +252,16 @@ fn validate_spatial_constraints(
     }
 
     violations.extend(detect_direct_conflicts(constraints));
-    violations.extend(detect_cycles(constraints, SpatialRelation::LeftOf, "left_of cycle"));
-    violations.extend(detect_cycles(constraints, SpatialRelation::Above, "above cycle"));
+    violations.extend(detect_cycles(
+        constraints,
+        SpatialRelation::LeftOf,
+        "left_of cycle",
+    ));
+    violations.extend(detect_cycles(
+        constraints,
+        SpatialRelation::Above,
+        "above cycle",
+    ));
     violations.extend(detect_near_far_conflicts(constraints));
 
     violations.sort();
@@ -459,8 +486,12 @@ fn validate_layout(
             continue;
         };
         let passed = match constraint.relation {
-            SpatialRelation::LeftOf => source.x < target.x && target_left(target) - source_right(source) >= MIN_GAP,
-            SpatialRelation::RightOf => source.x > target.x && source_left(source) - target_right(target) >= MIN_GAP,
+            SpatialRelation::LeftOf => {
+                source.x < target.x && target_left(target) - source_right(source) >= MIN_GAP
+            }
+            SpatialRelation::RightOf => {
+                source.x > target.x && source_left(source) - target_right(target) >= MIN_GAP
+            }
             SpatialRelation::Above => source.y < target.y,
             SpatialRelation::Below => source.y > target.y,
             SpatialRelation::Near => distance(source, target) <= NEAR_THRESHOLD,
@@ -555,9 +586,12 @@ fn detect_direct_conflicts(constraints: &[SpatialConstraint]) -> Vec<String> {
         if relations.contains(&SpatialRelation::LeftOf)
             && relations.contains(&SpatialRelation::RightOf)
         {
-            violations.push(format!("{source} cannot be both left_of and right_of {target}"));
+            violations.push(format!(
+                "{source} cannot be both left_of and right_of {target}"
+            ));
         }
-        if relations.contains(&SpatialRelation::Above) && relations.contains(&SpatialRelation::Below)
+        if relations.contains(&SpatialRelation::Above)
+            && relations.contains(&SpatialRelation::Below)
         {
             violations.push(format!("{source} cannot be both above and below {target}"));
         }
@@ -571,7 +605,10 @@ fn detect_direct_conflicts(constraints: &[SpatialConstraint]) -> Vec<String> {
 fn detect_near_far_conflicts(constraints: &[SpatialConstraint]) -> Vec<String> {
     let mut unordered = BTreeMap::new();
     for constraint in constraints {
-        if !matches!(constraint.relation, SpatialRelation::Near | SpatialRelation::Far) {
+        if !matches!(
+            constraint.relation,
+            SpatialRelation::Near | SpatialRelation::Far
+        ) {
             continue;
         }
         let mut pair = [constraint.source.clone(), constraint.target.clone()];
@@ -841,7 +878,9 @@ fn render_spatial_scene_png(layout: &BTreeMap<String, Bounds>) -> Vec<u8> {
     let canvas_height = 900;
     let mut rgba = vec![255; (canvas_width * canvas_height * 4) as usize];
 
-    for name in ["World", "Room", "RoomB", "Lamp", "Table", "Chair", "Bed", "Desk"] {
+    for name in [
+        "World", "Room", "RoomB", "Lamp", "Table", "Chair", "Bed", "Desk",
+    ] {
         if let Some(bounds) = layout.get(name) {
             draw_rectangle(&mut rgba, canvas_width, *bounds);
         }

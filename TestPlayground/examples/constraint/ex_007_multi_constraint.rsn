@@ -1,0 +1,9 @@
+// EX-007: Multi-Constraint Transport
+// Logistics scenario with three active constraints.
+goal SafeDelivery
+state Loading
+constraint WeightLimit
+constraint TemperatureRange
+constraint TimeWindow
+transition Loading Depart InTransit
+transition InTransit Arrive Delivered

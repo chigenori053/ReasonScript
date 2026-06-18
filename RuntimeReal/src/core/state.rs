@@ -1,5 +1,5 @@
-use crate::core::ReasonUnit;
 use crate::core::types::StateType;
+use crate::core::ReasonUnit;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

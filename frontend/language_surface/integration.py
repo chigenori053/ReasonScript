@@ -14,9 +14,11 @@ from .nodes import (
     BinaryOperator,
     CallExpressionNode,
     ComparisonExpressionNode,
+    ConstStatementNode,
     ExpressionNode,
     ConstraintNode,
     ExpressionStatementNode,
+    FunctionDeclarationNode,
     GoalNode,
     GoalStatementNode,
     ImportNode,
@@ -30,6 +32,7 @@ from .nodes import (
     RelationNode,
     RequireStatementNode,
     ResultStatementNode,
+    ReturnStatementNode,
     TransitionNode,
     UnaryExpressionNode,
     to_json_value,
@@ -188,6 +191,15 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
                     if isinstance(node, ImportNode) and node.resolution is not None
                 ],
             ),
+            semantic.MetadataNode(
+                f"{module.name}-functions",
+                "function_declarations",
+                [
+                    to_json_value(node)
+                    for node in module.body
+                    if isinstance(node, FunctionDeclarationNode)
+                ],
+            ),
         ),
     )
 
@@ -249,6 +261,12 @@ def _statement_projection(
             to_json_value(statement),
             _expression_relation(statement.expression),
         )
+    if isinstance(statement, ConstStatementNode):
+        return (
+            statement.identifier,
+            to_json_value(statement),
+            _expression_relation(statement.expression),
+        )
     if isinstance(statement, AssignmentStatementNode):
         return (
             statement.target,
@@ -260,6 +278,12 @@ def _statement_projection(
             "result",
             to_json_value(statement),
             "ResultTransition",
+        )
+    if isinstance(statement, ReturnStatementNode):
+        return (
+            "return",
+            to_json_value(statement),
+            "ReturnTransition",
         )
     if isinstance(statement, ExpressionStatementNode):
         return (

@@ -1,0 +1,11 @@
+// EX-009: Planning Module (Language Surface)
+// A structured planning scenario using module syntax.
+module PlanModule {
+object PlanStart
+object PlanEnd
+constraint WithinBudget
+transition Execute {
+PlanStart -> PlanEnd
+}
+goal PlanComplete
+}

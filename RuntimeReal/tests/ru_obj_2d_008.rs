@@ -1,10 +1,10 @@
+use ndarray::array;
 use reasonscript_runtime_real::core::transition::TransitionOp;
 use reasonscript_runtime_real::core::types::{
     GraphType, RelationType, StateType, TransitionType, UnitType,
 };
 use reasonscript_runtime_real::core::{ReasonUnit, State, Transition};
 use reasonscript_runtime_real::graph::{Edge, Node, ReasonGraph};
-use ndarray::array;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
@@ -111,9 +111,11 @@ fn ru_obj_2d_008_reconstructs_scene_from_semantic_knowledge() {
     };
 
     let dining_graph = build_semantic_graph(&dining);
-    let dining_scene = extract_semantic_scene(&dining_graph).expect("DiningRoom scene must extract");
+    let dining_scene =
+        extract_semantic_scene(&dining_graph).expect("DiningRoom scene must extract");
     let dining_relations = infer_spatial_graph(&dining_scene).expect("DiningRoom must infer");
-    let dining_layout = reconstruct_layout(&dining_scene, &dining_relations).expect("DiningRoom must layout");
+    let dining_layout =
+        reconstruct_layout(&dining_scene, &dining_relations).expect("DiningRoom must layout");
     let dining_report = validate_reconstruction(&dining_scene, &dining_relations, &dining_layout);
     assert!(dining_report.passed);
     assert_eq!(
@@ -153,12 +155,12 @@ fn ru_obj_2d_008_reconstructs_scene_from_semantic_knowledge() {
             },
         ]
     );
-    let bedroom_layout = reconstruct_layout(&bedroom_scene, &bedroom_relations)
-        .expect("Bedroom must layout");
+    let bedroom_layout =
+        reconstruct_layout(&bedroom_scene, &bedroom_relations).expect("Bedroom must layout");
     assert!(validate_reconstruction(&bedroom_scene, &bedroom_relations, &bedroom_layout).passed);
 
-    let office_scene = extract_semantic_scene(&build_semantic_graph(&office))
-        .expect("Office scene must extract");
+    let office_scene =
+        extract_semantic_scene(&build_semantic_graph(&office)).expect("Office scene must extract");
     let office_relations = infer_spatial_graph(&office_scene).expect("Office must infer");
     assert_eq!(
         office_relations,
@@ -168,7 +170,8 @@ fn ru_obj_2d_008_reconstructs_scene_from_semantic_knowledge() {
             target: "Desk".to_string(),
         }]
     );
-    let office_layout = reconstruct_layout(&office_scene, &office_relations).expect("Office must layout");
+    let office_layout =
+        reconstruct_layout(&office_scene, &office_relations).expect("Office must layout");
     assert!(validate_reconstruction(&office_scene, &office_relations, &office_layout).passed);
 
     let missing_required = SemanticScene {
@@ -189,8 +192,8 @@ fn ru_obj_2d_008_reconstructs_scene_from_semantic_knowledge() {
     let dining_layout_json = layout_json(&dining_layout);
     for _ in 0..100 {
         let next_relations = infer_spatial_graph(&dining_scene).expect("graph must reproduce");
-        let next_layout = reconstruct_layout(&dining_scene, &next_relations)
-            .expect("layout must reproduce");
+        let next_layout =
+            reconstruct_layout(&dining_scene, &next_relations).expect("layout must reproduce");
         assert_eq!(dining_relations, next_relations);
         assert_eq!(graph_json, inferred_spatial_graph_json(&next_relations));
         assert_eq!(dining_layout, next_layout);
@@ -204,11 +207,8 @@ fn ru_obj_2d_008_reconstructs_scene_from_semantic_knowledge() {
         semantic_scene_json(&dining_scene),
     )
     .expect("semantic_scene.json must be generated");
-    fs::write(
-        artifact_dir.join("inferred_spatial_graph.json"),
-        graph_json,
-    )
-    .expect("inferred_spatial_graph.json must be generated");
+    fs::write(artifact_dir.join("inferred_spatial_graph.json"), graph_json)
+        .expect("inferred_spatial_graph.json must be generated");
     fs::write(artifact_dir.join("layout.json"), dining_layout_json)
         .expect("layout.json must be generated");
     fs::write(
@@ -476,7 +476,9 @@ fn validate_reconstruction(
     for object in &scene.objects {
         let name = object.as_str();
         match layout.get(name) {
-            Some(bounds) if contained_in_scene(bounds) => checks.push(format!("{name} inside scene")),
+            Some(bounds) if contained_in_scene(bounds) => {
+                checks.push(format!("{name} inside scene"))
+            }
             Some(_) => violations.push(format!("{name} outside scene")),
             None => violations.push(format!("{name} has no layout")),
         }

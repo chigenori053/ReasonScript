@@ -1,0 +1,10 @@
+{
+  "type": "cylinder",
+  "position": {
+    "x": -3.0,
+    "y": 0.0,
+    "z": 0.0
+  },
+  "radius": 1.0,
+  "height": 2.0
+}

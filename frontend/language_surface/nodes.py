@@ -278,6 +278,13 @@ class LetStatementNode:
 
 
 @dataclass(frozen=True)
+class ConstStatementNode:
+    identifier: str
+    expression: ExpressionNode
+    type_annotation: TypeNode | None = None
+
+
+@dataclass(frozen=True)
 class AssignmentStatementNode:
     target: str
     expression: ExpressionNode
@@ -285,6 +292,11 @@ class AssignmentStatementNode:
 
 @dataclass(frozen=True)
 class ResultStatementNode:
+    expression: ExpressionNode
+
+
+@dataclass(frozen=True)
+class ReturnStatementNode:
     expression: ExpressionNode
 
 
@@ -341,8 +353,10 @@ class MatchStatementNode:
 
 StatementNode: TypeAlias = (
     LetStatementNode
+    | ConstStatementNode
     | AssignmentStatementNode
     | ResultStatementNode
+    | ReturnStatementNode
     | RequireStatementNode
     | GoalStatementNode
     | ReachStatementNode
@@ -376,6 +390,14 @@ class CalculationNode:
     return_type: TypeNode | None = None
 
 
+@dataclass(frozen=True)
+class FunctionDeclarationNode:
+    name: str
+    parameters: tuple[str, ...]
+    body: tuple[StatementNode, ...]
+    visibility: Visibility = Visibility.PRIVATE
+
+
 AstNode: TypeAlias = (
     ImportNode
     | ConceptNode
@@ -388,6 +410,7 @@ AstNode: TypeAlias = (
     | RelationNode
     | TransitionNode
     | CalculationNode
+    | FunctionDeclarationNode
 )
 
 
@@ -415,6 +438,7 @@ _NODE_TYPES = {
         ComparisonExpressionNode,
         ConceptNode,
         ConstraintNode,
+        ConstStatementNode,
         AssignmentStatementNode,
         ElseIfStatementNode,
         ElseStatementNode,
@@ -422,6 +446,7 @@ _NODE_TYPES = {
         ExpressionStatementNode,
         ExpressionNode,
         FloatLiteralNode,
+        FunctionDeclarationNode,
         GoalNode,
         GoalStatementNode,
         IdentifierNode,
@@ -448,6 +473,7 @@ _NODE_TYPES = {
         RelationNode,
         RequireStatementNode,
         ResultStatementNode,
+        ReturnStatementNode,
         StringLiteralNode,
         StateTypeNode,
         TransitionNode,
@@ -509,8 +535,10 @@ def statement_from_json(value: Mapping[str, Any]) -> StatementNode:
         node,
         (
             LetStatementNode,
+            ConstStatementNode,
             AssignmentStatementNode,
             ResultStatementNode,
+            ReturnStatementNode,
             RequireStatementNode,
             GoalStatementNode,
             ReachStatementNode,
@@ -654,12 +682,24 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
                 else None
             ),
         )
+    if node_type == "ConstStatementNode":
+        return ConstStatementNode(
+            value["identifier"],
+            _from_json_node(value["expression"]),
+            (
+                _from_json_node(value["type_annotation"])
+                if value.get("type_annotation")
+                else None
+            ),
+        )
     if node_type == "AssignmentStatementNode":
         return AssignmentStatementNode(
             value["target"], _from_json_node(value["expression"])
         )
     if node_type == "ResultStatementNode":
         return ResultStatementNode(_from_json_node(value["expression"]))
+    if node_type == "ReturnStatementNode":
+        return ReturnStatementNode(_from_json_node(value["expression"]))
     if node_type == "RequireStatementNode":
         return RequireStatementNode(value["constraint"])
     if node_type == "GoalStatementNode":
@@ -712,5 +752,12 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
                 if value.get("return_type")
                 else None
             ),
+        )
+    if node_type == "FunctionDeclarationNode":
+        return FunctionDeclarationNode(
+            value["name"],
+            tuple(value["parameters"]),
+            tuple(_from_json_node(item) for item in value["body"]),
+            Visibility(value.get("visibility", Visibility.PRIVATE.value)),
         )
     raise AssertionError(f"unhandled surface node_type: {node_type}")

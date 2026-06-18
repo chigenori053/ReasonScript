@@ -1,0 +1,6 @@
+// EX-003: Taxonomy
+// IsA hierarchy: Dog (initial) → Mammal → Animal
+goal ClassifyAnimal
+state Dog
+transition Dog IsA Mammal
+transition Mammal IsA Animal

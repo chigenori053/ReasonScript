@@ -1,0 +1,6 @@
+// EX-005: Multi-Step Planning
+// Three-state path: Start (initial) → Waypoint → Destination
+goal ReachDestination
+state Start
+transition Start Move Waypoint
+transition Waypoint Move Destination

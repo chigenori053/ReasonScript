@@ -1,0 +1,6 @@
+// EX-006: Door Constraint
+// Door state machine: DoorClosed (initial) → DoorOpen with safety check.
+goal OpenDoor
+state DoorClosed
+constraint SafetyCheck
+transition DoorClosed Open DoorOpen

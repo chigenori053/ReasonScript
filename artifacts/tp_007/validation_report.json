@@ -1,0 +1,111 @@
+{
+  "adapter_pass": true,
+  "checks": [
+    {
+      "id": "AD-001",
+      "name": "State Mapping",
+      "status": "PASS"
+    },
+    {
+      "id": "AD-002",
+      "name": "Transition Mapping",
+      "status": "PASS"
+    },
+    {
+      "id": "AD-003",
+      "name": "Goal Mapping",
+      "status": "PASS"
+    },
+    {
+      "id": "AD-004",
+      "name": "Constraint Mapping",
+      "status": "PASS"
+    },
+    {
+      "id": "AD-005",
+      "name": "Deterministic Conversion",
+      "status": "PASS"
+    },
+    {
+      "id": "EP-001",
+      "name": "Plan Generation",
+      "status": "PASS"
+    },
+    {
+      "id": "EP-002",
+      "name": "Goal Reachability",
+      "status": "PASS"
+    },
+    {
+      "id": "EP-003",
+      "name": "Constraint Consistency",
+      "status": "PASS"
+    },
+    {
+      "id": "EP-004",
+      "name": "Deterministic Plan",
+      "status": "PASS"
+    },
+    {
+      "id": "RE-005",
+      "name": "Execution Trace",
+      "status": "PASS"
+    },
+    {
+      "id": "RE-006",
+      "name": "Deterministic Execution",
+      "status": "PASS"
+    }
+  ],
+  "deterministic_adapter": true,
+  "deterministic_execution": true,
+  "deterministic_plan": true,
+  "execution_plan_pass": true,
+  "goal_reached": true,
+  "passed": true,
+  "run_command_pass": true,
+  "runtime_execution_pass": true,
+  "tp": "TP-007",
+  "validation_suite": [
+    {
+      "id": "TP-007-001",
+      "name": "Minimal Goal",
+      "status": "PASS"
+    },
+    {
+      "id": "TP-007-002",
+      "name": "Single Transition",
+      "status": "PASS"
+    },
+    {
+      "id": "TP-007-003",
+      "name": "Multi Step Planning",
+      "status": "PASS"
+    },
+    {
+      "id": "TP-007-004",
+      "name": "Constraint Rejection",
+      "status": "PASS"
+    },
+    {
+      "id": "TP-007-005",
+      "name": "Rollback",
+      "status": "PASS"
+    },
+    {
+      "id": "TP-007-006",
+      "name": "Trace Generation",
+      "status": "PASS"
+    },
+    {
+      "id": "TP-007-007",
+      "name": "IR Adapter Determinism",
+      "status": "PASS"
+    },
+    {
+      "id": "TP-007-008",
+      "name": "Runtime Determinism",
+      "status": "PASS"
+    }
+  ]
+}

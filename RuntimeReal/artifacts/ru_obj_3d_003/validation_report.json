@@ -1,0 +1,81 @@
+{
+  "specification": "RU-OBJ-3D-003",
+  "version": "0.1",
+  "passed": true,
+  "object_count": 7,
+  "attribute_count": 3,
+  "state_count": 3,
+  "relation_count": 5,
+  "graph_roundtrip_pass": true,
+  "cycles_detected": false,
+  "missing_targets": 0,
+  "deterministic_serialization": true,
+  "dfs_order": [
+    "building",
+    "room_a",
+    "chair",
+    "table",
+    "room_b"
+  ],
+  "bfs_order": [
+    "building",
+    "room_a",
+    "room_b",
+    "chair",
+    "table"
+  ],
+  "semantic_query_result": [
+    "chair"
+  ],
+  "cases": [
+    {
+      "id": "RU-OBJ-3D-003-A",
+      "name": "Semantic Object Creation",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-003-B",
+      "name": "Attribute Validation",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-003-C",
+      "name": "State Validation",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-003-D",
+      "name": "Relation Validation",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-003-E",
+      "name": "ReasonGraph Conversion",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-003-F",
+      "name": "SceneGraph Restoration",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-003-G",
+      "name": "Semantic Serialization",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-003-H",
+      "name": "Deterministic Serialization",
+      "passed": true
+    },
+    {
+      "id": "RU-OBJ-3D-003-I",
+      "name": "Semantic Traversal",
+      "passed": true
+    }
+  ],
+  "generated_artifacts": [
+    "semantic_world.json",
+    "validation_report.json"
+  ]
+}

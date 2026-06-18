@@ -1,0 +1,43 @@
+{
+  "execution_policy": {
+    "constraint_mode": "reject",
+    "max_steps": 128,
+    "rollback_on_failure": true
+  },
+  "goal": {
+    "kind": "reach_state",
+    "target": "ReachDestination"
+  },
+  "initial_state": {
+    "data": {},
+    "state_id": "Start",
+    "state_type": "symbolic"
+  },
+  "planner_policy": {
+    "max_alternatives": 8,
+    "max_depth": 128,
+    "strategy": "minimum_expected_cost"
+  },
+  "schema_version": "reason-ir/0.1",
+  "trace_policy": {
+    "include_alternatives": true,
+    "include_state_data": true,
+    "level": "standard"
+  },
+  "transitions": [
+    {
+      "expected_cost": 1.0,
+      "relation": "Move",
+      "source": "Start",
+      "target": "Waypoint",
+      "transition_id": "Start-Move-Waypoint"
+    },
+    {
+      "expected_cost": 1.0,
+      "relation": "Move",
+      "source": "Waypoint",
+      "target": "Destination",
+      "transition_id": "Waypoint-Move-Destination"
+    }
+  ]
+}

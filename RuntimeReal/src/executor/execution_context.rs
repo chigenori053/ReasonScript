@@ -1,15 +1,29 @@
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
 use crate::core::DynamicsContext;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TraceEvent {
     Activation(Uuid),
-    Propagation { source: Uuid, target: Uuid, edge_id: Uuid },
-    Closure { source: Uuid, target: Uuid, relation_id: Uuid },
-    IdentityFormation { fragments: Vec<Uuid>, identity_id: Uuid },
+    Propagation {
+        source: Uuid,
+        target: Uuid,
+        edge_id: Uuid,
+    },
+    Closure {
+        source: Uuid,
+        target: Uuid,
+        relation_id: Uuid,
+    },
+    IdentityFormation {
+        fragments: Vec<Uuid>,
+        identity_id: Uuid,
+    },
     IdentityStabilization(Uuid),
-    IdentityTransition { from: Uuid, to: Uuid },
+    IdentityTransition {
+        from: Uuid,
+        to: Uuid,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

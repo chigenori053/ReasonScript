@@ -1,0 +1,27 @@
+{
+  "constraints": [],
+  "goal": "Destination",
+  "runtime": "RuntimeReal",
+  "runtime_graph_version": "tp-007/0.1",
+  "states": [
+    "Destination",
+    "Start",
+    "Waypoint"
+  ],
+  "transitions": [
+    {
+      "expected_cost": 1.0,
+      "relation": "Move",
+      "source": "Start",
+      "target": "Waypoint",
+      "transition_id": "Start-Move-Waypoint"
+    },
+    {
+      "expected_cost": 1.0,
+      "relation": "Move",
+      "source": "Waypoint",
+      "target": "Destination",
+      "transition_id": "Waypoint-Move-Destination"
+    }
+  ]
+}

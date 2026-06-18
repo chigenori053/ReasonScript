@@ -1,0 +1,331 @@
+{
+  "events": [
+    {
+      "event_id": "event_open_door_001",
+      "event_type": "ChangeState",
+      "before_snapshot": 0,
+      "after_snapshot": 1,
+      "success": true
+    },
+    {
+      "event_id": "event_move_human_001",
+      "event_type": "Move",
+      "before_snapshot": 1,
+      "after_snapshot": 2,
+      "success": true
+    },
+    {
+      "event_id": "event_close_door_001",
+      "event_type": "ChangeState",
+      "before_snapshot": 2,
+      "after_snapshot": 3,
+      "success": true
+    }
+  ],
+  "snapshots": [
+    {
+      "timestamp": 0,
+      "objects": [
+        {
+          "id": "door_001",
+          "object_type": "Door",
+          "states": [
+            "closed"
+          ],
+          "position": {
+            "x": 15.0,
+            "y": 0.0,
+            "z": 1.0
+          }
+        },
+        {
+          "id": "house_001",
+          "object_type": "House",
+          "states": [],
+          "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "id": "human_001",
+          "object_type": "Human",
+          "states": [
+            "standing"
+          ],
+          "position": {
+            "x": 10.0,
+            "y": 0.0,
+            "z": 2.0
+          }
+        },
+        {
+          "id": "room_a",
+          "object_type": "Room",
+          "states": [],
+          "position": {
+            "x": 10.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "id": "room_b",
+          "object_type": "Room",
+          "states": [],
+          "position": {
+            "x": 20.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "relations": [
+        {
+          "source_id": "house_001",
+          "relation_type": "Contains",
+          "target_id": "room_a"
+        },
+        {
+          "source_id": "house_001",
+          "relation_type": "Contains",
+          "target_id": "room_b"
+        },
+        {
+          "source_id": "human_001",
+          "relation_type": "LocatedIn",
+          "target_id": "room_a"
+        }
+      ]
+    },
+    {
+      "timestamp": 1,
+      "objects": [
+        {
+          "id": "door_001",
+          "object_type": "Door",
+          "states": [
+            "open"
+          ],
+          "position": {
+            "x": 15.0,
+            "y": 0.0,
+            "z": 1.0
+          }
+        },
+        {
+          "id": "house_001",
+          "object_type": "House",
+          "states": [],
+          "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "id": "human_001",
+          "object_type": "Human",
+          "states": [
+            "standing"
+          ],
+          "position": {
+            "x": 10.0,
+            "y": 0.0,
+            "z": 2.0
+          }
+        },
+        {
+          "id": "room_a",
+          "object_type": "Room",
+          "states": [],
+          "position": {
+            "x": 10.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "id": "room_b",
+          "object_type": "Room",
+          "states": [],
+          "position": {
+            "x": 20.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "relations": [
+        {
+          "source_id": "house_001",
+          "relation_type": "Contains",
+          "target_id": "room_a"
+        },
+        {
+          "source_id": "house_001",
+          "relation_type": "Contains",
+          "target_id": "room_b"
+        },
+        {
+          "source_id": "human_001",
+          "relation_type": "LocatedIn",
+          "target_id": "room_a"
+        }
+      ]
+    },
+    {
+      "timestamp": 2,
+      "objects": [
+        {
+          "id": "door_001",
+          "object_type": "Door",
+          "states": [
+            "open"
+          ],
+          "position": {
+            "x": 15.0,
+            "y": 0.0,
+            "z": 1.0
+          }
+        },
+        {
+          "id": "house_001",
+          "object_type": "House",
+          "states": [],
+          "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "id": "human_001",
+          "object_type": "Human",
+          "states": [
+            "standing"
+          ],
+          "position": {
+            "x": 10.0,
+            "y": 0.0,
+            "z": 2.0
+          }
+        },
+        {
+          "id": "room_a",
+          "object_type": "Room",
+          "states": [],
+          "position": {
+            "x": 10.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "id": "room_b",
+          "object_type": "Room",
+          "states": [],
+          "position": {
+            "x": 20.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "relations": [
+        {
+          "source_id": "house_001",
+          "relation_type": "Contains",
+          "target_id": "room_a"
+        },
+        {
+          "source_id": "house_001",
+          "relation_type": "Contains",
+          "target_id": "room_b"
+        },
+        {
+          "source_id": "human_001",
+          "relation_type": "LocatedIn",
+          "target_id": "room_b"
+        }
+      ]
+    },
+    {
+      "timestamp": 3,
+      "objects": [
+        {
+          "id": "door_001",
+          "object_type": "Door",
+          "states": [
+            "closed"
+          ],
+          "position": {
+            "x": 15.0,
+            "y": 0.0,
+            "z": 1.0
+          }
+        },
+        {
+          "id": "house_001",
+          "object_type": "House",
+          "states": [],
+          "position": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "id": "human_001",
+          "object_type": "Human",
+          "states": [
+            "standing"
+          ],
+          "position": {
+            "x": 10.0,
+            "y": 0.0,
+            "z": 2.0
+          }
+        },
+        {
+          "id": "room_a",
+          "object_type": "Room",
+          "states": [],
+          "position": {
+            "x": 10.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "id": "room_b",
+          "object_type": "Room",
+          "states": [],
+          "position": {
+            "x": 20.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "relations": [
+        {
+          "source_id": "house_001",
+          "relation_type": "Contains",
+          "target_id": "room_a"
+        },
+        {
+          "source_id": "house_001",
+          "relation_type": "Contains",
+          "target_id": "room_b"
+        },
+        {
+          "source_id": "human_001",
+          "relation_type": "LocatedIn",
+          "target_id": "room_b"
+        }
+      ]
+    }
+  ]
+}

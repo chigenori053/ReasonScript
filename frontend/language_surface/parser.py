@@ -15,10 +15,12 @@ from .nodes import (
     CalculationNode,
     ConceptNode,
     ConstraintNode,
+    ConstStatementNode,
     ElseIfStatementNode,
     ElseStatementNode,
     EventNode,
     ExpressionStatementNode,
+    FunctionDeclarationNode,
     GoalNode,
     GoalStatementNode,
     IfStatementNode,
@@ -36,6 +38,7 @@ from .nodes import (
     ReachStatementNode,
     RequireStatementNode,
     ResultStatementNode,
+    ReturnStatementNode,
     StateKind,
     StateTypeNode,
     TransitionNode,
@@ -117,6 +120,8 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
             nodes.append(_parse_transition(cursor))
         elif line.startswith("calculation ") or line.startswith("pub calculation "):
             nodes.append(_parse_calculation(cursor))
+        elif line.startswith("fn ") or line.startswith("pub fn "):
+            nodes.append(_parse_function(cursor))
         elif line.startswith("if "):
             nodes.append(_parse_if(cursor, context=context))
         elif line.startswith("match "):
@@ -168,9 +173,22 @@ def _parse_simple(line: str, *, context: str):
             _expression(match.group(3)),
             _type_annotation(match.group(2)) if match.group(2) else None,
         )
+    match = re.fullmatch(
+        r"const\s+([A-Za-z_]\w*)(?:\s*:\s*([A-Za-z_]\w*))?\s*=\s*(.+)",
+        line,
+    )
+    if match:
+        return ConstStatementNode(
+            match.group(1),
+            _expression(match.group(3)),
+            _type_annotation(match.group(2)) if match.group(2) else None,
+        )
     match = re.fullmatch(r"result\s*=\s*(.+)", line)
     if match:
         return ResultStatementNode(_expression(match.group(1)))
+    match = re.fullmatch(r"return\s+(.+)", line)
+    if match:
+        return ReturnStatementNode(_expression(match.group(1)))
     match = re.fullmatch(r"([A-Za-z_]\w*)\s*=\s*(.+)", line)
     if match:
         return AssignmentStatementNode(match.group(1), _expression(match.group(2)))
@@ -236,6 +254,19 @@ def _parse_calculation(cursor: _Cursor) -> CalculationNode:
         visibility,
         _type_annotation(match.group(4)) if match.group(4) else None,
     )
+
+
+def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
+    match = re.fullmatch(
+        r"(?:(pub)\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{",
+        cursor.take(),
+    )
+    if not match:
+        raise SurfaceSyntaxError("invalid function declaration")
+    parameters = _parameters(match.group(3))
+    body = _parse_body(cursor, context="function")
+    visibility = Visibility.PUBLIC if match.group(1) else Visibility.PRIVATE
+    return FunctionDeclarationNode(match.group(2), parameters, tuple(body), visibility)
 
 
 def _parse_if(cursor: _Cursor, *, context: str) -> IfStatementNode:
@@ -310,3 +341,18 @@ def _type_annotation(source: str):
         return StateTypeNode(StateKind(source))
     except ValueError as error:
         raise SurfaceSyntaxError(f"TYPE-V001 unknown type: {source}") from error
+
+
+def _parameters(source: str) -> tuple[str, ...]:
+    text = source.strip()
+    if not text:
+        return ()
+    parameters = tuple(part.strip() for part in text.split(","))
+    seen: set[str] = set()
+    for parameter in parameters:
+        if not re.fullmatch(r"[A-Za-z_]\w*", parameter):
+            raise SurfaceSyntaxError(f"FN-002 invalid parameter: {parameter}")
+        if parameter in seen:
+            raise SurfaceSyntaxError(f"FN-003 duplicate parameter: {parameter}")
+        seen.add(parameter)
+    return parameters

@@ -1,0 +1,22 @@
+{
+  "events": [
+    {
+      "index": 0,
+      "state": "Start"
+    },
+    {
+      "index": 1,
+      "state": "Waypoint"
+    },
+    {
+      "index": 2,
+      "state": "Destination"
+    }
+  ],
+  "states": [
+    "Start",
+    "Waypoint",
+    "Destination"
+  ],
+  "trace_id": "74f19097e24cde61"
+}

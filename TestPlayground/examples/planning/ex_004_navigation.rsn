@@ -1,0 +1,6 @@
+// EX-004: Navigation with Constraint
+// Single-step navigation from RoomA guarded by a safety constraint.
+goal SafeNavigate
+state RoomA
+constraint DoorMustBeOpen
+transition RoomA Move RoomB

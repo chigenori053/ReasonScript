@@ -1,0 +1,77 @@
+{
+  "specification": "RU-OBJ-3D-001",
+  "version": "runtime-real-validation/0.1",
+  "passed": true,
+  "cases": [
+    {
+      "id": "ST-301",
+      "name": "Cube Creation",
+      "passed": true
+    },
+    {
+      "id": "ST-302",
+      "name": "Sphere Creation",
+      "passed": true
+    },
+    {
+      "id": "ST-303",
+      "name": "Cylinder Creation",
+      "passed": true
+    },
+    {
+      "id": "ST-304",
+      "name": "Object3D IR Serialization",
+      "passed": true
+    },
+    {
+      "id": "ST-305",
+      "name": "Scene3D Generation",
+      "passed": true
+    },
+    {
+      "id": "ST-306",
+      "name": "Validation Constraints",
+      "passed": true
+    },
+    {
+      "id": "ST-307",
+      "name": "Deterministic Serialization",
+      "passed": true
+    },
+    {
+      "id": "ST-308",
+      "name": "Renderable Scene",
+      "passed": true
+    }
+  ],
+  "failure_conditions": [
+    {
+      "id": "FC-301",
+      "name": "Invalid Radius",
+      "rejected": true
+    },
+    {
+      "id": "FC-302",
+      "name": "Invalid Height",
+      "rejected": true
+    },
+    {
+      "id": "FC-303",
+      "name": "Invalid Scale",
+      "rejected": true
+    },
+    {
+      "id": "FC-304",
+      "name": "Missing Transform",
+      "rejected": true
+    }
+  ],
+  "generated_artifacts": [
+    "cube.json",
+    "sphere.json",
+    "cylinder.json",
+    "scene3d.json",
+    "validation_report.json",
+    "scene.png"
+  ]
+}

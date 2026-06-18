@@ -1,0 +1,41 @@
+{
+  "objects": [
+    {
+      "type": "cube",
+      "position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      }
+    },
+    {
+      "type": "sphere",
+      "position": {
+        "x": 3.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "radius": 1.0
+    },
+    {
+      "type": "cylinder",
+      "position": {
+        "x": -3.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "radius": 1.0,
+      "height": 2.0
+    }
+  ]
+}

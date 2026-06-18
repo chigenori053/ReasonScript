@@ -1,4 +1,4 @@
-use crate::ir::{GraphIR, TensorIR, tensor_ir::TensorOp};
+use crate::ir::{tensor_ir::TensorOp, GraphIR, TensorIR};
 use ndarray::Array2;
 
 pub struct Lowering;
@@ -9,7 +9,7 @@ impl Lowering {
         let dim = 16; // Standard dim for v0.1
         let n_nodes = graph_ir.graph.nodes.len();
         let mut state_matrix = Array2::zeros((n_nodes, dim));
-        
+
         for (i, node) in graph_ir.graph.nodes.values().enumerate() {
             if let Some(state) = graph_ir.graph.states.get(&node.state_id) {
                 for j in 0..dim {
@@ -38,7 +38,10 @@ impl Lowering {
                             mat[[i, j]] = target.vector[j];
                         }
                     }
-                    transition_ops.push(TensorOp::Lerp { target: mat, alpha: *alpha });
+                    transition_ops.push(TensorOp::Lerp {
+                        target: mat,
+                        alpha: *alpha,
+                    });
                 }
                 _ => {}
             }

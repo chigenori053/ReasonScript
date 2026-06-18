@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 from .nodes import (
     CalculationNode,
+    FunctionDeclarationNode,
     ImportNode,
     ImportResolutionNode,
     ModuleNode,
@@ -155,7 +156,7 @@ def _symbols(module: ModuleNode) -> dict[str, SurfaceSymbol]:
             )
         public = (
             node.visibility == Visibility.PUBLIC
-            if isinstance(node, CalculationNode)
+            if isinstance(node, (CalculationNode, FunctionDeclarationNode))
             else module.visibility == Visibility.PUBLIC
         )
         result[name] = SurfaceSymbol(module.name, name, node, public)

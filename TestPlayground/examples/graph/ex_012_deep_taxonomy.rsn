@@ -1,0 +1,10 @@
+// EX-012: Deep Taxonomy
+// Multi-level IsA hierarchy from Bacteria (initial) up to LivingThing.
+goal ClassifyLivingThing
+state Bacteria
+transition Bacteria IsA LivingThing
+transition Plant IsA LivingThing
+transition Animal IsA LivingThing
+transition Mammal IsA Animal
+transition Primate IsA Mammal
+transition Human IsA Primate

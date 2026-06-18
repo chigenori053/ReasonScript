@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "TV-1 Parse",
+      "status": "PASS",
+      "message": "syntax valid (mode=phase2)"
+    },
+    {
+      "name": "TV-2 AST",
+      "status": "PASS",
+      "message": "AST constructed (4 declaration(s))"
+    },
+    {
+      "name": "TV-3 Semantic",
+      "status": "PASS",
+      "message": "semantic constraints satisfied"
+    },
+    {
+      "name": "TV-4 IR",
+      "status": "PASS",
+      "message": "Reason IR generated (1 document(s))"
+    }
+  ]
+}

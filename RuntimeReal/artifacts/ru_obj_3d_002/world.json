@@ -1,0 +1,232 @@
+{
+  "nodes": [
+    {
+      "id": "world",
+      "name": "World",
+      "geometry": "world",
+      "local_transform": {
+        "position": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "parent_id": null,
+      "children": [
+        "terrain",
+        "building"
+      ]
+    },
+    {
+      "id": "terrain",
+      "name": "Terrain",
+      "geometry": "terrain",
+      "local_transform": {
+        "position": {
+          "x": 0.0,
+          "y": -0.1,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "parent_id": "world",
+      "children": []
+    },
+    {
+      "id": "building",
+      "name": "Building",
+      "geometry": "building",
+      "local_transform": {
+        "position": {
+          "x": 100.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "parent_id": "world",
+      "children": [
+        "floor_1",
+        "floor_2"
+      ]
+    },
+    {
+      "id": "floor_1",
+      "name": "Floor1",
+      "geometry": "floor",
+      "local_transform": {
+        "position": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "parent_id": "building",
+      "children": [
+        "room_a",
+        "room_b"
+      ]
+    },
+    {
+      "id": "room_a",
+      "name": "RoomA",
+      "geometry": "room",
+      "local_transform": {
+        "position": {
+          "x": 10.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "parent_id": "floor_1",
+      "children": [
+        "table",
+        "chair"
+      ]
+    },
+    {
+      "id": "table",
+      "name": "Table",
+      "geometry": "furniture",
+      "local_transform": {
+        "position": {
+          "x": 2.0,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "parent_id": "room_a",
+      "children": []
+    },
+    {
+      "id": "chair",
+      "name": "Chair",
+      "geometry": "furniture",
+      "local_transform": {
+        "position": {
+          "x": 3.0,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "parent_id": "room_a",
+      "children": []
+    },
+    {
+      "id": "room_b",
+      "name": "RoomB",
+      "geometry": "room",
+      "local_transform": {
+        "position": {
+          "x": 18.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "parent_id": "floor_1",
+      "children": []
+    },
+    {
+      "id": "floor_2",
+      "name": "Floor2",
+      "geometry": "floor",
+      "local_transform": {
+        "position": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      "parent_id": "building",
+      "children": []
+    }
+  ]
+}

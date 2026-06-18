@@ -1,6 +1,6 @@
+use crate::core::types::RelationType;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::core::types::RelationType;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SemanticRule {
@@ -23,7 +23,13 @@ pub struct SemanticConstraint {
 }
 
 impl SemanticConstraint {
-    pub fn new(rule: SemanticRule, source: Uuid, target: Uuid, relation: RelationType, confidence: f64) -> Self {
+    pub fn new(
+        rule: SemanticRule,
+        source: Uuid,
+        target: Uuid,
+        relation: RelationType,
+        confidence: f64,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             rule,

@@ -1,0 +1,12 @@
+// EX-010: World Model (Language Surface)
+// Robot navigation world with obstacle constraint.
+module WorldModel {
+object Robot
+object Target
+object Obstacle
+constraint NoCollision
+transition Navigate {
+Robot -> Target
+}
+goal Reach
+}

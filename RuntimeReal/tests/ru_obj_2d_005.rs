@@ -1,10 +1,10 @@
+use ndarray::array;
 use reasonscript_runtime_real::core::transition::TransitionOp;
 use reasonscript_runtime_real::core::types::{
     GraphType, RelationType, StateType, TransitionType, UnitType,
 };
 use reasonscript_runtime_real::core::{ReasonUnit, State, Transition};
 use reasonscript_runtime_real::graph::{Edge, Node, ReasonGraph};
-use ndarray::array;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::path::Path;
@@ -102,17 +102,29 @@ fn ru_obj_2d_005_detects_conflicting_spatial_worlds_before_layout() {
         ),
         (
             "ST-014 Ordering Cycle",
-            vec![("A", "left_of", "B"), ("B", "left_of", "C"), ("C", "left_of", "A")],
+            vec![
+                ("A", "left_of", "B"),
+                ("B", "left_of", "C"),
+                ("C", "left_of", "A"),
+            ],
             ConflictType::CyclicConflict,
         ),
         (
             "ST-015 Containment Cycle",
-            vec![("A", "inside", "B"), ("B", "inside", "C"), ("C", "inside", "A")],
+            vec![
+                ("A", "inside", "B"),
+                ("B", "inside", "C"),
+                ("C", "inside", "A"),
+            ],
             ConflictType::ContainmentConflict,
         ),
         (
             "CF-005 Above Cycle",
-            vec![("A", "above", "B"), ("B", "above", "C"), ("C", "above", "A")],
+            vec![
+                ("A", "above", "B"),
+                ("B", "above", "C"),
+                ("C", "above", "A"),
+            ],
             ConflictType::CyclicConflict,
         ),
         (
@@ -283,9 +295,7 @@ fn validate_constraint_graph(constraints: &[Constraint]) -> ValidationReport {
             ))
     });
     conflicts.dedup_by(|a, b| {
-        a.conflict_type == b.conflict_type
-            && a.description == b.description
-            && a.nodes == b.nodes
+        a.conflict_type == b.conflict_type && a.description == b.description && a.nodes == b.nodes
     });
 
     ValidationReport {
@@ -315,7 +325,8 @@ fn detect_direct_conflicts(constraints: &[Constraint]) -> Vec<ConstraintConflict
                 nodes: vec![source.to_string(), target.to_string()],
             });
         }
-        if relations.contains(&SpatialRelation::Above) && relations.contains(&SpatialRelation::Below)
+        if relations.contains(&SpatialRelation::Above)
+            && relations.contains(&SpatialRelation::Below)
         {
             conflicts.push(ConstraintConflict {
                 conflict_type: ConflictType::DirectConflict,
@@ -415,7 +426,9 @@ fn adjacency_for(
             .entry(constraint.source.clone())
             .or_insert_with(BTreeSet::new)
             .insert(constraint.target.clone());
-        graph.entry(constraint.target.clone()).or_insert_with(BTreeSet::new);
+        graph
+            .entry(constraint.target.clone())
+            .or_insert_with(BTreeSet::new);
     }
     graph
 }

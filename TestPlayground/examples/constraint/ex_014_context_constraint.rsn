@@ -1,0 +1,6 @@
+// EX-014: Context with Constraint (Phase 2)
+// Memory-backed context URI used with a semantic constraint.
+goal Animal
+state Dog
+constraint MustBeAnimal
+context memory://animals
