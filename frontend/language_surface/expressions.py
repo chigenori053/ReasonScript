@@ -9,6 +9,7 @@ from enum import Enum
 from .nodes import (
     BinaryExpressionNode,
     BinaryOperator,
+    ArrayLiteralNode,
     BooleanLiteralNode,
     CallExpressionNode,
     ComparisonExpressionNode,
@@ -18,6 +19,7 @@ from .nodes import (
     EnumValuePatternNode,
     FloatLiteralNode,
     IdentifierNode,
+    IndexAccessNode,
     IdentifierPatternNode,
     IntegerLiteralNode,
     LiteralPatternNode,
@@ -29,6 +31,7 @@ from .nodes import (
     PatternNode,
     QualifiedIdentifierNode,
     StringLiteralNode,
+    TupleLiteralNode,
     UnaryExpressionNode,
     UnaryOperator,
     WildcardPatternNode,
@@ -48,6 +51,8 @@ class _Kind(str, Enum):
     LEFT_PAREN = "left_paren"
     RIGHT_PAREN = "right_paren"
     COMMA = "comma"
+    LEFT_BRACKET = "left_bracket"
+    RIGHT_BRACKET = "right_bracket"
     DOT = "dot"
     QUALIFIER = "qualifier"
     EOF = "eof"
@@ -77,8 +82,8 @@ _BINARY = {
 }
 
 
-def parse_expression(source: str) -> ExpressionNode:
-    parser = _Parser(_tokenize(source))
+def parse_expression(source: str, *, allow_tuple_access: bool = False) -> ExpressionNode:
+    parser = _Parser(_tokenize(source), allow_tuple_access=allow_tuple_access)
     expression = parser.parse(0)
     if parser.current.kind != _Kind.EOF:
         raise ExpressionSyntaxError(
@@ -118,9 +123,10 @@ def parse_pattern(source: str) -> PatternNode:
 
 
 class _Parser:
-    def __init__(self, tokens: tuple[_Token, ...]):
+    def __init__(self, tokens: tuple[_Token, ...], *, allow_tuple_access: bool):
         self.tokens = tokens
         self.index = 0
+        self.allow_tuple_access = allow_tuple_access
 
     @property
     def current(self) -> _Token:
@@ -139,6 +145,9 @@ class _Parser:
                 continue
             if self.current.kind == _Kind.LEFT_PAREN:
                 left = self._call(left)
+                continue
+            if self.current.kind == _Kind.LEFT_BRACKET:
+                left = self._index(left)
                 continue
             entry = _BINARY.get(self.current.value)
             if entry is None or entry[0] < minimum_precedence:
@@ -187,19 +196,57 @@ class _Parser:
             if self.current.kind == _Kind.RIGHT_PAREN:
                 raise ExpressionSyntaxError("parenthesized expression must not be empty")
             expression = self.parse(0)
+            if self.current.kind == _Kind.COMMA:
+                elements = [ExpressionNode(expression)]
+                while self.current.kind == _Kind.COMMA:
+                    self.take()
+                    if self.current.kind == _Kind.RIGHT_PAREN:
+                        raise ExpressionSyntaxError("tuple trailing comma is not supported")
+                    elements.append(ExpressionNode(self.parse(0)))
+                if self.current.kind != _Kind.RIGHT_PAREN:
+                    raise ExpressionSyntaxError("EX-V003 unbalanced tuple")
+                self.take()
+                return TupleLiteralNode(tuple(elements))
             if self.current.kind != _Kind.RIGHT_PAREN:
                 raise ExpressionSyntaxError("EX-V003 unbalanced parentheses")
             self.take()
             return ParenthesizedExpressionNode(expression)
+        if token.kind == _Kind.LEFT_BRACKET:
+            elements: list[ExpressionNode] = []
+            if self.current.kind == _Kind.RIGHT_BRACKET:
+                self.take()
+                return ArrayLiteralNode(())
+            while True:
+                elements.append(ExpressionNode(self.parse(0)))
+                if self.current.kind == _Kind.RIGHT_BRACKET:
+                    self.take()
+                    return ArrayLiteralNode(tuple(elements))
+                if self.current.kind != _Kind.COMMA:
+                    raise ExpressionSyntaxError("array literal requires comma or closing bracket")
+                self.take()
+                if self.current.kind == _Kind.RIGHT_BRACKET:
+                    raise ExpressionSyntaxError("array trailing comma is not supported")
         raise ExpressionSyntaxError(
             f"expected expression at offset {token.offset}, received {token.value!r}"
         )
 
     def _member(self, left: Expression) -> Expression:
         self.take()
-        if self.current.kind != _Kind.IDENTIFIER:
+        if self.current.kind == _Kind.INTEGER and not self.allow_tuple_access:
+            raise ExpressionSyntaxError("EX-V005 member access requires an identifier")
+        if self.current.kind not in {_Kind.IDENTIFIER, _Kind.INTEGER}:
             raise ExpressionSyntaxError("EX-V005 member access requires an identifier")
         return MemberAccessNode(left, self.take().value)
+
+    def _index(self, collection: Expression) -> Expression:
+        self.take()
+        if self.current.kind == _Kind.RIGHT_BRACKET:
+            raise ExpressionSyntaxError("CV5-6 index expression is required")
+        index = self.parse(0)
+        if self.current.kind != _Kind.RIGHT_BRACKET:
+            raise ExpressionSyntaxError("CV5-6 unbalanced index access")
+        self.take()
+        return IndexAccessNode(collection, index)
 
     def _call(self, callee: Expression) -> Expression:
         self.take()
@@ -277,6 +324,8 @@ def _tokenize(source: str) -> tuple[_Token, ...]:
         kind = {
             "(": _Kind.LEFT_PAREN,
             ")": _Kind.RIGHT_PAREN,
+            "[": _Kind.LEFT_BRACKET,
+            "]": _Kind.RIGHT_BRACKET,
             ",": _Kind.COMMA,
             ".": _Kind.DOT,
         }.get(char)

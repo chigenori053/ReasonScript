@@ -9,6 +9,8 @@ from typing import Any
 
 from .nodes import (
     ActionNode,
+    ArrayLiteralNode,
+    ArrayTypeNode,
     AssignmentStatementNode,
     AttributeNode,
     BreakStatementNode,
@@ -42,12 +44,17 @@ from .nodes import (
     IdentifierPatternNode,
     ImportNode,
     ImportResolutionNode,
+    IndexAccessNode,
+    IndexAssignmentStatementNode,
     IntegerLiteralNode,
     LetStatementNode,
     LiteralPatternNode,
     LogicalExpressionNode,
     LoopStatementNode,
     LogicalOperator,
+    MapEntryNode,
+    MapLiteralNode,
+    MapTypeNode,
     MatchArmNode,
     MatchStatementNode,
     MemberAccessNode,
@@ -67,6 +74,8 @@ from .nodes import (
     RequireStatementNode,
     ResultStatementNode,
     ReturnStatementNode,
+    SetLiteralNode,
+    SetTypeNode,
     StringLiteralNode,
     StateKind,
     StateTypeNode,
@@ -74,6 +83,8 @@ from .nodes import (
     StructFieldNode,
     StructLiteralFieldNode,
     StructLiteralNode,
+    TupleLiteralNode,
+    TupleTypeNode,
     TransitionNode,
     UnaryExpressionNode,
     UnaryOperator,
@@ -98,6 +109,8 @@ RESERVED_IDENTIFIERS = {
     "in",
     "struct",
     "enum",
+    "set",
+    "map",
     "else",
     "match",
 }
@@ -128,6 +141,7 @@ KNOWN_NODE_TYPES = (
     ConstStatementNode,
     AssignmentStatementNode,
     FieldAssignmentStatementNode,
+    IndexAssignmentStatementNode,
     ResultStatementNode,
     ReturnStatementNode,
     ForStatementNode,
@@ -161,8 +175,18 @@ KNOWN_NODE_TYPES = (
     MemberAccessNode,
     CallExpressionNode,
     NamedTypeNode,
+    ArrayTypeNode,
+    TupleTypeNode,
+    SetTypeNode,
+    MapTypeNode,
     StructLiteralFieldNode,
     StructLiteralNode,
+    ArrayLiteralNode,
+    TupleLiteralNode,
+    SetLiteralNode,
+    MapEntryNode,
+    MapLiteralNode,
+    IndexAccessNode,
     IdentifierPatternNode,
     EnumValuePatternNode,
     WildcardPatternNode,
@@ -235,6 +259,7 @@ def _validate_module(module: ModuleNode) -> None:
                 ConstStatementNode,
                 AssignmentStatementNode,
                 FieldAssignmentStatementNode,
+                IndexAssignmentStatementNode,
                 ResultStatementNode,
                 ReturnStatementNode,
                 ForStatementNode,
@@ -329,6 +354,9 @@ def _validate_ast_node(node: Any) -> None:
     elif isinstance(node, FieldAssignmentStatementNode):
         _expression(node.target, "TV-10 FieldAssignmentStatementNode.target")
         _expression(node.expression, "TV-10 FieldAssignmentStatementNode.expression")
+    elif isinstance(node, IndexAssignmentStatementNode):
+        _expression(node.target, "CV5-9 IndexAssignmentStatementNode.target")
+        _expression(node.expression, "CV5-9 IndexAssignmentStatementNode.expression")
     elif isinstance(node, ResultStatementNode):
         _expression(node.expression, "ST-020 ResultStatementNode.expression")
     elif isinstance(node, ReturnStatementNode):
@@ -490,6 +518,7 @@ def _validate_statement_list(
             ConstStatementNode,
             AssignmentStatementNode,
             FieldAssignmentStatementNode,
+            IndexAssignmentStatementNode,
             ForStatementNode,
             WhileStatementNode,
             LoopStatementNode,
@@ -590,6 +619,7 @@ def _validate_calculation_statements(
         ConstStatementNode,
         AssignmentStatementNode,
         FieldAssignmentStatementNode,
+        IndexAssignmentStatementNode,
         ForStatementNode,
         WhileStatementNode,
         LoopStatementNode,
@@ -672,6 +702,8 @@ def _validate_calculation_statements(
                 )
         elif isinstance(statement, FieldAssignmentStatementNode):
             _validate_field_assignment(statement, symbols, local_bindings)
+        elif isinstance(statement, IndexAssignmentStatementNode):
+            _validate_index_assignment(statement, symbols, local_bindings)
         elif isinstance(statement, ExpressionStatementNode):
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
@@ -828,6 +860,7 @@ def _validate_function_statements(
         ConstStatementNode,
         AssignmentStatementNode,
         FieldAssignmentStatementNode,
+        IndexAssignmentStatementNode,
         ForStatementNode,
         WhileStatementNode,
         LoopStatementNode,
@@ -901,6 +934,8 @@ def _validate_function_statements(
             )
         elif isinstance(statement, FieldAssignmentStatementNode):
             _validate_field_assignment(statement, symbols, local_bindings)
+        elif isinstance(statement, IndexAssignmentStatementNode):
+            _validate_index_assignment(statement, symbols, local_bindings)
         elif isinstance(statement, ExpressionStatementNode):
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
@@ -1077,6 +1112,16 @@ def _validate_calculation_expression(
         elif isinstance(value, StructLiteralNode):
             for field in value.fields:
                 visit(field.expression.expression)
+        elif isinstance(value, (ArrayLiteralNode, TupleLiteralNode, SetLiteralNode)):
+            for element in value.elements:
+                visit(element.expression)
+        elif isinstance(value, MapLiteralNode):
+            for entry in value.entries:
+                visit(entry.key.expression)
+                visit(entry.value.expression)
+        elif isinstance(value, IndexAccessNode):
+            visit(value.collection)
+            visit(value.index)
 
     _expression(expression, "CAL-V006 expression")
     visit(expression.expression)
@@ -1135,6 +1180,26 @@ def _expression_type(
     if isinstance(value, StructLiteralNode):
         _validate_struct_literal(value, symbols, bindings)
         return NamedTypeNode(value.type_name)
+    if isinstance(value, ArrayLiteralNode):
+        return ArrayTypeNode(_homogeneous_type(value.elements, symbols, bindings, "CV5-1"))
+    if isinstance(value, TupleLiteralNode):
+        return TupleTypeNode(
+            tuple(_expression_type(item.expression, symbols, bindings) for item in value.elements)
+        )
+    if isinstance(value, SetLiteralNode):
+        _validate_set_literal(value, symbols, bindings)
+        return SetTypeNode(_homogeneous_type(value.elements, symbols, bindings, "CV5-3"))
+    if isinstance(value, MapLiteralNode):
+        _validate_map_literal(value, symbols, bindings)
+        if not value.entries:
+            return MapTypeNode(_UNKNOWN_TYPE, _UNKNOWN_TYPE)
+        key_type = _homogeneous_type(
+            tuple(entry.key for entry in value.entries), symbols, bindings, "CV5-4"
+        )
+        value_type = _homogeneous_type(
+            tuple(entry.value for entry in value.entries), symbols, bindings, "CV5-10"
+        )
+        return MapTypeNode(key_type, value_type)
     if isinstance(value, ParenthesizedExpressionNode):
         return _expression_type(value.expression, symbols, bindings)
     if isinstance(value, UnaryExpressionNode):
@@ -1202,6 +1267,13 @@ def _expression_type(
         if enum_type is not None:
             return enum_type
         object_type = _expression_type(value.object, symbols, bindings)
+        if isinstance(object_type, TupleTypeNode) and value.member.isdigit():
+            index = int(value.member)
+            if index >= len(object_type.element_types):
+                raise SurfaceValidationError("CV5-2 tuple index out of range")
+            return object_type.element_types[index]
+        if isinstance(object_type, (ArrayTypeNode, SetTypeNode, MapTypeNode, TupleTypeNode)) and value.member == "length":
+            return PrimitiveTypeNode(PrimitiveKind.INT)
         if isinstance(object_type, NamedTypeNode):
             struct = symbols.get(object_type.name)
             if isinstance(struct, StructDeclarationNode):
@@ -1214,6 +1286,20 @@ def _expression_type(
         if object_type is _UNKNOWN_TYPE:
             return _UNKNOWN_TYPE
         raise SurfaceValidationError("TV-9 field access requires valid field")
+    if isinstance(value, IndexAccessNode):
+        collection_type = _expression_type(value.collection, symbols, bindings)
+        index_type = _expression_type(value.index, symbols, bindings)
+        if isinstance(collection_type, ArrayTypeNode):
+            if index_type != PrimitiveTypeNode(PrimitiveKind.INT):
+                raise SurfaceValidationError("CV5-6 index expression must be int")
+            return collection_type.element_type
+        if isinstance(collection_type, MapTypeNode):
+            _require_map_key_type(index_type)
+            _require_type_equal(collection_type.key_type, index_type, "CV5-8 map key mismatch")
+            return collection_type.value_type
+        if collection_type is _UNKNOWN_TYPE:
+            return _UNKNOWN_TYPE
+        raise SurfaceValidationError("CV5-7 index access requires collection type")
     if isinstance(value, CallExpressionNode):
         return _UNKNOWN_TYPE
     return _UNKNOWN_TYPE
@@ -1227,6 +1313,22 @@ def _require_compatible(
     location: str,
 ) -> None:
     if expected == actual:
+        return
+    if isinstance(expected, ArrayTypeNode) and isinstance(actual, ArrayTypeNode):
+        _require_type_equal(expected.element_type, actual.element_type, location)
+        return
+    if isinstance(expected, SetTypeNode) and isinstance(actual, SetTypeNode):
+        _require_type_equal(expected.element_type, actual.element_type, location)
+        return
+    if isinstance(expected, TupleTypeNode) and isinstance(actual, TupleTypeNode):
+        if len(expected.element_types) != len(actual.element_types):
+            raise SurfaceValidationError("CV5-2 tuple size mismatch")
+        for left, right in zip(expected.element_types, actual.element_types):
+            _require_type_equal(left, right, location)
+        return
+    if isinstance(expected, MapTypeNode) and isinstance(actual, MapTypeNode):
+        _require_type_equal(expected.key_type, actual.key_type, location)
+        _require_type_equal(expected.value_type, actual.value_type, location)
         return
     if isinstance(expected, StateTypeNode):
         value = expression.expression
@@ -1276,6 +1378,22 @@ def _validate_type_node(value: Any) -> None:
     if isinstance(value, NamedTypeNode):
         _identifier(value.name, "TV-4 NamedTypeNode.name")
         return
+    if isinstance(value, ArrayTypeNode):
+        _validate_type_node(value.element_type)
+        return
+    if isinstance(value, TupleTypeNode):
+        if not value.element_types:
+            raise SurfaceValidationError("CV5-2 tuple type requires elements")
+        for element_type in value.element_types:
+            _validate_type_node(element_type)
+        return
+    if isinstance(value, SetTypeNode):
+        _validate_type_node(value.element_type)
+        return
+    if isinstance(value, MapTypeNode):
+        _validate_type_node(value.key_type)
+        _validate_type_node(value.value_type)
+        return
     raise SurfaceValidationError("TYPE-V002 invalid TypeNode")
 
 
@@ -1284,6 +1402,14 @@ def _type_name(value: Any) -> str:
         return value.kind.value
     if isinstance(value, NamedTypeNode):
         return value.name
+    if isinstance(value, ArrayTypeNode):
+        return f"[{_type_name(value.element_type)}]"
+    if isinstance(value, TupleTypeNode):
+        return f"({', '.join(_type_name(item) for item in value.element_types)})"
+    if isinstance(value, SetTypeNode):
+        return f"set<{_type_name(value.element_type)}>"
+    if isinstance(value, MapTypeNode):
+        return f"map<{_type_name(value.key_type)},{_type_name(value.value_type)}>"
     return "Unknown"
 
 
@@ -1304,8 +1430,100 @@ def _require_iterable(
     bindings: dict[str, Any],
 ) -> None:
     expression_type = _expression_type(expression.expression, symbols, bindings)
-    if isinstance(expression_type, PrimitiveTypeNode):
+    if isinstance(expression_type, (ArrayTypeNode, SetTypeNode, MapTypeNode)):
+        return
+    if expression_type is _UNKNOWN_TYPE:
+        return
+    if isinstance(expression_type, PrimitiveTypeNode) or isinstance(
+        expression_type, (NamedTypeNode, TupleTypeNode)
+    ):
         raise SurfaceValidationError("IV-8 iteration source must be iterable")
+
+
+def _homogeneous_type(
+    elements: tuple[ExpressionNode, ...],
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+    code: str,
+) -> Any:
+    if not elements:
+        return _UNKNOWN_TYPE
+    first = _expression_type(elements[0].expression, symbols, bindings)
+    for element in elements[1:]:
+        current = _expression_type(element.expression, symbols, bindings)
+        if first is _UNKNOWN_TYPE:
+            first = current
+            continue
+        if current is not _UNKNOWN_TYPE and current != first:
+            raise SurfaceValidationError(f"{code} collection element type mismatch")
+    return first
+
+
+def _literal_key(value: ExpressionNode) -> Any:
+    expression = value.expression
+    if isinstance(expression, (IntegerLiteralNode, FloatLiteralNode, BooleanLiteralNode, StringLiteralNode)):
+        return (type(expression).__name__, expression.value)
+    if isinstance(expression, MemberAccessNode) and isinstance(expression.object, IdentifierNode):
+        return ("enum", expression.object.name, expression.member)
+    return None
+
+
+def _validate_set_literal(
+    value: SetLiteralNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    keys = [_literal_key(element) for element in value.elements]
+    known = [key for key in keys if key is not None]
+    if len(known) != len(set(known)):
+        raise SurfaceValidationError("CV5-3 DuplicateSetElement")
+    for element in value.elements:
+        _require_hashable_type(_expression_type(element.expression, symbols, bindings))
+
+
+def _validate_map_literal(
+    value: MapLiteralNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    keys = [_literal_key(entry.key) for entry in value.entries]
+    known = [key for key in keys if key is not None]
+    if len(known) != len(set(known)):
+        raise SurfaceValidationError("CV5-5 duplicate map key")
+    for entry in value.entries:
+        _require_map_key_type(_expression_type(entry.key.expression, symbols, bindings))
+
+
+def _require_hashable_type(value: Any) -> None:
+    if value is _UNKNOWN_TYPE:
+        return
+    if isinstance(value, PrimitiveTypeNode):
+        return
+    if isinstance(value, NamedTypeNode):
+        declaration = _CURRENT_NAMESPACE.symbols.get(value.name).node if _CURRENT_NAMESPACE and value.name in _CURRENT_NAMESPACE.symbols else None
+        if isinstance(declaration, EnumDeclarationNode):
+            return
+    raise SurfaceValidationError("CV5-3 set elements must be hashable")
+
+
+def _require_map_key_type(value: Any) -> None:
+    if value is _UNKNOWN_TYPE:
+        return
+    if isinstance(value, PrimitiveTypeNode):
+        return
+    if isinstance(value, NamedTypeNode):
+        declaration = _CURRENT_NAMESPACE.symbols.get(value.name).node if _CURRENT_NAMESPACE and value.name in _CURRENT_NAMESPACE.symbols else None
+        if isinstance(declaration, EnumDeclarationNode):
+            return
+    raise SurfaceValidationError("CV5-4 map keys must be valid key types")
+
+
+def _require_type_equal(expected: Any, actual: Any, location: str) -> None:
+    if expected is _UNKNOWN_TYPE or actual is _UNKNOWN_TYPE or expected == actual:
+        return
+    raise SurfaceValidationError(
+        f"{location}: expected {_type_name(expected)}, received {_type_name(actual)}"
+    )
 
 
 def _resolve_type(value: Any, symbols: dict[str, Any]) -> None:
@@ -1317,6 +1535,22 @@ def _resolve_type(value: Any, symbols: dict[str, Any]) -> None:
             raise SurfaceValidationError(
                 f"TYPE-V001 TV-4 unresolved composite type: {value.name}"
             )
+        return
+    if isinstance(value, ArrayTypeNode):
+        _resolve_type(value.element_type, symbols)
+        return
+    if isinstance(value, TupleTypeNode):
+        for element_type in value.element_types:
+            _resolve_type(element_type, symbols)
+        return
+    if isinstance(value, SetTypeNode):
+        _resolve_type(value.element_type, symbols)
+        _require_hashable_type(value.element_type)
+        return
+    if isinstance(value, MapTypeNode):
+        _resolve_type(value.key_type, symbols)
+        _resolve_type(value.value_type, symbols)
+        _require_map_key_type(value.key_type)
         return
     raise SurfaceValidationError("TYPE-V002 invalid TypeNode")
 
@@ -1426,7 +1660,37 @@ def _validate_field_assignment(
     )
 
 
+def _validate_index_assignment(
+    statement: IndexAssignmentStatementNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    target = statement.target.expression
+    if not isinstance(target, IndexAccessNode):
+        raise SurfaceValidationError("CV5-9 index assignment target required")
+    root = _member_root(target.collection)
+    if (
+        root is None
+        or root not in bindings
+        or not isinstance(bindings[root], _Binding)
+    ):
+        raise SurfaceValidationError(f"CV5-9 unknown collection assignment target: {root}")
+    if not bindings[root].mutable:
+        raise SurfaceValidationError(f"CV5-9 CannotModifyConstant: {root}")
+    expected = _expression_type(target, symbols, bindings)
+    actual = _expression_type(statement.expression.expression, symbols, bindings)
+    _require_compatible(
+        expected,
+        actual,
+        statement.expression,
+        symbols,
+        "TYPE-V003 collection assignment mismatch",
+    )
+
+
 def _member_root(value: Any) -> str | None:
+    if isinstance(value, IndexAccessNode):
+        return _member_root(value.collection)
     current = value
     while isinstance(current, MemberAccessNode):
         current = current.object
@@ -1534,7 +1798,8 @@ def _expression_value(value: Any) -> None:
         _expression_value(value.expression)
     elif isinstance(value, MemberAccessNode):
         _expression_value(value.object)
-        _identifier(value.member, "EX-V005 MemberAccessNode.member")
+        if not value.member.isdigit():
+            _identifier(value.member, "EX-V005 MemberAccessNode.member")
     elif isinstance(value, CallExpressionNode):
         _expression_value(value.callee)
         for argument in value.arguments:
@@ -1550,6 +1815,18 @@ def _expression_value(value: Any) -> None:
     elif isinstance(value, StructLiteralFieldNode):
         _identifier(value.name, "TV-6 StructLiteralFieldNode.name")
         _expression(value.expression, "TV-6 StructLiteralFieldNode.expression")
+    elif isinstance(value, (ArrayLiteralNode, TupleLiteralNode, SetLiteralNode)):
+        for element in value.elements:
+            _expression(element, f"{type(value).__name__}.element")
+    elif isinstance(value, MapLiteralNode):
+        for entry in value.entries:
+            _expression_value(entry)
+    elif isinstance(value, MapEntryNode):
+        _expression(value.key, "MapEntryNode.key")
+        _expression(value.value, "MapEntryNode.value")
+    elif isinstance(value, IndexAccessNode):
+        _expression_value(value.collection)
+        _expression_value(value.index)
     else:
         raise SurfaceValidationError(
             f"EX-V001 unknown expression type: {type(value).__name__}"

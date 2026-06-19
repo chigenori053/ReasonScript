@@ -28,6 +28,7 @@ KEYWORDS = {
     "import",
     "let",
     "loop",
+    "map",
     "match",
     "module",
     "object",
@@ -37,6 +38,7 @@ KEYWORDS = {
     "requires",
     "result",
     "return",
+    "set",
     "struct",
     "transition",
     "true",
@@ -140,7 +142,7 @@ def tokenize(source: str) -> tuple[SurfaceToken, ...]:
             index += len(matched)
             column += len(matched)
             continue
-        if char in "{}():,.":
+        if char in "{}()[]:,.":
             tokens.append(
                 SurfaceToken(SurfaceTokenType.DELIMITER, char, line, column)
             )

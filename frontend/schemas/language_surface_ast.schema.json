@@ -12,7 +12,11 @@
       "oneOf": [
         {"$ref": "#/$defs/primitive_type"},
         {"$ref": "#/$defs/state_type"},
-        {"$ref": "#/$defs/named_type"}
+        {"$ref": "#/$defs/named_type"},
+        {"$ref": "#/$defs/array_type"},
+        {"$ref": "#/$defs/tuple_type"},
+        {"$ref": "#/$defs/set_type"},
+        {"$ref": "#/$defs/map_type"}
       ]
     },
     "primitive_type": {
@@ -52,6 +56,46 @@
         "node_type": {"const": "NamedTypeNode"}
       }
     },
+    "array_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["element_type", "node_type"],
+      "properties": {
+        "element_type": {"$ref": "#/$defs/type_node"},
+        "node_type": {"const": "ArrayTypeNode"}
+      }
+    },
+    "tuple_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["element_types", "node_type"],
+      "properties": {
+        "element_types": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/type_node"}
+        },
+        "node_type": {"const": "TupleTypeNode"}
+      }
+    },
+    "set_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["element_type", "node_type"],
+      "properties": {
+        "element_type": {"$ref": "#/$defs/type_node"},
+        "node_type": {"const": "SetTypeNode"}
+      }
+    },
+    "map_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key_type", "value_type", "node_type"],
+      "properties": {
+        "key_type": {"$ref": "#/$defs/type_node"},
+        "value_type": {"$ref": "#/$defs/type_node"},
+        "node_type": {"const": "MapTypeNode"}
+      }
+    },
     "expression": {
       "type": "object",
       "additionalProperties": false,
@@ -77,7 +121,12 @@
         {"$ref": "#/$defs/parenthesized_expression"},
         {"$ref": "#/$defs/member_access"},
         {"$ref": "#/$defs/call_expression"},
-        {"$ref": "#/$defs/struct_literal"}
+        {"$ref": "#/$defs/struct_literal"},
+        {"$ref": "#/$defs/array_literal"},
+        {"$ref": "#/$defs/tuple_literal"},
+        {"$ref": "#/$defs/set_literal"},
+        {"$ref": "#/$defs/map_literal"},
+        {"$ref": "#/$defs/index_access"}
       ]
     },
     "integer_literal": {
@@ -257,6 +306,74 @@
         "node_type": {"const": "StructLiteralNode"}
       }
     },
+    "array_literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elements", "node_type"],
+      "properties": {
+        "elements": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/expression"}
+        },
+        "node_type": {"const": "ArrayLiteralNode"}
+      }
+    },
+    "tuple_literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elements", "node_type"],
+      "properties": {
+        "elements": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/expression"}
+        },
+        "node_type": {"const": "TupleLiteralNode"}
+      }
+    },
+    "set_literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elements", "node_type"],
+      "properties": {
+        "elements": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/expression"}
+        },
+        "node_type": {"const": "SetLiteralNode"}
+      }
+    },
+    "map_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "value", "node_type"],
+      "properties": {
+        "key": {"$ref": "#/$defs/expression"},
+        "value": {"$ref": "#/$defs/expression"},
+        "node_type": {"const": "MapEntryNode"}
+      }
+    },
+    "map_literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entries", "node_type"],
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/map_entry"}
+        },
+        "node_type": {"const": "MapLiteralNode"}
+      }
+    },
+    "index_access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collection", "index", "node_type"],
+      "properties": {
+        "collection": {"$ref": "#/$defs/expression_value"},
+        "index": {"$ref": "#/$defs/expression_value"},
+        "node_type": {"const": "IndexAccessNode"}
+      }
+    },
     "pattern": {
       "type": "object",
       "additionalProperties": false,
@@ -363,6 +480,7 @@
         {"$ref": "#/$defs/const_statement"},
         {"$ref": "#/$defs/assignment"},
         {"$ref": "#/$defs/field_assignment"},
+        {"$ref": "#/$defs/index_assignment"},
         {"$ref": "#/$defs/result_statement"},
         {"$ref": "#/$defs/return_statement"},
         {"$ref": "#/$defs/require_statement"},
@@ -510,6 +628,16 @@
         "target": {"$ref": "#/$defs/expression"},
         "expression": {"$ref": "#/$defs/expression"},
         "node_type": {"const": "FieldAssignmentStatementNode"}
+      }
+    },
+    "index_assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "expression", "node_type"],
+      "properties": {
+        "target": {"$ref": "#/$defs/expression"},
+        "expression": {"$ref": "#/$defs/expression"},
+        "node_type": {"const": "IndexAssignmentStatementNode"}
       }
     },
     "result_statement": {

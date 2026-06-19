@@ -18,6 +18,7 @@ from .nodes import (
     ContinueStatementNode,
     ConstraintNode,
     ConstStatementNode,
+    ArrayTypeNode,
     EnumDeclarationNode,
     EnumValueNode,
     ElseIfStatementNode,
@@ -33,6 +34,9 @@ from .nodes import (
     ImportNode,
     LetStatementNode,
     LoopStatementNode,
+    MapEntryNode,
+    MapLiteralNode,
+    MapTypeNode,
     MatchArmNode,
     MatchStatementNode,
     ModuleNode,
@@ -47,6 +51,8 @@ from .nodes import (
     RequireStatementNode,
     ResultStatementNode,
     ReturnStatementNode,
+    SetLiteralNode,
+    SetTypeNode,
     StateKind,
     StateTypeNode,
     StructDeclarationNode,
@@ -54,6 +60,8 @@ from .nodes import (
     StructLiteralFieldNode,
     StructLiteralNode,
     FieldAssignmentStatementNode,
+    IndexAssignmentStatementNode,
+    TupleTypeNode,
     TransitionNode,
     Visibility,
     WhileStatementNode,
@@ -134,6 +142,8 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
             nodes.append(_parse_struct(cursor))
         elif line.startswith("enum "):
             nodes.append(_parse_enum(cursor))
+        elif _is_collection_literal_statement(line):
+            nodes.append(_parse_collection_literal_statement(cursor))
         elif _is_struct_literal_statement(line):
             nodes.append(_parse_struct_literal_statement(cursor))
         elif line.startswith("transition "):
@@ -189,20 +199,14 @@ def _parse_simple(line: str, *, context: str):
     )
     if match:
         return RelationNode(match.group(1), RelationType(match.group(2)), match.group(3))
-    match = re.fullmatch(
-        r"let\s+([A-Za-z_]\w*)(?:\s*:\s*([A-Za-z_]\w*))?\s*=\s*(.+)",
-        line,
-    )
+    match = re.fullmatch(r"let\s+([A-Za-z_]\w*)(?:\s*:\s*(.+?))?\s*=\s*(.+)", line)
     if match:
         return LetStatementNode(
             match.group(1),
             _expression(match.group(3)),
             _type_annotation(match.group(2)) if match.group(2) else None,
         )
-    match = re.fullmatch(
-        r"const\s+([A-Za-z_]\w*)(?:\s*:\s*([A-Za-z_]\w*))?\s*=\s*(.+)",
-        line,
-    )
+    match = re.fullmatch(r"const\s+([A-Za-z_]\w*)(?:\s*:\s*(.+?))?\s*=\s*(.+)", line)
     if match:
         return ConstStatementNode(
             match.group(1),
@@ -218,6 +222,12 @@ def _parse_simple(line: str, *, context: str):
     match = re.fullmatch(r"(.+\.[A-Za-z_]\w*)\s*=\s*(.+)", line)
     if match:
         return FieldAssignmentStatementNode(
+            _expression(match.group(1)),
+            _expression(match.group(2)),
+        )
+    match = re.fullmatch(r"(.+\[.+\])\s*=\s*(.+)", line)
+    if match:
+        return IndexAssignmentStatementNode(
             _expression(match.group(1)),
             _expression(match.group(2)),
         )
@@ -422,7 +432,7 @@ def _parse_match(cursor: _Cursor, *, context: str) -> MatchStatementNode:
 
 def _expression(source: str):
     try:
-        return parse_expression(source.strip())
+        return parse_expression(source.strip(), allow_tuple_access=True)
     except ExpressionSyntaxError as error:
         raise SurfaceSyntaxError(str(error)) from error
 
@@ -435,6 +445,65 @@ def _is_struct_literal_statement(line: str) -> bool:
         )
         or re.fullmatch(r"(?:return|result\s*=)\s*[A-Za-z_]\w*\s*\{", line)
     )
+
+
+def _is_collection_literal_statement(line: str) -> bool:
+    return bool(
+        re.fullmatch(r"(?:let|const)\s+[A-Za-z_]\w*(?:\s*:\s*.+?)?\s*=\s*(?:set|map)\s*\{", line)
+        or re.fullmatch(r"(?:return|result\s*=)\s*(?:set|map)\s*\{", line)
+    )
+
+
+def _parse_collection_literal_statement(cursor: _Cursor):
+    line = cursor.take()
+    binding = re.fullmatch(
+        r"(let|const)\s+([A-Za-z_]\w*)(?:\s*:\s*(.+?))?\s*=\s*(set|map)\s*\{",
+        line,
+    )
+    if binding:
+        literal = _parse_collection_literal_body(cursor, binding.group(4))
+        type_annotation = (
+            _type_annotation(binding.group(3)) if binding.group(3) else None
+        )
+        if binding.group(1) == "let":
+            return LetStatementNode(binding.group(2), literal, type_annotation)
+        return ConstStatementNode(binding.group(2), literal, type_annotation)
+    terminal = re.fullmatch(r"(return|result\s*=)\s*(set|map)\s*\{", line)
+    if terminal:
+        literal = _parse_collection_literal_body(cursor, terminal.group(2))
+        return (
+            ReturnStatementNode(literal)
+            if terminal.group(1) == "return"
+            else ResultStatementNode(literal)
+        )
+    raise SurfaceSyntaxError(f"invalid collection literal statement: {line}")
+
+
+def _parse_collection_literal_body(cursor: _Cursor, kind: str) -> ExpressionNode:
+    if kind == "set":
+        elements = []
+        while cursor.index < len(cursor.lines):
+            line = cursor.take()
+            if line == "}":
+                return ExpressionNode(SetLiteralNode(tuple(elements)))
+            elements.append(_expression(line.rstrip(",")))
+        raise SurfaceSyntaxError("unterminated set literal")
+    entries = []
+    while cursor.index < len(cursor.lines):
+        line = cursor.take()
+        if line == "}":
+            return ExpressionNode(MapLiteralNode(tuple(entries)))
+        entry = re.fullmatch(r"(.+?)\s*:\s*(.+?),?", line)
+        if not entry:
+            raise SurfaceSyntaxError(f"invalid map entry: {line}")
+        nested = re.fullmatch(r"([A-Za-z_]\w*)\s*\{", entry.group(2).strip())
+        value = (
+            _parse_struct_literal_body(cursor, nested.group(1))
+            if nested
+            else _expression(entry.group(2))
+        )
+        entries.append(MapEntryNode(_expression(entry.group(1)), value))
+    raise SurfaceSyntaxError("unterminated map literal")
 
 
 def _parse_struct_literal_statement(cursor: _Cursor):
@@ -489,6 +558,23 @@ def _pattern(source: str):
 
 
 def _type_annotation(source: str):
+    source = source.strip()
+    if source.startswith("[") and source.endswith("]"):
+        return ArrayTypeNode(_type_annotation(source[1:-1]))
+    if source.startswith("(") and source.endswith(")"):
+        inner = source[1:-1].strip()
+        if not inner:
+            raise SurfaceSyntaxError("TYPE-V001 tuple type requires elements")
+        return TupleTypeNode(tuple(_type_annotation(item.strip()) for item in inner.split(",")))
+    set_match = re.fullmatch(r"set\s*<\s*(.+)\s*>", source)
+    if set_match:
+        return SetTypeNode(_type_annotation(set_match.group(1)))
+    map_match = re.fullmatch(r"map\s*<\s*(.+)\s*,\s*(.+)\s*>", source)
+    if map_match:
+        return MapTypeNode(
+            _type_annotation(map_match.group(1)),
+            _type_annotation(map_match.group(2)),
+        )
     primitive_aliases = {
         "int": PrimitiveKind.INT,
         "float": PrimitiveKind.FLOAT,

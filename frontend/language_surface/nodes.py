@@ -83,7 +83,36 @@ class NamedTypeNode:
     name: str
 
 
-TypeNode: TypeAlias = PrimitiveTypeNode | StateTypeNode | NamedTypeNode
+@dataclass(frozen=True)
+class ArrayTypeNode:
+    element_type: "TypeNode"
+
+
+@dataclass(frozen=True)
+class TupleTypeNode:
+    element_types: tuple["TypeNode", ...]
+
+
+@dataclass(frozen=True)
+class SetTypeNode:
+    element_type: "TypeNode"
+
+
+@dataclass(frozen=True)
+class MapTypeNode:
+    key_type: "TypeNode"
+    value_type: "TypeNode"
+
+
+TypeNode: TypeAlias = (
+    PrimitiveTypeNode
+    | StateTypeNode
+    | NamedTypeNode
+    | ArrayTypeNode
+    | TupleTypeNode
+    | SetTypeNode
+    | MapTypeNode
+)
 
 
 @dataclass(frozen=True)
@@ -179,6 +208,38 @@ class StructLiteralNode:
     fields: tuple[StructLiteralFieldNode, ...]
 
 
+@dataclass(frozen=True)
+class ArrayLiteralNode:
+    elements: tuple["ExpressionNode", ...]
+
+
+@dataclass(frozen=True)
+class TupleLiteralNode:
+    elements: tuple["ExpressionNode", ...]
+
+
+@dataclass(frozen=True)
+class SetLiteralNode:
+    elements: tuple["ExpressionNode", ...]
+
+
+@dataclass(frozen=True)
+class MapEntryNode:
+    key: "ExpressionNode"
+    value: "ExpressionNode"
+
+
+@dataclass(frozen=True)
+class MapLiteralNode:
+    entries: tuple[MapEntryNode, ...]
+
+
+@dataclass(frozen=True)
+class IndexAccessNode:
+    collection: "Expression"
+    index: "Expression"
+
+
 Expression: TypeAlias = (
     IntegerLiteralNode
     | FloatLiteralNode
@@ -195,6 +256,11 @@ Expression: TypeAlias = (
     | MemberAccessNode
     | CallExpressionNode
     | StructLiteralNode
+    | ArrayLiteralNode
+    | TupleLiteralNode
+    | SetLiteralNode
+    | MapLiteralNode
+    | IndexAccessNode
 )
 
 
@@ -349,6 +415,12 @@ class FieldAssignmentStatementNode:
 
 
 @dataclass(frozen=True)
+class IndexAssignmentStatementNode:
+    target: ExpressionNode
+    expression: ExpressionNode
+
+
+@dataclass(frozen=True)
 class ResultStatementNode:
     expression: ExpressionNode
 
@@ -442,6 +514,7 @@ StatementNode: TypeAlias = (
     | ConstStatementNode
     | AssignmentStatementNode
     | FieldAssignmentStatementNode
+    | IndexAssignmentStatementNode
     | ResultStatementNode
     | ReturnStatementNode
     | RequireStatementNode
@@ -524,6 +597,8 @@ _NODE_TYPES = {
     item.__name__: item
     for item in (
         ActionNode,
+        ArrayLiteralNode,
+        ArrayTypeNode,
         AttributeNode,
         CalculationNode,
         BinaryExpressionNode,
@@ -537,6 +612,8 @@ _NODE_TYPES = {
         ContinueStatementNode,
         AssignmentStatementNode,
         FieldAssignmentStatementNode,
+        IndexAssignmentStatementNode,
+        IndexAccessNode,
         ElseIfStatementNode,
         ElseStatementNode,
         EventNode,
@@ -560,6 +637,9 @@ _NODE_TYPES = {
         LiteralPatternNode,
         LogicalExpressionNode,
         LoopStatementNode,
+        MapEntryNode,
+        MapLiteralNode,
+        MapTypeNode,
         MatchArmNode,
         MatchStatementNode,
         MemberAccessNode,
@@ -578,12 +658,16 @@ _NODE_TYPES = {
         ResultStatementNode,
         ReturnStatementNode,
         StringLiteralNode,
+        SetLiteralNode,
+        SetTypeNode,
         StructDeclarationNode,
         StructFieldNode,
         StructLiteralFieldNode,
         StructLiteralNode,
         StateTypeNode,
         TransitionNode,
+        TupleLiteralNode,
+        TupleTypeNode,
         UnaryExpressionNode,
         WhileStatementNode,
         WildcardPatternNode,
@@ -646,6 +730,7 @@ def statement_from_json(value: Mapping[str, Any]) -> StatementNode:
             ConstStatementNode,
             AssignmentStatementNode,
             FieldAssignmentStatementNode,
+            IndexAssignmentStatementNode,
             ResultStatementNode,
             ReturnStatementNode,
             RequireStatementNode,
@@ -667,7 +752,18 @@ def statement_from_json(value: Mapping[str, Any]) -> StatementNode:
 
 def type_from_json(value: Mapping[str, Any]) -> TypeNode:
     node = _from_json_node(value)
-    if not isinstance(node, (PrimitiveTypeNode, StateTypeNode, NamedTypeNode)):
+    if not isinstance(
+        node,
+        (
+            PrimitiveTypeNode,
+            StateTypeNode,
+            NamedTypeNode,
+            ArrayTypeNode,
+            TupleTypeNode,
+            SetTypeNode,
+            MapTypeNode,
+        ),
+    ):
         raise ValueError("document must contain TypeNode")
     return node
 
@@ -701,6 +797,19 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return StateTypeNode(StateKind(value["kind"]))
     if node_type == "NamedTypeNode":
         return NamedTypeNode(value["name"])
+    if node_type == "ArrayTypeNode":
+        return ArrayTypeNode(_from_json_node(value["element_type"]))
+    if node_type == "TupleTypeNode":
+        return TupleTypeNode(
+            tuple(_from_json_node(item) for item in value["element_types"])
+        )
+    if node_type == "SetTypeNode":
+        return SetTypeNode(_from_json_node(value["element_type"]))
+    if node_type == "MapTypeNode":
+        return MapTypeNode(
+            _from_json_node(value["key_type"]),
+            _from_json_node(value["value_type"]),
+        )
     if node_type == "IntegerLiteralNode":
         return IntegerLiteralNode(value["value"])
     if node_type == "FloatLiteralNode":
@@ -760,6 +869,32 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return StructLiteralNode(
             value["type_name"],
             tuple(_from_json_node(item) for item in value["fields"]),
+        )
+    if node_type == "ArrayLiteralNode":
+        return ArrayLiteralNode(
+            tuple(_from_json_node(item) for item in value["elements"])
+        )
+    if node_type == "TupleLiteralNode":
+        return TupleLiteralNode(
+            tuple(_from_json_node(item) for item in value["elements"])
+        )
+    if node_type == "SetLiteralNode":
+        return SetLiteralNode(
+            tuple(_from_json_node(item) for item in value["elements"])
+        )
+    if node_type == "MapEntryNode":
+        return MapEntryNode(
+            _from_json_node(value["key"]),
+            _from_json_node(value["value"]),
+        )
+    if node_type == "MapLiteralNode":
+        return MapLiteralNode(
+            tuple(_from_json_node(item) for item in value["entries"])
+        )
+    if node_type == "IndexAccessNode":
+        return IndexAccessNode(
+            _from_json_node(value["collection"]),
+            _from_json_node(value["index"]),
         )
     if node_type == "IdentifierPatternNode":
         return IdentifierPatternNode(value["name"])
@@ -839,6 +974,11 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         )
     if node_type == "FieldAssignmentStatementNode":
         return FieldAssignmentStatementNode(
+            _from_json_node(value["target"]),
+            _from_json_node(value["expression"]),
+        )
+    if node_type == "IndexAssignmentStatementNode":
+        return IndexAssignmentStatementNode(
             _from_json_node(value["target"]),
             _from_json_node(value["expression"]),
         )

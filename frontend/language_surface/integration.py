@@ -10,6 +10,7 @@ from frontend.compiler import compile as compile_semantic
 from .nodes import (
     CalculationNode,
     AssignmentStatementNode,
+    ArrayLiteralNode,
     BinaryExpressionNode,
     BinaryOperator,
     BreakStatementNode,
@@ -28,9 +29,12 @@ from .nodes import (
     GoalStatementNode,
     ImportNode,
     IfStatementNode,
+    IndexAccessNode,
+    IndexAssignmentStatementNode,
     LetStatementNode,
     LogicalExpressionNode,
     LoopStatementNode,
+    MapLiteralNode,
     MemberAccessNode,
     ModuleNode,
     ProgramNode,
@@ -39,9 +43,11 @@ from .nodes import (
     RequireStatementNode,
     ResultStatementNode,
     ReturnStatementNode,
+    SetLiteralNode,
     StructDeclarationNode,
     StructLiteralNode,
     TransitionNode,
+    TupleLiteralNode,
     UnaryExpressionNode,
     WhileStatementNode,
     to_json_value,
@@ -265,8 +271,18 @@ def _expression_relation(expression: ExpressionNode) -> str:
         return "UnaryTransition"
     if isinstance(value, MemberAccessNode):
         return "MemberAccessTransition"
+    if isinstance(value, IndexAccessNode):
+        return "IndexAccessTransition"
     if isinstance(value, StructLiteralNode):
         return "StructLiteralTransition"
+    if isinstance(value, ArrayLiteralNode):
+        return "ArrayTransition"
+    if isinstance(value, TupleLiteralNode):
+        return "TupleTransition"
+    if isinstance(value, SetLiteralNode):
+        return "SetTransition"
+    if isinstance(value, MapLiteralNode):
+        return "MapTransition"
     if isinstance(value, CallExpressionNode):
         return "CallTransition"
     return "ExpressionTransition"
@@ -298,6 +314,12 @@ def _statement_projection(
             "field_assignment",
             to_json_value(statement),
             "FieldAssignmentTransition",
+        )
+    if isinstance(statement, IndexAssignmentStatementNode):
+        return (
+            "index_assignment",
+            to_json_value(statement),
+            "IndexAssignmentTransition",
         )
     if isinstance(statement, ResultStatementNode):
         return (
