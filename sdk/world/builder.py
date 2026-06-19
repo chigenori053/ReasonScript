@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-_SCHEMA = "world-model-sdk/0.1"
-_VERSION = "0.1"
+_SCHEMA = "world-model-sdk/0.2"
+_VERSION = "0.2"
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,9 @@ class WorldEntity:
     state: dict[str, Any] = field(default_factory=dict)
     behavior: tuple[str, ...] = field(default_factory=tuple)
     transform: Transform = field(default_factory=Transform)
+    geometry: Any = None
+    parent_id: str | None = None
+    children: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,6 +41,9 @@ class WorldEntity:
             "state": dict(self.state),
             "behavior": list(self.behavior),
             "transform": self.transform.to_dict(),
+            "geometry": self.geometry.to_dict() if self.geometry is not None else None,
+            "parent_id": self.parent_id,
+            "children": list(self.children),
         }
 
 
@@ -47,6 +53,9 @@ class WorldObject:
     kind: str = "Object"
     properties: dict[str, Any] = field(default_factory=dict)
     transform: Transform = field(default_factory=Transform)
+    geometry: Any = None
+    parent_id: str | None = None
+    children: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -54,6 +63,9 @@ class WorldObject:
             "kind": self.kind,
             "properties": dict(self.properties),
             "transform": self.transform.to_dict(),
+            "geometry": self.geometry.to_dict() if self.geometry is not None else None,
+            "parent_id": self.parent_id,
+            "children": list(self.children),
         }
 
 
@@ -166,6 +178,9 @@ class World:
             "events": [event.to_dict() for event in self.events],
             "snapshots": [snapshot.to_dict() for snapshot in self.snapshots],
             "metadata": {"world_model": {"version": self.version}},
+            "geometry": _world_geometry(self.scenes),
+            "hierarchy": _world_hierarchy(self.scenes),
+            "spatial_relations": _world_spatial_relations(self.scenes),
         }
 
 
@@ -193,6 +208,9 @@ def create_entity(
     state: dict[str, Any] | None = None,
     behavior: tuple[str, ...] = (),
     transform: Transform | None = None,
+    geometry: Any = None,
+    parent_id: str | None = None,
+    children: tuple[str, ...] = (),
 ) -> WorldEntity:
     return WorldEntity(
         id=entity_id,
@@ -200,6 +218,9 @@ def create_entity(
         state=dict(state or {}),
         behavior=tuple(behavior),
         transform=transform or Transform(),
+        geometry=geometry,
+        parent_id=parent_id,
+        children=tuple(children),
     )
 
 
@@ -209,12 +230,18 @@ def create_object(
     kind: str = "Object",
     properties: dict[str, Any] | None = None,
     transform: Transform | None = None,
+    geometry: Any = None,
+    parent_id: str | None = None,
+    children: tuple[str, ...] = (),
 ) -> WorldObject:
     return WorldObject(
         id=object_id,
         kind=kind,
         properties=dict(properties or {}),
         transform=transform or Transform(),
+        geometry=geometry,
+        parent_id=parent_id,
+        children=tuple(children),
     )
 
 
@@ -366,3 +393,34 @@ def add_snapshot(world: World, snap: Snapshot | None = None) -> World:
         snapshots=world.snapshots + (next_snapshot,),
         tick=world.tick,
     )
+
+
+def _world_geometry(scenes: tuple[Scene, ...]) -> dict[str, Any]:
+    geometry: dict[str, Any] = {}
+    for scene in scenes:
+        for item in scene.entities + scene.objects:
+            if item.geometry is not None:
+                geometry[item.id] = item.geometry.to_dict()
+    return geometry
+
+
+def _world_hierarchy(scenes: tuple[Scene, ...]) -> dict[str, Any]:
+    hierarchy: dict[str, Any] = {}
+    for scene in scenes:
+        for item in scene.entities + scene.objects:
+            if item.parent_id is not None or item.children:
+                hierarchy[item.id] = {
+                    "parent": item.parent_id,
+                    "children": list(item.children),
+                }
+    return hierarchy
+
+
+def _world_spatial_relations(scenes: tuple[Scene, ...]) -> list[dict[str, Any]]:
+    relation_types = {"left_of", "right_of", "above", "below", "inside", "contains", "near", "far"}
+    relations: list[dict[str, Any]] = []
+    for scene in scenes:
+        for relation in scene.relations:
+            if relation.relation_type in relation_types:
+                relations.append(relation.to_dict())
+    return relations

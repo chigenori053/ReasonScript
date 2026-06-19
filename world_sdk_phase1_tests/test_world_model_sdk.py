@@ -25,7 +25,7 @@ class WorldModelSDKConformance(unittest.TestCase):
     def test_wm1_001_world_creation(self):
         w = world.create_world("world-a")
         self.assertEqual(w.id, "world-a")
-        self.assertEqual(w.version, "0.1")
+        self.assertEqual(w.version, "0.2")
         self.assertEqual(w.events, ())
 
     def test_wm1_002_scene_creation(self):
@@ -112,7 +112,7 @@ class WorldModelSDKConformance(unittest.TestCase):
 
     def test_wm1_015_serialization(self):
         payload = world.to_json(self._world())
-        self.assertIn('"schema":"world-model-sdk/0.1"', payload)
+        self.assertIn('"schema":"world-model-sdk/0.2"', payload)
         self.assertEqual(payload, world.to_json(self._world()))
 
     def test_wm1_016_query_api(self):
@@ -134,7 +134,7 @@ class WorldModelSDKConformance(unittest.TestCase):
         value = world.runtime_value(self._world())
         self.assertIsInstance(value, RuntimeValue)
         self.assertEqual(value.kind, "WorldModelValue")
-        self.assertEqual(world.build_world_model_metadata(), {"world_model": {"version": "0.1"}})
+        self.assertEqual(world.build_world_model_metadata(), {"world_model": {"version": "0.2"}})
 
 
 if __name__ == "__main__":

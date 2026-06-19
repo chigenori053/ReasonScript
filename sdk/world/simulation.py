@@ -193,6 +193,9 @@ def _replace_entity_transform(entity: WorldEntity, transform: Transform) -> Worl
         state=entity.state,
         behavior=entity.behavior,
         transform=transform,
+        geometry=entity.geometry,
+        parent_id=entity.parent_id,
+        children=entity.children,
     )
 
 
@@ -202,6 +205,9 @@ def _replace_object_transform(obj: WorldObject, transform: Transform) -> WorldOb
         kind=obj.kind,
         properties=obj.properties,
         transform=transform,
+        geometry=obj.geometry,
+        parent_id=obj.parent_id,
+        children=obj.children,
     )
 
 
@@ -214,6 +220,9 @@ def _merge_entity_state(entity: WorldEntity, payload: dict[str, Any]) -> WorldEn
         state=next_state,
         behavior=entity.behavior,
         transform=entity.transform,
+        geometry=entity.geometry,
+        parent_id=entity.parent_id,
+        children=entity.children,
     )
 
 
@@ -225,4 +234,7 @@ def _merge_object_properties(obj: WorldObject, payload: dict[str, Any]) -> World
         kind=obj.kind,
         properties=next_properties,
         transform=obj.transform,
+        geometry=obj.geometry,
+        parent_id=obj.parent_id,
+        children=obj.children,
     )

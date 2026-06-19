@@ -4,9 +4,13 @@ Status: Implemented
 
 Version: world-model-sdk/0.1
 
-World Model SDK Phase 1 supersedes `world-sdk/0.1` and introduces the first
+World Model SDK Phase 1 supersedes `world-sdk/0.1` and introduced the first
 Runtime-compatible WorldModel core on top of the existing ReasonGraph,
 ExecutionPlan, and Runtime SDK layers.
+
+World Model SDK Phase 2 extends this core to `world-model-sdk/0.2` with
+geometry, transform trees, spatial relations, deterministic layout, hierarchy
+validation, and spatial serialization fields.
 
 ## Scope
 

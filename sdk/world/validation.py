@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from .builder import Event, Scene, Transform, World
+from .spatial import validate_geometry, validate_hierarchy, validate_spatial_relations
 
 _EVENT_TYPES = {"create", "destroy", "move", "modify", "interact"}
-_SCHEMAS = {"world-model-sdk/0.1"}
+_SCHEMAS = {"world-model-sdk/0.1", "world-model-sdk/0.2"}
 
 
 def validate(world: World | dict[str, Any]) -> bool:
@@ -32,6 +33,9 @@ def validate(world: World | dict[str, Any]) -> bool:
 
 
 def validate_scene(scene: Scene | dict[str, Any]) -> bool:
+    if isinstance(scene, Scene):
+        if not validate_hierarchy(scene) or not validate_spatial_relations(scene):
+            return False
     data = scene.to_dict() if isinstance(scene, Scene) else scene
     return _validate_scene(data)
 
@@ -66,8 +70,14 @@ def _validate_scene(scene: dict[str, Any]) -> bool:
     for entity in entities:
         if not validate_transform(entity.get("transform", {})):
             return False
+        geometry = entity.get("geometry")
+        if geometry is not None and not validate_geometry(geometry):
+            return False
     for obj in objects:
         if not validate_transform(obj.get("transform", {})):
+            return False
+        geometry = obj.get("geometry")
+        if geometry is not None and not validate_geometry(geometry):
             return False
 
     relation_ids = [relation.get("id") for relation in relations]
