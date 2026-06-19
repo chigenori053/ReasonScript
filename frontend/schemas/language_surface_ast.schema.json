@@ -561,6 +561,11 @@
       "oneOf": [
         {"$ref": "#/$defs/import"},
         {"$ref": "#/$defs/named_declaration"},
+        {"$ref": "#/$defs/goal_declaration"},
+        {"$ref": "#/$defs/constraint_declaration"},
+        {"$ref": "#/$defs/state_declaration"},
+        {"$ref": "#/$defs/reason_graph_declaration"},
+        {"$ref": "#/$defs/execution_plan_declaration"},
         {"$ref": "#/$defs/relation"},
         {"$ref": "#/$defs/transition"},
         {"$ref": "#/$defs/calculation"},
@@ -645,11 +650,89 @@
             "ObjectNode",
             "EventNode",
             "ActionNode",
-            "AttributeNode",
-            "GoalNode",
-            "ConstraintNode"
+            "AttributeNode"
           ]
         }
+      }
+    },
+    "goal_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "metadata", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "metadata": {"type": "array"},
+        "node_type": {"const": "GoalNode"}
+      }
+    },
+    "constraint_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "expression", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "expression": {"type": ["string", "null"]},
+        "node_type": {"const": "ConstraintNode"}
+      }
+    },
+    "state_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "metadata", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "metadata": {"type": "array"},
+        "node_type": {"const": "StateDeclarationNode"}
+      }
+    },
+    "reason_graph_transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target", "node_type"],
+      "properties": {
+        "source": {"$ref": "#/$defs/identifier"},
+        "target": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "ReasonGraphTransitionNode"}
+      }
+    },
+    "reason_graph_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "states", "transitions", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "states": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/state_declaration"}
+        },
+        "transitions": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/reason_graph_transition"}
+        },
+        "node_type": {"const": "ReasonGraphDeclarationNode"}
+      }
+    },
+    "plan_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target", "node_type"],
+      "properties": {
+        "source": {"$ref": "#/$defs/identifier"},
+        "target": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "PlanStepNode"}
+      }
+    },
+    "execution_plan_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "steps", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "steps": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/plan_step"}
+        },
+        "node_type": {"const": "ExecutionPlanDeclarationNode"}
       }
     },
     "relation": {

@@ -403,11 +403,44 @@ class AttributeNode:
 @dataclass(frozen=True)
 class GoalNode:
     name: str
+    metadata: tuple[tuple[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
 class ConstraintNode:
     name: str
+    expression: str | None = None
+
+
+@dataclass(frozen=True)
+class StateDeclarationNode:
+    name: str
+    metadata: tuple[tuple[str, Any], ...] = ()
+
+
+@dataclass(frozen=True)
+class ReasonGraphTransitionNode:
+    source: str
+    target: str
+
+
+@dataclass(frozen=True)
+class ReasonGraphDeclarationNode:
+    name: str
+    states: tuple[StateDeclarationNode, ...]
+    transitions: tuple[ReasonGraphTransitionNode, ...]
+
+
+@dataclass(frozen=True)
+class PlanStepNode:
+    source: str
+    target: str
+
+
+@dataclass(frozen=True)
+class ExecutionPlanDeclarationNode:
+    name: str
+    steps: tuple[PlanStepNode, ...]
 
 
 @dataclass(frozen=True)
@@ -635,6 +668,9 @@ AstNode: TypeAlias = (
     | AttributeNode
     | GoalNode
     | ConstraintNode
+    | StateDeclarationNode
+    | ReasonGraphDeclarationNode
+    | ExecutionPlanDeclarationNode
     | StructDeclarationNode
     | EnumDeclarationNode
     | ConstDeclarationNode
@@ -723,6 +759,11 @@ _NODE_TYPES = {
         PrimitiveTypeNode,
         ProgramNode,
         QualifiedIdentifierNode,
+        StateDeclarationNode,
+        ReasonGraphTransitionNode,
+        ReasonGraphDeclarationNode,
+        PlanStepNode,
+        ExecutionPlanDeclarationNode,
         RuntimeNamespaceNode,
         RuntimeCallExpressionNode,
         ReachStatementNode,
@@ -1030,10 +1071,35 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         "EventNode",
         "ActionNode",
         "AttributeNode",
-        "GoalNode",
-        "ConstraintNode",
     }:
         return _NODE_TYPES[node_type](value["name"])
+    if node_type == "GoalNode":
+        return GoalNode(
+            value["name"],
+            tuple(tuple(item) for item in value.get("metadata", ())),
+        )
+    if node_type == "ConstraintNode":
+        return ConstraintNode(value["name"], value.get("expression"))
+    if node_type == "StateDeclarationNode":
+        return StateDeclarationNode(
+            value["name"],
+            tuple(tuple(item) for item in value.get("metadata", ())),
+        )
+    if node_type == "ReasonGraphTransitionNode":
+        return ReasonGraphTransitionNode(value["source"], value["target"])
+    if node_type == "ReasonGraphDeclarationNode":
+        return ReasonGraphDeclarationNode(
+            value["name"],
+            tuple(_from_json_node(item) for item in value["states"]),
+            tuple(_from_json_node(item) for item in value["transitions"]),
+        )
+    if node_type == "PlanStepNode":
+        return PlanStepNode(value["source"], value["target"])
+    if node_type == "ExecutionPlanDeclarationNode":
+        return ExecutionPlanDeclarationNode(
+            value["name"],
+            tuple(_from_json_node(item) for item in value["steps"]),
+        )
     if node_type == "StructFieldNode":
         return StructFieldNode(value["name"], _from_json_node(value["field_type"]))
     if node_type == "StructDeclarationNode":

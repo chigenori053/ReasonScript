@@ -8,11 +8,13 @@ optional result mapping, and diagnostics.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
 RUNTIME_OPERATION_METHODS = {"search", "simulate", "predict", "plan"}
+REASONING_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class RuntimeIntegrationErrorCode:
@@ -479,8 +481,14 @@ def runtime_value_from_ir_expression(value: Any) -> RuntimeValue:
 def _coerce_reasoning_value(operation: str, value: RuntimeValue) -> RuntimeValue:
     if value.kind != "String":
         return value
+    if not REASONING_IDENTIFIER.fullmatch(value.value):
+        return value
     if operation in {"search", "plan"}:
         return RuntimeValue.goal(value.value)
+    if operation == "predict":
+        return RuntimeValue.state(value.value)
+    if operation == "simulate":
+        return RuntimeValue.execution_plan(_execution_plan("argument", value.value))
     return value
 
 

@@ -20,6 +20,7 @@ from .nodes import (
     ConstStatementNode,
     ContinueStatementNode,
     EnumDeclarationNode,
+    ExecutionPlanDeclarationNode,
     ExpressionNode,
     ConstraintNode,
     ExpressionStatementNode,
@@ -40,6 +41,7 @@ from .nodes import (
     NoneLiteralNode,
     ModuleNode,
     ProgramNode,
+    ReasonGraphDeclarationNode,
     ReachStatementNode,
     RelationNode,
     RequireStatementNode,
@@ -49,6 +51,7 @@ from .nodes import (
     RuntimeCallKind,
     SetLiteralNode,
     SomeExpressionNode,
+    StateDeclarationNode,
     StructDeclarationNode,
     StructLiteralNode,
     TransitionNode,
@@ -276,6 +279,11 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                 "reasoning_types",
                 _reasoning_types(module),
             ),
+            semantic.MetadataNode(
+                f"{namespace}-reasoning-declarations",
+                "reasoning_declarations",
+                _reasoning_declarations(module),
+            ),
         ),
     )
 
@@ -330,6 +338,34 @@ def _reasoning_types(module: ModuleNode) -> list[str]:
         if reasoning_type not in result:
             result.append(reasoning_type)
     return result
+
+
+def _reasoning_declarations(module: ModuleNode) -> dict[str, list[Any]]:
+    return {
+        "goals": [
+            to_json_value(node) for node in module.body if isinstance(node, GoalNode)
+        ],
+        "states": [
+            to_json_value(node)
+            for node in module.body
+            if isinstance(node, StateDeclarationNode)
+        ],
+        "constraints": [
+            to_json_value(node)
+            for node in module.body
+            if isinstance(node, ConstraintNode)
+        ],
+        "reason_graphs": [
+            to_json_value(node)
+            for node in module.body
+            if isinstance(node, ReasonGraphDeclarationNode)
+        ],
+        "execution_plans": [
+            to_json_value(node)
+            for node in module.body
+            if isinstance(node, ExecutionPlanDeclarationNode)
+        ],
+    }
 
 
 def _reasoning_type_for_operation(method: str, argument: Any) -> str:

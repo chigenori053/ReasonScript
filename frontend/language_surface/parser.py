@@ -29,6 +29,7 @@ from .nodes import (
     ElseIfStatementNode,
     ElseStatementNode,
     EventNode,
+    ExecutionPlanDeclarationNode,
     ExpressionNode,
     ExpressionStatementNode,
     ForStatementNode,
@@ -54,9 +55,12 @@ from .nodes import (
     OptionalTypeNode,
     PackageDeclarationNode,
     ParenthesizedExpressionNode,
+    PlanStepNode,
     ProgramNode,
     PrimitiveKind,
     PrimitiveTypeNode,
+    ReasonGraphDeclarationNode,
+    ReasonGraphTransitionNode,
     RelationNode,
     RelationType,
     ReachStatementNode,
@@ -69,6 +73,7 @@ from .nodes import (
     SetLiteralNode,
     SetTypeNode,
     SomeExpressionNode,
+    StateDeclarationNode,
     StateKind,
     StateTypeNode,
     StructDeclarationNode,
@@ -181,8 +186,18 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
             nodes.append(_parse_collection_literal_statement(cursor))
         elif _is_struct_literal_statement(line):
             nodes.append(_parse_struct_literal_statement(cursor))
+        elif line.startswith("goal ") and line.endswith("{"):
+            nodes.append(_parse_goal_declaration(cursor, context=context))
+        elif line.startswith("state ") and line.endswith("{"):
+            nodes.append(_parse_state_declaration(cursor))
+        elif line.startswith("constraint ") and line.endswith("{"):
+            nodes.append(_parse_constraint_declaration(cursor))
         elif line.startswith("transition "):
             nodes.append(_parse_transition(cursor))
+        elif line.startswith("reason_graph "):
+            nodes.append(_parse_reason_graph(cursor))
+        elif line.startswith("execution_plan "):
+            nodes.append(_parse_execution_plan(cursor))
         elif (
             line.startswith("calculation ")
             or line.startswith("pub calculation ")
@@ -223,6 +238,12 @@ def _parse_simple(line: str, *, context: str):
         match = re.fullmatch(rf"{keyword}\s+(\S+)", line)
         if match:
             return node_type(match.group(1))
+    match = re.fullmatch(r"state\s+([A-Za-z_]\w*)", line)
+    if match:
+        return StateDeclarationNode(match.group(1))
+    match = re.fullmatch(r"constraint\s+([A-Za-z_]\w*)\s*\{\s*(.+)\s*\}", line)
+    if match:
+        return ConstraintNode(match.group(1), match.group(2).strip())
     match = re.fullmatch(r"goal\s+(\S+)", line)
     if match:
         return (
@@ -342,6 +363,94 @@ def _parse_transition(cursor: _Cursor) -> TransitionNode:
         else:
             body.append(_parse_simple(line, context="transition"))
     raise SurfaceSyntaxError("unterminated transition block")
+
+
+def _parse_goal_declaration(cursor: _Cursor, *, context: str) -> GoalNode | GoalStatementNode:
+    match = re.fullmatch(r"goal\s+([A-Za-z_]\w*)\s*\{", cursor.take())
+    if not match:
+        raise SurfaceSyntaxError("invalid goal declaration")
+    metadata = _parse_metadata_block(cursor, owner="goal")
+    if context != "module":
+        return GoalStatementNode(match.group(1))
+    return GoalNode(match.group(1), metadata)
+
+
+def _parse_state_declaration(cursor: _Cursor) -> StateDeclarationNode:
+    match = re.fullmatch(r"state\s+([A-Za-z_]\w*)\s*\{", cursor.take())
+    if not match:
+        raise SurfaceSyntaxError("invalid state declaration")
+    return StateDeclarationNode(match.group(1), _parse_metadata_block(cursor, owner="state"))
+
+
+def _parse_constraint_declaration(cursor: _Cursor) -> ConstraintNode:
+    match = re.fullmatch(r"constraint\s+([A-Za-z_]\w*)\s*\{", cursor.take())
+    if not match:
+        raise SurfaceSyntaxError("invalid constraint declaration")
+    expressions: list[str] = []
+    while cursor.index < len(cursor.lines):
+        line = cursor.take()
+        if line == "}":
+            return ConstraintNode(match.group(1), " ".join(expressions).strip() or None)
+        expressions.append(line)
+    raise SurfaceSyntaxError("unterminated constraint declaration")
+
+
+def _parse_metadata_block(cursor: _Cursor, *, owner: str) -> tuple[tuple[str, str], ...]:
+    metadata: list[tuple[str, str]] = []
+    while cursor.index < len(cursor.lines):
+        line = cursor.take()
+        if line == "}":
+            return tuple(metadata)
+        match = re.fullmatch(r"([A-Za-z_]\w*)\s*:\s*(.+)", line)
+        if not match:
+            raise SurfaceSyntaxError(f"invalid {owner} metadata entry: {line}")
+        metadata.append((match.group(1), match.group(2).strip()))
+    raise SurfaceSyntaxError(f"unterminated {owner} declaration")
+
+
+def _parse_reason_graph(cursor: _Cursor) -> ReasonGraphDeclarationNode:
+    match = re.fullmatch(r"reason_graph\s+([A-Za-z_]\w*)\s*\{", cursor.take())
+    if not match:
+        raise SurfaceSyntaxError("invalid reason_graph declaration")
+    states: list[StateDeclarationNode] = []
+    transitions: list[ReasonGraphTransitionNode] = []
+    while cursor.index < len(cursor.lines):
+        line = cursor.take()
+        if line == "}":
+            return ReasonGraphDeclarationNode(
+                match.group(1), tuple(states), tuple(transitions)
+            )
+        state = re.fullmatch(r"state\s+([A-Za-z_]\w*)", line)
+        if state:
+            states.append(StateDeclarationNode(state.group(1)))
+            continue
+        transition = re.fullmatch(
+            r"transition\s+([A-Za-z_]\w*)\s*->\s*([A-Za-z_]\w*)",
+            line,
+        )
+        if transition:
+            transitions.append(
+                ReasonGraphTransitionNode(transition.group(1), transition.group(2))
+            )
+            continue
+        raise SurfaceSyntaxError(f"invalid reason_graph member: {line}")
+    raise SurfaceSyntaxError("unterminated reason_graph declaration")
+
+
+def _parse_execution_plan(cursor: _Cursor) -> ExecutionPlanDeclarationNode:
+    match = re.fullmatch(r"execution_plan\s+([A-Za-z_]\w*)\s*\{", cursor.take())
+    if not match:
+        raise SurfaceSyntaxError("invalid execution_plan declaration")
+    steps: list[PlanStepNode] = []
+    while cursor.index < len(cursor.lines):
+        line = cursor.take()
+        if line == "}":
+            return ExecutionPlanDeclarationNode(match.group(1), tuple(steps))
+        step = re.fullmatch(r"step\s+([A-Za-z_]\w*)\s*->\s*([A-Za-z_]\w*)", line)
+        if not step:
+            raise SurfaceSyntaxError(f"invalid execution_plan step: {line}")
+        steps.append(PlanStepNode(step.group(1), step.group(2)))
+    raise SurfaceSyntaxError("unterminated execution_plan declaration")
 
 
 def _parse_calculation(cursor: _Cursor) -> CalculationNode:

@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass, fields, is_dataclass
 from typing import Any
 
+from .expressions import ExpressionSyntaxError, parse_expression
 from .nodes import (
     ActionNode,
     ArrayLiteralNode,
@@ -32,6 +33,7 @@ from .nodes import (
     ElseIfStatementNode,
     ElseStatementNode,
     EventNode,
+    ExecutionPlanDeclarationNode,
     ExpressionStatementNode,
     ExpressionNode,
     FieldAssignmentStatementNode,
@@ -69,11 +71,14 @@ from .nodes import (
     PackageDeclarationNode,
     ParenthesizedExpressionNode,
     PatternNode,
+    PlanStepNode,
     PrimitiveKind,
     PrimitiveTypeNode,
     ProgramNode,
     QualifiedIdentifierNode,
     ReachStatementNode,
+    ReasonGraphDeclarationNode,
+    ReasonGraphTransitionNode,
     RelationNode,
     RelationType,
     RequireStatementNode,
@@ -86,6 +91,7 @@ from .nodes import (
     SetTypeNode,
     SomeExpressionNode,
     StringLiteralNode,
+    StateDeclarationNode,
     StateKind,
     StateTypeNode,
     StructDeclarationNode,
@@ -135,6 +141,9 @@ DECLARATION_NODES = (
     AttributeNode,
     GoalNode,
     ConstraintNode,
+    StateDeclarationNode,
+    ReasonGraphDeclarationNode,
+    ExecutionPlanDeclarationNode,
     StructDeclarationNode,
     EnumDeclarationNode,
     ConstDeclarationNode,
@@ -148,6 +157,11 @@ KNOWN_NODE_TYPES = (
     ModuleNode,
     ImportNode,
     ImportResolutionNode,
+    StateDeclarationNode,
+    ReasonGraphTransitionNode,
+    ReasonGraphDeclarationNode,
+    PlanStepNode,
+    ExecutionPlanDeclarationNode,
     *DECLARATION_NODES,
     RelationNode,
     StructFieldNode,
@@ -351,6 +365,10 @@ def _validate_module(module: ModuleNode) -> None:
             _validate_struct(node, symbols)
         elif isinstance(node, EnumDeclarationNode):
             _validate_enum(node)
+        elif isinstance(node, ReasonGraphDeclarationNode):
+            _validate_reason_graph_declaration(node)
+        elif isinstance(node, ExecutionPlanDeclarationNode):
+            _validate_execution_plan_declaration(node, symbols)
         elif isinstance(node, CalculationNode):
             _validate_calculation(node, symbols)
         elif isinstance(node, FunctionDeclarationNode):
@@ -391,6 +409,18 @@ def _validate_ast_node(node: Any) -> None:
         _identifier(node.name, "TV-1 StructDeclarationNode.name")
         if not isinstance(node.visibility, Visibility):
             raise SurfaceValidationError("PV-6 invalid struct visibility")
+    elif isinstance(node, StateDeclarationNode):
+        _identifier(node.name, "RI4-2 StateDeclarationNode.name")
+    elif isinstance(node, ReasonGraphTransitionNode):
+        _identifier(node.source, "RI4-4 ReasonGraphTransitionNode.source")
+        _identifier(node.target, "RI4-4 ReasonGraphTransitionNode.target")
+    elif isinstance(node, ReasonGraphDeclarationNode):
+        _identifier(node.name, "RI4-4 ReasonGraphDeclarationNode.name")
+    elif isinstance(node, PlanStepNode):
+        _identifier(node.source, "RI4-5 PlanStepNode.source")
+        _identifier(node.target, "RI4-5 PlanStepNode.target")
+    elif isinstance(node, ExecutionPlanDeclarationNode):
+        _identifier(node.name, "RI4-6 ExecutionPlanDeclarationNode.name")
     elif isinstance(node, StructFieldNode):
         _identifier(node.name, "TV-3 StructFieldNode.name")
         _validate_type_node(node.field_type)
@@ -470,6 +500,7 @@ def _validate_ast_node(node: Any) -> None:
             arm_keys.add(key)
     elif isinstance(node, ConstraintNode):
         _identifier(node.name, "AST-V002 ConstraintNode.name")
+        _validate_constraint_expression(node)
     elif isinstance(node, DECLARATION_NODES):
         _identifier(node.name, f"AST-V002 {type(node).__name__}.name")
     elif isinstance(node, ImportNode):
@@ -499,6 +530,51 @@ def _validate_struct(node: StructDeclarationNode, symbols: dict[str, Any]) -> No
         if isinstance(field.field_type, NamedTypeNode) and field.field_type.name == node.name:
             raise SurfaceValidationError("TV-8 RecursiveStructDefinition")
     _reject_indirect_struct_recursion(node, symbols)
+
+
+def _validate_reason_graph_declaration(node: ReasonGraphDeclarationNode) -> None:
+    _validate_ast_node(node)
+    states: set[str] = set()
+    for state in node.states:
+        _validate_ast_node(state)
+        if state.name in states:
+            raise SurfaceValidationError(f"RI4-2 duplicate state in graph: {state.name}")
+        states.add(state.name)
+    for transition in node.transitions:
+        _validate_ast_node(transition)
+        if transition.source not in states or transition.target not in states:
+            raise SurfaceValidationError("InvalidReasonGraphTransition")
+
+
+def _validate_constraint_expression(node: ConstraintNode) -> None:
+    if node.expression is None:
+        return
+    try:
+        expression = parse_expression(node.expression)
+        expression_type = _expression_type(expression.expression, {}, {})
+    except (ExpressionSyntaxError, SurfaceValidationError) as error:
+        raise SurfaceValidationError("InvalidConstraintExpression") from error
+    if expression_type != PrimitiveTypeNode(PrimitiveKind.BOOL):
+        raise SurfaceValidationError("InvalidConstraintExpression")
+
+
+def _validate_execution_plan_declaration(
+    node: ExecutionPlanDeclarationNode, symbols: dict[str, Any]
+) -> None:
+    _validate_ast_node(node)
+    known_states = {
+        name
+        for name, symbol in symbols.items()
+        if isinstance(symbol, StateDeclarationNode)
+    }
+    for graph in (
+        symbol for symbol in symbols.values() if isinstance(symbol, ReasonGraphDeclarationNode)
+    ):
+        known_states.update(state.name for state in graph.states)
+    for step in node.steps:
+        _validate_ast_node(step)
+        if step.source not in known_states or step.target not in known_states:
+            raise SurfaceValidationError("InvalidExecutionPlanStep")
 
 
 def _validate_enum(node: EnumDeclarationNode) -> None:
@@ -1210,6 +1286,7 @@ def _validate_calculation_expression(
             _validate_runtime_call(value)
             for argument in value.arguments:
                 visit(argument)
+            _validate_runtime_reasoning_argument(value, symbols)
         elif isinstance(value, UnaryExpressionNode):
             visit(value.operand)
         elif isinstance(
@@ -1287,6 +1364,45 @@ def _validate_runtime_call(value: RuntimeCallExpressionNode) -> None:
         raise SurfaceValidationError("RV-4 UnknownRuntimeMethod")
     if len(value.arguments) != 1:
         raise SurfaceValidationError("RV-5 RuntimeCallArgumentCountMismatch")
+
+
+def _validate_runtime_reasoning_argument(
+    value: RuntimeCallExpressionNode, symbols: dict[str, Any]
+) -> None:
+    argument = value.arguments[0]
+    declaration: Any | None = None
+    if isinstance(argument, IdentifierNode):
+        declaration = symbols.get(argument.name)
+    elif isinstance(argument, QualifiedIdentifierNode) and _CURRENT_NAMESPACE is not None:
+        try:
+            declaration = _CURRENT_NAMESPACE.resolve_qualified(argument).node
+        except NamespaceResolutionError as error:
+            raise SurfaceValidationError(str(error)) from error
+    if declaration is None:
+        return
+    allowed = {
+        RuntimeCallKind.SEARCH: (
+            GoalNode,
+            StateDeclarationNode,
+            ConstraintNode,
+            ReasonGraphDeclarationNode,
+        ),
+        RuntimeCallKind.SIMULATION: (
+            ExecutionPlanDeclarationNode,
+            ReasonGraphDeclarationNode,
+        ),
+        RuntimeCallKind.PREDICTION: (
+            StateDeclarationNode,
+            ReasonGraphDeclarationNode,
+        ),
+        RuntimeCallKind.PLANNING: (
+            GoalNode,
+            ConstraintNode,
+            ReasonGraphDeclarationNode,
+        ),
+    }[value.kind]
+    if not isinstance(declaration, allowed):
+        raise SurfaceValidationError("RuntimeReasoningTypeMismatch")
 
 
 _UNKNOWN_TYPE = object()
