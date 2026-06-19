@@ -126,6 +126,8 @@
         {"$ref": "#/$defs/some_expression"},
         {"$ref": "#/$defs/identifier_expression"},
         {"$ref": "#/$defs/qualified_identifier"},
+        {"$ref": "#/$defs/runtime_namespace"},
+        {"$ref": "#/$defs/runtime_call_expression"},
         {"$ref": "#/$defs/unary_expression"},
         {"$ref": "#/$defs/binary_expression"},
         {"$ref": "#/$defs/comparison_expression"},
@@ -224,6 +226,39 @@
         "symbol": {"$ref": "#/$defs/identifier"},
         "resolved_name": {"type": ["string", "null"]},
         "node_type": {"const": "QualifiedIdentifierNode"}
+      }
+    },
+    "runtime_namespace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "node_type"],
+      "properties": {
+        "name": {"const": "runtime"},
+        "node_type": {"const": "RuntimeNamespaceNode"}
+      }
+    },
+    "runtime_call_expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "method", "kind", "arguments", "node_type"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/runtime_namespace"},
+        "method": {"enum": ["search", "simulate", "predict", "plan"]},
+        "kind": {
+          "enum": [
+            "SearchCall",
+            "SimulationCall",
+            "PredictionCall",
+            "PlanningCall"
+          ]
+        },
+        "arguments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {"$ref": "#/$defs/expression_value"}
+        },
+        "node_type": {"const": "RuntimeCallExpressionNode"}
       }
     },
     "unary_expression": {

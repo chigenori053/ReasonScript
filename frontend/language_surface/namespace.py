@@ -220,6 +220,8 @@ def _imports(
     local_names = set(symbols[module_name])
     for node in (item for item in module.body if isinstance(item, ImportNode)):
         target = ".".join(node.path)
+        if node.path and node.path[0] == "runtime":
+            raise NamespaceResolutionError("RV-2 RuntimeNamespaceCannotBeImported")
         namespace_name, symbol_name = _import_target(node.path, modules, symbols)
         if namespace_name is None:
             if strict and not allow_external:

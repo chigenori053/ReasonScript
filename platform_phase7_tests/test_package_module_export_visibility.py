@@ -21,7 +21,7 @@ class PlatformPhase7PackageModuleTests(unittest.TestCase):
     def test_package_export_import_alias_metadata_and_round_trip(self):
         program = parse(
             """
-            package runtime
+            package world
 
             module search {
                 export const VERSION = "1.0"
@@ -37,7 +37,7 @@ class PlatformPhase7PackageModuleTests(unittest.TestCase):
             }
 
             module app {
-                import runtime.search as search
+                import world.search as search
                 fn use_search() {
                     return search.find()
                 }
@@ -45,13 +45,13 @@ class PlatformPhase7PackageModuleTests(unittest.TestCase):
 
             module direct {
                 fn use_search() {
-                    return runtime.search.find()
+                    return world.search.find()
                 }
             }
             """
         )
 
-        self.assertEqual(program.package, PackageDeclarationNode("runtime"))
+        self.assertEqual(program.package, PackageDeclarationNode("world"))
         search = program.modules[0]
         self.assertIsInstance(search.body[0], ConstDeclarationNode)
         self.assertEqual(search.body[0].visibility, Visibility.PUBLIC)
@@ -69,13 +69,13 @@ class PlatformPhase7PackageModuleTests(unittest.TestCase):
 
         semantic = project_program(program)[0]
         metadata = {item.key: item.value for item in semantic.metadata}
-        self.assertEqual(metadata["package"], "runtime")
+        self.assertEqual(metadata["package"], "world")
         self.assertEqual(metadata["module"], "search")
-        self.assertEqual(metadata["namespace"], "runtime.search")
+        self.assertEqual(metadata["namespace"], "world.search")
         self.assertEqual(metadata["exports"], ["VERSION", "Result", "find"])
 
         reason_ir = compile_program(program)[0]
-        self.assertEqual(reason_ir["metadata"]["package"], "runtime")
+        self.assertEqual(reason_ir["metadata"]["package"], "world")
         self.assertEqual(reason_ir["metadata"]["module"], "search")
         self.assertEqual(reason_ir["metadata"]["exports"], ["VERSION", "Result", "find"])
 
@@ -83,7 +83,7 @@ class PlatformPhase7PackageModuleTests(unittest.TestCase):
         with self.assertRaisesRegex(SurfaceSyntaxError, "private symbol"):
             parse(
                 """
-                package runtime
+                package world
 
                 module search {
                     export const VERSION = "1.0"
@@ -93,7 +93,7 @@ class PlatformPhase7PackageModuleTests(unittest.TestCase):
                 }
 
                 module app {
-                    import runtime.search
+                    import world.search
                     fn use_helper() {
                         return search.helper()
                     }
@@ -108,13 +108,13 @@ class PlatformPhase7PackageModuleTests(unittest.TestCase):
                 """
                 module search {
                 }
-                package runtime
+                package world
                 """,
             ),
             (
                 "ModuleNotFound",
                 """
-                package runtime
+                package world
                 module search {
                     import world.scene
                 }
@@ -123,19 +123,19 @@ class PlatformPhase7PackageModuleTests(unittest.TestCase):
             (
                 "CircularImport",
                 """
-                package runtime
+                package world
                 module a {
-                    import runtime.b
+                    import world.b
                 }
                 module b {
-                    import runtime.a
+                    import world.a
                 }
                 """,
             ),
             (
                 "UnsupportedFeature",
                 """
-                package runtime
+                package world
                 module search {
                     export import world.scene
                 }
@@ -144,7 +144,7 @@ class PlatformPhase7PackageModuleTests(unittest.TestCase):
             (
                 "ExportMustBeTopLevel",
                 """
-                package runtime
+                package world
                 module search {
                     fn bad() {
                         export fn inner() {
@@ -157,7 +157,7 @@ class PlatformPhase7PackageModuleTests(unittest.TestCase):
             (
                 "duplicate symbol",
                 """
-                package runtime
+                package world
                 module search {
                     export fn find() {
                         return 1

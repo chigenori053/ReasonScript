@@ -12,8 +12,12 @@ from .nodes import (
     ActionNode,
     AssignmentStatementNode,
     AttributeNode,
+    ArrayLiteralNode,
+    BinaryExpressionNode,
     BreakStatementNode,
     CalculationNode,
+    CallExpressionNode,
+    ComparisonExpressionNode,
     ConceptNode,
     ConstDeclarationNode,
     ContinueStatementNode,
@@ -32,8 +36,11 @@ from .nodes import (
     GoalNode,
     GoalStatementNode,
     IfStatementNode,
+    IdentifierNode,
     ImportNode,
+    IndexAccessNode,
     LetStatementNode,
+    LogicalExpressionNode,
     LoopStatementNode,
     MapEntryNode,
     MapLiteralNode,
@@ -41,10 +48,12 @@ from .nodes import (
     MatchArmNode,
     MatchStatementNode,
     ModuleNode,
+    MemberAccessNode,
     NamedTypeNode,
     ObjectNode,
     OptionalTypeNode,
     PackageDeclarationNode,
+    ParenthesizedExpressionNode,
     ProgramNode,
     PrimitiveKind,
     PrimitiveTypeNode,
@@ -54,8 +63,12 @@ from .nodes import (
     RequireStatementNode,
     ResultStatementNode,
     ReturnStatementNode,
+    RuntimeCallExpressionNode,
+    RuntimeCallKind,
+    RuntimeNamespaceNode,
     SetLiteralNode,
     SetTypeNode,
+    SomeExpressionNode,
     StateKind,
     StateTypeNode,
     StructDeclarationNode,
@@ -65,7 +78,9 @@ from .nodes import (
     FieldAssignmentStatementNode,
     IndexAssignmentStatementNode,
     TupleTypeNode,
+    TupleLiteralNode,
     TransitionNode,
+    UnaryExpressionNode,
     Visibility,
     WhileStatementNode,
 )
@@ -500,9 +515,108 @@ def _parse_match(cursor: _Cursor, *, context: str) -> MatchStatementNode:
 
 def _expression(source: str):
     try:
-        return parse_expression(source.strip(), allow_tuple_access=True)
+        expression = parse_expression(source.strip(), allow_tuple_access=True)
+        return ExpressionNode(_normalize_runtime_expression(expression.expression))
     except ExpressionSyntaxError as error:
         raise SurfaceSyntaxError(str(error)) from error
+
+
+def _normalize_runtime_expression(value):
+    if isinstance(value, CallExpressionNode):
+        callee = _normalize_runtime_expression(value.callee)
+        arguments = tuple(
+            _normalize_runtime_expression(item) for item in value.arguments
+        )
+        if (
+            isinstance(callee, MemberAccessNode)
+            and isinstance(callee.object, RuntimeNamespaceNode)
+        ):
+            kind = {
+                "search": RuntimeCallKind.SEARCH,
+                "simulate": RuntimeCallKind.SIMULATION,
+                "predict": RuntimeCallKind.PREDICTION,
+                "plan": RuntimeCallKind.PLANNING,
+            }.get(callee.member)
+            if kind is None:
+                raise SurfaceSyntaxError("UnknownRuntimeMethod")
+            return RuntimeCallExpressionNode(
+                callee.object, callee.member, kind, arguments
+            )
+        return CallExpressionNode(callee, arguments)
+    if isinstance(value, MemberAccessNode):
+        normalized_object = _normalize_runtime_expression(value.object)
+        if (
+            isinstance(normalized_object, IdentifierNode)
+            and normalized_object.name == "runtime"
+        ):
+            normalized_object = RuntimeNamespaceNode()
+        return MemberAccessNode(normalized_object, value.member)
+    if isinstance(value, ParenthesizedExpressionNode):
+        return ParenthesizedExpressionNode(
+            _normalize_runtime_expression(value.expression)
+        )
+    if isinstance(value, UnaryExpressionNode):
+        return UnaryExpressionNode(
+            value.operator, _normalize_runtime_expression(value.operand)
+        )
+    if isinstance(value, BinaryExpressionNode):
+        return BinaryExpressionNode(
+            _normalize_runtime_expression(value.left),
+            value.operator,
+            _normalize_runtime_expression(value.right),
+        )
+    if isinstance(value, ComparisonExpressionNode):
+        return ComparisonExpressionNode(
+            _normalize_runtime_expression(value.left),
+            value.operator,
+            _normalize_runtime_expression(value.right),
+        )
+    if isinstance(value, LogicalExpressionNode):
+        return LogicalExpressionNode(
+            _normalize_runtime_expression(value.left),
+            value.operator,
+            _normalize_runtime_expression(value.right),
+        )
+    if isinstance(value, SomeExpressionNode):
+        return SomeExpressionNode(_normalize_runtime_expression(value.value))
+    if isinstance(value, IndexAccessNode):
+        return IndexAccessNode(
+            _normalize_runtime_expression(value.collection),
+            _normalize_runtime_expression(value.index),
+        )
+    if isinstance(value, StructLiteralNode):
+        return StructLiteralNode(
+            value.type_name,
+            tuple(
+                StructLiteralFieldNode(
+                    field.name,
+                    ExpressionNode(
+                        _normalize_runtime_expression(field.expression.expression)
+                    ),
+                )
+                for field in value.fields
+            ),
+        )
+    if isinstance(value, (ArrayLiteralNode, TupleLiteralNode, SetLiteralNode)):
+        return type(value)(
+            tuple(
+                ExpressionNode(_normalize_runtime_expression(item.expression))
+                for item in value.elements
+            )
+        )
+    if isinstance(value, MapLiteralNode):
+        return MapLiteralNode(
+            tuple(
+                MapEntryNode(
+                    ExpressionNode(_normalize_runtime_expression(entry.key.expression)),
+                    ExpressionNode(
+                        _normalize_runtime_expression(entry.value.expression)
+                    ),
+                )
+                for entry in value.entries
+            )
+        )
+    return value
 
 
 def _is_struct_literal_statement(line: str) -> bool:

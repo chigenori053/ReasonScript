@@ -50,6 +50,13 @@ class LogicalOperator(str, Enum):
     OR = "Or"
 
 
+class RuntimeCallKind(str, Enum):
+    SEARCH = "SearchCall"
+    SIMULATION = "SimulationCall"
+    PREDICTION = "PredictionCall"
+    PLANNING = "PlanningCall"
+
+
 class PrimitiveKind(str, Enum):
     INT = "Int"
     FLOAT = "Float"
@@ -164,6 +171,19 @@ class QualifiedIdentifierNode:
 
 
 @dataclass(frozen=True)
+class RuntimeNamespaceNode:
+    name: str = "runtime"
+
+
+@dataclass(frozen=True)
+class RuntimeCallExpressionNode:
+    namespace: RuntimeNamespaceNode
+    method: str
+    kind: RuntimeCallKind
+    arguments: tuple["Expression", ...]
+
+
+@dataclass(frozen=True)
 class UnaryExpressionNode:
     operator: UnaryOperator
     operand: "Expression"
@@ -265,6 +285,8 @@ Expression: TypeAlias = (
     | NoneLiteralNode
     | IdentifierNode
     | QualifiedIdentifierNode
+    | RuntimeNamespaceNode
+    | RuntimeCallExpressionNode
     | UnaryExpressionNode
     | BinaryExpressionNode
     | ComparisonExpressionNode
@@ -701,6 +723,8 @@ _NODE_TYPES = {
         PrimitiveTypeNode,
         ProgramNode,
         QualifiedIdentifierNode,
+        RuntimeNamespaceNode,
+        RuntimeCallExpressionNode,
         ReachStatementNode,
         RelationNode,
         RequireStatementNode,
@@ -888,6 +912,15 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
             tuple(value["path"]),
             value["symbol"],
             value.get("resolved_name"),
+        )
+    if node_type == "RuntimeNamespaceNode":
+        return RuntimeNamespaceNode(value.get("name", "runtime"))
+    if node_type == "RuntimeCallExpressionNode":
+        return RuntimeCallExpressionNode(
+            _from_json_node(value["namespace"]),
+            value["method"],
+            RuntimeCallKind(value["kind"]),
+            tuple(_from_json_node(item) for item in value["arguments"]),
         )
     if node_type == "UnaryExpressionNode":
         return UnaryExpressionNode(

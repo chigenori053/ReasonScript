@@ -79,6 +79,9 @@ from .nodes import (
     RequireStatementNode,
     ResultStatementNode,
     ReturnStatementNode,
+    RuntimeCallExpressionNode,
+    RuntimeCallKind,
+    RuntimeNamespaceNode,
     SetLiteralNode,
     SetTypeNode,
     SomeExpressionNode,
@@ -122,6 +125,7 @@ RESERVED_IDENTIFIERS = {
     "none",
     "else",
     "match",
+    "runtime",
 }
 DECLARATION_NODES = (
     ConceptNode,
@@ -178,6 +182,8 @@ KNOWN_NODE_TYPES = (
     NullLiteralNode,
     IdentifierNode,
     QualifiedIdentifierNode,
+    RuntimeNamespaceNode,
+    RuntimeCallExpressionNode,
     UnaryExpressionNode,
     BinaryExpressionNode,
     ComparisonExpressionNode,
@@ -216,6 +222,12 @@ class SurfaceValidationError(ValueError):
 
 
 _CURRENT_NAMESPACE: ModuleNamespace | None = None
+RUNTIME_RESULT_TYPES = {
+    "SearchResult",
+    "SimulationResult",
+    "PredictionResult",
+    "PlanningResult",
+}
 
 
 @dataclass(frozen=True)
@@ -231,6 +243,8 @@ def validate(program: ProgramNode) -> None:
     if not program.modules:
         raise SurfaceValidationError("ProgramNode requires at least one module")
     if program.package is not None:
+        if program.package.name == "runtime":
+            raise SurfaceValidationError("RV-1 ReservedRuntimeNamespace")
         _identifier(program.package.name, "PV-1 PackageDeclarationNode.name")
     try:
         resolved_program, namespaces = resolve_program(program, strict=False)
@@ -245,6 +259,8 @@ def validate(program: ProgramNode) -> None:
         )
         _CURRENT_NAMESPACE = namespaces[namespace_name]
         _validate_node_types(module)
+        if module.name == "runtime":
+            raise SurfaceValidationError("RV-1 ReservedRuntimeNamespace")
         _identifier(module.name, "NS-V001 ModuleNode.name")
         if module.name in module_names:
             raise SurfaceValidationError(f"M-002 duplicate module name: {module.name}")
@@ -261,9 +277,15 @@ def _validate_module(module: ModuleNode) -> None:
         if isinstance(node, ImportNode):
             if not node.path:
                 raise SurfaceValidationError("I-001 import path must not be empty")
+            if node.path[0] == "runtime":
+                raise SurfaceValidationError("RV-2 RuntimeNamespaceCannotBeImported")
             for part in node.path:
                 _identifier(part, "AST-V002 ImportNode.path")
             if node.alias is not None:
+                if node.alias == "runtime":
+                    raise SurfaceValidationError(
+                        "RV-3 RuntimeNamespaceCannotBeShadowed"
+                    )
                 _identifier(node.alias, "AST-V002 ImportNode.alias")
             continue
         if isinstance(node, ConstDeclarationNode):
@@ -1182,6 +1204,12 @@ def _validate_calculation_expression(
             if _CURRENT_NAMESPACE is None:
                 raise SurfaceValidationError("NS-V005 namespace is unavailable")
             _CURRENT_NAMESPACE.resolve_qualified(value)
+        elif isinstance(value, RuntimeNamespaceNode):
+            raise SurfaceValidationError("RV-3 RuntimeNamespaceCannotBeShadowed")
+        elif isinstance(value, RuntimeCallExpressionNode):
+            _validate_runtime_call(value)
+            for argument in value.arguments:
+                visit(argument)
         elif isinstance(value, UnaryExpressionNode):
             visit(value.operand)
         elif isinstance(
@@ -1199,6 +1227,8 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
+            if isinstance(value.object, RuntimeNamespaceNode):
+                raise SurfaceValidationError("RV-4 UnknownRuntimeMethod")
             parts = _member_access_parts(value)
             if (
                 len(parts) >= 2
@@ -1244,6 +1274,21 @@ def _member_access_parts(value: Any) -> tuple[str, ...]:
     return ()
 
 
+def _validate_runtime_call(value: RuntimeCallExpressionNode) -> None:
+    if value.namespace.name != "runtime":
+        raise SurfaceValidationError("RV-1 ReservedRuntimeNamespace")
+    supported = {
+        "search": RuntimeCallKind.SEARCH,
+        "simulate": RuntimeCallKind.SIMULATION,
+        "predict": RuntimeCallKind.PREDICTION,
+        "plan": RuntimeCallKind.PLANNING,
+    }
+    if supported.get(value.method) != value.kind:
+        raise SurfaceValidationError("RV-4 UnknownRuntimeMethod")
+    if len(value.arguments) != 1:
+        raise SurfaceValidationError("RV-5 RuntimeCallArgumentCountMismatch")
+
+
 _UNKNOWN_TYPE = object()
 
 
@@ -1264,6 +1309,17 @@ def _expression_type(
         return PrimitiveTypeNode(PrimitiveKind.NULL)
     if isinstance(value, NoneLiteralNode):
         return OptionalTypeNode(_UNKNOWN_TYPE)
+    if isinstance(value, RuntimeCallExpressionNode):
+        _validate_runtime_call(value)
+        inner = {
+            RuntimeCallKind.SEARCH: "SearchResult",
+            RuntimeCallKind.SIMULATION: "SimulationResult",
+            RuntimeCallKind.PREDICTION: "PredictionResult",
+            RuntimeCallKind.PLANNING: "PlanningResult",
+        }[value.kind]
+        return OptionalTypeNode(NamedTypeNode(inner))
+    if isinstance(value, RuntimeNamespaceNode):
+        raise SurfaceValidationError("RV-3 RuntimeNamespaceCannotBeShadowed")
     if isinstance(value, SomeExpressionNode):
         return OptionalTypeNode(_expression_type(value.value, symbols, bindings))
     if isinstance(value, IdentifierNode):
@@ -1759,6 +1815,8 @@ def _resolve_type(value: Any, symbols: dict[str, Any]) -> None:
     if isinstance(value, (PrimitiveTypeNode, StateTypeNode)):
         return
     if isinstance(value, NamedTypeNode):
+        if value.name in RUNTIME_RESULT_TYPES:
+            return
         declaration = symbols.get(value.name)
         if not isinstance(declaration, (StructDeclarationNode, EnumDeclarationNode)):
             raise SurfaceValidationError(
@@ -2016,6 +2074,13 @@ def _expression(value: ExpressionNode, location: str) -> None:
 def _expression_value(value: Any) -> None:
     if isinstance(value, IdentifierNode):
         _identifier(value.name, "EX-001 IdentifierNode.name")
+    elif isinstance(value, RuntimeNamespaceNode):
+        if value.name != "runtime":
+            raise SurfaceValidationError("RV-1 ReservedRuntimeNamespace")
+    elif isinstance(value, RuntimeCallExpressionNode):
+        _validate_runtime_call(value)
+        for argument in value.arguments:
+            _expression_value(argument)
     elif isinstance(value, QualifiedIdentifierNode):
         if not value.path:
             raise SurfaceValidationError("NS-030 qualified path is required")

@@ -45,6 +45,8 @@ from .nodes import (
     RequireStatementNode,
     ResultStatementNode,
     ReturnStatementNode,
+    RuntimeCallExpressionNode,
+    RuntimeCallKind,
     SetLiteralNode,
     SomeExpressionNode,
     StructDeclarationNode,
@@ -259,6 +261,16 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                     if isinstance(node, ConstDeclarationNode)
                 ],
             ),
+            semantic.MetadataNode(
+                f"{namespace}-runtime-calls",
+                "runtime_calls",
+                _runtime_calls(module),
+            ),
+            semantic.MetadataNode(
+                f"{namespace}-runtime-operations",
+                "runtime_operations",
+                _runtime_operations(module),
+            ),
         ),
     )
 
@@ -270,6 +282,54 @@ def _exports(module: ModuleNode) -> list[str]:
         if visibility == Visibility.PUBLIC and hasattr(node, "name"):
             exports.append(node.name)
     return exports
+
+
+def _runtime_calls(module: ModuleNode) -> list[str]:
+    calls: list[str] = []
+    for node in module.body:
+        for call in _walk_runtime_calls(node):
+            if call.method not in calls:
+                calls.append(call.method)
+    return calls
+
+
+def _runtime_operations(module: ModuleNode) -> list[dict[str, Any]]:
+    operations = {
+        RuntimeCallKind.SEARCH: "RuntimeSearchNode",
+        RuntimeCallKind.SIMULATION: "RuntimeSimulateNode",
+        RuntimeCallKind.PREDICTION: "RuntimePredictNode",
+        RuntimeCallKind.PLANNING: "RuntimePlanNode",
+    }
+    result: list[dict[str, Any]] = []
+    for call in _walk_runtime_calls(module):
+        result.append(
+            {
+                "node_type": operations[call.kind],
+                "method": call.method,
+                "kind": call.kind.value,
+                "arguments": [to_json_value(item) for item in call.arguments],
+            }
+        )
+    return result
+
+
+def _walk_runtime_calls(value: Any):
+    if isinstance(value, RuntimeCallExpressionNode):
+        yield value
+        for argument in value.arguments:
+            yield from _walk_runtime_calls(argument)
+        return
+    if isinstance(value, tuple):
+        for item in value:
+            yield from _walk_runtime_calls(item)
+        return
+    if isinstance(value, list):
+        for item in value:
+            yield from _walk_runtime_calls(item)
+        return
+    if hasattr(value, "__dataclass_fields__"):
+        for field in value.__dataclass_fields__:
+            yield from _walk_runtime_calls(getattr(value, field))
 
 
 def compile_program(program: ProgramNode) -> tuple[dict[str, Any], ...]:
@@ -333,6 +393,13 @@ def _expression_relation(expression: ExpressionNode) -> str:
         return "NoneTransition"
     if isinstance(value, CallExpressionNode):
         return "CallTransition"
+    if isinstance(value, RuntimeCallExpressionNode):
+        return {
+            RuntimeCallKind.SEARCH: "RuntimeSearchOperation",
+            RuntimeCallKind.SIMULATION: "RuntimeSimulateOperation",
+            RuntimeCallKind.PREDICTION: "RuntimePredictOperation",
+            RuntimeCallKind.PLANNING: "RuntimePlanOperation",
+        }[value.kind]
     return "ExpressionTransition"
 
 
