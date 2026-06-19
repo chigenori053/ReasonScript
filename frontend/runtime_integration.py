@@ -1,0 +1,274 @@
+"""Runtime Integration Phase 1 binding layer.
+
+This module executes Runtime Namespace operations emitted in Reason IR metadata.
+It is intentionally small and deterministic: concrete runtime engines implement
+the executor interface, while the binding layer owns validation, conversion,
+optional result mapping, and diagnostics.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Protocol
+
+
+RUNTIME_OPERATION_METHODS = {"search", "simulate", "predict", "plan"}
+
+
+class RuntimeIntegrationErrorCode:
+    UNKNOWN_RUNTIME_OPERATION = "RI-1 Unknown Runtime Operation"
+    RUNTIME_BINDING_MISSING = "RI-2 Runtime Binding Missing"
+    ARGUMENT_CONVERSION_FAILED = "RI-3 Runtime Argument Conversion Failed"
+    RESULT_CONVERSION_FAILED = "RI-4 Runtime Result Conversion Failed"
+    RUNTIME_EXECUTION_FAILED = "RI-5 Runtime Execution Failed"
+
+
+@dataclass(frozen=True)
+class RuntimeStruct:
+    fields: dict[str, "RuntimeValue"]
+
+
+@dataclass(frozen=True)
+class RuntimeEnum:
+    enum_name: str
+    value_name: str
+
+
+@dataclass(frozen=True)
+class RuntimeValue:
+    kind: str
+    value: Any
+
+    @staticmethod
+    def bool(value: bool) -> "RuntimeValue":
+        return RuntimeValue("Bool", value)
+
+    @staticmethod
+    def int(value: int) -> "RuntimeValue":
+        return RuntimeValue("Int", value)
+
+    @staticmethod
+    def float(value: float) -> "RuntimeValue":
+        return RuntimeValue("Float", value)
+
+    @staticmethod
+    def string(value: str) -> "RuntimeValue":
+        return RuntimeValue("String", value)
+
+    @staticmethod
+    def struct(fields: dict[str, "RuntimeValue"]) -> "RuntimeValue":
+        return RuntimeValue("Struct", RuntimeStruct(fields))
+
+    @staticmethod
+    def enum(enum_name: str, value_name: str) -> "RuntimeValue":
+        return RuntimeValue("Enum", RuntimeEnum(enum_name, value_name))
+
+    @staticmethod
+    def array(values: list["RuntimeValue"]) -> "RuntimeValue":
+        return RuntimeValue("Array", values)
+
+    @staticmethod
+    def optional(value: "RuntimeValue | None") -> "RuntimeValue":
+        return RuntimeValue("Optional", value)
+
+
+@dataclass(frozen=True)
+class RuntimeResult:
+    success: bool
+    value: RuntimeValue | None = None
+    diagnostics: tuple[str, ...] = ()
+
+
+class RuntimeOperationExecutor(Protocol):
+    def search(self, request: RuntimeValue) -> RuntimeResult:
+        ...
+
+    def simulate(self, request: RuntimeValue) -> RuntimeResult:
+        ...
+
+    def predict(self, request: RuntimeValue) -> RuntimeResult:
+        ...
+
+    def plan(self, request: RuntimeValue) -> RuntimeResult:
+        ...
+
+
+@dataclass(frozen=True)
+class RuntimeOperationResult:
+    operation: str
+    language_value: RuntimeValue
+    diagnostics: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class RuntimeExecutionReport:
+    results: tuple[RuntimeOperationResult, ...]
+    diagnostics: tuple[str, ...] = ()
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+def execute_runtime_operations(
+    reason_ir: dict[str, Any],
+    executor: RuntimeOperationExecutor | None,
+) -> RuntimeExecutionReport:
+    operations = _runtime_operations(reason_ir)
+    results: list[RuntimeOperationResult] = []
+    diagnostics: list[str] = []
+
+    for operation in operations:
+        method = operation.get("operation") or operation.get("method")
+        if method not in RUNTIME_OPERATION_METHODS:
+            diagnostic = RuntimeIntegrationErrorCode.UNKNOWN_RUNTIME_OPERATION
+            results.append(_none_result(str(method), diagnostic))
+            diagnostics.append(diagnostic)
+            continue
+        if executor is None or not hasattr(executor, method):
+            diagnostic = RuntimeIntegrationErrorCode.RUNTIME_BINDING_MISSING
+            results.append(_none_result(method, diagnostic))
+            diagnostics.append(diagnostic)
+            continue
+        try:
+            argument = runtime_value_from_ir_expression(operation.get("argument"))
+        except (TypeError, ValueError, KeyError) as error:
+            diagnostic = (
+                f"{RuntimeIntegrationErrorCode.ARGUMENT_CONVERSION_FAILED}: {error}"
+            )
+            results.append(_none_result(method, diagnostic))
+            diagnostics.append(diagnostic)
+            continue
+
+        try:
+            runtime_result = getattr(executor, method)(argument)
+        except Exception as error:  # pragma: no cover - defensive integration edge.
+            diagnostic = (
+                f"{RuntimeIntegrationErrorCode.RUNTIME_EXECUTION_FAILED}: {error}"
+            )
+            results.append(_none_result(method, diagnostic))
+            diagnostics.append(diagnostic)
+            continue
+
+        language_value, result_diagnostics = _language_optional(runtime_result)
+        results.append(
+            RuntimeOperationResult(method, language_value, result_diagnostics)
+        )
+        diagnostics.extend(result_diagnostics)
+
+    metadata = {
+        "runtime_operations_executed": [result.operation for result in results],
+        "runtime_diagnostics": diagnostics,
+    }
+    return RuntimeExecutionReport(tuple(results), tuple(diagnostics), metadata)
+
+
+def runtime_value_from_ir_expression(value: Any) -> RuntimeValue:
+    if value is None:
+        raise ValueError("runtime operation argument is required")
+    if not isinstance(value, dict):
+        return _plain_value(value)
+    node_type = value.get("node_type")
+    if node_type == "ExpressionNode":
+        return runtime_value_from_ir_expression(value["expression"])
+    if node_type == "IdentifierNode":
+        return RuntimeValue.string(value["name"])
+    if node_type == "StringLiteralNode":
+        return RuntimeValue.string(value["value"])
+    if node_type == "IntegerLiteralNode":
+        return RuntimeValue.int(value["value"])
+    if node_type == "FloatLiteralNode":
+        return RuntimeValue.float(value["value"])
+    if node_type == "BooleanLiteralNode":
+        return RuntimeValue.bool(value["value"])
+    if node_type in {"NullLiteralNode", "NoneLiteralNode"}:
+        return RuntimeValue.optional(None)
+    if node_type == "SomeExpressionNode":
+        return RuntimeValue.optional(runtime_value_from_ir_expression(value["value"]))
+    if node_type == "ArrayLiteralNode":
+        return RuntimeValue.array(
+            [runtime_value_from_ir_expression(item) for item in value["elements"]]
+        )
+    if node_type == "TupleLiteralNode":
+        return RuntimeValue.array(
+            [runtime_value_from_ir_expression(item) for item in value["elements"]]
+        )
+    if node_type == "StructLiteralNode":
+        return RuntimeValue.struct(
+            {
+                field["name"]: runtime_value_from_ir_expression(field["expression"])
+                for field in value["fields"]
+            }
+        )
+    raise ValueError(f"unsupported runtime argument node: {node_type}")
+
+
+def runtime_value_to_plain(value: RuntimeValue | None) -> Any:
+    if value is None:
+        return None
+    if value.kind in {"Bool", "Int", "Float", "String"}:
+        return value.value
+    if value.kind == "Struct":
+        return {
+            name: runtime_value_to_plain(field)
+            for name, field in value.value.fields.items()
+        }
+    if value.kind == "Enum":
+        return {
+            "enum": value.value.enum_name,
+            "value": value.value.value_name,
+        }
+    if value.kind == "Array":
+        return [runtime_value_to_plain(item) for item in value.value]
+    if value.kind == "Optional":
+        return (
+            {"some": runtime_value_to_plain(value.value)}
+            if value.value is not None
+            else {"none": True}
+        )
+    raise ValueError(f"unsupported runtime value kind: {value.kind}")
+
+
+def _runtime_operations(reason_ir: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    metadata = reason_ir.get("metadata") or {}
+    operations = metadata.get("runtime_operations") or ()
+    if not isinstance(operations, list):
+        raise ValueError("metadata.runtime_operations must be an array")
+    return tuple(operation for operation in operations if isinstance(operation, dict))
+
+
+def _language_optional(result: RuntimeResult) -> tuple[RuntimeValue, tuple[str, ...]]:
+    diagnostics = list(result.diagnostics)
+    if not result.success or result.value is None:
+        if not result.success:
+            diagnostics.append(RuntimeIntegrationErrorCode.RUNTIME_EXECUTION_FAILED)
+        return RuntimeValue.optional(None), tuple(diagnostics)
+    try:
+        runtime_value_to_plain(result.value)
+        return RuntimeValue.optional(result.value), tuple(diagnostics)
+    except (TypeError, ValueError) as error:
+        diagnostics.append(
+            f"{RuntimeIntegrationErrorCode.RESULT_CONVERSION_FAILED}: {error}"
+        )
+        return RuntimeValue.optional(None), tuple(diagnostics)
+
+
+def _none_result(operation: str, diagnostic: str) -> RuntimeOperationResult:
+    return RuntimeOperationResult(
+        operation,
+        RuntimeValue.optional(None),
+        (diagnostic,),
+    )
+
+
+def _plain_value(value: Any) -> RuntimeValue:
+    if isinstance(value, bool):
+        return RuntimeValue.bool(value)
+    if isinstance(value, int):
+        return RuntimeValue.int(value)
+    if isinstance(value, float):
+        return RuntimeValue.float(value)
+    if isinstance(value, str):
+        return RuntimeValue.string(value)
+    if isinstance(value, list):
+        return RuntimeValue.array([_plain_value(item) for item in value])
+    if value is None:
+        return RuntimeValue.optional(None)
+    raise ValueError(f"unsupported runtime argument value: {value!r}")

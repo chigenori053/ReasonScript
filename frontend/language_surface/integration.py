@@ -302,11 +302,14 @@ def _runtime_operations(module: ModuleNode) -> list[dict[str, Any]]:
     }
     result: list[dict[str, Any]] = []
     for call in _walk_runtime_calls(module):
+        argument = call.arguments[0] if call.arguments else None
         result.append(
             {
                 "node_type": operations[call.kind],
+                "operation": call.method,
                 "method": call.method,
                 "kind": call.kind.value,
+                "argument": to_json_value(argument),
                 "arguments": [to_json_value(item) for item in call.arguments],
             }
         )
