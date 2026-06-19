@@ -8,7 +8,7 @@ from .builder import Event, Scene, Transform, World
 from .spatial import validate_geometry, validate_hierarchy, validate_spatial_relations
 
 _EVENT_TYPES = {"create", "destroy", "move", "modify", "interact"}
-_SCHEMAS = {"world-model-sdk/0.1", "world-model-sdk/0.2"}
+_SCHEMAS = {"world-model-sdk/0.1", "world-model-sdk/0.2", "world-model-sdk/0.3"}
 
 
 def validate(world: World | dict[str, Any]) -> bool:

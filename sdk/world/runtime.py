@@ -13,3 +13,7 @@ def runtime_value(world: World) -> RuntimeValue:
 
 def spatial_runtime_value(world: World) -> RuntimeValue:
     return RuntimeValue("WorldModelSpatialValue", world.to_dict())
+
+
+def semantic_runtime_value(world: World) -> RuntimeValue:
+    return RuntimeValue("WorldModelSemanticValue", world.to_dict())

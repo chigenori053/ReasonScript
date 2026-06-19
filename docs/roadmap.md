@@ -24,6 +24,7 @@ Primary track:
 - World Model SDK Phase 1 specification
 - World Model SDK Phase 1 implementation
 - World Model SDK Phase 2 spatial and geometry layer
+- World Model SDK Phase 3 semantic reconstruction layer
 
 Parallel track:
 

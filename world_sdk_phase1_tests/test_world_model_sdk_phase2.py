@@ -106,7 +106,7 @@ class WorldModelSDKPhase2Conformance(unittest.TestCase):
     def test_wm2_016_serialization(self):
         w = world.add_scene(world.create_world("world-spatial"), self._spatial_scene())
         payload = world.to_json(w)
-        self.assertIn('"schema":"world-model-sdk/0.2"', payload)
+        self.assertIn('"schema":"world-model-sdk/0.3"', payload)
         self.assertIn('"geometry":{', payload)
         self.assertIn('"hierarchy":{', payload)
         self.assertIn('"spatial_relations":[', payload)

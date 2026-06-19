@@ -12,6 +12,10 @@ World Model SDK Phase 2 extends this core to `world-model-sdk/0.2` with
 geometry, transform trees, spatial relations, deterministic layout, hierarchy
 validation, and spatial serialization fields.
 
+World Model SDK Phase 3 extends the SDK to `world-model-sdk/0.3` with
+scene templates, deterministic object and relation inference, recoverable
+completion, reconstruction traces, and evidence serialization.
+
 ## Scope
 
 World SDK Phase 1 supports:

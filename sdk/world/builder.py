@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-_SCHEMA = "world-model-sdk/0.2"
-_VERSION = "0.2"
+_SCHEMA = "world-model-sdk/0.3"
+_VERSION = "0.3"
 
 
 @dataclass(frozen=True)
@@ -181,6 +181,9 @@ class World:
             "geometry": _world_geometry(self.scenes),
             "hierarchy": _world_hierarchy(self.scenes),
             "spatial_relations": _world_spatial_relations(self.scenes),
+            "templates": [],
+            "reconstruction": {},
+            "evidence": [],
         }
 
 
