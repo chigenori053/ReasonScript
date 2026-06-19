@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum RuntimeValue {
@@ -71,11 +72,111 @@ pub struct RuntimeOperation {
     pub argument: RuntimeValue,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SearchRequest {
+    pub value: RuntimeValue,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SimulationRequest {
+    pub value: RuntimeValue,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PredictionRequest {
+    pub value: RuntimeValue,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PlanningRequest {
+    pub value: RuntimeValue,
+}
+
+pub trait SearchEngine: Send + Sync {
+    fn search(&self, request: SearchRequest) -> RuntimeResult;
+}
+
+pub trait SimulationEngine: Send + Sync {
+    fn simulate(&self, request: SimulationRequest) -> RuntimeResult;
+}
+
+pub trait PredictionEngine: Send + Sync {
+    fn predict(&self, request: PredictionRequest) -> RuntimeResult;
+}
+
+pub trait PlanningEngine: Send + Sync {
+    fn plan(&self, request: PlanningRequest) -> RuntimeResult;
+}
+
+#[derive(Clone, Default)]
+pub struct RuntimeEngineRegistry {
+    pub search_engine: Option<Arc<dyn SearchEngine>>,
+    pub simulation_engine: Option<Arc<dyn SimulationEngine>>,
+    pub prediction_engine: Option<Arc<dyn PredictionEngine>>,
+    pub planning_engine: Option<Arc<dyn PlanningEngine>>,
+}
+
+impl RuntimeEngineRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_search_engine(mut self, engine: Arc<dyn SearchEngine>) -> Self {
+        self.search_engine = Some(engine);
+        self
+    }
+
+    pub fn with_simulation_engine(mut self, engine: Arc<dyn SimulationEngine>) -> Self {
+        self.simulation_engine = Some(engine);
+        self
+    }
+
+    pub fn with_prediction_engine(mut self, engine: Arc<dyn PredictionEngine>) -> Self {
+        self.prediction_engine = Some(engine);
+        self
+    }
+
+    pub fn with_planning_engine(mut self, engine: Arc<dyn PlanningEngine>) -> Self {
+        self.planning_engine = Some(engine);
+        self
+    }
+}
+
 pub trait RuntimeOperationExecutor {
     fn search(&self, request: RuntimeValue) -> RuntimeResult;
     fn simulate(&self, request: RuntimeValue) -> RuntimeResult;
     fn predict(&self, request: RuntimeValue) -> RuntimeResult;
     fn plan(&self, request: RuntimeValue) -> RuntimeResult;
+}
+
+impl RuntimeOperationExecutor for RuntimeEngineRegistry {
+    fn search(&self, request: RuntimeValue) -> RuntimeResult {
+        match &self.search_engine {
+            Some(engine) => engine.search(SearchRequest { value: request }),
+            None => RuntimeResult::failure("RI2-2 Engine registry missing search engine"),
+        }
+    }
+
+    fn simulate(&self, request: RuntimeValue) -> RuntimeResult {
+        match &self.simulation_engine {
+            Some(engine) => engine.simulate(SimulationRequest { value: request }),
+            None => RuntimeResult::failure("RI2-2 Engine registry missing simulation engine"),
+        }
+    }
+
+    fn predict(&self, request: RuntimeValue) -> RuntimeResult {
+        match &self.prediction_engine {
+            Some(engine) => engine.predict(PredictionRequest { value: request }),
+            None => RuntimeResult::failure("RI2-2 Engine registry missing prediction engine"),
+        }
+    }
+
+    fn plan(&self, request: RuntimeValue) -> RuntimeResult {
+        match &self.planning_engine {
+            Some(engine) => engine.plan(PlanningRequest { value: request }),
+            None => RuntimeResult::failure("RI2-2 Engine registry missing planning engine"),
+        }
+    }
 }
 
 pub fn execute_runtime_operation<E: RuntimeOperationExecutor>(
