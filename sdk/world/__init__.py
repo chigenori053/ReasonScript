@@ -1,4 +1,4 @@
-"""World SDK Phase 1 package."""
+"""World Model SDK Phase 1 package."""
 
 from .builder import (
     Event,
@@ -25,9 +25,24 @@ from .builder import (
     replace_scene,
     snapshot,
 )
-from .query import event_ids, entity_ids, object_ids, relation_ids, scene_ids, snapshot_ids
+from .metadata import build_world_model_metadata, inject_world_model_metadata
+from .query import (
+    entities,
+    entity_ids,
+    event_ids,
+    object_ids,
+    objects,
+    relation_ids,
+    relations,
+    scene_ids,
+    scenes,
+    snapshot_ids,
+    snapshots,
+)
+from .runtime import runtime_value
+from .serialization import to_dict, to_json
 from .simulation import WorldSimulationResult, simulate
-from .validation import validate, validate_scene, validate_transform
+from .validation import validate, validate_event, validate_scene, validate_transform
 
 __all__ = [
     "Event",
@@ -52,16 +67,27 @@ __all__ = [
     "create_scene",
     "create_transform",
     "create_world",
+    "build_world_model_metadata",
+    "inject_world_model_metadata",
+    "entities",
     "event_ids",
     "entity_ids",
+    "objects",
     "object_ids",
+    "relations",
     "relation_ids",
     "replace_scene",
+    "runtime_value",
+    "scenes",
     "scene_ids",
     "simulate",
     "snapshot",
+    "snapshots",
     "snapshot_ids",
+    "to_dict",
+    "to_json",
     "validate",
+    "validate_event",
     "validate_scene",
     "validate_transform",
 ]

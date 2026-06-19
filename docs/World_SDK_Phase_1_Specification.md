@@ -1,11 +1,12 @@
-# World SDK Phase 1 Specification
+# World Model SDK Phase 1 Specification
 
 Status: Implemented
 
-Version: world-sdk/0.1
+Version: world-model-sdk/0.1
 
-World SDK Phase 1 introduces the first platform SDK for WorldModel construction
-on top of the existing ReasonGraph, ExecutionPlan, and Runtime SDK layers.
+World Model SDK Phase 1 supersedes `world-sdk/0.1` and introduces the first
+Runtime-compatible WorldModel core on top of the existing ReasonGraph,
+ExecutionPlan, and Runtime SDK layers.
 
 ## Scope
 
@@ -49,15 +50,18 @@ Core execution APIs:
 
 - `validate`
 - `validate_scene`
+- `validate_event`
 - `validate_transform`
 - `snapshot`
 - `simulate`
+- `to_json`
+- `runtime_value`
 
 ## Determinism
 
 World SDK values are immutable dataclasses. Simulation processes pending events
 in deterministic `(tick, id)` order and produces serializable snapshots using
-the `world-sdk/0.1` schema marker.
+the `world-model-sdk/0.1` schema marker.
 
 ## Event Semantics
 

@@ -21,8 +21,8 @@
 
 Primary track:
 
-- World SDK Phase 1 specification
-- World SDK Phase 1 implementation
+- World Model SDK Phase 1 specification
+- World Model SDK Phase 1 implementation
 
 Parallel track:
 

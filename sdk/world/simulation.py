@@ -1,4 +1,4 @@
-"""world.simulation - deterministic World SDK Phase 1 event processing."""
+"""world.simulation - deterministic World Model SDK Phase 1 event processing."""
 
 from __future__ import annotations
 
@@ -41,19 +41,33 @@ def simulate(world: World, *, steps: int = 1, snapshot_id: str | None = None) ->
     trace: list[str] = []
     for _ in range(max(0, steps)):
         next_scenes = []
+        routed_world_events = _route_world_events(next_world)
         for scene in next_world.scenes:
-            next_scene, scene_processed, scene_trace = _process_scene(scene, next_world.tick + 1)
+            next_scene, scene_processed, scene_trace = _process_scene(
+                scene,
+                next_world.tick + 1,
+                routed_world_events.get(scene.id, ()),
+            )
             next_scenes.append(next_scene)
             processed.extend(scene_processed)
             trace.extend(scene_trace)
         next_world = World(
-            name=next_world.name,
+            id=next_world.id,
+            version=next_world.version,
             scenes=tuple(next_scenes),
+            events=tuple(event for event in next_world.events if event.id not in set(processed)),
             snapshots=next_world.snapshots,
             tick=next_world.tick + 1,
         )
 
     snap = snapshot(next_world, snapshot_id)
+    snap = Snapshot(
+        id=snap.id,
+        world_id=snap.world_id,
+        tick=snap.tick,
+        world_state=snap.world_state,
+        trace=tuple(trace + [f"snapshot:{snap.id}"]),
+    )
     next_world = add_snapshot(next_world, snap)
     return WorldSimulationResult(
         world=next_world,
@@ -63,14 +77,30 @@ def simulate(world: World, *, steps: int = 1, snapshot_id: str | None = None) ->
     )
 
 
-def _process_scene(scene: Scene, tick: int) -> tuple[Scene, list[str], list[str]]:
+def _route_world_events(world: World) -> dict[str, tuple[Event, ...]]:
+    routes: dict[str, list[Event]] = {scene.id: [] for scene in world.scenes}
+    for event in world.events:
+        scene_id = event.payload.get("scene_id")
+        if scene_id in routes:
+            routes[scene_id].append(event)
+        elif len(world.scenes) == 1:
+            routes[world.scenes[0].id].append(event)
+    return {scene_id: tuple(events) for scene_id, events in routes.items()}
+
+
+def _process_scene(
+    scene: Scene,
+    tick: int,
+    routed_events: tuple[Event, ...] = (),
+) -> tuple[Scene, list[str], list[str]]:
     entities = list(scene.entities)
     objects = list(scene.objects)
     relations = list(scene.relations)
     processed: list[str] = []
     trace: list[str] = []
 
-    for event in sorted(scene.events, key=lambda e: (e.tick, e.id)):
+    scene_events = scene.events + routed_events
+    for event in sorted(scene_events, key=lambda e: (e.tick, e.id)):
         if event.tick > tick:
             continue
         processed.append(event.id)

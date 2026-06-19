@@ -1,11 +1,12 @@
-"""world.builder - construct World SDK Phase 1 models."""
+"""world.builder - construct World Model SDK Phase 1 models."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-_SCHEMA_VERSION = "world-sdk/0.1"
+_SCHEMA = "world-model-sdk/0.1"
+_VERSION = "0.1"
 
 
 @dataclass(frozen=True)
@@ -118,34 +119,53 @@ class Scene:
 @dataclass(frozen=True)
 class Snapshot:
     id: str
-    world_name: str
+    world_id: str
     tick: int
-    scenes: tuple[dict[str, Any], ...]
+    world_state: dict[str, Any]
+    trace: tuple[str, ...] = field(default_factory=tuple)
+
+    @property
+    def world_name(self) -> str:
+        return self.world_id
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": _SCHEMA_VERSION,
+            "schema": _SCHEMA,
+            "schema_version": _SCHEMA,
             "id": self.id,
-            "world_name": self.world_name,
+            "world_id": self.world_id,
+            "world_name": self.world_id,
             "tick": self.tick,
-            "scenes": [dict(scene) for scene in self.scenes],
+            "world_state": dict(self.world_state),
+            "trace": list(self.trace),
         }
 
 
 @dataclass(frozen=True)
 class World:
-    name: str
+    id: str
+    version: str = _VERSION
     scenes: tuple[Scene, ...] = field(default_factory=tuple)
+    events: tuple[Event, ...] = field(default_factory=tuple)
     snapshots: tuple[Snapshot, ...] = field(default_factory=tuple)
     tick: int = 0
 
+    @property
+    def name(self) -> str:
+        return self.id
+
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": _SCHEMA_VERSION,
-            "name": self.name,
+            "schema": _SCHEMA,
+            "schema_version": _SCHEMA,
+            "id": self.id,
+            "name": self.id,
+            "version": self.version,
             "tick": self.tick,
             "scenes": [scene.to_dict() for scene in self.scenes],
+            "events": [event.to_dict() for event in self.events],
             "snapshots": [snapshot.to_dict() for snapshot in self.snapshots],
+            "metadata": {"world_model": {"version": self.version}},
         }
 
 
@@ -158,8 +178,8 @@ def create_transform(
     return Transform(position=position, rotation=rotation, scale=scale)
 
 
-def create_world(name: str) -> World:
-    return World(name=name)
+def create_world(world_id: str, *, version: str = _VERSION) -> World:
+    return World(id=world_id, version=version)
 
 
 def create_scene(scene_id: str) -> Scene:
@@ -237,8 +257,10 @@ def add_scene(world: World, scene: Scene | str) -> World:
     if any(existing.id == next_scene.id for existing in world.scenes):
         return world
     return World(
-        name=world.name,
+        id=world.id,
+        version=world.version,
         scenes=world.scenes + (next_scene,),
+        events=world.events,
         snapshots=world.snapshots,
         tick=world.tick,
     )
@@ -280,23 +302,36 @@ def add_relation(scene: Scene, relation: Relation) -> Scene:
     )
 
 
-def add_event(scene: Scene, event: Event) -> Scene:
-    if any(existing.id == event.id for existing in scene.events):
-        return scene
+def add_event(container: Scene | World, event: Event) -> Scene | World:
+    if isinstance(container, World):
+        if any(existing.id == event.id for existing in container.events):
+            return container
+        return World(
+            id=container.id,
+            version=container.version,
+            scenes=container.scenes,
+            events=container.events + (event,),
+            snapshots=container.snapshots,
+            tick=container.tick,
+        )
+    if any(existing.id == event.id for existing in container.events):
+        return container
     return Scene(
-        id=scene.id,
-        entities=scene.entities,
-        objects=scene.objects,
-        relations=scene.relations,
-        events=scene.events + (event,),
+        id=container.id,
+        entities=container.entities,
+        objects=container.objects,
+        relations=container.relations,
+        events=container.events + (event,),
     )
 
 
 def replace_scene(world: World, scene: Scene) -> World:
     next_scenes = tuple(scene if existing.id == scene.id else existing for existing in world.scenes)
     return World(
-        name=world.name,
+        id=world.id,
+        version=world.version,
         scenes=next_scenes,
+        events=world.events,
         snapshots=world.snapshots,
         tick=world.tick,
     )
@@ -304,11 +339,18 @@ def replace_scene(world: World, scene: Scene) -> World:
 
 def snapshot(world: World, snapshot_id: str | None = None) -> Snapshot:
     snap_id = snapshot_id or f"snapshot-{len(world.snapshots)}"
+    state = {
+        "id": world.id,
+        "version": world.version,
+        "tick": world.tick,
+        "scenes": [scene.to_dict() for scene in world.scenes],
+        "events": [event.to_dict() for event in world.events],
+    }
     return Snapshot(
         id=snap_id,
-        world_name=world.name,
+        world_id=world.id,
         tick=world.tick,
-        scenes=tuple(scene.to_dict() for scene in world.scenes),
+        world_state=state,
     )
 
 
@@ -317,8 +359,10 @@ def add_snapshot(world: World, snap: Snapshot | None = None) -> World:
     if any(existing.id == next_snapshot.id for existing in world.snapshots):
         return world
     return World(
-        name=world.name,
+        id=world.id,
+        version=world.version,
         scenes=world.scenes,
+        events=world.events,
         snapshots=world.snapshots + (next_snapshot,),
         tick=world.tick,
     )
