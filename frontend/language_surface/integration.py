@@ -271,6 +271,11 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                 "runtime_operations",
                 _runtime_operations(module),
             ),
+            semantic.MetadataNode(
+                f"{namespace}-reasoning-types",
+                "reasoning_types",
+                _reasoning_types(module),
+            ),
         ),
     )
 
@@ -314,6 +319,42 @@ def _runtime_operations(module: ModuleNode) -> list[dict[str, Any]]:
             }
         )
     return result
+
+
+def _reasoning_types(module: ModuleNode) -> list[str]:
+    result: list[str] = []
+    for call in _walk_runtime_calls(module):
+        if not call.arguments:
+            continue
+        reasoning_type = _reasoning_type_for_operation(call.method, call.arguments[0])
+        if reasoning_type not in result:
+            result.append(reasoning_type)
+    return result
+
+
+def _reasoning_type_for_operation(method: str, argument: Any) -> str:
+    if method in {"search", "plan"}:
+        return "goal"
+    if method == "predict":
+        return "state"
+    if method == "simulate":
+        return "execution_plan"
+    return _reasoning_type_from_argument(argument)
+
+
+def _reasoning_type_from_argument(argument: Any) -> str:
+    name = getattr(argument, "name", None)
+    type_name = getattr(argument, "type_name", None)
+    text = str(type_name or name or "").lower()
+    if "constraint" in text:
+        return "constraint"
+    if "graph" in text:
+        return "reason_graph"
+    if "plan" in text:
+        return "execution_plan"
+    if "state" in text:
+        return "state"
+    return "goal"
 
 
 def _walk_runtime_calls(value: Any):

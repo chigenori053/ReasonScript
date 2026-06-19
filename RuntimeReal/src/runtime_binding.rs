@@ -12,6 +12,11 @@ pub enum RuntimeValue {
     Enum(RuntimeEnum),
     Array(Vec<RuntimeValue>),
     Optional(Box<Option<RuntimeValue>>),
+    GoalValue(RuntimeGoal),
+    StateValue(RuntimeState),
+    ConstraintValue(RuntimeConstraint),
+    ReasonGraphValue(RuntimeReasonGraph),
+    ExecutionPlanValue(RuntimeExecutionPlan),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -23,6 +28,34 @@ pub struct RuntimeStruct {
 pub struct RuntimeEnum {
     pub enum_name: String,
     pub value_name: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeGoal {
+    pub name: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeState {
+    pub id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeConstraint {
+    pub name: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeReasonGraph {
+    pub nodes: Vec<String>,
+    pub edges: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeExecutionPlan {
+    pub schema_version: String,
+    pub selected_steps: Vec<String>,
+    pub expected_cost: f64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

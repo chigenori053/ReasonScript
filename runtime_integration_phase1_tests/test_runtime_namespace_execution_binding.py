@@ -144,7 +144,7 @@ class RuntimeIntegrationPhase1Tests(unittest.TestCase):
         executor = DeterministicRuntimeExecutor()
         execute_runtime_operations(operation, executor)
 
-        self.assertEqual(executor.calls[0][1], RuntimeValue.string("GoalA"))
+        self.assertEqual(executor.calls[0][1], RuntimeValue.goal("GoalA"))
 
     def test_ri_008_runtime_metadata_generation(self):
         operations = self.reason_ir()["metadata"]["runtime_operations"]

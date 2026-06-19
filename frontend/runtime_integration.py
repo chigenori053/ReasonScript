@@ -24,6 +24,7 @@ class RuntimeIntegrationErrorCode:
     RUNTIME_ENGINE_MISSING = "RI2-2 Engine registry missing required engine"
     EXECUTION_PLAN_INCOMPATIBLE = "RI2-5 ExecutionPlan compatibility failed"
     TRACE_MISSING = "RI2-6 Runtime trace missing"
+    REASONING_TYPE_CONVERSION_FAILED = "ReasoningTypeConversionFailed"
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,26 @@ class RuntimeValue:
     @staticmethod
     def optional(value: "RuntimeValue | None") -> "RuntimeValue":
         return RuntimeValue("Optional", value)
+
+    @staticmethod
+    def goal(name: str) -> "RuntimeValue":
+        return RuntimeValue("GoalValue", {"name": name})
+
+    @staticmethod
+    def state(identifier: str) -> "RuntimeValue":
+        return RuntimeValue("StateValue", {"id": identifier})
+
+    @staticmethod
+    def constraint(name: str) -> "RuntimeValue":
+        return RuntimeValue("ConstraintValue", {"name": name})
+
+    @staticmethod
+    def reason_graph(value: dict[str, Any]) -> "RuntimeValue":
+        return RuntimeValue("ReasonGraphValue", value)
+
+    @staticmethod
+    def execution_plan(value: dict[str, Any]) -> "RuntimeValue":
+        return RuntimeValue("ExecutionPlanValue", value)
 
 
 @dataclass(frozen=True)
@@ -198,6 +219,9 @@ class RuntimeEngineRegistryExecutor:
     def search(self, request: RuntimeValue) -> RuntimeResult:
         if self.registry.search_engine is None:
             return RuntimeResult.failure(RuntimeIntegrationErrorCode.RUNTIME_ENGINE_MISSING)
+        error = _validate_request_type("search", request)
+        if error is not None:
+            return RuntimeResult.failure(error)
         return _engine_result(
             self.registry.search_engine.search(SearchRequest(request))
         )
@@ -205,6 +229,9 @@ class RuntimeEngineRegistryExecutor:
     def simulate(self, request: RuntimeValue) -> RuntimeResult:
         if self.registry.simulation_engine is None:
             return RuntimeResult.failure(RuntimeIntegrationErrorCode.RUNTIME_ENGINE_MISSING)
+        error = _validate_request_type("simulate", request)
+        if error is not None:
+            return RuntimeResult.failure(error)
         return _engine_result(
             self.registry.simulation_engine.simulate(SimulationRequest(request))
         )
@@ -212,6 +239,9 @@ class RuntimeEngineRegistryExecutor:
     def predict(self, request: RuntimeValue) -> RuntimeResult:
         if self.registry.prediction_engine is None:
             return RuntimeResult.failure(RuntimeIntegrationErrorCode.RUNTIME_ENGINE_MISSING)
+        error = _validate_request_type("predict", request)
+        if error is not None:
+            return RuntimeResult.failure(error)
         return _engine_result(
             self.registry.prediction_engine.predict(PredictionRequest(request))
         )
@@ -219,6 +249,9 @@ class RuntimeEngineRegistryExecutor:
     def plan(self, request: RuntimeValue) -> RuntimeResult:
         if self.registry.planning_engine is None:
             return RuntimeResult.failure(RuntimeIntegrationErrorCode.RUNTIME_ENGINE_MISSING)
+        error = _validate_request_type("plan", request)
+        if error is not None:
+            return RuntimeResult.failure(error)
         return _engine_result(
             self.registry.planning_engine.plan(PlanningRequest(request))
         )
@@ -265,6 +298,7 @@ def execute_runtime_operations(
             continue
         try:
             argument = runtime_value_from_ir_expression(operation.get("argument"))
+            argument = _coerce_reasoning_value(method, argument)
         except (TypeError, ValueError, KeyError) as error:
             diagnostic = (
                 f"{RuntimeIntegrationErrorCode.ARGUMENT_CONVERSION_FAILED}: {error}"
@@ -356,11 +390,29 @@ def runtime_value_from_ir_expression(value: Any) -> RuntimeValue:
         raise ValueError("runtime operation argument is required")
     if not isinstance(value, dict):
         return _plain_value(value)
+    if "schema_version" in value:
+        _validate_execution_plan(value)
+        return RuntimeValue.execution_plan(value)
+    if "nodes" in value or "edges" in value:
+        _validate_reason_graph(value)
+        return RuntimeValue.reason_graph(value)
     node_type = value.get("node_type")
     if node_type == "ExpressionNode":
         return runtime_value_from_ir_expression(value["expression"])
     if node_type == "IdentifierNode":
-        return RuntimeValue.string(value["name"])
+        name = value["name"]
+        lowered = name.lower()
+        if lowered.endswith("goal") or lowered == "goal":
+            return RuntimeValue.goal(name)
+        if lowered.endswith("state") or lowered == "state":
+            return RuntimeValue.state(name)
+        if lowered.endswith("constraint") or lowered == "constraint":
+            return RuntimeValue.constraint(name)
+        if lowered.endswith("graph") or lowered == "reason_graph":
+            return RuntimeValue.reason_graph({"id": name, "nodes": [], "edges": []})
+        if lowered.endswith("plan") or lowered == "plan":
+            return RuntimeValue.execution_plan(_execution_plan("argument", name))
+        return RuntimeValue.string(name)
     if node_type == "StringLiteralNode":
         return RuntimeValue.string(value["value"])
     if node_type == "IntegerLiteralNode":
@@ -382,13 +434,54 @@ def runtime_value_from_ir_expression(value: Any) -> RuntimeValue:
             [runtime_value_from_ir_expression(item) for item in value["elements"]]
         )
     if node_type == "StructLiteralNode":
+        fields = {
+            field["name"]: runtime_value_from_ir_expression(field["expression"])
+            for field in value["fields"]
+        }
+        plain_fields = {
+            name: runtime_value_to_plain(field)
+            for name, field in fields.items()
+        }
+        type_name = value.get("type_name")
+        if type_name == "Goal":
+            return RuntimeValue.goal(str(plain_fields.get("name", "")))
+        if type_name == "State":
+            return RuntimeValue.state(str(plain_fields.get("id", "")))
+        if type_name == "Constraint":
+            return RuntimeValue.constraint(str(plain_fields.get("name", "")))
+        if type_name == "ReasonGraph":
+            return RuntimeValue.reason_graph(plain_fields)
+        if type_name == "ExecutionPlan":
+            _validate_execution_plan(plain_fields)
+            return RuntimeValue.execution_plan(plain_fields)
+        return RuntimeValue.struct(
+            fields
+        )
+    if node_type == "MapLiteralNode":
+        return RuntimeValue.reason_graph(
+            {
+                "entries": [
+                    runtime_value_to_plain(runtime_value_from_ir_expression(entry))
+                    for entry in value["entries"]
+                ]
+            }
+        )
+    if node_type == "MapEntryNode":
         return RuntimeValue.struct(
             {
-                field["name"]: runtime_value_from_ir_expression(field["expression"])
-                for field in value["fields"]
+                "key": runtime_value_from_ir_expression(value["key"]),
+                "value": runtime_value_from_ir_expression(value["value"]),
             }
         )
     raise ValueError(f"unsupported runtime argument node: {node_type}")
+
+
+def _coerce_reasoning_value(operation: str, value: RuntimeValue) -> RuntimeValue:
+    if value.kind != "String":
+        return value
+    if operation in {"search", "plan"}:
+        return RuntimeValue.goal(value.value)
+    return value
 
 
 def runtime_value_to_plain(value: RuntimeValue | None) -> Any:
@@ -414,6 +507,14 @@ def runtime_value_to_plain(value: RuntimeValue | None) -> Any:
             if value.value is not None
             else {"none": True}
         )
+    if value.kind in {
+        "GoalValue",
+        "StateValue",
+        "ConstraintValue",
+        "ReasonGraphValue",
+        "ExecutionPlanValue",
+    }:
+        return value.value
     raise ValueError(f"unsupported runtime value kind: {value.kind}")
 
 
@@ -568,6 +669,37 @@ def _validate_execution_plan(plan: dict[str, Any]) -> None:
         raise ValueError("selected_steps must be an array")
     if "expected_cost" not in plan:
         raise ValueError("expected_cost is required")
+
+
+def _validate_reason_graph(graph: dict[str, Any]) -> None:
+    if not isinstance(graph.get("nodes", []), list):
+        raise ValueError("reason graph nodes must be an array")
+    if not isinstance(graph.get("edges", []), list):
+        raise ValueError("reason graph edges must be an array")
+
+
+def _validate_request_type(operation: str, value: RuntimeValue) -> str | None:
+    allowed = {
+        "search": {"GoalValue", "StateValue", "ConstraintValue", "ReasonGraphValue"},
+        "simulate": {"ExecutionPlanValue", "ReasonGraphValue"},
+        "predict": {"StateValue", "ReasonGraphValue"},
+        "plan": {"GoalValue", "ConstraintValue", "ReasonGraphValue"},
+    }[operation]
+    if value.kind not in allowed:
+        return (
+            f"{RuntimeIntegrationErrorCode.REASONING_TYPE_CONVERSION_FAILED}: "
+            f"{value.kind} cannot map to {operation} request"
+        )
+    try:
+        if value.kind == "ExecutionPlanValue":
+            _validate_execution_plan(value.value)
+        if value.kind == "ReasonGraphValue":
+            _validate_reason_graph(value.value)
+    except ValueError as error:
+        return (
+            f"{RuntimeIntegrationErrorCode.REASONING_TYPE_CONVERSION_FAILED}: {error}"
+        )
+    return None
 
 
 def _execution_plan(operation: str, target: str) -> dict[str, Any]:
