@@ -15,6 +15,7 @@ from .nodes import (
     BreakStatementNode,
     CalculationNode,
     ConceptNode,
+    ConstDeclarationNode,
     ContinueStatementNode,
     ConstraintNode,
     ConstStatementNode,
@@ -43,6 +44,7 @@ from .nodes import (
     NamedTypeNode,
     ObjectNode,
     OptionalTypeNode,
+    PackageDeclarationNode,
     ProgramNode,
     PrimitiveKind,
     PrimitiveTypeNode,
@@ -97,15 +99,28 @@ def parse(source: str) -> ProgramNode:
         raise SurfaceSyntaxError(str(error)) from error
     cursor = _Cursor(_logical_lines(source))
     modules: list[ModuleNode] = []
+    package: PackageDeclarationNode | None = None
     while cursor.index < len(cursor.lines):
+        if cursor.current().startswith("package "):
+            if modules or package is not None:
+                raise SurfaceSyntaxError("PV-3 PackageMustAppearFirst")
+            package = _parse_package(cursor)
+            continue
         modules.append(_parse_module(cursor))
-    program = ProgramNode(tuple(modules))
+    program = ProgramNode(tuple(modules), package)
     try:
         program, _ = resolve_program(program)
         validate(program)
     except (SurfaceValidationError, NamespaceResolutionError) as error:
         raise SurfaceSyntaxError(str(error)) from error
     return program
+
+
+def _parse_package(cursor: _Cursor) -> PackageDeclarationNode:
+    match = re.fullmatch(r"package\s+([A-Za-z_][A-Za-z0-9_]*)", cursor.take())
+    if not match:
+        raise SurfaceSyntaxError("PV-1 invalid package declaration")
+    return PackageDeclarationNode(match.group(1))
 
 
 def _logical_lines(source: str) -> list[str]:
@@ -139,9 +154,13 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
         if line == "}":
             cursor.index += 1
             return nodes
-        if line.startswith("struct "):
+        if line.startswith("export import "):
+            raise SurfaceSyntaxError("UnsupportedFeature")
+        if line.startswith("export ") and context != "module":
+            raise SurfaceSyntaxError("ExportMustBeTopLevel")
+        if line.startswith("struct ") or line.startswith("export struct "):
             nodes.append(_parse_struct(cursor))
-        elif line.startswith("enum "):
+        elif line.startswith("enum ") or line.startswith("export enum "):
             nodes.append(_parse_enum(cursor))
         elif _is_collection_literal_statement(line):
             nodes.append(_parse_collection_literal_statement(cursor))
@@ -149,9 +168,17 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
             nodes.append(_parse_struct_literal_statement(cursor))
         elif line.startswith("transition "):
             nodes.append(_parse_transition(cursor))
-        elif line.startswith("calculation ") or line.startswith("pub calculation "):
+        elif (
+            line.startswith("calculation ")
+            or line.startswith("pub calculation ")
+            or line.startswith("export calculation ")
+        ):
             nodes.append(_parse_calculation(cursor))
-        elif line.startswith("fn ") or line.startswith("pub fn "):
+        elif (
+            line.startswith("fn ")
+            or line.startswith("pub fn ")
+            or line.startswith("export fn ")
+        ):
             nodes.append(_parse_function(cursor))
         elif line.startswith("for "):
             nodes.append(_parse_for(cursor, context=context))
@@ -209,10 +236,29 @@ def _parse_simple(line: str, *, context: str):
         )
     match = re.fullmatch(r"const\s+([A-Za-z_]\w*)(?:\s*:\s*(.+?))?\s*=\s*(.+)", line)
     if match:
+        if context == "module":
+            return ConstDeclarationNode(
+                match.group(1),
+                _expression(match.group(3)),
+                _type_annotation(match.group(2)) if match.group(2) else None,
+            )
         return ConstStatementNode(
             match.group(1),
             _expression(match.group(3)),
             _type_annotation(match.group(2)) if match.group(2) else None,
+        )
+    match = re.fullmatch(
+        r"export\s+const\s+([A-Za-z_]\w*)(?:\s*:\s*(.+?))?\s*=\s*(.+)",
+        line,
+    )
+    if match:
+        if context != "module":
+            raise SurfaceSyntaxError("ExportMustBeTopLevel")
+        return ConstDeclarationNode(
+            match.group(1),
+            _expression(match.group(3)),
+            _type_annotation(match.group(2)) if match.group(2) else None,
+            Visibility.PUBLIC,
         )
     match = re.fullmatch(r"result\s*=\s*(.+)", line)
     if match:
@@ -285,7 +331,7 @@ def _parse_transition(cursor: _Cursor) -> TransitionNode:
 
 def _parse_calculation(cursor: _Cursor) -> CalculationNode:
     match = re.fullmatch(
-        r"(?:(pub)\s+)?calculation\s+([A-Za-z_]\w*)"
+        r"(?:(pub|export)\s+)?calculation\s+([A-Za-z_]\w*)"
         r"(?:\s+goal:([A-Za-z_]\w*))?"
         r"(?:\s*->\s*([A-Za-z_]\w*))?\s*\{",
         cursor.take(),
@@ -304,14 +350,21 @@ def _parse_calculation(cursor: _Cursor) -> CalculationNode:
 
 
 def _parse_struct(cursor: _Cursor) -> StructDeclarationNode:
-    match = re.fullmatch(r"struct\s+([A-Za-z_]\w*)\s*\{", cursor.take())
+    match = re.fullmatch(
+        r"(?:(export)\s+)?struct\s+([A-Za-z_]\w*)\s*\{",
+        cursor.take(),
+    )
     if not match:
         raise SurfaceSyntaxError("invalid struct declaration")
     fields: list[StructFieldNode] = []
     while cursor.index < len(cursor.lines):
         line = cursor.take()
         if line == "}":
-            return StructDeclarationNode(match.group(1), tuple(fields))
+            return StructDeclarationNode(
+                match.group(2),
+                tuple(fields),
+                Visibility.PUBLIC if match.group(1) else Visibility.PRIVATE,
+            )
         field = re.fullmatch(r"([A-Za-z_]\w*)\s*:\s*(.+)", line)
         if not field:
             raise SurfaceSyntaxError("TV-4 FieldTypeRequired")
@@ -320,14 +373,21 @@ def _parse_struct(cursor: _Cursor) -> StructDeclarationNode:
 
 
 def _parse_enum(cursor: _Cursor) -> EnumDeclarationNode:
-    match = re.fullmatch(r"enum\s+([A-Za-z_]\w*)\s*\{", cursor.take())
+    match = re.fullmatch(
+        r"(?:(export)\s+)?enum\s+([A-Za-z_]\w*)\s*\{",
+        cursor.take(),
+    )
     if not match:
         raise SurfaceSyntaxError("invalid enum declaration")
     values: list[EnumValueNode] = []
     while cursor.index < len(cursor.lines):
         line = cursor.take()
         if line == "}":
-            return EnumDeclarationNode(match.group(1), tuple(values))
+            return EnumDeclarationNode(
+                match.group(2),
+                tuple(values),
+                Visibility.PUBLIC if match.group(1) else Visibility.PRIVATE,
+            )
         value = re.fullmatch(r"([A-Za-z_]\w*)", line)
         if not value:
             raise SurfaceSyntaxError("invalid enum value")
@@ -337,7 +397,7 @@ def _parse_enum(cursor: _Cursor) -> EnumDeclarationNode:
 
 def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
     match = re.fullmatch(
-        r"(?:(pub)\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)"
+        r"(?:(pub|export)\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)"
         r"(?:\s*:\s*(.+?))?\s*\{",
         cursor.take(),
     )

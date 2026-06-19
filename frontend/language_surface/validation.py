@@ -23,6 +23,7 @@ from .nodes import (
     ComparisonOperator,
     ConceptNode,
     ConstraintNode,
+    ConstDeclarationNode,
     ConstStatementNode,
     ContinueStatementNode,
     EnumDeclarationNode,
@@ -65,6 +66,7 @@ from .nodes import (
     OptionalPatternNode,
     OptionalTypeNode,
     NullLiteralNode,
+    PackageDeclarationNode,
     ParenthesizedExpressionNode,
     PatternNode,
     PrimitiveKind,
@@ -131,12 +133,14 @@ DECLARATION_NODES = (
     ConstraintNode,
     StructDeclarationNode,
     EnumDeclarationNode,
+    ConstDeclarationNode,
     CalculationNode,
     FunctionDeclarationNode,
     TransitionNode,
 )
 KNOWN_NODE_TYPES = (
     ProgramNode,
+    PackageDeclarationNode,
     ModuleNode,
     ImportNode,
     ImportResolutionNode,
@@ -226,13 +230,20 @@ def validate(program: ProgramNode) -> None:
         raise SurfaceValidationError("AST-V001 root must be ProgramNode")
     if not program.modules:
         raise SurfaceValidationError("ProgramNode requires at least one module")
+    if program.package is not None:
+        _identifier(program.package.name, "PV-1 PackageDeclarationNode.name")
     try:
         resolved_program, namespaces = resolve_program(program, strict=False)
     except NamespaceResolutionError as error:
         raise SurfaceValidationError(str(error)) from error
     module_names: set[str] = set()
     for module in resolved_program.modules:
-        _CURRENT_NAMESPACE = namespaces[module.name]
+        namespace_name = (
+            f"{resolved_program.package.name}.{module.name}"
+            if resolved_program.package is not None
+            else module.name
+        )
+        _CURRENT_NAMESPACE = namespaces[namespace_name]
         _validate_node_types(module)
         _identifier(module.name, "NS-V001 ModuleNode.name")
         if module.name in module_names:
@@ -254,6 +265,18 @@ def _validate_module(module: ModuleNode) -> None:
                 _identifier(part, "AST-V002 ImportNode.path")
             if node.alias is not None:
                 _identifier(node.alias, "AST-V002 ImportNode.alias")
+            continue
+        if isinstance(node, ConstDeclarationNode):
+            _identifier(node.name, "PV-7 ConstDeclarationNode.name")
+            if name := node.name:
+                if name in symbols:
+                    raise SurfaceValidationError(
+                        f"AST-V003 duplicate module symbol: {name}"
+                    )
+                symbols[name] = node
+            if node.type_annotation is not None:
+                _validate_type_node(node.type_annotation)
+            _validate_calculation_expression(node.expression, symbols, {})
             continue
         if isinstance(node, DECLARATION_NODES):
             name = node.name
@@ -344,11 +367,15 @@ def _validate_ast_node(node: Any) -> None:
             seen.add(parameter)
     elif isinstance(node, StructDeclarationNode):
         _identifier(node.name, "TV-1 StructDeclarationNode.name")
+        if not isinstance(node.visibility, Visibility):
+            raise SurfaceValidationError("PV-6 invalid struct visibility")
     elif isinstance(node, StructFieldNode):
         _identifier(node.name, "TV-3 StructFieldNode.name")
         _validate_type_node(node.field_type)
     elif isinstance(node, EnumDeclarationNode):
         _identifier(node.name, "TV-2 EnumDeclarationNode.name")
+        if not isinstance(node.visibility, Visibility):
+            raise SurfaceValidationError("PV-6 invalid enum visibility")
     elif isinstance(node, EnumValueNode):
         _identifier(node.name, "TV-7 EnumValueNode.name")
     elif isinstance(node, LetStatementNode):
@@ -1172,6 +1199,17 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
+            parts = _member_access_parts(value)
+            if (
+                len(parts) >= 2
+                and parts[0] not in bindings
+                and parts[0] not in symbols
+                and _CURRENT_NAMESPACE is not None
+            ):
+                _CURRENT_NAMESPACE.resolve_qualified(
+                    QualifiedIdentifierNode(tuple(parts[:-1]), parts[-1])
+                )
+                return
             visit(value.object)
         elif isinstance(value, CallExpressionNode):
             visit(value.callee, callee=True)
@@ -1194,6 +1232,16 @@ def _validate_calculation_expression(
     _expression(expression, "CAL-V006 expression")
     visit(expression.expression)
     _expression_type(expression.expression, symbols, bindings)
+
+
+def _member_access_parts(value: Any) -> tuple[str, ...]:
+    if isinstance(value, IdentifierNode):
+        return (value.name,)
+    if isinstance(value, MemberAccessNode):
+        parts = _member_access_parts(value.object)
+        if parts:
+            return (*parts, value.member)
+    return ()
 
 
 _UNKNOWN_TYPE = object()

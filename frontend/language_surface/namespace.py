@@ -7,12 +7,15 @@ from typing import Any, Mapping
 
 from .nodes import (
     CalculationNode,
+    ConstDeclarationNode,
+    EnumDeclarationNode,
     FunctionDeclarationNode,
     ImportNode,
     ImportResolutionNode,
     ModuleNode,
     ProgramNode,
     QualifiedIdentifierNode,
+    StructDeclarationNode,
     Visibility,
 )
 
@@ -97,7 +100,7 @@ class ModuleNamespace:
             symbol = namespace.symbols.get(reference.symbol)
             if symbol is None:
                 break
-            if module_name != self.module.name and not symbol.public:
+            if namespace is not self and not symbol.public:
                 raise NamespaceResolutionError(
                     f"NS-050 NS-V006 private symbol is not importable: "
                     f"{symbol.qualified_name}"
@@ -112,22 +115,36 @@ class ModuleNamespace:
 def resolve_program(
     program: ProgramNode, *, strict: bool = True
 ) -> tuple[ProgramNode, dict[str, ModuleNamespace]]:
-    modules = {module.name: module for module in program.modules}
-    symbols = {name: _symbols(module) for name, module in modules.items()}
+    modules = {
+        _qualified_module_name(module, program): module
+        for module in program.modules
+    }
+    if len(modules) != len(program.modules):
+        raise NamespaceResolutionError("NS-001 NS-V002 duplicate module namespace")
+    symbols = {name: _symbols(module, name) for name, module in modules.items()}
     provisional = {
         name: ModuleNamespace(module, symbols[name], ())
         for name, module in modules.items()
     }
     for namespace in provisional.values():
         object.__setattr__(namespace, "_namespaces", provisional)
+    if strict:
+        _reject_cycles(modules)
     resolved: dict[str, ModuleNamespace] = {}
     enriched_modules: list[ModuleNode] = []
 
     for module in program.modules:
-        bindings = _imports(module, modules, symbols, strict=strict)
+        module_name = _qualified_module_name(module, program)
+        bindings = _imports(
+            module,
+            modules,
+            symbols,
+            strict=strict,
+            allow_external=program.package is None,
+        )
         _reject_ambiguous_imports(bindings)
-        namespace = ModuleNamespace(module, symbols[module.name], tuple(bindings))
-        resolved[module.name] = namespace
+        namespace = ModuleNamespace(module, symbols[module_name], tuple(bindings))
+        resolved[module_name] = namespace
         enriched_body = tuple(
             _enrich_import(node, bindings) if isinstance(node, ImportNode) else node
             for node in module.body
@@ -136,30 +153,54 @@ def resolve_program(
 
     for namespace in resolved.values():
         object.__setattr__(namespace, "_namespaces", resolved)
-    enriched = ProgramNode(tuple(enriched_modules))
+    enriched = ProgramNode(tuple(enriched_modules), program.package)
     canonical_modules = tuple(
-        _enrich_value(module, resolved[module.name])
+        _enrich_value(module, resolved[_qualified_module_name(module, program)])
         for module in enriched.modules
     )
-    return ProgramNode(canonical_modules), resolved
+    return ProgramNode(canonical_modules, program.package), resolved
 
 
-def _symbols(module: ModuleNode) -> dict[str, SurfaceSymbol]:
+def _qualified_module_name(module: ModuleNode, program: ProgramNode | None = None) -> str:
+    package = (
+        program.package.name
+        if program is not None and program.package is not None
+        else None
+    )
+    return f"{package}.{module.name}" if package else module.name
+
+
+def _symbols(
+    module: ModuleNode, module_name: str | None = None
+) -> dict[str, SurfaceSymbol]:
+    namespace = module_name or _qualified_module_name(module)
     result: dict[str, SurfaceSymbol] = {}
     for node in module.body:
-        if not hasattr(node, "name"):
+        if isinstance(node, ConstDeclarationNode):
+            name = node.name
+        elif not hasattr(node, "name"):
             continue
-        name = node.name
+        else:
+            name = node.name
         if name in result:
             raise NamespaceResolutionError(
-                f"NS-001 NS-V002 duplicate symbol in {module.name}: {name}"
+                f"NS-001 NS-V002 duplicate symbol in {namespace}: {name}"
             )
         public = (
             node.visibility == Visibility.PUBLIC
-            if isinstance(node, (CalculationNode, FunctionDeclarationNode))
+            if isinstance(
+                node,
+                (
+                    CalculationNode,
+                    ConstDeclarationNode,
+                    EnumDeclarationNode,
+                    FunctionDeclarationNode,
+                    StructDeclarationNode,
+                ),
+            )
             else module.visibility == Visibility.PUBLIC
         )
-        result[name] = SurfaceSymbol(module.name, name, node, public)
+        result[name] = SurfaceSymbol(namespace, name, node, public)
     return result
 
 
@@ -169,14 +210,22 @@ def _imports(
     symbols: dict[str, dict[str, SurfaceSymbol]],
     *,
     strict: bool,
+    allow_external: bool,
 ) -> list[ImportBinding]:
     bindings: list[ImportBinding] = []
     aliases: set[str] = set()
-    local_names = set(symbols[module.name])
+    module_name = next(
+        name for name, candidate in modules.items() if candidate is module
+    )
+    local_names = set(symbols[module_name])
     for node in (item for item in module.body if isinstance(item, ImportNode)):
         target = ".".join(node.path)
         namespace_name, symbol_name = _import_target(node.path, modules, symbols)
         if namespace_name is None:
+            if strict and not allow_external:
+                raise NamespaceResolutionError(
+                    f"PV-4 ModuleNotFound: {target}"
+                )
             known_prefix = any(
                 ".".join(node.path[:end]) in modules
                 for end in range(1, len(node.path) + 1)
@@ -250,6 +299,38 @@ def _imports(
             )
         )
     return bindings
+
+
+def _reject_cycles(modules: dict[str, ModuleNode]) -> None:
+    imports = {
+        name: tuple(
+            target
+            for node in module.body
+            if isinstance(node, ImportNode)
+            for target in (".".join(node.path),)
+            if target in modules
+        )
+        for name, module in modules.items()
+    }
+    visited: set[str] = set()
+    active: list[str] = []
+
+    def visit(name: str) -> None:
+        if name in active:
+            cycle = active[active.index(name):] + [name]
+            raise NamespaceResolutionError(
+                "PV-8 CircularImport: " + " -> ".join(cycle)
+            )
+        if name in visited:
+            return
+        active.append(name)
+        for imported in imports[name]:
+            visit(imported)
+        active.pop()
+        visited.add(name)
+
+    for name in modules:
+        visit(name)
 
 
 def _import_target(

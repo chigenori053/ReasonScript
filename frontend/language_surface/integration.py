@@ -16,6 +16,7 @@ from .nodes import (
     BreakStatementNode,
     CallExpressionNode,
     ComparisonExpressionNode,
+    ConstDeclarationNode,
     ConstStatementNode,
     ContinueStatementNode,
     EnumDeclarationNode,
@@ -51,6 +52,7 @@ from .nodes import (
     TransitionNode,
     TupleLiteralNode,
     UnaryExpressionNode,
+    Visibility,
     WhileStatementNode,
     to_json_value,
 )
@@ -61,24 +63,31 @@ from .namespace import resolve_program
 def project_program(program: ProgramNode) -> tuple[semantic.ModuleNode, ...]:
     resolved_program, _ = resolve_program(program)
     validate(resolved_program)
-    return tuple(project_module(module) for module in resolved_program.modules)
+    package = resolved_program.package.name if resolved_program.package else None
+    return tuple(
+        project_module(module, package=package)
+        for module in resolved_program.modules
+    )
 
 
-def project_module(module: ModuleNode) -> semantic.ModuleNode:
+def project_module(module: ModuleNode, *, package: str | None = None) -> semantic.ModuleNode:
+    namespace = f"{package}.{module.name}" if package else module.name
     declarations: list[Any] = []
     imports: list[str] = []
     surface_goals = [node for node in module.body if isinstance(node, GoalNode)]
     goal_target = surface_goals[0].name if surface_goals else f"{module.name}Result"
     declarations.append(
-        semantic.GoalNode(f"{module.name}-goal", "reach_state", goal_target)
+        semantic.GoalNode(f"{namespace}-goal", "reach_state", goal_target)
     )
     declarations.append(
         semantic.StateNode(
-            f"{module.name}-state",
+            f"{namespace}-state",
             f"{module.name}Start",
             "language_surface",
             {
+                "package": package,
                 "module": module.name,
+                "namespace": namespace,
                 "visibility": module.visibility.value,
                 "declarations": [
                     type(node).__name__
@@ -95,7 +104,7 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
         elif isinstance(node, ConstraintNode):
             declarations.append(
                 semantic.ConstraintNode(
-                    f"{module.name}-constraint-{node.name}",
+                    f"{namespace}-constraint-{node.name}",
                     node.name,
                     "predicate",
                     node.name,
@@ -105,8 +114,8 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
             transition_index += 1
             declarations.append(
                 semantic.TransitionNode(
-                    f"{module.name}-relation-{transition_index}",
-                    f"{module.name}-relation-{transition_index}",
+                    f"{namespace}-relation-{transition_index}",
+                    f"{namespace}-relation-{transition_index}",
                     node.source,
                     node.relation.value,
                     node.target,
@@ -131,7 +140,7 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
             ]
             declarations.append(
                 semantic.TransitionNode(
-                    f"{module.name}-transition-{transition_index}",
+                    f"{namespace}-transition-{transition_index}",
                     node.name,
                     node.from_state,
                     "Transition",
@@ -159,7 +168,7 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
                 )
                 declarations.append(
                     semantic.TransitionNode(
-                        f"{module.name}-calculation-{transition_index}",
+                        f"{namespace}-calculation-{transition_index}",
                         f"{node.name}-{index}-{identifier}",
                         current,
                         relation,
@@ -185,22 +194,37 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
                 )
                 current = target
     return semantic.ModuleNode(
-        node_id=module.name,
+        node_id=namespace,
         imports=tuple(imports),
         declarations=tuple(declarations),
         metadata=(
             semantic.MetadataNode(
-                f"{module.name}-surface-version",
+                f"{namespace}-surface-version",
                 "language_surface",
                 "reasonscript-language-surface/0.1",
             ),
             semantic.MetadataNode(
-                f"{module.name}-namespace",
+                f"{namespace}-namespace",
                 "namespace",
+                namespace,
+            ),
+            semantic.MetadataNode(
+                f"{namespace}-package",
+                "package",
+                package,
+            ),
+            semantic.MetadataNode(
+                f"{namespace}-module",
+                "module",
                 module.name,
             ),
             semantic.MetadataNode(
-                f"{module.name}-import-resolution",
+                f"{namespace}-exports",
+                "exports",
+                _exports(module),
+            ),
+            semantic.MetadataNode(
+                f"{namespace}-import-resolution",
                 "import_resolution",
                 [
                     to_json_value(node.resolution)
@@ -209,7 +233,7 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
                 ],
             ),
             semantic.MetadataNode(
-                f"{module.name}-functions",
+                f"{namespace}-functions",
                 "function_declarations",
                 [
                     to_json_value(node)
@@ -218,7 +242,7 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
                 ],
             ),
             semantic.MetadataNode(
-                f"{module.name}-composite-types",
+                f"{namespace}-composite-types",
                 "composite_declarations",
                 [
                     to_json_value(node)
@@ -226,8 +250,26 @@ def project_module(module: ModuleNode) -> semantic.ModuleNode:
                     if isinstance(node, (StructDeclarationNode, EnumDeclarationNode))
                 ],
             ),
+            semantic.MetadataNode(
+                f"{namespace}-consts",
+                "const_declarations",
+                [
+                    to_json_value(node)
+                    for node in module.body
+                    if isinstance(node, ConstDeclarationNode)
+                ],
+            ),
         ),
     )
+
+
+def _exports(module: ModuleNode) -> list[str]:
+    exports: list[str] = []
+    for node in module.body:
+        visibility = getattr(node, "visibility", None)
+        if visibility == Visibility.PUBLIC and hasattr(node, "name"):
+            exports.append(node.name)
+    return exports
 
 
 def compile_program(program: ProgramNode) -> tuple[dict[str, Any], ...]:

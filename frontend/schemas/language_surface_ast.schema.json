@@ -483,14 +483,29 @@
     "program": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["modules", "node_type"],
+      "required": ["modules", "package", "node_type"],
       "properties": {
         "modules": {
           "type": "array",
           "minItems": 1,
           "items": {"$ref": "#/$defs/module"}
         },
+        "package": {
+          "oneOf": [
+            {"$ref": "#/$defs/package_declaration"},
+            {"type": "null"}
+          ]
+        },
         "node_type": {"const": "ProgramNode"}
+      }
+    },
+    "package_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "PackageDeclarationNode"}
       }
     },
     "module": {
@@ -516,7 +531,8 @@
         {"$ref": "#/$defs/calculation"},
         {"$ref": "#/$defs/function_declaration"},
         {"$ref": "#/$defs/struct_declaration"},
-        {"$ref": "#/$defs/enum_declaration"}
+        {"$ref": "#/$defs/enum_declaration"},
+        {"$ref": "#/$defs/const_declaration"}
       ]
     },
     "statement": {
@@ -967,12 +983,15 @@
     "struct_declaration": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "fields", "node_type"],
+      "required": ["name", "fields", "visibility", "node_type"],
       "properties": {
         "name": {"$ref": "#/$defs/identifier"},
         "fields": {
           "type": "array",
           "items": {"$ref": "#/$defs/struct_field"}
+        },
+        "visibility": {
+          "enum": ["Public", "Private"]
         },
         "node_type": {"const": "StructDeclarationNode"}
       }
@@ -989,14 +1008,36 @@
     "enum_declaration": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "values", "node_type"],
+      "required": ["name", "values", "visibility", "node_type"],
       "properties": {
         "name": {"$ref": "#/$defs/identifier"},
         "values": {
           "type": "array",
           "items": {"$ref": "#/$defs/enum_value"}
         },
+        "visibility": {
+          "enum": ["Public", "Private"]
+        },
         "node_type": {"const": "EnumDeclarationNode"}
+      }
+    },
+    "const_declaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "expression", "type_annotation", "visibility", "node_type"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "expression": {"$ref": "#/$defs/expression"},
+        "type_annotation": {
+          "oneOf": [
+            {"$ref": "#/$defs/type_node"},
+            {"type": "null"}
+          ]
+        },
+        "visibility": {
+          "enum": ["Public", "Private"]
+        },
+        "node_type": {"const": "ConstDeclarationNode"}
       }
     }
   }

@@ -349,6 +349,11 @@ class ImportNode:
 
 
 @dataclass(frozen=True)
+class PackageDeclarationNode:
+    name: str
+
+
+@dataclass(frozen=True)
 class ConceptNode:
     name: str
 
@@ -393,6 +398,7 @@ class StructFieldNode:
 class StructDeclarationNode:
     name: str
     fields: tuple[StructFieldNode, ...]
+    visibility: Visibility = Visibility.PRIVATE
 
 
 @dataclass(frozen=True)
@@ -404,6 +410,15 @@ class EnumValueNode:
 class EnumDeclarationNode:
     name: str
     values: tuple[EnumValueNode, ...]
+    visibility: Visibility = Visibility.PRIVATE
+
+
+@dataclass(frozen=True)
+class ConstDeclarationNode:
+    name: str
+    expression: ExpressionNode
+    type_annotation: TypeNode | None = None
+    visibility: Visibility = Visibility.PRIVATE
 
 
 @dataclass(frozen=True)
@@ -600,6 +615,7 @@ AstNode: TypeAlias = (
     | ConstraintNode
     | StructDeclarationNode
     | EnumDeclarationNode
+    | ConstDeclarationNode
     | RelationNode
     | TransitionNode
     | CalculationNode
@@ -617,6 +633,7 @@ class ModuleNode:
 @dataclass(frozen=True)
 class ProgramNode:
     modules: tuple[ModuleNode, ...]
+    package: PackageDeclarationNode | None = None
 
 
 _NODE_TYPES = {
@@ -659,6 +676,8 @@ _NODE_TYPES = {
         IfStatementNode,
         ImportNode,
         ImportResolutionNode,
+        PackageDeclarationNode,
+        ConstDeclarationNode,
         IntegerLiteralNode,
         LetStatementNode,
         LiteralPatternNode,
@@ -811,7 +830,14 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
     if node_type not in _NODE_TYPES:
         raise ValueError(f"unknown surface node_type: {node_type}")
     if node_type == "ProgramNode":
-        return ProgramNode(tuple(_from_json_node(item) for item in value["modules"]))
+        return ProgramNode(
+            tuple(_from_json_node(item) for item in value["modules"]),
+            (
+                _from_json_node(value["package"])
+                if value.get("package") is not None
+                else None
+            ),
+        )
     if node_type == "ModuleNode":
         return ModuleNode(
             value["name"],
@@ -959,6 +985,8 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
             value.get("symbol"),
             tuple(value["exposed_names"]),
         )
+    if node_type == "PackageDeclarationNode":
+        return PackageDeclarationNode(value["name"])
     if node_type == "RelationNode":
         return RelationNode(
             value["source"], RelationType(value["relation"]), value["target"]
@@ -979,6 +1007,7 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return StructDeclarationNode(
             value["name"],
             tuple(_from_json_node(item) for item in value["fields"]),
+            Visibility(value.get("visibility", Visibility.PRIVATE.value)),
         )
     if node_type == "EnumValueNode":
         return EnumValueNode(value["name"])
@@ -986,6 +1015,18 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return EnumDeclarationNode(
             value["name"],
             tuple(_from_json_node(item) for item in value["values"]),
+            Visibility(value.get("visibility", Visibility.PRIVATE.value)),
+        )
+    if node_type == "ConstDeclarationNode":
+        return ConstDeclarationNode(
+            value["name"],
+            _from_json_node(value["expression"]),
+            (
+                _from_json_node(value["type_annotation"])
+                if value.get("type_annotation")
+                else None
+            ),
+            Visibility(value.get("visibility", Visibility.PRIVATE.value)),
         )
     if node_type in {"LetNode", "LetStatementNode"}:
         return LetStatementNode(
