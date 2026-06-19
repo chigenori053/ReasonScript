@@ -60,7 +60,10 @@ from .nodes import (
     MemberAccessNode,
     ModuleNode,
     NamedTypeNode,
+    NoneLiteralNode,
     ObjectNode,
+    OptionalPatternNode,
+    OptionalTypeNode,
     NullLiteralNode,
     ParenthesizedExpressionNode,
     PatternNode,
@@ -76,6 +79,7 @@ from .nodes import (
     ReturnStatementNode,
     SetLiteralNode,
     SetTypeNode,
+    SomeExpressionNode,
     StringLiteralNode,
     StateKind,
     StateTypeNode,
@@ -111,6 +115,9 @@ RESERVED_IDENTIFIERS = {
     "enum",
     "set",
     "map",
+    "optional",
+    "some",
+    "none",
     "else",
     "match",
 }
@@ -187,6 +194,10 @@ KNOWN_NODE_TYPES = (
     MapEntryNode,
     MapLiteralNode,
     IndexAccessNode,
+    OptionalTypeNode,
+    SomeExpressionNode,
+    NoneLiteralNode,
+    OptionalPatternNode,
     IdentifierPatternNode,
     EnumValuePatternNode,
     WildcardPatternNode,
@@ -323,6 +334,8 @@ def _validate_ast_node(node: Any) -> None:
         _identifier(node.name, "FN-001 FunctionDeclarationNode.name")
         if not isinstance(node.visibility, Visibility):
             raise SurfaceValidationError("FN-001 invalid function visibility")
+        if node.return_type is not None:
+            _validate_type_node(node.return_type)
         seen: set[str] = set()
         for parameter in node.parameters:
             _identifier(parameter, "FN-002 FunctionDeclarationNode.parameter")
@@ -480,6 +493,8 @@ def _validate_calculation(node: CalculationNode, symbols: dict[str, Any]) -> Non
 
 def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -> None:
     _validate_ast_node(node)
+    if node.return_type is not None:
+        _resolve_type(node.return_type, symbols)
     bindings = {
         parameter: _Binding(_UNKNOWN_TYPE, mutable=False)
         for parameter in node.parameters
@@ -490,6 +505,7 @@ def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -
         bindings=bindings,
         allow_terminal_return=True,
         loop_depth=0,
+        return_type=node.return_type,
     )
     if not _statement_list_terminates_with_return(node.body):
         raise SurfaceValidationError(
@@ -656,6 +672,10 @@ def _validate_calculation_statements(
             expression_type = _expression_type(
                 statement.expression.expression, symbols, local_bindings
             )
+            if statement.type_annotation is None and _contains_uncontextual_none_literal(
+                statement.expression.expression
+            ):
+                raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             if statement.type_annotation is not None:
                 _resolve_type(statement.type_annotation, symbols)
                 _require_compatible(
@@ -705,6 +725,8 @@ def _validate_calculation_statements(
         elif isinstance(statement, IndexAssignmentStatementNode):
             _validate_index_assignment(statement, symbols, local_bindings)
         elif isinstance(statement, ExpressionStatementNode):
+            if _contains_uncontextual_none_literal(statement.expression.expression):
+                raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
@@ -716,6 +738,10 @@ def _validate_calculation_statements(
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
+            if return_type is None and _contains_uncontextual_none_literal(
+                statement.expression.expression
+            ):
+                raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             if return_type is not None:
                 _require_compatible(
                     return_type,
@@ -816,11 +842,17 @@ def _validate_calculation_statements(
                 statement.expression, symbols, local_bindings
             )
             _validate_enum_match_exhaustiveness(statement, symbols, local_bindings)
+            _validate_optional_match_exhaustiveness(
+                statement, symbols, local_bindings
+            )
             for arm in statement.arms:
+                arm_bindings = _match_arm_bindings(
+                    statement, arm.pattern, symbols, local_bindings
+                )
                 _validate_calculation_statements(
                     arm.body,
                     symbols=symbols,
-                    bindings=local_bindings,
+                    bindings={**local_bindings, **arm_bindings},
                     allow_terminal_result=is_last,
                     return_type=return_type,
                     loop_depth=loop_depth,
@@ -854,6 +886,7 @@ def _validate_function_statements(
     bindings: dict[str, _Binding],
     allow_terminal_return: bool,
     loop_depth: int = 0,
+    return_type: Any = None,
 ) -> None:
     allowed = (
         LetStatementNode,
@@ -897,6 +930,10 @@ def _validate_function_statements(
             expression_type = _expression_type(
                 statement.expression.expression, symbols, local_bindings
             )
+            if statement.type_annotation is None and _contains_uncontextual_none_literal(
+                statement.expression.expression
+            ):
+                raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             if statement.type_annotation is not None:
                 _resolve_type(statement.type_annotation, symbols)
                 _require_compatible(
@@ -937,6 +974,8 @@ def _validate_function_statements(
         elif isinstance(statement, IndexAssignmentStatementNode):
             _validate_index_assignment(statement, symbols, local_bindings)
         elif isinstance(statement, ExpressionStatementNode):
+            if _contains_uncontextual_none_literal(statement.expression.expression):
+                raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
@@ -948,6 +987,20 @@ def _validate_function_statements(
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
+            if return_type is None and _contains_uncontextual_none_literal(
+                statement.expression.expression
+            ):
+                raise SurfaceValidationError("OV-1 OptionalTypeRequired")
+            if return_type is not None:
+                _require_compatible(
+                    return_type,
+                    _expression_type(
+                        statement.expression.expression, symbols, local_bindings
+                    ),
+                    statement.expression,
+                    symbols,
+                    "TYPE-V003 function return mismatch",
+                )
         elif isinstance(statement, BreakStatementNode):
             if loop_depth <= 0:
                 raise SurfaceValidationError("IV-4 BreakOutsideLoop")
@@ -974,6 +1027,7 @@ def _validate_function_statements(
                 bindings=loop_bindings,
                 allow_terminal_return=True,
                 loop_depth=loop_depth + 1,
+                return_type=return_type,
             )
         elif isinstance(statement, WhileStatementNode):
             _validate_calculation_expression(
@@ -986,6 +1040,7 @@ def _validate_function_statements(
                 bindings=local_bindings,
                 allow_terminal_return=True,
                 loop_depth=loop_depth + 1,
+                return_type=return_type,
             )
         elif isinstance(statement, LoopStatementNode):
             _validate_function_statements(
@@ -994,6 +1049,7 @@ def _validate_function_statements(
                 bindings=local_bindings,
                 allow_terminal_return=True,
                 loop_depth=loop_depth + 1,
+                return_type=return_type,
             )
         elif isinstance(statement, IfStatementNode):
             _validate_calculation_expression(
@@ -1006,6 +1062,7 @@ def _validate_function_statements(
                 bindings=local_bindings,
                 allow_terminal_return=is_last,
                 loop_depth=loop_depth,
+                return_type=return_type,
             )
             for branch in statement.elif_branches:
                 _validate_calculation_expression(
@@ -1018,6 +1075,7 @@ def _validate_function_statements(
                     bindings=local_bindings,
                     allow_terminal_return=is_last,
                     loop_depth=loop_depth,
+                    return_type=return_type,
                 )
             if statement.else_branch:
                 _validate_function_statements(
@@ -1026,19 +1084,27 @@ def _validate_function_statements(
                     bindings=local_bindings,
                     allow_terminal_return=is_last,
                     loop_depth=loop_depth,
+                    return_type=return_type,
                 )
         elif isinstance(statement, MatchStatementNode):
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
             _validate_enum_match_exhaustiveness(statement, symbols, local_bindings)
+            _validate_optional_match_exhaustiveness(
+                statement, symbols, local_bindings
+            )
             for arm in statement.arms:
+                arm_bindings = _match_arm_bindings(
+                    statement, arm.pattern, symbols, local_bindings
+                )
                 _validate_function_statements(
                     arm.body,
                     symbols=symbols,
-                    bindings=local_bindings,
+                    bindings={**local_bindings, **arm_bindings},
                     allow_terminal_return=is_last,
                     loop_depth=loop_depth,
+                    return_type=return_type,
                 )
 
 
@@ -1103,6 +1169,8 @@ def _validate_calculation_expression(
             visit(value.right)
         elif isinstance(value, ParenthesizedExpressionNode):
             visit(value.expression)
+        elif isinstance(value, SomeExpressionNode):
+            visit(value.value)
         elif isinstance(value, MemberAccessNode):
             visit(value.object)
         elif isinstance(value, CallExpressionNode):
@@ -1146,6 +1214,10 @@ def _expression_type(
         return PrimitiveTypeNode(PrimitiveKind.STRING)
     if isinstance(value, NullLiteralNode):
         return PrimitiveTypeNode(PrimitiveKind.NULL)
+    if isinstance(value, NoneLiteralNode):
+        return OptionalTypeNode(_UNKNOWN_TYPE)
+    if isinstance(value, SomeExpressionNode):
+        return OptionalTypeNode(_expression_type(value.value, symbols, bindings))
     if isinstance(value, IdentifierNode):
         if value.name in bindings:
             binding = bindings[value.name]
@@ -1204,6 +1276,8 @@ def _expression_type(
         return _expression_type(value.expression, symbols, bindings)
     if isinstance(value, UnaryExpressionNode):
         operand = _expression_type(value.operand, symbols, bindings)
+        if isinstance(operand, OptionalTypeNode):
+            raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
         expected = (
             PrimitiveTypeNode(PrimitiveKind.BOOL)
             if value.operator == UnaryOperator.NOT
@@ -1223,6 +1297,8 @@ def _expression_type(
     if isinstance(value, BinaryExpressionNode):
         left = _expression_type(value.left, symbols, bindings)
         right = _expression_type(value.right, symbols, bindings)
+        if isinstance(left, OptionalTypeNode) or isinstance(right, OptionalTypeNode):
+            raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
         if left is _UNKNOWN_TYPE or right is _UNKNOWN_TYPE:
             return _UNKNOWN_TYPE
         numeric = {
@@ -1237,6 +1313,13 @@ def _expression_type(
     if isinstance(value, ComparisonExpressionNode):
         left = _expression_type(value.left, symbols, bindings)
         right = _expression_type(value.right, symbols, bindings)
+        if isinstance(left, OptionalTypeNode) or isinstance(right, OptionalTypeNode):
+            if value.operator in {
+                ComparisonOperator.EQUAL,
+                ComparisonOperator.NOT_EQUAL,
+            } and _types_compatible(left, right):
+                return PrimitiveTypeNode(PrimitiveKind.BOOL)
+            raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
         if left is _UNKNOWN_TYPE or right is _UNKNOWN_TYPE:
             return PrimitiveTypeNode(PrimitiveKind.BOOL)
         if left != right:
@@ -1259,6 +1342,8 @@ def _expression_type(
         bool_type = PrimitiveTypeNode(PrimitiveKind.BOOL)
         left = _expression_type(value.left, symbols, bindings)
         right = _expression_type(value.right, symbols, bindings)
+        if isinstance(left, OptionalTypeNode) or isinstance(right, OptionalTypeNode):
+            raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
         if any(item is not _UNKNOWN_TYPE and item != bool_type for item in (left, right)):
             raise SurfaceValidationError("TYPE-V006 logical operands must be Bool")
         return bool_type
@@ -1285,10 +1370,14 @@ def _expression_type(
                 return field_type
         if object_type is _UNKNOWN_TYPE:
             return _UNKNOWN_TYPE
+        if isinstance(object_type, OptionalTypeNode):
+            raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
         raise SurfaceValidationError("TV-9 field access requires valid field")
     if isinstance(value, IndexAccessNode):
         collection_type = _expression_type(value.collection, symbols, bindings)
         index_type = _expression_type(value.index, symbols, bindings)
+        if isinstance(collection_type, OptionalTypeNode):
+            raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
         if isinstance(collection_type, ArrayTypeNode):
             if index_type != PrimitiveTypeNode(PrimitiveKind.INT):
                 raise SurfaceValidationError("CV5-6 index expression must be int")
@@ -1314,6 +1403,17 @@ def _require_compatible(
 ) -> None:
     if expected == actual:
         return
+    if isinstance(expected, OptionalTypeNode):
+        if isinstance(actual, OptionalTypeNode):
+            _require_type_equal(expected.inner_type, actual.inner_type, location)
+            return
+        if actual is _UNKNOWN_TYPE:
+            return
+        raise SurfaceValidationError(
+            f"OV-3 OptionalAssignmentTypeMismatch: expected {_type_name(expected)}, received {_type_name(actual)}"
+        )
+    if isinstance(actual, OptionalTypeNode):
+        raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
     if isinstance(expected, ArrayTypeNode) and isinstance(actual, ArrayTypeNode):
         _require_type_equal(expected.element_type, actual.element_type, location)
         return
@@ -1378,6 +1478,9 @@ def _validate_type_node(value: Any) -> None:
     if isinstance(value, NamedTypeNode):
         _identifier(value.name, "TV-4 NamedTypeNode.name")
         return
+    if isinstance(value, OptionalTypeNode):
+        _validate_type_node(value.inner_type)
+        return
     if isinstance(value, ArrayTypeNode):
         _validate_type_node(value.element_type)
         return
@@ -1402,6 +1505,8 @@ def _type_name(value: Any) -> str:
         return value.kind.value
     if isinstance(value, NamedTypeNode):
         return value.name
+    if isinstance(value, OptionalTypeNode):
+        return f"optional<{_type_name(value.inner_type)}>"
     if isinstance(value, ArrayTypeNode):
         return f"[{_type_name(value.element_type)}]"
     if isinstance(value, TupleTypeNode):
@@ -1454,9 +1559,45 @@ def _homogeneous_type(
         if first is _UNKNOWN_TYPE:
             first = current
             continue
-        if current is not _UNKNOWN_TYPE and current != first:
+        if current is not _UNKNOWN_TYPE and not _types_compatible(first, current):
             raise SurfaceValidationError(f"{code} collection element type mismatch")
+        first = _merge_type(first, current)
     return first
+
+
+def _merge_type(left: Any, right: Any) -> Any:
+    if left is _UNKNOWN_TYPE:
+        return right
+    if right is _UNKNOWN_TYPE:
+        return left
+    if isinstance(left, OptionalTypeNode) and isinstance(right, OptionalTypeNode):
+        return OptionalTypeNode(_merge_type(left.inner_type, right.inner_type))
+    return left
+
+
+def _contains_none_literal(value: Any) -> bool:
+    if isinstance(value, NoneLiteralNode):
+        return True
+    if is_dataclass(value) and not isinstance(value, type):
+        return any(_contains_none_literal(getattr(value, field.name)) for field in fields(value))
+    if isinstance(value, (tuple, list)):
+        return any(_contains_none_literal(item) for item in value)
+    return False
+
+
+def _contains_uncontextual_none_literal(value: Any) -> bool:
+    if isinstance(value, NoneLiteralNode):
+        return True
+    if isinstance(value, StructLiteralNode):
+        return False
+    if is_dataclass(value) and not isinstance(value, type):
+        return any(
+            _contains_uncontextual_none_literal(getattr(value, field.name))
+            for field in fields(value)
+        )
+    if isinstance(value, (tuple, list)):
+        return any(_contains_uncontextual_none_literal(item) for item in value)
+    return False
 
 
 def _literal_key(value: ExpressionNode) -> Any:
@@ -1521,9 +1662,49 @@ def _require_map_key_type(value: Any) -> None:
 def _require_type_equal(expected: Any, actual: Any, location: str) -> None:
     if expected is _UNKNOWN_TYPE or actual is _UNKNOWN_TYPE or expected == actual:
         return
+    if isinstance(expected, OptionalTypeNode) and isinstance(actual, OptionalTypeNode):
+        _require_type_equal(expected.inner_type, actual.inner_type, location)
+        return
+    if isinstance(expected, ArrayTypeNode) and isinstance(actual, ArrayTypeNode):
+        _require_type_equal(expected.element_type, actual.element_type, location)
+        return
+    if isinstance(expected, SetTypeNode) and isinstance(actual, SetTypeNode):
+        _require_type_equal(expected.element_type, actual.element_type, location)
+        return
+    if isinstance(expected, MapTypeNode) and isinstance(actual, MapTypeNode):
+        _require_type_equal(expected.key_type, actual.key_type, location)
+        _require_type_equal(expected.value_type, actual.value_type, location)
+        return
+    if isinstance(expected, TupleTypeNode) and isinstance(actual, TupleTypeNode):
+        if len(expected.element_types) != len(actual.element_types):
+            raise SurfaceValidationError("CV5-2 tuple size mismatch")
+        for left, right in zip(expected.element_types, actual.element_types):
+            _require_type_equal(left, right, location)
+        return
     raise SurfaceValidationError(
         f"{location}: expected {_type_name(expected)}, received {_type_name(actual)}"
     )
+
+
+def _types_compatible(left: Any, right: Any) -> bool:
+    if left is _UNKNOWN_TYPE or right is _UNKNOWN_TYPE or left == right:
+        return True
+    if isinstance(left, OptionalTypeNode) and isinstance(right, OptionalTypeNode):
+        return _types_compatible(left.inner_type, right.inner_type)
+    if isinstance(left, ArrayTypeNode) and isinstance(right, ArrayTypeNode):
+        return _types_compatible(left.element_type, right.element_type)
+    if isinstance(left, SetTypeNode) and isinstance(right, SetTypeNode):
+        return _types_compatible(left.element_type, right.element_type)
+    if isinstance(left, MapTypeNode) and isinstance(right, MapTypeNode):
+        return _types_compatible(left.key_type, right.key_type) and _types_compatible(
+            left.value_type, right.value_type
+        )
+    if isinstance(left, TupleTypeNode) and isinstance(right, TupleTypeNode):
+        return len(left.element_types) == len(right.element_types) and all(
+            _types_compatible(left_item, right_item)
+            for left_item, right_item in zip(left.element_types, right.element_types)
+        )
+    return False
 
 
 def _resolve_type(value: Any, symbols: dict[str, Any]) -> None:
@@ -1535,6 +1716,9 @@ def _resolve_type(value: Any, symbols: dict[str, Any]) -> None:
             raise SurfaceValidationError(
                 f"TYPE-V001 TV-4 unresolved composite type: {value.name}"
             )
+        return
+    if isinstance(value, OptionalTypeNode):
+        _resolve_type(value.inner_type, symbols)
         return
     if isinstance(value, ArrayTypeNode):
         _resolve_type(value.element_type, symbols)
@@ -1722,6 +1906,39 @@ def _validate_enum_match_exhaustiveness(
         raise SurfaceValidationError("TV-7 NonExhaustiveMatch")
 
 
+def _validate_optional_match_exhaustiveness(
+    node: MatchStatementNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    optional_type = _expression_type(node.expression.expression, symbols, bindings)
+    if not isinstance(optional_type, OptionalTypeNode):
+        return
+    keys = {_pattern_key(arm.pattern) for arm in node.arms}
+    if any(key[0] == "wildcard" for key in keys):
+        return
+    matched = {key[1] for key in keys if key[0] == "optional"}
+    if {"Some", "None"} - matched:
+        raise SurfaceValidationError("OV-5 NonExhaustiveOptionalMatch")
+
+
+def _match_arm_bindings(
+    node: MatchStatementNode,
+    pattern: PatternNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> dict[str, _Binding]:
+    match_type = _expression_type(node.expression.expression, symbols, bindings)
+    pattern_value = pattern.pattern
+    if not isinstance(match_type, OptionalTypeNode) or not isinstance(
+        pattern_value, OptionalPatternNode
+    ):
+        return {}
+    if pattern_value.kind == "Some" and pattern_value.binding is not None:
+        return {pattern_value.binding: _Binding(match_type.inner_type, mutable=False)}
+    return {}
+
+
 def _validate_node_types(value: Any) -> None:
     if is_dataclass(value) and not isinstance(value, type):
         if not isinstance(value, KNOWN_NODE_TYPES):
@@ -1770,8 +1987,12 @@ def _expression_value(value: Any) -> None:
             raise SurfaceValidationError(
                 "EX-V001 IntegerLiteralNode.value must fit int64"
             )
-    elif isinstance(value, (BooleanLiteralNode, StringLiteralNode, NullLiteralNode)):
+    elif isinstance(
+        value, (BooleanLiteralNode, StringLiteralNode, NullLiteralNode, NoneLiteralNode)
+    ):
         return
+    elif isinstance(value, SomeExpressionNode):
+        _expression_value(value.value)
     elif isinstance(value, FloatLiteralNode):
         if not isinstance(value.value, float) or not math.isfinite(value.value):
             raise SurfaceValidationError("EX-V001 FloatLiteralNode.value is invalid")
@@ -1862,6 +2083,17 @@ def _pattern(value: PatternNode) -> None:
         _identifier(pattern.enum_name, "TV-7 EnumValuePatternNode.enum_name")
         _identifier(pattern.value_name, "TV-7 EnumValuePatternNode.value_name")
         return
+    if isinstance(pattern, OptionalPatternNode):
+        if pattern.kind == "Some":
+            if pattern.binding is None:
+                raise SurfaceValidationError("OV-6 SomePatternBindingRequired")
+            _identifier(pattern.binding, "OV-6 OptionalPatternNode.binding")
+            return
+        if pattern.kind == "None":
+            if pattern.binding is not None:
+                raise SurfaceValidationError("OV-6 NonePatternCannotBind")
+            return
+        raise SurfaceValidationError("OV-6 invalid optional pattern")
     raise SurfaceValidationError(
         f"PT-V001 unknown pattern type: {type(pattern).__name__}"
     )
@@ -1884,4 +2116,6 @@ def _pattern_key(value: PatternNode) -> tuple[str, Any]:
             type(literal).__name__,
             getattr(literal, "value", None),
         )
+    if isinstance(pattern, OptionalPatternNode):
+        return ("optional", pattern.kind, pattern.binding)
     return ("unknown", type(pattern).__name__)

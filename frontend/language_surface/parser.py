@@ -42,6 +42,7 @@ from .nodes import (
     ModuleNode,
     NamedTypeNode,
     ObjectNode,
+    OptionalTypeNode,
     ProgramNode,
     PrimitiveKind,
     PrimitiveTypeNode,
@@ -311,7 +312,7 @@ def _parse_struct(cursor: _Cursor) -> StructDeclarationNode:
         line = cursor.take()
         if line == "}":
             return StructDeclarationNode(match.group(1), tuple(fields))
-        field = re.fullmatch(r"([A-Za-z_]\w*)\s*:\s*([A-Za-z_]\w*)", line)
+        field = re.fullmatch(r"([A-Za-z_]\w*)\s*:\s*(.+)", line)
         if not field:
             raise SurfaceSyntaxError("TV-4 FieldTypeRequired")
         fields.append(StructFieldNode(field.group(1), _type_annotation(field.group(2))))
@@ -336,7 +337,8 @@ def _parse_enum(cursor: _Cursor) -> EnumDeclarationNode:
 
 def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
     match = re.fullmatch(
-        r"(?:(pub)\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{",
+        r"(?:(pub)\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)"
+        r"(?:\s*:\s*(.+?))?\s*\{",
         cursor.take(),
     )
     if not match:
@@ -344,7 +346,13 @@ def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
     parameters = _parameters(match.group(3))
     body = _parse_body(cursor, context="function")
     visibility = Visibility.PUBLIC if match.group(1) else Visibility.PRIVATE
-    return FunctionDeclarationNode(match.group(2), parameters, tuple(body), visibility)
+    return FunctionDeclarationNode(
+        match.group(2),
+        parameters,
+        tuple(body),
+        visibility,
+        _type_annotation(match.group(4)) if match.group(4) else None,
+    )
 
 
 def _parse_for(cursor: _Cursor, *, context: str) -> ForStatementNode:
@@ -561,6 +569,9 @@ def _type_annotation(source: str):
     source = source.strip()
     if source.startswith("[") and source.endswith("]"):
         return ArrayTypeNode(_type_annotation(source[1:-1]))
+    optional_match = re.fullmatch(r"optional\s*<\s*(.+)\s*>", source)
+    if optional_match:
+        return OptionalTypeNode(_type_annotation(optional_match.group(1)))
     if source.startswith("(") and source.endswith(")"):
         inner = source[1:-1].strip()
         if not inner:

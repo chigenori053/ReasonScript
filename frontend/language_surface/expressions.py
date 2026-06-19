@@ -26,11 +26,14 @@ from .nodes import (
     LogicalExpressionNode,
     LogicalOperator,
     MemberAccessNode,
+    NoneLiteralNode,
     NullLiteralNode,
+    OptionalPatternNode,
     ParenthesizedExpressionNode,
     PatternNode,
     QualifiedIdentifierNode,
     StringLiteralNode,
+    SomeExpressionNode,
     TupleLiteralNode,
     UnaryExpressionNode,
     UnaryOperator,
@@ -98,6 +101,11 @@ def parse_pattern(source: str) -> PatternNode:
         raise ExpressionSyntaxError("PT-V001 pattern is required")
     if text == "_":
         return PatternNode(WildcardPatternNode())
+    if text == "none":
+        return PatternNode(OptionalPatternNode("None"))
+    some_match = re.fullmatch(r"some\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", text)
+    if some_match:
+        return PatternNode(OptionalPatternNode("Some", some_match.group(1)))
     expression = parse_expression(text).expression
     if isinstance(expression, IdentifierNode):
         return PatternNode(IdentifierPatternNode(expression.name))
@@ -174,6 +182,8 @@ class _Parser:
                 return BooleanLiteralNode(False)
             if token.value == "null":
                 return NullLiteralNode()
+            if token.value == "none":
+                return NoneLiteralNode()
             if self.current.kind == _Kind.QUALIFIER:
                 parts = [token.value]
                 while self.current.kind == _Kind.QUALIFIER:
@@ -253,6 +263,8 @@ class _Parser:
         arguments: list[Expression] = []
         if self.current.kind == _Kind.RIGHT_PAREN:
             self.take()
+            if isinstance(callee, IdentifierNode) and callee.name == "some":
+                raise ExpressionSyntaxError("OV-2 some requires one argument")
             return CallExpressionNode(callee, ())
         while True:
             if self.current.kind in {_Kind.COMMA, _Kind.EOF}:
@@ -260,6 +272,10 @@ class _Parser:
             arguments.append(self.parse(0))
             if self.current.kind == _Kind.RIGHT_PAREN:
                 self.take()
+                if isinstance(callee, IdentifierNode) and callee.name == "some":
+                    if len(arguments) != 1:
+                        raise ExpressionSyntaxError("OV-2 some requires one argument")
+                    return SomeExpressionNode(arguments[0])
                 return CallExpressionNode(callee, tuple(arguments))
             if self.current.kind != _Kind.COMMA:
                 raise ExpressionSyntaxError("EX-V004 call requires comma or closing parenthesis")

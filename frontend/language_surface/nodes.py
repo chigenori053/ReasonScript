@@ -104,6 +104,11 @@ class MapTypeNode:
     value_type: "TypeNode"
 
 
+@dataclass(frozen=True)
+class OptionalTypeNode:
+    inner_type: "TypeNode"
+
+
 TypeNode: TypeAlias = (
     PrimitiveTypeNode
     | StateTypeNode
@@ -112,6 +117,7 @@ TypeNode: TypeAlias = (
     | TupleTypeNode
     | SetTypeNode
     | MapTypeNode
+    | OptionalTypeNode
 )
 
 
@@ -137,6 +143,11 @@ class StringLiteralNode:
 
 @dataclass(frozen=True)
 class NullLiteralNode:
+    pass
+
+
+@dataclass(frozen=True)
+class NoneLiteralNode:
     pass
 
 
@@ -240,12 +251,18 @@ class IndexAccessNode:
     index: "Expression"
 
 
+@dataclass(frozen=True)
+class SomeExpressionNode:
+    value: "Expression"
+
+
 Expression: TypeAlias = (
     IntegerLiteralNode
     | FloatLiteralNode
     | BooleanLiteralNode
     | StringLiteralNode
     | NullLiteralNode
+    | NoneLiteralNode
     | IdentifierNode
     | QualifiedIdentifierNode
     | UnaryExpressionNode
@@ -261,6 +278,7 @@ Expression: TypeAlias = (
     | SetLiteralNode
     | MapLiteralNode
     | IndexAccessNode
+    | SomeExpressionNode
 )
 
 
@@ -296,11 +314,18 @@ class EnumValuePatternNode:
     value_name: str
 
 
+@dataclass(frozen=True)
+class OptionalPatternNode:
+    kind: str
+    binding: str | None = None
+
+
 Pattern: TypeAlias = (
     IdentifierPatternNode
     | WildcardPatternNode
     | LiteralPatternNode
     | EnumValuePatternNode
+    | OptionalPatternNode
 )
 
 
@@ -561,6 +586,7 @@ class FunctionDeclarationNode:
     parameters: tuple[str, ...]
     body: tuple[StatementNode, ...]
     visibility: Visibility = Visibility.PRIVATE
+    return_type: TypeNode | None = None
 
 
 AstNode: TypeAlias = (
@@ -614,6 +640,7 @@ _NODE_TYPES = {
         FieldAssignmentStatementNode,
         IndexAssignmentStatementNode,
         IndexAccessNode,
+        SomeExpressionNode,
         ElseIfStatementNode,
         ElseStatementNode,
         EventNode,
@@ -645,8 +672,11 @@ _NODE_TYPES = {
         MemberAccessNode,
         ModuleNode,
         NamedTypeNode,
+        NoneLiteralNode,
         NullLiteralNode,
         ObjectNode,
+        OptionalPatternNode,
+        OptionalTypeNode,
         ParenthesizedExpressionNode,
         PatternNode,
         PrimitiveTypeNode,
@@ -762,6 +792,7 @@ def type_from_json(value: Mapping[str, Any]) -> TypeNode:
             TupleTypeNode,
             SetTypeNode,
             MapTypeNode,
+            OptionalTypeNode,
         ),
     ):
         raise ValueError("document must contain TypeNode")
@@ -810,6 +841,8 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
             _from_json_node(value["key_type"]),
             _from_json_node(value["value_type"]),
         )
+    if node_type == "OptionalTypeNode":
+        return OptionalTypeNode(_from_json_node(value["inner_type"]))
     if node_type == "IntegerLiteralNode":
         return IntegerLiteralNode(value["value"])
     if node_type == "FloatLiteralNode":
@@ -820,6 +853,8 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return StringLiteralNode(value["value"])
     if node_type == "NullLiteralNode":
         return NullLiteralNode()
+    if node_type == "NoneLiteralNode":
+        return NoneLiteralNode()
     if node_type == "IdentifierNode":
         return IdentifierNode(value["name"])
     if node_type == "QualifiedIdentifierNode":
@@ -896,6 +931,8 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
             _from_json_node(value["collection"]),
             _from_json_node(value["index"]),
         )
+    if node_type == "SomeExpressionNode":
+        return SomeExpressionNode(_from_json_node(value["value"]))
     if node_type == "IdentifierPatternNode":
         return IdentifierPatternNode(value["name"])
     if node_type == "WildcardPatternNode":
@@ -904,6 +941,8 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return LiteralPatternNode(_from_json_node(value["value"]))
     if node_type == "EnumValuePatternNode":
         return EnumValuePatternNode(value["enum_name"], value["value_name"])
+    if node_type == "OptionalPatternNode":
+        return OptionalPatternNode(value["kind"], value.get("binding"))
     if node_type == "ImportNode":
         return ImportNode(
             tuple(value["path"]),
@@ -1064,5 +1103,10 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
             tuple(value["parameters"]),
             tuple(_from_json_node(item) for item in value["body"]),
             Visibility(value.get("visibility", Visibility.PRIVATE.value)),
+            (
+                _from_json_node(value["return_type"])
+                if value.get("return_type")
+                else None
+            ),
         )
     raise AssertionError(f"unhandled surface node_type: {node_type}")

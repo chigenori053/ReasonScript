@@ -36,6 +36,7 @@ from .nodes import (
     LoopStatementNode,
     MapLiteralNode,
     MemberAccessNode,
+    NoneLiteralNode,
     ModuleNode,
     ProgramNode,
     ReachStatementNode,
@@ -44,6 +45,7 @@ from .nodes import (
     ResultStatementNode,
     ReturnStatementNode,
     SetLiteralNode,
+    SomeExpressionNode,
     StructDeclarationNode,
     StructLiteralNode,
     TransitionNode,
@@ -283,6 +285,10 @@ def _expression_relation(expression: ExpressionNode) -> str:
         return "SetTransition"
     if isinstance(value, MapLiteralNode):
         return "MapTransition"
+    if isinstance(value, SomeExpressionNode):
+        return "SomeTransition"
+    if isinstance(value, NoneLiteralNode):
+        return "NoneTransition"
     if isinstance(value, CallExpressionNode):
         return "CallTransition"
     return "ExpressionTransition"
