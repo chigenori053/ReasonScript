@@ -59,6 +59,7 @@ WORLD_TYPES = (
     "SimulationTrace",
 )
 PLANNING_TYPES = ("Goal", "Planner", "Plan", "PlanStep", "PlanResult")
+AGENT_TYPES = ("Agent", "Task", "Decision", "Action", "Tool", "AgentResult")
 REASONING_TYPES = ("Goal", "State", "Constraint", "ReasonGraph", "ExecutionPlan")
 BUILTIN_SYMBOLS = tuple(
     Symbol(
@@ -68,6 +69,8 @@ BUILTIN_SYMBOLS = tuple(
             if name.startswith("runtime.")
             else "PlanningType"
             if name in PLANNING_TYPES
+            else "AgentType"
+            if name in AGENT_TYPES
             else "WorldType"
         ),
         module=(
@@ -75,13 +78,15 @@ BUILTIN_SYMBOLS = tuple(
             if name.startswith("runtime.")
             else "planning"
             if name in PLANNING_TYPES
+            else "agent"
+            if name in AGENT_TYPES
             else "world"
         ),
         visibility="Public",
         location=Location("builtin://reasonscript-lsp", point_range(0, 0)),
         detail="ReasonScript built-in symbol",
     )
-    for name in (*RUNTIME_APIS, *WORLD_TYPES, *PLANNING_TYPES)
+    for name in (*RUNTIME_APIS, *WORLD_TYPES, *PLANNING_TYPES, *AGENT_TYPES)
 )
 
 
@@ -258,6 +263,7 @@ class ReasonScriptLanguageServer:
                 *(CompletionItem(label, "RuntimeAPI") for label in RUNTIME_APIS),
                 *(CompletionItem(label, "WorldType") for label in WORLD_TYPES),
                 *(CompletionItem(label, "PlanningType") for label in PLANNING_TYPES),
+                *(CompletionItem(label, "AgentType") for label in AGENT_TYPES),
                 *(CompletionItem(label, "ReasoningType") for label in REASONING_TYPES),
                 *symbol_items,
             ]
@@ -334,7 +340,7 @@ class ReasonScriptLanguageServer:
         return state
 
     def _resolve_token(self, uri: str, token: str, line: int) -> Symbol | None:
-        if token in RUNTIME_APIS or token in WORLD_TYPES or token in PLANNING_TYPES:
+        if token in RUNTIME_APIS or token in WORLD_TYPES or token in PLANNING_TYPES or token in AGENT_TYPES:
             return next(symbol for symbol in BUILTIN_SYMBOLS if symbol.name == token)
         name = token.split(".")[-1].split("::")[-1]
         module = _module_for_line(self.documents[uri].text, line)
