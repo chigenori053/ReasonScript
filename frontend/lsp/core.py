@@ -58,17 +58,30 @@ WORLD_TYPES = (
     "SceneTemplate",
     "SimulationTrace",
 )
+PLANNING_TYPES = ("Goal", "Planner", "Plan", "PlanStep", "PlanResult")
 REASONING_TYPES = ("Goal", "State", "Constraint", "ReasonGraph", "ExecutionPlan")
 BUILTIN_SYMBOLS = tuple(
     Symbol(
         name=name,
-        kind="RuntimeAPI" if name.startswith("runtime.") else "WorldType",
-        module="runtime" if name.startswith("runtime.") else "world",
+        kind=(
+            "RuntimeAPI"
+            if name.startswith("runtime.")
+            else "PlanningType"
+            if name in PLANNING_TYPES
+            else "WorldType"
+        ),
+        module=(
+            "runtime"
+            if name.startswith("runtime.")
+            else "planning"
+            if name in PLANNING_TYPES
+            else "world"
+        ),
         visibility="Public",
         location=Location("builtin://reasonscript-lsp", point_range(0, 0)),
         detail="ReasonScript built-in symbol",
     )
-    for name in (*RUNTIME_APIS, *WORLD_TYPES)
+    for name in (*RUNTIME_APIS, *WORLD_TYPES, *PLANNING_TYPES)
 )
 
 
@@ -244,6 +257,7 @@ class ReasonScriptLanguageServer:
                 *(CompletionItem(label, "Keyword") for label in KEYWORD_COMPLETIONS),
                 *(CompletionItem(label, "RuntimeAPI") for label in RUNTIME_APIS),
                 *(CompletionItem(label, "WorldType") for label in WORLD_TYPES),
+                *(CompletionItem(label, "PlanningType") for label in PLANNING_TYPES),
                 *(CompletionItem(label, "ReasoningType") for label in REASONING_TYPES),
                 *symbol_items,
             ]
@@ -320,7 +334,7 @@ class ReasonScriptLanguageServer:
         return state
 
     def _resolve_token(self, uri: str, token: str, line: int) -> Symbol | None:
-        if token in RUNTIME_APIS or token in WORLD_TYPES:
+        if token in RUNTIME_APIS or token in WORLD_TYPES or token in PLANNING_TYPES:
             return next(symbol for symbol in BUILTIN_SYMBOLS if symbol.name == token)
         name = token.split(".")[-1].split("::")[-1]
         module = _module_for_line(self.documents[uri].text, line)
