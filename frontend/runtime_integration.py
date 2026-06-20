@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
+EXECUTION_ARCHITECTURE_SCHEMA = "reasonscript-execution-architecture/1.1"
 RUNTIME_OPERATION_METHODS = {"search", "simulate", "predict", "plan"}
 REASONING_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -27,6 +28,19 @@ class RuntimeIntegrationErrorCode:
     EXECUTION_PLAN_INCOMPATIBLE = "RI2-5 ExecutionPlan compatibility failed"
     TRACE_MISSING = "RI2-6 Runtime trace missing"
     REASONING_TYPE_CONVERSION_FAILED = "ReasoningTypeConversionFailed"
+
+
+class ExecutionFailureType:
+    VALIDATION_FAILED = "ValidationFailed"
+    STACK_OVERFLOW = "StackOverflow"
+    RUNTIME_FAILURE = "RuntimeFailure"
+
+
+class CallFrameStatus:
+    ACTIVE = "Active"
+    RETURNING = "Returning"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
 
 
 @dataclass(frozen=True)
@@ -96,6 +110,187 @@ class RuntimeValue:
     @staticmethod
     def execution_plan(value: dict[str, Any]) -> "RuntimeValue":
         return RuntimeValue("ExecutionPlanValue", value)
+
+
+@dataclass(frozen=True)
+class ExecutionDiagnostics:
+    entries: tuple[str, ...] = ()
+
+    def add(self, diagnostic: str) -> "ExecutionDiagnostics":
+        return ExecutionDiagnostics(self.entries + (diagnostic,))
+
+    def extend(self, diagnostics: tuple[str, ...] | list[str]) -> "ExecutionDiagnostics":
+        return ExecutionDiagnostics(self.entries + tuple(diagnostics))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": EXECUTION_ARCHITECTURE_SCHEMA,
+            "entries": list(self.entries),
+        }
+
+
+@dataclass(frozen=True)
+class ExecutionFailure:
+    failure_type: str
+    message: str
+    diagnostics: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": EXECUTION_ARCHITECTURE_SCHEMA,
+            "type": self.failure_type,
+            "message": self.message,
+            "diagnostics": list(self.diagnostics),
+        }
+
+
+@dataclass(frozen=True)
+class CallFrame:
+    frame_id: str
+    function_name: str
+    arguments: tuple[RuntimeValue, ...] = ()
+    parameter_bindings: dict[str, RuntimeValue] = field(default_factory=dict)
+    local_scope: dict[str, RuntimeValue] = field(default_factory=dict)
+    return_target: str | None = None
+    return_value: RuntimeValue | None = None
+    status: str = CallFrameStatus.ACTIVE
+
+    @staticmethod
+    def create(
+        frame_id: str,
+        function_name: str,
+        parameters: tuple[str, ...] | list[str] = (),
+        arguments: tuple[RuntimeValue, ...] | list[RuntimeValue] = (),
+        *,
+        return_target: str | None = None,
+    ) -> "CallFrame":
+        args = tuple(arguments)
+        names = tuple(parameters)
+        bindings = {name: args[index] for index, name in enumerate(names) if index < len(args)}
+        return CallFrame(
+            frame_id=frame_id,
+            function_name=function_name,
+            arguments=args,
+            parameter_bindings=bindings,
+            local_scope=dict(bindings),
+            return_target=return_target,
+        )
+
+    def bind_temporary(self, name: str, value: RuntimeValue) -> "CallFrame":
+        scope = dict(self.local_scope)
+        scope[name] = value
+        return CallFrame(
+            self.frame_id,
+            self.function_name,
+            self.arguments,
+            dict(self.parameter_bindings),
+            scope,
+            self.return_target,
+            self.return_value,
+            self.status,
+        )
+
+    def returning(self, value: RuntimeValue | None) -> "CallFrame":
+        return CallFrame(
+            self.frame_id,
+            self.function_name,
+            self.arguments,
+            dict(self.parameter_bindings),
+            dict(self.local_scope),
+            self.return_target,
+            value,
+            CallFrameStatus.RETURNING,
+        )
+
+    def completed(self) -> "CallFrame":
+        return CallFrame(
+            self.frame_id,
+            self.function_name,
+            self.arguments,
+            dict(self.parameter_bindings),
+            dict(self.local_scope),
+            self.return_target,
+            self.return_value,
+            CallFrameStatus.COMPLETED,
+        )
+
+    def failed(self) -> "CallFrame":
+        return CallFrame(
+            self.frame_id,
+            self.function_name,
+            self.arguments,
+            dict(self.parameter_bindings),
+            dict(self.local_scope),
+            self.return_target,
+            self.return_value,
+            CallFrameStatus.FAILED,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": EXECUTION_ARCHITECTURE_SCHEMA,
+            "frame_id": self.frame_id,
+            "function_name": self.function_name,
+            "arguments": [runtime_value_to_plain(argument) for argument in self.arguments],
+            "parameter_bindings": {
+                name: runtime_value_to_plain(value)
+                for name, value in sorted(self.parameter_bindings.items())
+            },
+            "local_scope": {
+                name: runtime_value_to_plain(value)
+                for name, value in sorted(self.local_scope.items())
+            },
+            "return_target": self.return_target,
+            "return_value": runtime_value_to_plain(self.return_value),
+            "status": self.status,
+        }
+
+
+@dataclass(frozen=True)
+class CallStack:
+    frames: tuple[CallFrame, ...] = ()
+    max_depth: int = 64
+    overflow_policy: str = "FailFast"
+
+    def push(self, frame: CallFrame) -> "CallStack":
+        if self.depth() >= self.max_depth:
+            raise StackOverflow(f"maximum call stack depth exceeded: {self.max_depth}")
+        return CallStack(self.frames + (frame,), self.max_depth, self.overflow_policy)
+
+    def pop(self) -> tuple["CallStack", CallFrame]:
+        if not self.frames:
+            raise ExecutionArchitectureError("cannot pop an empty call stack")
+        return CallStack(self.frames[:-1], self.max_depth, self.overflow_policy), self.frames[-1]
+
+    def replace_current(self, frame: CallFrame) -> "CallStack":
+        if not self.frames:
+            raise ExecutionArchitectureError("cannot replace current frame on empty call stack")
+        return CallStack(self.frames[:-1] + (frame,), self.max_depth, self.overflow_policy)
+
+    def current(self) -> CallFrame | None:
+        return self.frames[-1] if self.frames else None
+
+    def depth(self) -> int:
+        return len(self.frames)
+
+    def is_empty(self) -> bool:
+        return not self.frames
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": EXECUTION_ARCHITECTURE_SCHEMA,
+            "max_depth": self.max_depth,
+            "overflow_policy": self.overflow_policy,
+            "frames": [frame.to_dict() for frame in self.frames],
+        }
+
+
+class ExecutionArchitectureError(RuntimeError):
+    pass
+
+
+class StackOverflow(ExecutionArchitectureError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -274,6 +469,240 @@ class RuntimeExecutionReport:
     results: tuple[RuntimeOperationResult, ...]
     diagnostics: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ExecutionRequest:
+    request_id: str
+    source_module: str | None = None
+    reason_ir: dict[str, Any] | None = None
+    execution_plan: dict[str, Any] | None = None
+    runtime_registry: RuntimeEngineRegistry | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": EXECUTION_ARCHITECTURE_SCHEMA,
+            "request_id": self.request_id,
+            "source_module": self.source_module,
+            "reason_ir": self.reason_ir,
+            "execution_plan": self.execution_plan,
+            "runtime_registry": {
+                "backend": self.runtime_registry.backend,
+                "capabilities": _registry_capabilities(self.runtime_registry),
+            }
+            if self.runtime_registry is not None
+            else None,
+            "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True)
+class ExecutionResult:
+    request_id: str
+    status: str
+    call_stack_trace: tuple[dict[str, Any], ...] = ()
+    runtime_results: tuple[RuntimeOperationResult, ...] = ()
+    diagnostics: tuple[str, ...] = ()
+    trace: tuple[dict[str, Any], ...] = ()
+    final_result: Any = None
+    failure: ExecutionFailure | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": EXECUTION_ARCHITECTURE_SCHEMA,
+            "request_id": self.request_id,
+            "status": self.status,
+            "call_stack_trace": list(self.call_stack_trace),
+            "runtime_results": [
+                {
+                    "operation": result.operation,
+                    "language_value": runtime_value_to_plain(result.language_value),
+                    "diagnostics": list(result.diagnostics),
+                    "trace": list(result.trace),
+                    "execution_plan": result.execution_plan,
+                    "engine": result.engine,
+                }
+                for result in self.runtime_results
+            ],
+            "diagnostics": list(self.diagnostics),
+            "trace": list(self.trace),
+            "final_result": self.final_result,
+            "failure": self.failure.to_dict() if self.failure is not None else None,
+        }
+
+
+@dataclass(frozen=True)
+class ExecutionCoordinator:
+    runtime_registry: RuntimeEngineRegistry
+    max_stack_depth: int = 64
+
+    def execute(self, request: ExecutionRequest) -> ExecutionResult:
+        trace: list[dict[str, Any]] = [
+            _coordinator_trace("request_created", request_id=request.request_id)
+        ]
+        diagnostics: list[str] = []
+        call_stack_trace: list[dict[str, Any]] = []
+
+        validation_failure = self._validate_request(request)
+        if validation_failure is not None:
+            diagnostics.extend(validation_failure.diagnostics)
+            trace.append(
+                _coordinator_trace(
+                    "diagnostic",
+                    request_id=request.request_id,
+                    diagnostic=validation_failure.message,
+                )
+            )
+            return ExecutionResult(
+                request.request_id,
+                "failed",
+                tuple(call_stack_trace),
+                (),
+                tuple(diagnostics),
+                tuple(trace),
+                None,
+                validation_failure,
+            )
+
+        trace.append(_coordinator_trace("context_frozen", request_id=request.request_id))
+        trace.append(_coordinator_trace("plan_validated", request_id=request.request_id))
+
+        call_stack = CallStack(max_depth=self.max_stack_depth)
+        try:
+            frame = CallFrame.create(
+                "frame-1",
+                str(request.metadata.get("entry_function", "execution")),
+                tuple(request.metadata.get("parameters", ())),
+                tuple(request.metadata.get("arguments", ())),
+                return_target=request.metadata.get("return_target"),
+            )
+            call_stack = call_stack.push(frame)
+        except StackOverflow as error:
+            failure = ExecutionFailure(
+                ExecutionFailureType.STACK_OVERFLOW,
+                str(error),
+                (str(error),),
+            )
+            return ExecutionResult(
+                request.request_id,
+                "failed",
+                tuple(call_stack_trace),
+                (),
+                failure.diagnostics,
+                tuple(trace + [_coordinator_trace("stack_overflow", request_id=request.request_id)]),
+                None,
+                failure,
+            )
+
+        call_stack_trace.append(
+            _call_stack_event("push", call_stack.current(), call_stack.depth())
+        )
+        trace.append(_coordinator_trace("call_stack_initialized", request_id=request.request_id))
+
+        report = execute_runtime_operations_with_registry(
+            request.reason_ir or {}, request.runtime_registry or self.runtime_registry
+        )
+        diagnostics.extend(report.diagnostics)
+        for result in report.results:
+            current = call_stack.current()
+            if current is None:
+                break
+            current = current.bind_temporary(
+                f"runtime.{result.operation}", result.language_value
+            )
+            call_stack = call_stack.replace_current(current)
+            call_stack_trace.append(
+                _call_stack_event("runtime_result", current, call_stack.depth(), result.operation)
+            )
+            trace.append(
+                _coordinator_trace(
+                    "runtime_call",
+                    request_id=request.request_id,
+                    operation=result.operation,
+                    diagnostics=list(result.diagnostics),
+                    trace=list(result.trace),
+                )
+            )
+
+        current = call_stack.current()
+        if current is not None:
+            if diagnostics:
+                current = current.failed()
+                call_stack = call_stack.replace_current(current)
+                call_stack_trace.append(
+                    _call_stack_event("failed", current, call_stack.depth())
+                )
+            else:
+                final_value = report.results[-1].language_value if report.results else None
+                current = current.returning(final_value).completed()
+                call_stack = call_stack.replace_current(current)
+                call_stack_trace.append(
+                    _call_stack_event("return", current, call_stack.depth())
+                )
+            call_stack, popped = call_stack.pop()
+            call_stack_trace.append(_call_stack_event("pop", popped, call_stack.depth()))
+
+        status = "failed" if diagnostics else "completed"
+        failure = (
+            ExecutionFailure(
+                ExecutionFailureType.RUNTIME_FAILURE,
+                "runtime execution produced diagnostics",
+                tuple(diagnostics),
+            )
+            if diagnostics
+            else None
+        )
+        final_result = _execution_final_result(report)
+        trace.append(
+            _coordinator_trace(
+                "result_assembled",
+                request_id=request.request_id,
+                status=status,
+                diagnostics=diagnostics,
+            )
+        )
+        return ExecutionResult(
+            request.request_id,
+            status,
+            tuple(call_stack_trace),
+            report.results,
+            tuple(diagnostics),
+            tuple(trace),
+            final_result,
+            failure,
+        )
+
+    def _validate_request(self, request: ExecutionRequest) -> ExecutionFailure | None:
+        diagnostics: list[str] = []
+        if not request.request_id:
+            diagnostics.append("EA1-003 request_id is required")
+        if request.reason_ir is None or not isinstance(request.reason_ir, dict):
+            diagnostics.append("EA1-003 Reason IR must be a dictionary")
+        if request.execution_plan is not None:
+            try:
+                _validate_execution_plan(request.execution_plan)
+            except ValueError as error:
+                diagnostics.append(f"EA1-003 invalid ExecutionPlan: {error}")
+        registry = request.runtime_registry or self.runtime_registry
+        try:
+            operations = _runtime_operations(request.reason_ir or {})
+        except ValueError as error:
+            operations = ()
+            diagnostics.append(f"EA1-003 invalid Runtime metadata: {error}")
+        for operation in operations:
+            method = operation.get("operation") or operation.get("method")
+            if method in RUNTIME_OPERATION_METHODS and _engine_name_for_operation(registry, method) is None:
+                diagnostics.append(f"EA1-003 missing runtime capability: {method}")
+        if self.max_stack_depth < 1:
+            diagnostics.append("EA1-003 CallStack max_depth must be positive")
+        if diagnostics:
+            return ExecutionFailure(
+                ExecutionFailureType.VALIDATION_FAILED,
+                "coordinator validation failed",
+                tuple(diagnostics),
+            )
+        return None
 
 
 def execute_runtime_operations(
@@ -668,6 +1097,51 @@ def _engine_name_for_operation(
         "plan": registry.planning_engine,
     }.get(operation)
     return getattr(engine, "engine_name", None) if engine is not None else None
+
+
+def _registry_capabilities(registry: RuntimeEngineRegistry) -> list[str]:
+    return [
+        operation
+        for operation in ("search", "simulate", "predict", "plan")
+        if _engine_name_for_operation(registry, operation) is not None
+    ]
+
+
+def _coordinator_trace(event_type: str, **fields: Any) -> dict[str, Any]:
+    return {
+        "schema": EXECUTION_ARCHITECTURE_SCHEMA,
+        "event_type": event_type,
+        **fields,
+    }
+
+
+def _call_stack_event(
+    event_type: str,
+    frame: CallFrame | None,
+    depth: int,
+    operation: str | None = None,
+) -> dict[str, Any]:
+    event = {
+        "schema": EXECUTION_ARCHITECTURE_SCHEMA,
+        "event_type": event_type,
+        "depth": depth,
+        "frame": frame.to_dict() if frame is not None else None,
+    }
+    if operation is not None:
+        event["operation"] = operation
+    return event
+
+
+def _execution_final_result(report: RuntimeExecutionReport) -> dict[str, Any]:
+    return {
+        "runtime_operation_count": len(report.results),
+        "runtime_operations": [result.operation for result in report.results],
+        "runtime_values": [
+            runtime_value_to_plain(result.language_value)
+            for result in report.results
+        ],
+        "metadata": dict(report.metadata),
+    }
 
 
 def _validate_execution_plan(plan: dict[str, Any]) -> None:
