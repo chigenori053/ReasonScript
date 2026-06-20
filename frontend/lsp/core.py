@@ -201,6 +201,7 @@ class ReasonScriptLanguageServer:
     def __init__(self) -> None:
         self.documents: dict[str, DocumentState] = {}
         self.symbols: dict[str, tuple[Symbol, ...]] = {}
+        self.package_graph = None
 
     def open_document(self, uri: str, text: str, version: int = 1) -> DocumentState:
         return self._analyze(uri, text, version)
@@ -213,10 +214,20 @@ class ReasonScriptLanguageServer:
 
     def scan_workspace(self, root: str | Path) -> tuple[Symbol, ...]:
         root_path = Path(root)
+        self.load_package_graph(root_path)
         for path in sorted(root_path.rglob("*.rsn")):
             uri = path.resolve().as_uri()
             self._analyze(uri, path.read_text(encoding="utf-8"), 1)
         return self.workspace_symbols()
+
+    def load_package_graph(self, root: str | Path):
+        try:
+            from toolchain.workspace import PackageGraphService
+
+            self.package_graph = PackageGraphService().discover(root).graph
+        except Exception:
+            self.package_graph = None
+        return self.package_graph
 
     def diagnostics(self, uri: str) -> tuple[Diagnostic, ...]:
         return self.documents[uri].diagnostics

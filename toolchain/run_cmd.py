@@ -7,9 +7,34 @@ import sys
 from pathlib import Path
 
 from .manifest import Manifest, ManifestError
+from .workspace import PackageGraphService, WorkspaceError, diagnostic_from_workspace_error
 
 
-def run(project_root: Path) -> int:
+def run(project_root: Path, package: str | None = None) -> int:
+    try:
+        workspace = PackageGraphService().discover(project_root)
+    except WorkspaceError as error:
+        _print_workspace_error(error)
+        return 1
+    except ManifestError as error:
+        print(f"Error:\n\n{error}")
+        return 1
+
+    if workspace.is_workspace:
+        try:
+            node = workspace.graph.package(package) if package is not None else workspace.default_package
+        except WorkspaceError as error:
+            _print_workspace_error(error)
+            return 1
+        return _run_package(node.path, workspace_package=node.name)
+
+    if package is not None and package != workspace.default_package.name:
+        _print_workspace_error(WorkspaceError(f"unknown package: {package}"))
+        return 1
+    return _run_package(workspace.default_package.path, workspace_package=workspace.default_package.name)
+
+
+def _run_package(project_root: Path, *, workspace_package: str | None = None) -> int:
     try:
         manifest = Manifest.load(project_root)
     except ManifestError as e:
@@ -64,6 +89,12 @@ def run(project_root: Path) -> int:
         "status": "success",
         "goal_reached": goal_reached,
         "backend": manifest.backend,
+        "package": workspace_package or manifest.name,
     }
     print(json.dumps(result, indent=2))
     return 0
+
+
+def _print_workspace_error(error: WorkspaceError) -> None:
+    diagnostic = diagnostic_from_workspace_error(error)
+    print(f"Error:\n\n{diagnostic.code}\n\n{diagnostic.message}")

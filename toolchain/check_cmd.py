@@ -6,9 +6,42 @@ from pathlib import Path
 
 from .manifest import Manifest, ManifestError
 from .pipeline import PipelineError, validate_source
+from .workspace import PackageGraphService, WorkspaceError, diagnostic_from_workspace_error
 
 
-def run(project_root: Path) -> int:
+def run(project_root: Path, package: str | None = None) -> int:
+    try:
+        workspace = PackageGraphService().discover(project_root)
+    except WorkspaceError as error:
+        _print_workspace_error(error)
+        return 1
+    except ManifestError as error:
+        print(f"Error:\n\n{error}")
+        return 1
+
+    if workspace.is_workspace:
+        package_names = (package,) if package is not None else workspace.graph.build_order
+        checked = 0
+        for package_name in package_names:
+            try:
+                node = workspace.graph.package(package_name)
+            except WorkspaceError as error:
+                _print_workspace_error(error)
+                return 1
+            rc = _run_package(node.path)
+            if rc != 0:
+                return rc
+            checked += 1
+        print(f"Workspace check passed. {checked} package(s) validated.")
+        return 0
+
+    if package is not None and package != workspace.default_package.name:
+        _print_workspace_error(WorkspaceError(f"unknown package: {package}"))
+        return 1
+    return _run_package(workspace.default_package.path)
+
+
+def _run_package(project_root: Path) -> int:
     try:
         Manifest.load(project_root)
     except ManifestError as e:
@@ -40,3 +73,8 @@ def run(project_root: Path) -> int:
 
     print(f"Check passed. {len(sources)} file(s) validated.")
     return 0
+
+
+def _print_workspace_error(error: WorkspaceError) -> None:
+    diagnostic = diagnostic_from_workspace_error(error)
+    print(f"Error:\n\n{diagnostic.code}\n\n{diagnostic.message}")

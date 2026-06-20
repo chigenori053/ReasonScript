@@ -7,19 +7,23 @@ from pathlib import Path
 
 from .manifest import Manifest, ManifestError
 from .pipeline import PipelineError, compile_source
+from .workspace import PackageGraphService, WorkspaceError, diagnostic_from_workspace_error
 
 _CACHE_KEY_FILE = ".reason_build_cache"
 
 
-def _cache_key(project_root: Path) -> str:
+def _cache_key(project_root: Path, dependency_roots: tuple[Path, ...] = ()) -> str:
     import hashlib
 
     h = hashlib.sha256()
-    manifest_path = project_root / "reason.toml"
-    if manifest_path.exists():
-        h.update(manifest_path.read_bytes())
-    for src in sorted((project_root / "src").rglob("*.rsn")):
-        h.update(src.read_bytes())
+    for root in (project_root, *dependency_roots):
+        manifest_path = root / "reason.toml"
+        if manifest_path.exists():
+            h.update(str(manifest_path).encode("utf-8"))
+            h.update(manifest_path.read_bytes())
+        for src in sorted((root / "src").rglob("*.rsn")):
+            h.update(str(src).encode("utf-8"))
+            h.update(src.read_bytes())
     return h.hexdigest()
 
 
@@ -32,7 +36,40 @@ def _save_cache(target: Path, key: str) -> None:
     (target / _CACHE_KEY_FILE).write_text(key, encoding="utf-8")
 
 
-def run(project_root: Path) -> int:
+def run(project_root: Path, package: str | None = None) -> int:
+    try:
+        workspace = PackageGraphService().discover(project_root)
+    except WorkspaceError as error:
+        _print_workspace_error(error)
+        return 1
+    except ManifestError as error:
+        print(f"Error:\n\n{error}")
+        return 1
+
+    if workspace.is_workspace:
+        graph = workspace.graph
+        build_names = (package,) if package is not None else graph.build_order
+        compiled = 0
+        for package_name in build_names:
+            try:
+                node = graph.package(package_name)
+            except WorkspaceError as error:
+                _print_workspace_error(error)
+                return 1
+            rc = _run_package(node.path, dependency_roots=_dependency_roots(graph, package_name))
+            if rc != 0:
+                return rc
+            compiled += 1
+        print(f"Workspace build succeeded. {compiled} package(s) built.")
+        return 0
+
+    if package is not None and package != workspace.default_package.name:
+        _print_workspace_error(WorkspaceError(f"unknown package: {package}"))
+        return 1
+    return _run_package(workspace.default_package.path)
+
+
+def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) -> int:
     try:
         manifest = Manifest.load(project_root)
     except ManifestError as e:
@@ -50,7 +87,7 @@ def run(project_root: Path) -> int:
         return 1
 
     target = project_root / "target"
-    current_key = _cache_key(project_root)
+    current_key = _cache_key(project_root, dependency_roots)
     if _load_cache(target) == current_key:
         print("Nothing to build (up to date).")
         return 0
@@ -97,3 +134,25 @@ def run(project_root: Path) -> int:
     _save_cache(target, current_key)
     print(f"Build succeeded. {len(sources)} file(s) compiled.")
     return 0
+
+
+def _print_workspace_error(error: WorkspaceError) -> None:
+    diagnostic = diagnostic_from_workspace_error(error)
+    print(f"Error:\n\n{diagnostic.code}\n\n{diagnostic.message}")
+
+
+def _dependency_roots(graph, package_name: str) -> tuple[Path, ...]:
+    dependencies = {
+        edge.package: {dep.dependency for dep in graph.dependencies if dep.package == edge.package}
+        for edge in graph.dependencies
+    }
+    seen: set[str] = set()
+
+    def visit(name: str) -> None:
+        for dependency in sorted(dependencies.get(name, ())):
+            if dependency not in seen:
+                seen.add(dependency)
+                visit(dependency)
+
+    visit(package_name)
+    return tuple(graph.package(name).path for name in sorted(seen))

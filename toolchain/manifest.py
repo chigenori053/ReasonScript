@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 try:
@@ -24,6 +24,7 @@ class Manifest:
     language_core: str
     platform: str
     backend: str
+    dependencies: dict[str, object] = field(default_factory=dict)
 
     @staticmethod
     def load(project_root: Path) -> "Manifest":
@@ -50,4 +51,5 @@ class Manifest:
             language_core=compiler.get("language_core", "0.7"),
             platform=compiler.get("platform", "0.2"),
             backend=backend,
+            dependencies=dict(data.get("dependencies", {})),
         )

@@ -22,6 +22,7 @@ from toolchain.check_cmd import run as check_run
 from toolchain.manifest import Manifest, SUPPORTED_BACKENDS
 from toolchain.run_cmd import run as project_run
 from toolchain.runner_cmd import run as test_run
+from toolchain.workspace import PackageGraphService
 
 from .model import (
     OUTPUT_CHANNELS,
@@ -74,19 +75,25 @@ class ReasonScriptIde:
         current = Path(start).resolve()
         if current.is_file():
             current = current.parent
+        package_root: Path | None = None
         for path in (current, *current.parents):
-            if (path / "reason.toml").is_file():
+            if (path / "reason.workspace.toml").is_file():
                 return path
+            if package_root is None and (path / "reason.toml").is_file():
+                package_root = path
+        if package_root is not None:
+            return package_root
         return None
 
     def load_workspace(self, start: str | Path) -> Workspace:
         root = self.detect_workspace(start)
         if root is None:
-            raise WorkspaceNotFoundError(f"reason.toml not found from {start}")
-        manifest = Manifest.load(root)
-        workspace = Workspace(root, _load_ide_configuration(root), manifest.backend)
+            raise WorkspaceNotFoundError(f"ReasonScript workspace not found from {start}")
+        toolchain_workspace = PackageGraphService().discover(root)
+        backend = toolchain_workspace.default_package.manifest.backend
+        workspace = Workspace(root, _load_ide_configuration(root), backend)
         self.workspace = workspace
-        self.status = WorkspaceStatus(True, runtime_status=manifest.backend)
+        self.status = WorkspaceStatus(True, runtime_status=backend)
         return workspace
 
     def build(self) -> BuildResult:
@@ -193,7 +200,11 @@ CheckCommand = ReasonScriptIde.check
 
 
 def _load_ide_configuration(root: Path) -> IdeConfiguration:
-    data = tomllib.loads((root / "reason.toml").read_text(encoding="utf-8"))
+    config_path = root / "reason.toml"
+    if not config_path.exists() and (root / "reason.workspace.toml").exists():
+        default_package = PackageGraphService().discover(root).default_package
+        config_path = default_package.path / "reason.toml"
+    data = tomllib.loads(config_path.read_text(encoding="utf-8"))
     ide = data.get("ide", {})
     command = CommandName(ide.get("default_command", CommandName.RUN.value))
     return IdeConfiguration(
