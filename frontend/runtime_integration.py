@@ -13,7 +13,9 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
-EXECUTION_ARCHITECTURE_SCHEMA = "reasonscript-execution-architecture/1.1"
+EXECUTION_ARCHITECTURE_SCHEMA = "reasonscript-execution-architecture/1.2"
+REASONING_TRACE_SCHEMA = "reasonscript-reasoning-trace/1.0"
+PLATFORM_DIAGNOSTIC_SCHEMA = "reasonscript-platform-diagnostic/1.0"
 RUNTIME_OPERATION_METHODS = {"search", "simulate", "predict", "plan"}
 REASONING_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -41,6 +43,40 @@ class CallFrameStatus:
     RETURNING = "Returning"
     COMPLETED = "Completed"
     FAILED = "Failed"
+
+
+class ScopeType:
+    MODULE = "ModuleScope"
+    FUNCTION = "FunctionScope"
+    BLOCK = "BlockScope"
+    MATCH = "MatchScope"
+    LOOP = "LoopScope"
+
+
+class TraceCategory:
+    EXECUTION = "Execution"
+    RUNTIME = "Runtime"
+    SIMULATION = "Simulation"
+    RECONSTRUCTION = "Reconstruction"
+    TRANSACTION = "Transaction"
+    SCOPE = "Scope"
+
+
+class DiagnosticSeverity:
+    INFO = "Info"
+    WARNING = "Warning"
+    ERROR = "Error"
+    FATAL = "Fatal"
+
+
+class DiagnosticSource:
+    COMPILER = "Compiler"
+    RUNTIME = "Runtime"
+    EXECUTION_COORDINATOR = "ExecutionCoordinator"
+    TOOLCHAIN = "Toolchain"
+    LSP = "LSP"
+    IDE = "IDE"
+    WORLD_MODEL = "WorldModel"
 
 
 @dataclass(frozen=True)
@@ -285,6 +321,258 @@ class CallStack:
         }
 
 
+@dataclass(frozen=True)
+class TraceEvent:
+    event_id: str
+    timestamp: int
+    category: str
+    operation: str
+    payload: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": REASONING_TRACE_SCHEMA,
+            "event_id": self.event_id,
+            "timestamp": self.timestamp,
+            "category": self.category,
+            "operation": self.operation,
+            "payload": _plain_payload(self.payload),
+        }
+
+
+@dataclass(frozen=True)
+class PlatformDiagnostic:
+    code: str
+    severity: str
+    message: str
+    source: str
+    location: Any = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": PLATFORM_DIAGNOSTIC_SCHEMA,
+            "code": self.code,
+            "severity": self.severity,
+            "message": self.message,
+            "source": self.source,
+            "location": _diagnostic_location_to_plain(self.location),
+            "metadata": _plain_payload(self.metadata),
+        }
+
+
+@dataclass(frozen=True)
+class ReasoningTrace:
+    trace_id: str
+    request_id: str
+    events: tuple[TraceEvent, ...] = ()
+    diagnostics: tuple[PlatformDiagnostic, ...] = ()
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def add_event(
+        self,
+        category: str,
+        operation: str,
+        payload: dict[str, Any] | None = None,
+    ) -> "ReasoningTrace":
+        index = len(self.events)
+        event = TraceEvent(
+            f"{self.trace_id}:event-{index + 1}",
+            index,
+            category,
+            operation,
+            payload or {},
+        )
+        return ReasoningTrace(
+            self.trace_id,
+            self.request_id,
+            self.events + (event,),
+            self.diagnostics,
+            dict(self.metadata),
+        )
+
+    def add_diagnostic(self, diagnostic: PlatformDiagnostic) -> "ReasoningTrace":
+        return ReasoningTrace(
+            self.trace_id,
+            self.request_id,
+            self.events,
+            self.diagnostics + (diagnostic,),
+            dict(self.metadata),
+        )
+
+    def extend_events(self, events: tuple[TraceEvent, ...] | list[TraceEvent]) -> "ReasoningTrace":
+        trace = self
+        for event in events:
+            trace = trace.add_event(event.category, event.operation, event.payload)
+        return trace
+
+    def extend_diagnostics(
+        self,
+        diagnostics: tuple[PlatformDiagnostic, ...] | list[PlatformDiagnostic],
+    ) -> "ReasoningTrace":
+        trace = self
+        for diagnostic in diagnostics:
+            trace = trace.add_diagnostic(diagnostic)
+        return trace
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": REASONING_TRACE_SCHEMA,
+            "trace_id": self.trace_id,
+            "request_id": self.request_id,
+            "events": [event.to_dict() for event in self.events],
+            "diagnostics": [diagnostic.to_dict() for diagnostic in self.diagnostics],
+            "metadata": _plain_payload(self.metadata),
+        }
+
+
+@dataclass(frozen=True)
+class ExecutionScope:
+    scope_id: str
+    scope_type: str
+    parent_scope: str | None = None
+    variables: dict[str, RuntimeValue] = field(default_factory=dict)
+    created_at: int = 0
+    destroyed_at: int | None = None
+
+    def bind_variable(self, name: str, value: RuntimeValue) -> "ExecutionScope":
+        variables = dict(self.variables)
+        variables[name] = value
+        return ExecutionScope(
+            self.scope_id,
+            self.scope_type,
+            self.parent_scope,
+            variables,
+            self.created_at,
+            self.destroyed_at,
+        )
+
+    def destroy(self, destroyed_at: int) -> "ExecutionScope":
+        return ExecutionScope(
+            self.scope_id,
+            self.scope_type,
+            self.parent_scope,
+            dict(self.variables),
+            self.created_at,
+            destroyed_at,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": EXECUTION_ARCHITECTURE_SCHEMA,
+            "scope_id": self.scope_id,
+            "scope_type": self.scope_type,
+            "parent_scope": self.parent_scope,
+            "variables": {
+                name: runtime_value_to_plain(value)
+                for name, value in sorted(self.variables.items())
+            },
+            "created_at": self.created_at,
+            "destroyed_at": self.destroyed_at,
+        }
+
+
+@dataclass(frozen=True)
+class ExecutionScopeStack:
+    scopes: tuple[ExecutionScope, ...] = ()
+    trace_events: tuple[TraceEvent, ...] = ()
+
+    def push_scope(self, scope_type: str, scope_id: str | None = None) -> "ExecutionScopeStack":
+        index = len(self.trace_events)
+        scope = ExecutionScope(
+            scope_id or f"scope-{len(self.scopes) + 1}",
+            scope_type,
+            self.current_scope().scope_id if self.current_scope() is not None else None,
+            {},
+            index,
+        )
+        return self._with_scope_event(
+            self.scopes + (scope,),
+            "ScopeCreated",
+            scope,
+            {"scope": scope.to_dict()},
+        )
+
+    def pop_scope(self) -> tuple["ExecutionScopeStack", ExecutionScope]:
+        if not self.scopes:
+            raise ExecutionArchitectureError("cannot pop an empty scope stack")
+        destroyed = self.scopes[-1].destroy(len(self.trace_events))
+        stack = self._with_scope_event(
+            self.scopes[:-1],
+            "ScopeDestroyed",
+            destroyed,
+            {"scope": destroyed.to_dict()},
+        )
+        return stack, destroyed
+
+    def current_scope(self) -> ExecutionScope | None:
+        return self.scopes[-1] if self.scopes else None
+
+    def bind_variable(self, name: str, value: RuntimeValue) -> "ExecutionScopeStack":
+        if not self.scopes:
+            raise ExecutionArchitectureError("cannot bind a variable without an active scope")
+        current = self.scopes[-1].bind_variable(name, value)
+        return self._with_scope_event(
+            self.scopes[:-1] + (current,),
+            "VariableBound",
+            current,
+            {
+                "scope_id": current.scope_id,
+                "name": name,
+                "value": runtime_value_to_plain(value),
+            },
+        )
+
+    def lookup(self, name: str) -> tuple[RuntimeValue | None, "ExecutionScopeStack"]:
+        for scope in reversed(self.scopes):
+            if name in scope.variables:
+                stack = self._with_scope_event(
+                    self.scopes,
+                    "VariableResolved",
+                    scope,
+                    {
+                        "scope_id": scope.scope_id,
+                        "name": name,
+                        "found": True,
+                        "value": runtime_value_to_plain(scope.variables[name]),
+                    },
+                )
+                return scope.variables[name], stack
+        stack = self._with_scope_event(
+            self.scopes,
+            "VariableResolved",
+            self.current_scope(),
+            {"name": name, "found": False},
+        )
+        return None, stack
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": EXECUTION_ARCHITECTURE_SCHEMA,
+            "scopes": [scope.to_dict() for scope in self.scopes],
+            "current_scope": self.current_scope().scope_id if self.current_scope() is not None else None,
+            "trace_events": [event.to_dict() for event in self.trace_events],
+        }
+
+    def _with_scope_event(
+        self,
+        scopes: tuple[ExecutionScope, ...],
+        operation: str,
+        scope: ExecutionScope | None,
+        payload: dict[str, Any],
+    ) -> "ExecutionScopeStack":
+        index = len(self.trace_events)
+        scope_id = scope.scope_id if scope is not None else "none"
+        event = TraceEvent(
+            f"scope:{scope_id}:event-{index + 1}",
+            index,
+            TraceCategory.SCOPE,
+            operation,
+            payload,
+        )
+        return ExecutionScopeStack(scopes, self.trace_events + (event,))
+
+
 class ExecutionArchitectureError(RuntimeError):
     pass
 
@@ -507,6 +795,8 @@ class ExecutionResult:
     trace: tuple[dict[str, Any], ...] = ()
     final_result: Any = None
     failure: ExecutionFailure | None = None
+    reasoning_trace: ReasoningTrace | None = None
+    platform_diagnostics: tuple[PlatformDiagnostic, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -529,6 +819,10 @@ class ExecutionResult:
             "trace": list(self.trace),
             "final_result": self.final_result,
             "failure": self.failure.to_dict() if self.failure is not None else None,
+            "reasoning_trace": self.reasoning_trace.to_dict() if self.reasoning_trace is not None else None,
+            "platform_diagnostics": [
+                diagnostic.to_dict() for diagnostic in self.platform_diagnostics
+            ],
         }
 
 
@@ -542,17 +836,34 @@ class ExecutionCoordinator:
             _coordinator_trace("request_created", request_id=request.request_id)
         ]
         diagnostics: list[str] = []
+        platform_diagnostics: list[PlatformDiagnostic] = []
         call_stack_trace: list[dict[str, Any]] = []
+        scope_stack = ExecutionScopeStack()
 
         validation_failure = self._validate_request(request)
         if validation_failure is not None:
             diagnostics.extend(validation_failure.diagnostics)
+            platform_diagnostics.extend(
+                platform_diagnostic_from_runtime(
+                    diagnostic,
+                    source=DiagnosticSource.EXECUTION_COORDINATOR,
+                    severity=DiagnosticSeverity.ERROR,
+                    code="EA2-017",
+                )
+                for diagnostic in validation_failure.diagnostics
+            )
             trace.append(
                 _coordinator_trace(
                     "diagnostic",
                     request_id=request.request_id,
                     diagnostic=validation_failure.message,
                 )
+            )
+            reasoning_trace = reasoning_trace_from_execution(
+                request.request_id,
+                trace,
+                (),
+                platform_diagnostics,
             )
             return ExecutionResult(
                 request.request_id,
@@ -563,6 +874,8 @@ class ExecutionCoordinator:
                 tuple(trace),
                 None,
                 validation_failure,
+                reasoning_trace,
+                tuple(platform_diagnostics),
             )
 
         trace.append(_coordinator_trace("context_frozen", request_id=request.request_id))
@@ -570,6 +883,8 @@ class ExecutionCoordinator:
 
         call_stack = CallStack(max_depth=self.max_stack_depth)
         try:
+            scope_stack = scope_stack.push_scope(ScopeType.MODULE, f"{request.request_id}:module")
+            scope_stack = scope_stack.push_scope(ScopeType.FUNCTION, f"{request.request_id}:function")
             frame = CallFrame.create(
                 "frame-1",
                 str(request.metadata.get("entry_function", "execution")),
@@ -577,6 +892,8 @@ class ExecutionCoordinator:
                 tuple(request.metadata.get("arguments", ())),
                 return_target=request.metadata.get("return_target"),
             )
+            for name, value in frame.parameter_bindings.items():
+                scope_stack = scope_stack.bind_variable(name, value)
             call_stack = call_stack.push(frame)
         except StackOverflow as error:
             failure = ExecutionFailure(
@@ -584,15 +901,32 @@ class ExecutionCoordinator:
                 str(error),
                 (str(error),),
             )
+            platform_diagnostics.append(
+                platform_diagnostic_from_runtime(
+                    str(error),
+                    source=DiagnosticSource.EXECUTION_COORDINATOR,
+                    severity=DiagnosticSeverity.FATAL,
+                    code="EA1-014",
+                )
+            )
+            failed_trace = trace + [_coordinator_trace("stack_overflow", request_id=request.request_id)]
+            reasoning_trace = reasoning_trace_from_execution(
+                request.request_id,
+                failed_trace,
+                scope_stack.trace_events,
+                platform_diagnostics,
+            )
             return ExecutionResult(
                 request.request_id,
                 "failed",
                 tuple(call_stack_trace),
                 (),
                 failure.diagnostics,
-                tuple(trace + [_coordinator_trace("stack_overflow", request_id=request.request_id)]),
+                tuple(failed_trace),
                 None,
                 failure,
+                reasoning_trace,
+                tuple(platform_diagnostics),
             )
 
         call_stack_trace.append(
@@ -609,6 +943,9 @@ class ExecutionCoordinator:
             if current is None:
                 break
             current = current.bind_temporary(
+                f"runtime.{result.operation}", result.language_value
+            )
+            scope_stack = scope_stack.bind_variable(
                 f"runtime.{result.operation}", result.language_value
             )
             call_stack = call_stack.replace_current(current)
@@ -628,6 +965,14 @@ class ExecutionCoordinator:
         current = call_stack.current()
         if current is not None:
             if diagnostics:
+                platform_diagnostics.extend(
+                    platform_diagnostic_from_runtime(
+                        diagnostic,
+                        source=DiagnosticSource.RUNTIME,
+                        severity=DiagnosticSeverity.ERROR,
+                    )
+                    for diagnostic in diagnostics
+                )
                 current = current.failed()
                 call_stack = call_stack.replace_current(current)
                 call_stack_trace.append(
@@ -642,6 +987,8 @@ class ExecutionCoordinator:
                 )
             call_stack, popped = call_stack.pop()
             call_stack_trace.append(_call_stack_event("pop", popped, call_stack.depth()))
+            scope_stack, _ = scope_stack.pop_scope()
+            scope_stack, _ = scope_stack.pop_scope()
 
         status = "failed" if diagnostics else "completed"
         failure = (
@@ -662,6 +1009,13 @@ class ExecutionCoordinator:
                 diagnostics=diagnostics,
             )
         )
+        reasoning_trace = reasoning_trace_from_execution(
+            request.request_id,
+            trace,
+            scope_stack.trace_events,
+            platform_diagnostics,
+            report,
+        )
         return ExecutionResult(
             request.request_id,
             status,
@@ -671,6 +1025,8 @@ class ExecutionCoordinator:
             tuple(trace),
             final_result,
             failure,
+            reasoning_trace,
+            tuple(platform_diagnostics),
         )
 
     def _validate_request(self, request: ExecutionRequest) -> ExecutionFailure | None:
@@ -814,6 +1170,243 @@ def execute_runtime_operations_with_registry(
         "runtime_diagnostics": diagnostics,
     }
     return RuntimeExecutionReport(tuple(results), tuple(diagnostics), metadata)
+
+
+def create_reasoning_trace(
+    request_id: str,
+    *,
+    trace_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> ReasoningTrace:
+    return ReasoningTrace(
+        trace_id or f"trace:{request_id}",
+        request_id,
+        (),
+        (),
+        metadata or {},
+    )
+
+
+def normalize_trace_events(
+    trace_id: str,
+    category: str,
+    events: tuple[Any, ...] | list[Any],
+    *,
+    start_index: int = 0,
+) -> tuple[TraceEvent, ...]:
+    normalized: list[TraceEvent] = []
+    for offset, event in enumerate(events):
+        index = start_index + offset
+        if isinstance(event, TraceEvent):
+            normalized.append(
+                TraceEvent(
+                    f"{trace_id}:event-{index + 1}",
+                    index,
+                    event.category,
+                    event.operation,
+                    event.payload,
+                )
+            )
+            continue
+        if isinstance(event, dict):
+            operation = str(
+                event.get("event_type")
+                or event.get("operation")
+                or event.get("type")
+                or "event"
+            )
+            payload = dict(event)
+        else:
+            operation = str(event).split(":", 1)[0] or "event"
+            payload = {"value": str(event)}
+        normalized.append(
+            TraceEvent(
+                f"{trace_id}:event-{index + 1}",
+                index,
+                category,
+                operation,
+                payload,
+            )
+        )
+    return tuple(normalized)
+
+
+def reasoning_trace_from_execution(
+    request_id: str,
+    execution_events: tuple[dict[str, Any], ...] | list[dict[str, Any]],
+    scope_events: tuple[TraceEvent, ...] | list[TraceEvent] = (),
+    diagnostics: tuple[PlatformDiagnostic, ...] | list[PlatformDiagnostic] = (),
+    runtime_report: RuntimeExecutionReport | None = None,
+) -> ReasoningTrace:
+    trace = create_reasoning_trace(request_id)
+    trace = trace.extend_events(
+        normalize_trace_events(trace.trace_id, TraceCategory.EXECUTION, list(execution_events))
+    )
+    trace = trace.extend_events(scope_events)
+    if runtime_report is not None:
+        runtime_events: list[Any] = []
+        for result in runtime_report.results:
+            runtime_events.extend(
+                {"operation": item, "runtime_operation": result.operation}
+                for item in result.trace
+            )
+        trace = trace.extend_events(
+            normalize_trace_events(
+                trace.trace_id,
+                TraceCategory.RUNTIME,
+                runtime_events,
+                start_index=len(trace.events),
+            )
+        )
+    return trace.extend_diagnostics(tuple(diagnostics))
+
+
+def reasoning_trace_from_runtime_result(
+    request_id: str,
+    result: RuntimeOperationResult,
+) -> ReasoningTrace:
+    return create_reasoning_trace(request_id).extend_events(
+        normalize_trace_events(
+            f"trace:{request_id}",
+            TraceCategory.RUNTIME,
+            [
+                {"operation": item, "runtime_operation": result.operation}
+                for item in result.trace
+            ],
+        )
+    )
+
+
+def reasoning_trace_from_world_simulation(
+    request_id: str,
+    simulation_trace: Any,
+) -> ReasoningTrace:
+    events: list[Any] = []
+    for event in getattr(simulation_trace, "events", ()):
+        events.append(
+            {
+                "operation": "WorldEvent",
+                "event_id": getattr(event, "id", None),
+                "event_type": getattr(event, "event_type", None),
+            }
+        )
+    for delta in getattr(simulation_trace, "deltas", ()):
+        events.append(
+            {
+                "operation": "WorldDelta",
+                "delta_id": getattr(delta, "id", None),
+                "delta_operation": getattr(delta, "operation", None),
+            }
+        )
+    for snapshot in getattr(simulation_trace, "snapshots", ()):
+        events.append(
+            {
+                "operation": "WorldSnapshot",
+                "snapshot_id": getattr(snapshot, "id", None),
+                "tick": getattr(snapshot, "tick", None),
+            }
+        )
+    if not events and hasattr(simulation_trace, "to_dict"):
+        events.append({"operation": "SimulationTrace", "trace": simulation_trace.to_dict()})
+    return create_reasoning_trace(request_id).extend_events(
+        normalize_trace_events(f"trace:{request_id}", TraceCategory.SIMULATION, events)
+    )
+
+
+def reasoning_trace_from_world_reconstruction(
+    request_id: str,
+    reconstruction_trace: Any,
+) -> ReasoningTrace:
+    if hasattr(reconstruction_trace, "to_dict"):
+        payload = reconstruction_trace.to_dict()
+    else:
+        payload = _plain_payload(getattr(reconstruction_trace, "__dict__", {}))
+    return create_reasoning_trace(request_id).add_event(
+        TraceCategory.RECONSTRUCTION,
+        "ReconstructionTrace",
+        payload,
+    )
+
+
+def platform_diagnostic_from_compiler(
+    diagnostic: Any,
+    *,
+    source: str = DiagnosticSource.COMPILER,
+) -> PlatformDiagnostic:
+    if isinstance(diagnostic, PlatformDiagnostic):
+        return diagnostic
+    if isinstance(diagnostic, dict):
+        return PlatformDiagnostic(
+            str(diagnostic.get("code", "CompilerDiagnostic")),
+            _normalize_severity(diagnostic.get("severity", DiagnosticSeverity.ERROR)),
+            str(diagnostic.get("message", diagnostic)),
+            source,
+            diagnostic.get("location"),
+            dict(diagnostic.get("metadata", {})),
+        )
+    return PlatformDiagnostic(
+        "CompilerDiagnostic",
+        DiagnosticSeverity.ERROR,
+        str(diagnostic),
+        source,
+    )
+
+
+def platform_diagnostic_from_runtime(
+    diagnostic: Any,
+    *,
+    source: str = DiagnosticSource.RUNTIME,
+    severity: str = DiagnosticSeverity.ERROR,
+    code: str = "RuntimeDiagnostic",
+) -> PlatformDiagnostic:
+    if isinstance(diagnostic, PlatformDiagnostic):
+        return diagnostic
+    if isinstance(diagnostic, dict):
+        return PlatformDiagnostic(
+            str(diagnostic.get("code", code)),
+            _normalize_severity(diagnostic.get("severity", severity)),
+            str(diagnostic.get("message", diagnostic)),
+            source,
+            diagnostic.get("location"),
+            dict(diagnostic.get("metadata", {})),
+        )
+    return PlatformDiagnostic(code, severity, str(diagnostic), source)
+
+
+def platform_diagnostic_from_lsp(diagnostic: Any) -> PlatformDiagnostic:
+    severity = getattr(diagnostic, "severity", DiagnosticSeverity.ERROR)
+    return PlatformDiagnostic(
+        str(getattr(diagnostic, "code", "LSPDiagnostic")),
+        _normalize_severity(getattr(severity, "value", severity)),
+        str(getattr(diagnostic, "message", diagnostic)),
+        DiagnosticSource.LSP,
+        getattr(diagnostic, "location", None),
+    )
+
+
+def platform_diagnostic_from_ide(diagnostic: Any) -> PlatformDiagnostic:
+    platform = platform_diagnostic_from_lsp(diagnostic)
+    return PlatformDiagnostic(
+        platform.code,
+        platform.severity,
+        platform.message,
+        DiagnosticSource.IDE,
+        platform.location,
+        dict(platform.metadata),
+    )
+
+
+def aggregate_platform_diagnostics(
+    diagnostics: tuple[Any, ...] | list[Any],
+    *,
+    source: str = DiagnosticSource.EXECUTION_COORDINATOR,
+) -> tuple[PlatformDiagnostic, ...]:
+    return tuple(
+        diagnostic
+        if isinstance(diagnostic, PlatformDiagnostic)
+        else platform_diagnostic_from_runtime(diagnostic, source=source)
+        for diagnostic in diagnostics
+    )
 
 
 def runtime_value_from_ir_expression(value: Any) -> RuntimeValue:
@@ -1113,6 +1706,69 @@ def _coordinator_trace(event_type: str, **fields: Any) -> dict[str, Any]:
         "event_type": event_type,
         **fields,
     }
+
+
+def _plain_payload(value: Any) -> Any:
+    if isinstance(value, RuntimeValue):
+        return runtime_value_to_plain(value)
+    if isinstance(value, TraceEvent):
+        return value.to_dict()
+    if isinstance(value, PlatformDiagnostic):
+        return value.to_dict()
+    if hasattr(value, "to_dict") and callable(value.to_dict):
+        return value.to_dict()
+    if isinstance(value, dict):
+        return {str(key): _plain_payload(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain_payload(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
+
+
+def _diagnostic_location_to_plain(location: Any) -> Any:
+    if location is None:
+        return None
+    if isinstance(location, dict):
+        return _plain_payload(location)
+    uri = getattr(location, "uri", None)
+    range_value = getattr(location, "range", None)
+    if uri is not None and range_value is not None:
+        return {
+            "uri": uri,
+            "range": {
+                "start": _position_to_plain(getattr(range_value, "start", None)),
+                "end": _position_to_plain(getattr(range_value, "end", None)),
+            },
+        }
+    return _plain_payload(location)
+
+
+def _position_to_plain(position: Any) -> dict[str, int] | None:
+    if position is None:
+        return None
+    return {
+        "line": int(getattr(position, "line", 0)),
+        "character": int(getattr(position, "character", 0)),
+    }
+
+
+def _normalize_severity(severity: Any) -> str:
+    value = str(severity)
+    if value in {
+        DiagnosticSeverity.INFO,
+        DiagnosticSeverity.WARNING,
+        DiagnosticSeverity.ERROR,
+        DiagnosticSeverity.FATAL,
+    }:
+        return value
+    if value in {"Information", "Hint"}:
+        return DiagnosticSeverity.INFO
+    if value == "Warning":
+        return DiagnosticSeverity.WARNING
+    if value == "Fatal":
+        return DiagnosticSeverity.FATAL
+    return DiagnosticSeverity.ERROR
 
 
 def _call_stack_event(
