@@ -1,0 +1,64 @@
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  padding: 6px 10px 0;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  position: relative;
+  background: transparent;
+  color: var(--text-1);
+  padding: 5px 14px;
+  border-radius: 6px 6px 0 0;
+  font-weight: 500;
+  font-size: 12px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--text-0); background: var(--bg-2); }
+.tab-btn.active {
+  background: var(--bg-0);
+  color: var(--text-0);
+  border-color: var(--border);
+  border-bottom-color: var(--bg-0);
+}
+
+.tab-dot {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.tab-content {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg-0);
+  padding: 0;
+}
+
+.tab-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text-1);
+}
+.tab-empty-icon { font-size: 36px; opacity: 0.4; }
+.tab-empty-msg { font-size: 12px; text-align: center; max-width: 240px; line-height: 1.6; }

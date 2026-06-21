@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ReasonScript Playground",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "/Users/chigenori/development/ReasonScript/playground/frontend",
+      "port": 5174,
+      "autoPort": true
+    }
+  ]
+}

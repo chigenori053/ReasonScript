@@ -1,0 +1,73 @@
+.json-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.jv-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.jv-mode-btn {
+  background: var(--bg-3);
+  color: var(--text-1);
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.jv-mode-btn:hover { color: var(--text-0); }
+
+.jv-tree {
+  padding: 14px 16px;
+  overflow: auto;
+  flex: 1;
+  line-height: 1.7;
+}
+
+.jv-raw {
+  padding: 14px 16px;
+  overflow: auto;
+  flex: 1;
+  color: var(--text-0);
+  white-space: pre;
+  line-height: 1.6;
+}
+
+.jv-node { display: inline; }
+.jv-children { display: block; }
+.jv-row { display: block; }
+
+.jv-toggle {
+  background: transparent;
+  color: var(--text-1);
+  padding: 0 4px 0 0;
+  font-size: 9px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+.jv-toggle:hover { color: var(--accent); }
+
+.jv-brace   { color: var(--text-1); }
+.jv-key     { color: var(--accent); }
+.jv-colon   { color: var(--text-1); }
+.jv-comma   { color: var(--text-1); }
+.jv-str     { color: var(--green); }
+.jv-num     { color: var(--purple); }
+.jv-bool    { color: var(--yellow); }
+.jv-null    { color: var(--red); }
+.jv-empty   { color: var(--text-1); }
+
+.jv-collapsed {
+  color: var(--text-1);
+  font-style: italic;
+  font-size: 11px;
+  margin-left: 6px;
+  cursor: pointer;
+}
+.jv-collapsed:hover { color: var(--accent); }
