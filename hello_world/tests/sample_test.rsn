@@ -1,0 +1,6 @@
+package hello_world
+module sample_test {
+    fn run(goal) {
+        return goal
+    }
+}

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +26,19 @@ from frontend.language_surface.namespace import NamespaceResolutionError
 from playground.backend.engine import build_execution_plan, simulate, extract_knowledge
 
 EXAMPLES_DIR = REPO_ROOT / "TestPlayground" / "examples"
+REGRESSION_EXAMPLES_DIR = REPO_ROOT / "examples"
+EXPORTS_DIR = REPO_ROOT / "playground" / "exports"
+BASELINE_DIR = REPO_ROOT / "playground" / "baseline"
+
+ARTIFACT_FILES = {
+    "ast": "ast.json",
+    "semantic_ast": "semantic_ast.json",
+    "reason_ir": "reason_ir.json",
+    "execution_plan": "execution_plan.json",
+    "simulation": "simulation.json",
+    "knowledge": "knowledge.json",
+    "validation": "validation.json",
+}
 
 app = FastAPI(title="ReasonScript Playground")
 
@@ -68,6 +83,7 @@ class PipelineResponse(BaseModel):
     execution_plan: dict[str, Any] | None = None
     simulation: dict[str, Any] | None = None
     knowledge: dict[str, Any] | None = None
+    validation: dict[str, Any] | None = None
 
 
 class Example(BaseModel):
@@ -75,6 +91,15 @@ class Example(BaseModel):
     category: str
     name: str
     source: str
+
+
+class ArtifactPathRequest(BaseModel):
+    path: str
+
+
+class DiffRequest(BaseModel):
+    a: dict[str, Any] | str
+    b: dict[str, Any] | str
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +121,203 @@ def _make_error(phase: str, message: str) -> dict[str, Any]:
     line_match = re.search(r"line\s+(\d+)", message, re.IGNORECASE)
     line = int(line_match.group(1)) if line_match else None
     return {"phase": phase, "message": message, "line": line}
+
+
+def _validation_node(name: str, ok: bool, children: list[dict[str, Any]] | None = None, details: Any = None) -> dict[str, Any]:
+    return {
+        "name": name,
+        "ok": ok,
+        "details": details,
+        "children": children or [],
+    }
+
+
+def _validation_report(ok: bool, errors: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    errors = errors or []
+    failed_phase = errors[0]["phase"] if errors else None
+    parser_ok = ok or failed_phase not in {"Parse"}
+    semantic_ok = ok or failed_phase not in {"Validation", "Compile"}
+    pipeline_ok = ok and not errors
+    return {
+        "schema_version": "validation-report/0.3",
+        "ok": ok,
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "errors": errors,
+        "tree": _validation_node("Validation", ok, [
+            _validation_node("Parser", parser_ok, details={"phase": "Parse"}),
+            _validation_node("Semantic", semantic_ok, details={"phase": "Semantic Validation"}),
+            _validation_node("SCV-1", semantic_ok, details={"phase": "Semantic Consistency Validation"}),
+            _validation_node("Planning", pipeline_ok, details={"phase": "ExecutionPlan"}),
+            _validation_node("Simulation", pipeline_ok, details={"phase": "Semantic Simulation"}),
+            _validation_node("Knowledge", pipeline_ok, details={"phase": "Knowledge Emergence"}),
+        ]),
+    }
+
+
+def _run_pipeline_artifacts(req: SourceRequest) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    reason_irs, ast_dict, errors = _compile_ir(req)
+    if errors:
+        validation = _validation_report(False, errors)
+        return {
+            "ast": ast_dict,
+            "semantic_ast": ast_dict,
+            "reason_ir": [],
+            "execution_plan": None,
+            "simulation": None,
+            "knowledge": None,
+            "validation": validation,
+            "source": {"filename": req.filename, "text": req.source},
+        }, errors
+
+    plans = [build_execution_plan(ir) for ir in reason_irs]
+    sims = [simulate(ir) for ir in reason_irs]
+    knowledges = [extract_knowledge(ir, sim) for ir, sim in zip(reason_irs, sims)]
+    validation = _validation_report(True)
+
+    return {
+        "ast": ast_dict,
+        "semantic_ast": ast_dict,
+        "reason_ir": reason_irs[0] if len(reason_irs) == 1 else {"modules": reason_irs},
+        "execution_plan": plans[0] if len(plans) == 1 else {"modules": plans},
+        "simulation": sims[0] if len(sims) == 1 else {"modules": sims},
+        "knowledge": knowledges[0] if len(knowledges) == 1 else {"modules": knowledges},
+        "validation": validation,
+        "source": {"filename": req.filename, "text": req.source},
+    }, []
+
+
+def _artifact_response(artifacts: dict[str, Any], ok: bool = True, errors: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    reason_ir = artifacts.get("reason_ir")
+    reason_irs = reason_ir.get("modules", []) if isinstance(reason_ir, dict) and "modules" in reason_ir else ([reason_ir] if reason_ir else [])
+    return {
+        "ok": ok,
+        "errors": errors or [],
+        "ast": artifacts.get("ast"),
+        "semantic_ast": artifacts.get("semantic_ast"),
+        "reason_irs": reason_irs,
+        "execution_plan": artifacts.get("execution_plan"),
+        "simulation": artifacts.get("simulation"),
+        "knowledge": artifacts.get("knowledge"),
+        "validation": artifacts.get("validation"),
+        "artifacts": artifacts,
+    }
+
+
+def _safe_artifact_dir(base_dir: Path, requested: str | None = None) -> Path:
+    base_dir.mkdir(parents=True, exist_ok=True)
+    name = requested or datetime.utcnow().strftime("sample_%Y%m%d_%H%M%S")
+    name = Path(name).name
+    return base_dir / name
+
+
+def _write_artifacts(directory: Path, artifacts: dict[str, Any]) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    for key, filename in ARTIFACT_FILES.items():
+        (directory / filename).write_text(
+            json.dumps(artifacts.get(key), indent=2, ensure_ascii=False, sort_keys=True),
+            encoding="utf-8",
+        )
+    manifest = {
+        "schema_version": "reasonscript-playground-artifacts/0.3",
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "files": ARTIFACT_FILES,
+        "source": artifacts.get("source"),
+    }
+    (directory / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _read_artifacts(path: str) -> dict[str, Any]:
+    artifact_dir = Path(path)
+    if not artifact_dir.is_absolute():
+        artifact_dir = REPO_ROOT / artifact_dir
+    artifacts: dict[str, Any] = {}
+    for key, filename in ARTIFACT_FILES.items():
+        file_path = artifact_dir / filename
+        artifacts[key] = json.loads(file_path.read_text(encoding="utf-8")) if file_path.exists() else None
+    manifest_path = artifact_dir / "manifest.json"
+    if manifest_path.exists():
+        artifacts["manifest"] = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifacts["path"] = str(artifact_dir)
+    return artifacts
+
+
+def _artifact_from_payload(value: dict[str, Any] | str) -> dict[str, Any]:
+    if isinstance(value, str):
+        return _read_artifacts(value)
+    return value.get("artifacts", value)
+
+
+def _stable_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _knowledge_lines(value: Any) -> set[str]:
+    if not value:
+        return set()
+    if isinstance(value, dict) and "modules" in value:
+        lines: set[str] = set()
+        for module in value["modules"]:
+            lines |= _knowledge_lines(module)
+        return lines
+    items = value.get("knowledge", []) if isinstance(value, dict) else []
+    return {
+        f"{item.get('source')} {item.get('relation')} {item.get('target')}"
+        for item in items
+        if isinstance(item, dict)
+    }
+
+
+def _trace_labels(value: Any) -> list[str]:
+    if not value:
+        return []
+    if isinstance(value, dict) and "modules" in value:
+        traces: list[str] = []
+        for module in value["modules"]:
+            traces.extend(_trace_labels(module))
+        return traces
+    trace = value.get("trace", []) if isinstance(value, dict) else []
+    return [str(item.get("state")) for item in trace if isinstance(item, dict) and item.get("state") is not None]
+
+
+def _diff_artifacts(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+    plan_a = a.get("execution_plan")
+    plan_b = b.get("execution_plan")
+    sim_a = a.get("simulation")
+    sim_b = b.get("simulation")
+    know_a = _knowledge_lines(a.get("knowledge"))
+    know_b = _knowledge_lines(b.get("knowledge"))
+    changes: list[dict[str, Any]] = []
+    for key in ("execution_plan", "simulation", "knowledge"):
+        old = a.get(key)
+        new = b.get(key)
+        if _stable_json(old) != _stable_json(new):
+            changes.append({"artifact": key, "status": "changed", "old": old, "new": new})
+    return {
+        "schema_version": "pipeline-diff/0.3",
+        "ok": True,
+        "summary": {
+            "changed": len(changes),
+            "unchanged": 3 - len(changes),
+        },
+        "execution_plan": {
+            "distance": {
+                "old": plan_a.get("distance") if isinstance(plan_a, dict) else None,
+                "new": plan_b.get("distance") if isinstance(plan_b, dict) else None,
+            },
+            "changed": _stable_json(plan_a) != _stable_json(plan_b),
+        },
+        "simulation": {
+            "old_trace": _trace_labels(sim_a),
+            "new_trace": _trace_labels(sim_b),
+            "changed": _stable_json(sim_a) != _stable_json(sim_b),
+        },
+        "knowledge": {
+            "added": sorted(know_b - know_a),
+            "removed": sorted(know_a - know_b),
+            "changed": know_a != know_b,
+        },
+        "changes": changes,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -260,22 +482,104 @@ def knowledge_endpoint(req: SourceRequest) -> dict[str, Any]:
 @app.post("/api/pipeline", response_model=PipelineResponse)
 def pipeline_endpoint(req: SourceRequest) -> PipelineResponse:
     """Run the full pipeline: parse → compile → execution_plan → simulation → knowledge."""
-    reason_irs, ast_dict, errors = _compile_ir(req)
+    artifacts, errors = _run_pipeline_artifacts(req)
     if errors:
-        return PipelineResponse(ok=False, phase="Compile", errors=errors, ast=ast_dict)
-
-    plans = [build_execution_plan(ir) for ir in reason_irs]
-    sims = [simulate(ir) for ir in reason_irs]
-    knowledges = [extract_knowledge(ir, sim) for ir, sim in zip(reason_irs, sims)]
+        return PipelineResponse(
+            ok=False,
+            phase="Compile",
+            errors=errors,
+            ast=artifacts.get("ast"),
+            validation=artifacts.get("validation"),
+        )
+    reason_ir = artifacts.get("reason_ir")
+    reason_irs = reason_ir.get("modules", []) if isinstance(reason_ir, dict) and "modules" in reason_ir else [reason_ir]
 
     return PipelineResponse(
         ok=True,
-        ast=ast_dict,
+        ast=artifacts.get("ast"),
         reason_irs=reason_irs,
-        execution_plan=plans[0] if len(plans) == 1 else {"modules": plans},
-        simulation=sims[0] if len(sims) == 1 else {"modules": sims},
-        knowledge=knowledges[0] if len(knowledges) == 1 else {"modules": knowledges},
+        execution_plan=artifacts.get("execution_plan"),
+        simulation=artifacts.get("simulation"),
+        knowledge=artifacts.get("knowledge"),
+        validation=artifacts.get("validation"),
     )
+
+
+@app.post("/api/export")
+@app.post("/export")
+def export_endpoint(req: SourceRequest) -> dict[str, Any]:
+    artifacts, errors = _run_pipeline_artifacts(req)
+    if errors:
+        return _artifact_response(artifacts, ok=False, errors=errors)
+    target = _safe_artifact_dir(EXPORTS_DIR, Path(req.filename).stem)
+    if target.exists():
+        target = _safe_artifact_dir(EXPORTS_DIR, f"{Path(req.filename).stem}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}")
+    _write_artifacts(target, artifacts)
+    response = _artifact_response(artifacts)
+    response["path"] = str(target)
+    response["files"] = ARTIFACT_FILES
+    return response
+
+
+@app.post("/api/import")
+@app.post("/import")
+def import_endpoint(req: ArtifactPathRequest) -> dict[str, Any]:
+    artifacts = _read_artifacts(req.path)
+    response = _artifact_response(artifacts)
+    response["path"] = artifacts.get("path")
+    return response
+
+
+@app.post("/api/diff")
+@app.post("/diff")
+def diff_endpoint(req: DiffRequest) -> dict[str, Any]:
+    a = _artifact_from_payload(req.a)
+    b = _artifact_from_payload(req.b)
+    return _diff_artifacts(a, b)
+
+
+@app.post("/api/run-all")
+@app.post("/run-all")
+def run_all_endpoint() -> dict[str, Any]:
+    results: list[dict[str, Any]] = []
+    if not REGRESSION_EXAMPLES_DIR.exists():
+        return {"ok": False, "pass": 0, "fail": 0, "results": [], "errors": [_make_error("RunAll", "examples directory not found")]}
+    for rsn_file in sorted(REGRESSION_EXAMPLES_DIR.rglob("*.rsn")):
+        req = SourceRequest(source=rsn_file.read_text(encoding="utf-8"), filename=rsn_file.name)
+        artifacts, errors = _run_pipeline_artifacts(req)
+        status = "FAIL" if errors else "PASS"
+        results.append({
+            "file": str(rsn_file.relative_to(REGRESSION_EXAMPLES_DIR)),
+            "status": status,
+            "errors": errors,
+            "validation": artifacts.get("validation"),
+        })
+    passed = sum(1 for item in results if item["status"] == "PASS")
+    failed = len(results) - passed
+    return {"ok": failed == 0, "pass": passed, "fail": failed, "results": results}
+
+
+@app.post("/api/baseline")
+@app.post("/baseline")
+def baseline_endpoint(req: SourceRequest) -> dict[str, Any]:
+    artifacts, errors = _run_pipeline_artifacts(req)
+    if errors:
+        return _artifact_response(artifacts, ok=False, errors=errors)
+    baseline_artifacts = {
+        "execution_plan": artifacts.get("execution_plan"),
+        "simulation": artifacts.get("simulation"),
+        "knowledge": artifacts.get("knowledge"),
+        "validation": artifacts.get("validation"),
+        "ast": artifacts.get("ast"),
+        "semantic_ast": artifacts.get("semantic_ast"),
+        "reason_ir": artifacts.get("reason_ir"),
+        "source": artifacts.get("source"),
+    }
+    target = _safe_artifact_dir(BASELINE_DIR, Path(req.filename).stem)
+    _write_artifacts(target, baseline_artifacts)
+    response = _artifact_response(baseline_artifacts)
+    response["path"] = str(target)
+    return response
 
 
 # ---------------------------------------------------------------------------

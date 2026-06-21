@@ -1,0 +1,10 @@
+[package]
+name = "hello_world"
+version = "0.1.7"
+
+[compiler]
+language_core = "0.7"
+platform = "0.2"
+
+[runtime]
+backend = "RuntimeReal"

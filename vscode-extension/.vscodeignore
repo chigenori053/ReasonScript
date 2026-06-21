@@ -1,0 +1,17 @@
+# .vscodeignore
+# Phase 1.4: ランタイム依存関係を確実にパッケージに含めるための設定
+# vscode-languageclient, vscode-jsonrpc, vscode-languageserver-protocol,
+# vscode-languageserver-types は除外しない（activation-critical dependencies）
+
+# ソースファイル（ビルド成果物のみ梱包）
+src/
+tsconfig.json
+
+# 開発用ファイル
+.vscode/
+.gitignore
+*.vsix
+
+# テスト
+**/*.test.ts
+**/*.test.js

@@ -1,0 +1,119 @@
+{
+  "scopeName": "source.reasonscript",
+  "name": "ReasonScript",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#runtimeApis"
+    },
+    {
+      "include": "#planningApis"
+    },
+    {
+      "include": "#agentApis"
+    },
+    {
+      "include": "#worldApis"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#keywords"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.reasonscript",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.reasonscript",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.reasonscript",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.reasonscript",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.reasonscript",
+          "match": "\\b\\d+(?:\\.\\d+)?\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.reasonscript",
+          "match": "\\b(package|module|import|export|pub|struct|enum|const|fn|goal|state|constraint|transition|reason_graph|execution_plan|calculation|let|return|requires|reach|if|else|match|loop)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.reasonscript",
+          "match": "\\b(Goal|State|Constraint|ReasonGraph|ExecutionPlan|World|Scene|Entity|Object|Geometry|Relation|Event|Snapshot|Planner|Plan|PlanStep|PlanResult|Agent|Task|Decision|Action|Tool|AgentResult)\\b"
+        }
+      ]
+    },
+    "runtimeApis": {
+      "patterns": [
+        {
+          "name": "support.function.runtime.reasonscript",
+          "match": "\\bruntime\\.(search|plan|predict|simulate)\\b"
+        }
+      ]
+    },
+    "planningApis": {
+      "patterns": [
+        {
+          "name": "support.function.planning.reasonscript",
+          "match": "\\bplanning\\.(create_goal|create_constraint|create_context|plan|evaluate_plan|validate_plan|steps|cost|confidence|goal)\\b"
+        }
+      ]
+    },
+    "agentApis": {
+      "patterns": [
+        {
+          "name": "support.function.agent.reasonscript",
+          "match": "\\bagent\\.(create_agent|create_task|create_context|decide|plan|act|execute|decision|actions|status|trace)\\b"
+        }
+      ]
+    },
+    "worldApis": {
+      "patterns": [
+        {
+          "name": "support.function.world.reasonscript",
+          "match": "\\bworld\\.(create_world|create_scene|create_entity|create_object|simulate|simulate_step|trace|reconstruct_scene)\\b"
+        }
+      ]
+    }
+  }
+}

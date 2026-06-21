@@ -26,6 +26,22 @@ export default function App() {
   const [results, setResults] = useState(null)
   const [logs, setLogs] = useState([])
   const [activeView, setActiveView] = useState('ast')
+  const [currentArtifacts, setCurrentArtifacts] = useState(null)
+  const [artifactSlots, setArtifactSlots] = useState({ a: null, b: null })
+  const [exportPath, setExportPath] = useState('')
+  const [importPath, setImportPath] = useState('')
+  const [baselinePath, setBaselinePath] = useState('')
+
+  const artifactsFromPipeline = useCallback((data) => ({
+    ast: data.ast,
+    semantic_ast: data.ast,
+    reason_ir: data.reason_irs?.length === 1 ? data.reason_irs[0] : { modules: data.reason_irs ?? [] },
+    execution_plan: data.execution_plan,
+    simulation: data.simulation,
+    knowledge: data.knowledge,
+    validation: data.validation,
+    source: { filename: 'playground.rsn', text: source },
+  }), [source])
 
   useEffect(() => {
     fetch('/api/examples')
@@ -49,7 +65,24 @@ export default function App() {
         body: JSON.stringify({ source, filename: 'playground.rsn' }),
       })
       const data = await res.json()
-      setResults(prev => ({ ...(prev || {}), validate: data, ast: data.ast ?? prev?.ast ?? null }))
+      const validation = {
+        schema_version: 'validation-report/0.3',
+        ok: data.ok,
+        errors: data.errors ?? [],
+        tree: {
+          name: 'Validation',
+          ok: data.ok,
+          children: [
+            { name: 'Parser', ok: data.ok || data.phase !== 'Parse', children: [] },
+            { name: 'Semantic', ok: data.ok, children: [] },
+            { name: 'SCV-1', ok: data.ok, children: [] },
+            { name: 'Planning', ok: false, children: [] },
+            { name: 'Simulation', ok: false, children: [] },
+            { name: 'Knowledge', ok: false, children: [] },
+          ],
+        },
+      }
+      setResults(prev => ({ ...(prev || {}), validate: data, validation, ast: data.ast ?? prev?.ast ?? null }))
       if (data.ok) {
         setStatus('ok')
         addLog('success', 'Validation passed ✓')
@@ -76,6 +109,8 @@ export default function App() {
       })
       const data = await res.json()
       if (data.ok) {
+        const artifacts = artifactsFromPipeline(data)
+        setCurrentArtifacts(artifacts)
         setResults(prev => ({
           ...(prev || {}),
           ast: data.ast,
@@ -83,6 +118,8 @@ export default function App() {
           execution_plan: data.execution_plan,
           simulation: data.simulation,
           knowledge: data.knowledge,
+          validation: data.validation,
+          artifacts,
         }))
         setStatus('ok')
         const irCount = data.reason_irs?.length ?? 0
@@ -100,6 +137,123 @@ export default function App() {
     } catch (e) {
       setStatus('error')
       addLog('error', `Network error: ${e.message}`)
+    }
+  }, [source, addLog, artifactsFromPipeline])
+
+  const handleExport = useCallback(async () => {
+    setStatus('running')
+    addLog('info', 'Artifact Export 開始...')
+    try {
+      const res = await fetch('/api/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, filename: 'playground.rsn' }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setCurrentArtifacts(data.artifacts)
+        setExportPath(data.path)
+        setResults(prev => ({ ...(prev || {}), ...data, artifacts: data.artifacts }))
+        setStatus('ok')
+        addLog('success', `Artifact Export 完了: ${data.path}`)
+      } else {
+        setStatus('error')
+        ;(data.errors ?? []).forEach(e => addLog('error', `[${e.phase}] ${e.message}`))
+      }
+    } catch (e) {
+      setStatus('error')
+      addLog('error', `Network error: ${e.message}`)
+    }
+  }, [source, addLog])
+
+  const handleImport = useCallback(async (slot) => {
+    setStatus('running')
+    addLog('info', `Artifact Import 開始 (${slot.toUpperCase()})...`)
+    try {
+      const res = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: importPath }),
+      })
+      const data = await res.json()
+      setCurrentArtifacts(data.artifacts)
+      setArtifactSlots(prev => ({ ...prev, [slot]: data.artifacts }))
+      setResults(prev => ({ ...(prev || {}), ...data, artifacts: data.artifacts }))
+      setStatus('ok')
+      addLog('success', `Artifact Import 完了: ${data.path}`)
+      setActiveView('artifacts')
+    } catch (e) {
+      setStatus('error')
+      addLog('error', `Import error: ${e.message}`)
+    }
+  }, [importPath, addLog])
+
+  const handleSetSlot = useCallback((slot) => {
+    if (!currentArtifacts) {
+      addLog('error', '比較対象の Artifact がありません。Run または Import を実行してください。')
+      return
+    }
+    setArtifactSlots(prev => ({ ...prev, [slot]: currentArtifacts }))
+    addLog('info', `Artifact ${slot.toUpperCase()} を設定しました`)
+  }, [currentArtifacts, addLog])
+
+  const handleCompare = useCallback(async () => {
+    setStatus('running')
+    addLog('info', 'Pipeline Diff 開始...')
+    try {
+      const res = await fetch('/api/diff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ a: artifactSlots.a, b: artifactSlots.b }),
+      })
+      const data = await res.json()
+      setResults(prev => ({ ...(prev || {}), diff: data }))
+      setStatus('ok')
+      addLog('success', `Pipeline Diff 完了: changed ${data.summary?.changed ?? 0}`)
+      setActiveView('diff')
+    } catch (e) {
+      setStatus('error')
+      addLog('error', `Diff error: ${e.message}`)
+    }
+  }, [artifactSlots, addLog])
+
+  const handleRunAll = useCallback(async () => {
+    setStatus('running')
+    addLog('info', 'Regression Test Runner 開始...')
+    try {
+      const res = await fetch('/api/run-all', { method: 'POST' })
+      const data = await res.json()
+      setResults(prev => ({ ...(prev || {}), regression: data }))
+      setStatus(data.ok ? 'ok' : 'error')
+      addLog(data.ok ? 'success' : 'error', `Regression 完了: PASS ${data.pass}, FAIL ${data.fail}`)
+    } catch (e) {
+      setStatus('error')
+      addLog('error', `Run All error: ${e.message}`)
+    }
+  }, [addLog])
+
+  const handleSaveBaseline = useCallback(async () => {
+    setStatus('running')
+    addLog('info', 'Baseline Snapshot 保存開始...')
+    try {
+      const res = await fetch('/api/baseline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, filename: 'playground.rsn' }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setBaselinePath(data.path)
+        setResults(prev => ({ ...(prev || {}), baseline_path: data.path }))
+        setStatus('ok')
+        addLog('success', `Baseline 保存完了: ${data.path}`)
+      } else {
+        setStatus('error')
+        ;(data.errors ?? []).forEach(e => addLog('error', `[${e.phase}] ${e.message}`))
+      }
+    } catch (e) {
+      setStatus('error')
+      addLog('error', `Baseline error: ${e.message}`)
     }
   }, [source, addLog])
 
@@ -149,6 +303,22 @@ export default function App() {
             results={results}
             activeView={activeView}
             onChangeView={setActiveView}
+            controls={{
+              disabled: status === 'running',
+              exportPath,
+              importPath,
+              baselinePath,
+              slots: artifactSlots,
+              diff: results?.diff,
+              regression: results?.regression,
+              onImportPathChange: setImportPath,
+              onExport: handleExport,
+              onImport: handleImport,
+              onSetSlot: handleSetSlot,
+              onCompare: handleCompare,
+              onRunAll: handleRunAll,
+              onSaveBaseline: handleSaveBaseline,
+            }}
           />
         </div>
       </div>
