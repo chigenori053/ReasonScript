@@ -29,6 +29,7 @@ from .nodes import (
     FunctionDeclarationNode,
     GoalNode,
     GoalStatementNode,
+    IdentifierNode,
     ImportNode,
     IfStatementNode,
     IndexAccessNode,
@@ -40,7 +41,9 @@ from .nodes import (
     MemberAccessNode,
     NoneLiteralNode,
     ModuleNode,
+    ParenthesizedExpressionNode,
     ProgramNode,
+    QualifiedIdentifierNode,
     ReasonGraphDeclarationNode,
     ReachStatementNode,
     RelationNode,
@@ -49,6 +52,7 @@ from .nodes import (
     ReturnStatementNode,
     RuntimeCallExpressionNode,
     RuntimeCallKind,
+    RuntimeNamespaceNode,
     SetLiteralNode,
     SomeExpressionNode,
     StateDeclarationNode,
@@ -61,7 +65,7 @@ from .nodes import (
     WhileStatementNode,
     to_json_value,
 )
-from .validation import validate
+from .validation import SurfaceValidationError, validate
 from .namespace import resolve_program
 
 
@@ -77,12 +81,23 @@ def project_program(program: ProgramNode) -> tuple[semantic.ModuleNode, ...]:
 
 def project_module(module: ModuleNode, *, package: str | None = None) -> semantic.ModuleNode:
     namespace = f"{package}.{module.name}" if package else module.name
+    calculation_order = _topological_calculations(module)
+    calculation_dependencies = _calculation_dependencies(module)
+    calculation_result_target = (
+        f"{calculation_order[-1].name}.state.result"
+        if calculation_order
+        else None
+    )
     declarations: list[Any] = []
     imports: list[str] = []
     surface_goals = [node for node in module.body if isinstance(node, GoalNode)]
     goal_target = surface_goals[0].name if surface_goals else f"{module.name}Result"
     declarations.append(
-        semantic.GoalNode(f"{namespace}-goal", "reach_state", goal_target)
+        semantic.GoalNode(
+            f"{namespace}-goal",
+            "reach_state",
+            calculation_result_target or goal_target,
+        )
     )
     declarations.append(
         semantic.StateNode(
@@ -103,6 +118,7 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
         )
     )
     transition_index = 0
+    calculations_projected = False
     for node in module.body:
         if isinstance(node, ImportNode):
             imports.append(".".join(node.path))
@@ -158,46 +174,15 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                 )
             )
         elif isinstance(node, CalculationNode):
-            current = f"{module.name}Start"
-            for index, statement in enumerate(node.body, 1):
-                identifier, statement_data, relation = _statement_projection(
-                    statement, index
+            if not calculations_projected:
+                transition_index = _project_calculations(
+                    declarations,
+                    calculation_order,
+                    namespace=namespace,
+                    module=module,
+                    start_index=transition_index,
                 )
-                if _terminates_with_result(statement):
-                    identifier = "result"
-                transition_index += 1
-                target = (
-                    (node.goal_annotation or goal_target)
-                    if identifier == "result"
-                    else f"{node.name}.{identifier}"
-                )
-                declarations.append(
-                    semantic.TransitionNode(
-                        f"{namespace}-calculation-{transition_index}",
-                        f"{node.name}-{index}-{identifier}",
-                        current,
-                        relation,
-                        target,
-                        effect={
-                            "calculation": node.name,
-                            "visibility": node.visibility.value,
-                            "goal_annotation": node.goal_annotation,
-                            "return_type": (
-                                to_json_value(node.return_type)
-                                if node.return_type is not None
-                                else None
-                            ),
-                            "target": identifier,
-                            "statement": statement_data,
-                            **(
-                                {"expression": statement_data["expression"]}
-                                if "expression" in statement_data
-                                else {}
-                            ),
-                        },
-                    )
-                )
-                current = target
+                calculations_projected = True
     return semantic.ModuleNode(
         node_id=namespace,
         imports=tuple(imports),
@@ -284,8 +269,88 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                 "reasoning_declarations",
                 _reasoning_declarations(module),
             ),
+            semantic.MetadataNode(
+                f"{namespace}-calculation-order",
+                "calculation_order",
+                [node.name for node in calculation_order],
+            ),
+            semantic.MetadataNode(
+                f"{namespace}-calculation-dependencies",
+                "calculation_dependencies",
+                [
+                    {"source": source, "target": target}
+                    for target in sorted(calculation_dependencies)
+                    for source in sorted(calculation_dependencies[target])
+                ],
+            ),
         ),
     )
+
+
+def _project_calculations(
+    declarations: list[Any],
+    calculations: tuple[CalculationNode, ...],
+    *,
+    namespace: str,
+    module: ModuleNode,
+    start_index: int,
+) -> int:
+    transition_index = start_index
+    current = f"{module.name}Start"
+    calculation_names = {node.name for node in calculations}
+    for node in calculations:
+        local_names: set[str] = set()
+        for index, statement in enumerate(node.body, 1):
+            identifier, statement_data, relation = _statement_projection(
+                statement, index
+            )
+            expression = _statement_expression(statement)
+            if isinstance(statement, (LetStatementNode, ConstStatementNode)):
+                local_names.add(statement.identifier)
+            if _terminates_with_result(statement):
+                identifier = "result"
+            transition_index += 1
+            target = (
+                f"{node.name}.state.result"
+                if identifier == "result"
+                else f"{node.name}.state.{identifier}"
+            )
+            declarations.append(
+                semantic.TransitionNode(
+                    f"{namespace}-calculation-{transition_index}",
+                    f"{node.name}-{index}-{identifier}",
+                    current,
+                    relation,
+                    target,
+                    effect={
+                        "calculation": node.name,
+                        "visibility": node.visibility.value,
+                        "goal_annotation": node.goal_annotation,
+                        "return_type": (
+                            to_json_value(node.return_type)
+                            if node.return_type is not None
+                            else None
+                        ),
+                        "target": identifier,
+                        "statement": statement_data,
+                        "inputs": _resolved_expression_inputs(
+                            expression,
+                            calculation=node.name,
+                            calculation_names=calculation_names,
+                            local_names=local_names,
+                        ),
+                        **(
+                            {"expression": statement_data["expression"]}
+                            if "expression" in statement_data
+                            else {}
+                        ),
+                    },
+                )
+            )
+            current = target
+            if isinstance(statement, AssignmentStatementNode):
+                local_names.add(statement.target)
+    return transition_index
 
 
 def _exports(module: ModuleNode) -> list[str]:
@@ -391,6 +456,165 @@ def _reasoning_type_from_argument(argument: Any) -> str:
     if "state" in text:
         return "state"
     return "goal"
+
+
+def _topological_calculations(module: ModuleNode) -> tuple[CalculationNode, ...]:
+    by_name = {
+        node.name: node for node in module.body if isinstance(node, CalculationNode)
+    }
+    dependencies = _calculation_dependencies(module)
+    ready = sorted(name for name in by_name if not dependencies[name])
+    ordered: list[CalculationNode] = []
+    while ready:
+        name = ready.pop(0)
+        ordered.append(by_name[name])
+        for candidate in sorted(dependencies):
+            if name in dependencies[candidate]:
+                dependencies[candidate].remove(name)
+                if not dependencies[candidate]:
+                    ready.append(candidate)
+                    ready.sort()
+        dependencies.pop(name, None)
+    if dependencies:
+        cycle = ", ".join(sorted(dependencies))
+        raise SurfaceValidationError(f"CAL-030 Dependency Cycle Detected: {cycle}")
+    return tuple(ordered)
+
+
+def _calculation_dependencies(module: ModuleNode) -> dict[str, set[str]]:
+    calculations = {
+        node.name: node for node in module.body if isinstance(node, CalculationNode)
+    }
+    calculation_names = set(calculations)
+    return {
+        name: _dependencies_for_calculation(node, calculation_names)
+        for name, node in calculations.items()
+    }
+
+
+def _dependencies_for_calculation(
+    calculation: CalculationNode, calculation_names: set[str]
+) -> set[str]:
+    local_names: set[str] = set()
+    dependencies: set[str] = set()
+    for statement in calculation.body:
+        expression = _statement_expression(statement)
+        if expression is not None:
+            dependencies.update(
+                reference
+                for reference in _expression_identifiers(expression)
+                if reference in calculation_names and reference not in local_names
+            )
+        if isinstance(statement, (LetStatementNode, ConstStatementNode)):
+            local_names.add(statement.identifier)
+        elif isinstance(statement, AssignmentStatementNode):
+            local_names.add(statement.target)
+    dependencies.discard(calculation.name)
+    return dependencies
+
+
+def _statement_expression(statement: Any) -> ExpressionNode | None:
+    if isinstance(
+        statement,
+        (
+            LetStatementNode,
+            ConstStatementNode,
+            AssignmentStatementNode,
+            ResultStatementNode,
+            ExpressionStatementNode,
+        ),
+    ):
+        return statement.expression
+    if isinstance(statement, FieldAssignmentStatementNode):
+        return statement.expression
+    if isinstance(statement, IndexAssignmentStatementNode):
+        return statement.expression
+    return None
+
+
+def _resolved_expression_inputs(
+    expression: ExpressionNode | None,
+    *,
+    calculation: str,
+    calculation_names: set[str],
+    local_names: set[str],
+) -> list[str]:
+    if expression is None:
+        return []
+    inputs: list[str] = []
+    for reference in sorted(_expression_identifiers(expression)):
+        if reference in calculation_names and reference not in local_names:
+            inputs.append(f"{reference}.state.result")
+        elif reference in local_names:
+            inputs.append(f"{calculation}.state.{reference}")
+        else:
+            inputs.append(reference)
+    return inputs
+
+
+def _expression_identifiers(expression: ExpressionNode | Any) -> set[str]:
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    found: set[str] = set()
+
+    def visit(item: Any) -> None:
+        if isinstance(item, IdentifierNode):
+            found.add(item.name)
+            return
+        if isinstance(item, QualifiedIdentifierNode):
+            return
+        if isinstance(item, RuntimeNamespaceNode):
+            return
+        if isinstance(item, RuntimeCallExpressionNode):
+            for argument in item.arguments:
+                visit(argument)
+            return
+        if isinstance(item, UnaryExpressionNode):
+            visit(item.operand)
+            return
+        if isinstance(
+            item,
+            (
+                BinaryExpressionNode,
+                ComparisonExpressionNode,
+                LogicalExpressionNode,
+            ),
+        ):
+            visit(item.left)
+            visit(item.right)
+            return
+        if isinstance(item, ParenthesizedExpressionNode):
+            visit(item.expression)
+            return
+        if isinstance(item, MemberAccessNode):
+            visit(item.object)
+            return
+        if isinstance(item, CallExpressionNode):
+            visit(item.callee)
+            for argument in item.arguments:
+                visit(argument)
+            return
+        if isinstance(item, StructLiteralNode):
+            for field in item.fields:
+                visit(field.expression)
+            return
+        if isinstance(item, (ArrayLiteralNode, TupleLiteralNode, SetLiteralNode)):
+            for element in item.elements:
+                visit(element)
+            return
+        if isinstance(item, MapLiteralNode):
+            for entry in item.entries:
+                visit(entry.key)
+                visit(entry.value)
+            return
+        if isinstance(item, IndexAccessNode):
+            visit(item.collection)
+            visit(item.index)
+            return
+        if isinstance(item, SomeExpressionNode):
+            visit(item.value)
+
+    visit(value)
+    return found
 
 
 def _walk_runtime_calls(value: Any):

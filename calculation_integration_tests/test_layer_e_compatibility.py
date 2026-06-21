@@ -45,7 +45,7 @@ class LayerECompilerCompatibilityTests(unittest.TestCase):
             [item.relation for item in calculation_transitions],
             ["MultiplyTransition", "StateUpdateTransition", "ResultTransition"],
         )
-        self.assertEqual(calculation_transitions[-1].target, "RiskEvaluation")
+        self.assertEqual(calculation_transitions[-1].target, "RiskScore.state.result")
 
     def test_e_002_and_e_003_reason_ir_and_execution_plan(self):
         reason_ir = compile_program(self.program)[0]

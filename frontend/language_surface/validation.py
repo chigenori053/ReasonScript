@@ -375,6 +375,7 @@ def _validate_module(module: ModuleNode) -> None:
             _validate_function(node, symbols)
         else:
             _validate_ast_node(node)
+    _validate_calculation_dependency_graph(module)
 
 
 def _validate_ast_node(node: Any) -> None:
@@ -614,6 +615,134 @@ def _validate_calculation(node: CalculationNode, symbols: dict[str, Any]) -> Non
         raise SurfaceValidationError(
             "CAL-010 calculation requires a terminal ResultStatementNode"
         )
+
+
+def _validate_calculation_dependency_graph(module: ModuleNode) -> None:
+    calculations = {
+        node.name: node for node in module.body if isinstance(node, CalculationNode)
+    }
+    if not calculations:
+        return
+    dependencies = {
+        name: _calculation_dependencies(node, set(calculations))
+        for name, node in calculations.items()
+    }
+    ready = sorted(name for name, required in dependencies.items() if not required)
+    while ready:
+        name = ready.pop(0)
+        for candidate in sorted(dependencies):
+            if name in dependencies[candidate]:
+                dependencies[candidate].remove(name)
+                if not dependencies[candidate]:
+                    ready.append(candidate)
+                    ready.sort()
+        dependencies.pop(name, None)
+    if dependencies:
+        cycle = ", ".join(sorted(dependencies))
+        raise SurfaceValidationError(f"CAL-030 Dependency Cycle Detected: {cycle}")
+
+
+def _calculation_dependencies(
+    calculation: CalculationNode, calculation_names: set[str]
+) -> set[str]:
+    local_names: set[str] = set()
+    dependencies: set[str] = set()
+    for statement in calculation.body:
+        expression = _calculation_statement_expression(statement)
+        if expression is not None:
+            dependencies.update(
+                reference
+                for reference in _calculation_expression_identifiers(expression)
+                if reference in calculation_names and reference not in local_names
+            )
+        if isinstance(statement, (LetStatementNode, ConstStatementNode)):
+            local_names.add(statement.identifier)
+        elif isinstance(statement, AssignmentStatementNode):
+            local_names.add(statement.target)
+    dependencies.discard(calculation.name)
+    return dependencies
+
+
+def _calculation_statement_expression(statement: Any) -> ExpressionNode | None:
+    if isinstance(
+        statement,
+        (
+            LetStatementNode,
+            ConstStatementNode,
+            AssignmentStatementNode,
+            ResultStatementNode,
+            ExpressionStatementNode,
+            FieldAssignmentStatementNode,
+            IndexAssignmentStatementNode,
+        ),
+    ):
+        return statement.expression
+    return None
+
+
+def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set[str]:
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    found: set[str] = set()
+
+    def visit(item: Any) -> None:
+        if isinstance(item, IdentifierNode):
+            found.add(item.name)
+            return
+        if isinstance(item, QualifiedIdentifierNode):
+            return
+        if isinstance(item, RuntimeNamespaceNode):
+            return
+        if isinstance(item, RuntimeCallExpressionNode):
+            for argument in item.arguments:
+                visit(argument)
+            return
+        if isinstance(item, UnaryExpressionNode):
+            visit(item.operand)
+            return
+        if isinstance(
+            item,
+            (
+                BinaryExpressionNode,
+                ComparisonExpressionNode,
+                LogicalExpressionNode,
+            ),
+        ):
+            visit(item.left)
+            visit(item.right)
+            return
+        if isinstance(item, ParenthesizedExpressionNode):
+            visit(item.expression)
+            return
+        if isinstance(item, MemberAccessNode):
+            visit(item.object)
+            return
+        if isinstance(item, CallExpressionNode):
+            visit(item.callee)
+            for argument in item.arguments:
+                visit(argument)
+            return
+        if isinstance(item, StructLiteralNode):
+            for field in item.fields:
+                visit(field.expression)
+            return
+        if isinstance(item, (ArrayLiteralNode, TupleLiteralNode, SetLiteralNode)):
+            for element in item.elements:
+                visit(element)
+            return
+        if isinstance(item, MapLiteralNode):
+            for entry in item.entries:
+                visit(entry.key)
+                visit(entry.value)
+            return
+        if isinstance(item, IndexAccessNode):
+            visit(item.collection)
+            visit(item.index)
+            return
+        if isinstance(item, SomeExpressionNode):
+            visit(item.value)
+
+    visit(value)
+    return found
 
 
 def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -> None:
