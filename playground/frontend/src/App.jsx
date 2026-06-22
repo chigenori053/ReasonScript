@@ -31,6 +31,7 @@ export default function App() {
   const [exportPath, setExportPath] = useState('')
   const [importPath, setImportPath] = useState('')
   const [baselinePath, setBaselinePath] = useState('')
+  const [compilerMode, setCompilerMode] = useState('normal') // normal | strict | rust_compatible
 
   const artifactsFromPipeline = useCallback((data) => ({
     ast: data.ast,
@@ -257,6 +258,32 @@ export default function App() {
     }
   }, [source, addLog])
 
+  const handleAnalyze = useCallback(async () => {
+    setStatus('running')
+    addLog('info', `Analyze 開始 (mode: ${compilerMode})...`)
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, filename: 'playground.rsn', compiler_mode: compilerMode }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setResults(prev => ({ ...(prev || {}), analysis: data.analysis, ast: data.ast ?? prev?.ast }))
+        setStatus('ok')
+        const q = data.analysis?.quality?.overall_pct ?? '—'
+        addLog('success', `Analyze 完了 — Quality Score: ${q}%`)
+        setActiveView('quality')
+      } else {
+        setStatus('error')
+        ;(data.errors ?? []).forEach(e => addLog('error', `[${e.phase}] ${e.message}`))
+      }
+    } catch (e) {
+      setStatus('error')
+      addLog('error', `Analyze error: ${e.message}`)
+    }
+  }, [source, compilerMode, addLog])
+
   const handleLoadExample = useCallback((id) => {
     const ex = examples.find(e => e.id === id)
     if (!ex) return
@@ -273,8 +300,11 @@ export default function App() {
         examples={examples}
         onValidate={handleValidate}
         onRun={handleRun}
+        onAnalyze={handleAnalyze}
         onLoadExample={handleLoadExample}
         disabled={status === 'running'}
+        compilerMode={compilerMode}
+        onCompilerModeChange={setCompilerMode}
       />
       <div className="main-pane">
         <div className="editor-pane">
@@ -318,6 +348,7 @@ export default function App() {
               onCompare: handleCompare,
               onRunAll: handleRunAll,
               onSaveBaseline: handleSaveBaseline,
+              compilerMode,
             }}
           />
         </div>

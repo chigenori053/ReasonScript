@@ -24,6 +24,7 @@ from frontend.language_surface.integration import compile_program, project_progr
 from frontend.language_surface.validation import SurfaceValidationError
 from frontend.language_surface.namespace import NamespaceResolutionError
 from playground.backend.engine import build_execution_plan, simulate, extract_knowledge
+from playground.backend.analyzer import analyze_ir
 
 EXAMPLES_DIR = REPO_ROOT / "TestPlayground" / "examples"
 REGRESSION_EXAMPLES_DIR = REPO_ROOT / "examples"
@@ -57,6 +58,7 @@ app.add_middleware(
 class SourceRequest(BaseModel):
     source: str
     filename: str = "playground.rsn"
+    compiler_mode: str = "normal"  # normal | strict | rust_compatible
 
 
 class ValidateResponse(BaseModel):
@@ -557,6 +559,36 @@ def run_all_endpoint() -> dict[str, Any]:
     passed = sum(1 for item in results if item["status"] == "PASS")
     failed = len(results) - passed
     return {"ok": failed == 0, "pass": passed, "fail": failed, "results": results}
+
+
+@app.post("/api/analyze")
+def analyze_endpoint(req: SourceRequest) -> dict[str, Any]:
+    """Run full pipeline + produce v0.5 analysis artifacts."""
+    reason_irs, ast_dict, errors = _compile_ir(req)
+    if errors:
+        return {"ok": False, "errors": errors, "ast": ast_dict}
+
+    analyses = []
+    for ir in reason_irs:
+        sim = simulate(ir)
+        analyses.append(analyze_ir(ir, sim, compiler_mode=req.compiler_mode))
+
+    analysis = analyses[0] if len(analyses) == 1 else {"modules": analyses}
+
+    # Also run full pipeline for output events
+    artifacts, _ = _run_pipeline_artifacts(req)
+    reason_ir = artifacts.get("reason_ir") or {}
+    runtime_ops = []
+    if isinstance(reason_ir, dict):
+        runtime_ops = reason_ir.get("metadata", {}).get("runtime_operations", [])
+
+    return {
+        "ok": True,
+        "ast": ast_dict,
+        "analysis": analysis,
+        "runtime_operations": runtime_ops,
+        "compiler_mode": req.compiler_mode,
+    }
 
 
 @app.post("/api/baseline")
