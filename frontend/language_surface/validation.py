@@ -460,7 +460,9 @@ def _validate_ast_node(node: Any) -> None:
         _identifier(node.goal, f"{type(node).__name__}.goal")
     elif isinstance(node, ExpressionStatementNode):
         _expression(node.expression, "ExpressionStatementNode.expression")
-        if not isinstance(node.expression.expression, CallExpressionNode):
+        if not isinstance(
+            node.expression.expression, (CallExpressionNode, RuntimeCallExpressionNode)
+        ):
             raise SurfaceValidationError(
                 "ST-060 ExpressionStatementNode root must be CallExpressionNode"
             )
@@ -1484,6 +1486,8 @@ def _validate_runtime_call(value: RuntimeCallExpressionNode) -> None:
     if value.namespace.name != "runtime":
         raise SurfaceValidationError("RV-1 ReservedRuntimeNamespace")
     supported = {
+        "input": RuntimeCallKind.INPUT,
+        "print": RuntimeCallKind.PRINT,
         "search": RuntimeCallKind.SEARCH,
         "simulate": RuntimeCallKind.SIMULATION,
         "predict": RuntimeCallKind.PREDICTION,
@@ -1491,13 +1495,23 @@ def _validate_runtime_call(value: RuntimeCallExpressionNode) -> None:
     }
     if supported.get(value.method) != value.kind:
         raise SurfaceValidationError("RV-4 UnknownRuntimeMethod")
-    if len(value.arguments) != 1:
+    expected_arguments = {
+        RuntimeCallKind.INPUT: 0,
+        RuntimeCallKind.PRINT: 1,
+        RuntimeCallKind.SEARCH: 1,
+        RuntimeCallKind.SIMULATION: 1,
+        RuntimeCallKind.PREDICTION: 1,
+        RuntimeCallKind.PLANNING: 1,
+    }[value.kind]
+    if len(value.arguments) != expected_arguments:
         raise SurfaceValidationError("RV-5 RuntimeCallArgumentCountMismatch")
 
 
 def _validate_runtime_reasoning_argument(
     value: RuntimeCallExpressionNode, symbols: dict[str, Any]
 ) -> None:
+    if value.kind in {RuntimeCallKind.INPUT, RuntimeCallKind.PRINT}:
+        return
     argument = value.arguments[0]
     declaration: Any | None = None
     if isinstance(argument, IdentifierNode):
@@ -1556,6 +1570,10 @@ def _expression_type(
         return OptionalTypeNode(_UNKNOWN_TYPE)
     if isinstance(value, RuntimeCallExpressionNode):
         _validate_runtime_call(value)
+        if value.kind == RuntimeCallKind.INPUT:
+            return NamedTypeNode("InputState")
+        if value.kind == RuntimeCallKind.PRINT:
+            return NamedTypeNode("OutputEvent")
         inner = {
             RuntimeCallKind.SEARCH: "SearchResult",
             RuntimeCallKind.SIMULATION: "SimulationResult",

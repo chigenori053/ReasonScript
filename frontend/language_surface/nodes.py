@@ -51,6 +51,8 @@ class LogicalOperator(str, Enum):
 
 
 class RuntimeCallKind(str, Enum):
+    INPUT = "InputCall"
+    PRINT = "PrintCall"
     SEARCH = "SearchCall"
     SIMULATION = "SimulationCall"
     PREDICTION = "PredictionCall"

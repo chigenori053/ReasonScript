@@ -16,7 +16,7 @@ from typing import Any, Protocol
 EXECUTION_ARCHITECTURE_SCHEMA = "reasonscript-execution-architecture/1.2"
 REASONING_TRACE_SCHEMA = "reasonscript-reasoning-trace/1.0"
 PLATFORM_DIAGNOSTIC_SCHEMA = "reasonscript-platform-diagnostic/1.0"
-RUNTIME_OPERATION_METHODS = {"search", "simulate", "predict", "plan"}
+RUNTIME_OPERATION_METHODS = {"input", "print", "search", "simulate", "predict", "plan"}
 REASONING_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -146,6 +146,27 @@ class RuntimeValue:
     @staticmethod
     def execution_plan(value: dict[str, Any]) -> "RuntimeValue":
         return RuntimeValue("ExecutionPlanValue", value)
+
+    @staticmethod
+    def input_state(value: Any, state_id: str = "Input1") -> "RuntimeValue":
+        return RuntimeValue(
+            "InputState",
+            {"state_id": state_id, "state_type": "Input", "value": value},
+        )
+
+    @staticmethod
+    def output_event(
+        source_state: str, rendered_value: Any, output_id: str = "Output1"
+    ) -> "RuntimeValue":
+        return RuntimeValue(
+            "OutputEvent",
+            {
+                "output_id": output_id,
+                "source_state": source_state,
+                "projection": "canonical",
+                "rendered_value": rendered_value,
+            },
+        )
 
 
 @dataclass(frozen=True)
@@ -595,6 +616,12 @@ class RuntimeResult:
 
 
 class RuntimeOperationExecutor(Protocol):
+    def input(self) -> RuntimeResult:
+        ...
+
+    def print(self, request: RuntimeValue) -> RuntimeResult:
+        ...
+
     def search(self, request: RuntimeValue) -> RuntimeResult:
         ...
 
@@ -1084,8 +1111,9 @@ def execute_runtime_operations(
             diagnostics.append(diagnostic)
             continue
         try:
-            argument = runtime_value_from_ir_expression(operation.get("argument"))
-            argument = _coerce_reasoning_value(method, argument)
+            argument = None if method == "input" else runtime_value_from_ir_expression(operation.get("argument"))
+            if argument is not None:
+                argument = _coerce_reasoning_value(method, argument)
         except (TypeError, ValueError, KeyError) as error:
             diagnostic = (
                 f"{RuntimeIntegrationErrorCode.ARGUMENT_CONVERSION_FAILED}: {error}"
@@ -1095,7 +1123,11 @@ def execute_runtime_operations(
             continue
 
         try:
-            runtime_result = getattr(executor, method)(argument)
+            runtime_result = (
+                getattr(executor, method)()
+                if method == "input"
+                else getattr(executor, method)(argument)
+            )
         except Exception as error:  # pragma: no cover - defensive integration edge.
             diagnostic = (
                 f"{RuntimeIntegrationErrorCode.RUNTIME_EXECUTION_FAILED}: {error}"
@@ -1104,7 +1136,11 @@ def execute_runtime_operations(
             diagnostics.append(diagnostic)
             continue
 
-        language_value, result_diagnostics = _language_optional(runtime_result)
+        if method in {"input", "print"}:
+            language_value = runtime_result.value or RuntimeValue.optional(None)
+            result_diagnostics = runtime_result.diagnostics
+        else:
+            language_value, result_diagnostics = _language_optional(runtime_result)
         results.append(
             RuntimeOperationResult(
                 method,
@@ -1543,6 +1579,8 @@ def runtime_value_to_plain(value: RuntimeValue | None) -> Any:
         "ConstraintValue",
         "ReasonGraphValue",
         "ExecutionPlanValue",
+        "InputState",
+        "OutputEvent",
     }:
         return value.value
     raise ValueError(f"unsupported runtime value kind: {value.kind}")

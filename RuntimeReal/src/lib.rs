@@ -5,5 +5,6 @@ pub mod graph;
 pub mod ir;
 pub mod knowledge;
 pub mod runtime_binding;
+pub mod runtime_io;
 pub mod semantic_simulation;
 pub mod storage;

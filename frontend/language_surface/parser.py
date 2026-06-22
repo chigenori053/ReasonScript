@@ -636,11 +636,22 @@ def _normalize_runtime_expression(value):
         arguments = tuple(
             _normalize_runtime_expression(item) for item in value.arguments
         )
+        if isinstance(callee, IdentifierNode):
+            kind = {
+                "input": RuntimeCallKind.INPUT,
+                "print": RuntimeCallKind.PRINT,
+            }.get(callee.name)
+            if kind is not None:
+                return RuntimeCallExpressionNode(
+                    RuntimeNamespaceNode(), callee.name, kind, arguments
+                )
         if (
             isinstance(callee, MemberAccessNode)
             and isinstance(callee.object, RuntimeNamespaceNode)
         ):
             kind = {
+                "input": RuntimeCallKind.INPUT,
+                "print": RuntimeCallKind.PRINT,
                 "search": RuntimeCallKind.SEARCH,
                 "simulate": RuntimeCallKind.SIMULATION,
                 "predict": RuntimeCallKind.PREDICTION,

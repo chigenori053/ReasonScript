@@ -373,6 +373,8 @@ def _runtime_calls(module: ModuleNode) -> list[str]:
 
 def _runtime_operations(module: ModuleNode) -> list[dict[str, Any]]:
     operations = {
+        RuntimeCallKind.INPUT: "InputOperation",
+        RuntimeCallKind.PRINT: "PrintOperation",
         RuntimeCallKind.SEARCH: "RuntimeSearchNode",
         RuntimeCallKind.SIMULATION: "RuntimeSimulateNode",
         RuntimeCallKind.PREDICTION: "RuntimePredictNode",
@@ -389,6 +391,11 @@ def _runtime_operations(module: ModuleNode) -> list[dict[str, Any]]:
                 "kind": call.kind.value,
                 "argument": to_json_value(argument),
                 "arguments": [to_json_value(item) for item in call.arguments],
+                **(
+                    {"source_state": _runtime_source_state(argument)}
+                    if call.kind == RuntimeCallKind.PRINT and argument is not None
+                    else {}
+                ),
             }
         )
     return result
@@ -699,12 +706,22 @@ def _expression_relation(expression: ExpressionNode) -> str:
         return "CallTransition"
     if isinstance(value, RuntimeCallExpressionNode):
         return {
+            RuntimeCallKind.INPUT: "InputOperation",
+            RuntimeCallKind.PRINT: "PrintOperation",
             RuntimeCallKind.SEARCH: "RuntimeSearchOperation",
             RuntimeCallKind.SIMULATION: "RuntimeSimulateOperation",
             RuntimeCallKind.PREDICTION: "RuntimePredictOperation",
             RuntimeCallKind.PLANNING: "RuntimePlanOperation",
         }[value.kind]
     return "ExpressionTransition"
+
+
+def _runtime_source_state(argument: Any) -> str:
+    if isinstance(argument, IdentifierNode):
+        return argument.name
+    if isinstance(argument, QualifiedIdentifierNode):
+        return "::".join((*argument.path, argument.symbol))
+    return str(to_json_value(argument))
 
 
 def _statement_projection(

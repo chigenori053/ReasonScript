@@ -243,9 +243,11 @@
       "required": ["namespace", "method", "kind", "arguments", "node_type"],
       "properties": {
         "namespace": {"$ref": "#/$defs/runtime_namespace"},
-        "method": {"enum": ["search", "simulate", "predict", "plan"]},
+        "method": {"enum": ["input", "print", "search", "simulate", "predict", "plan"]},
         "kind": {
           "enum": [
+            "InputCall",
+            "PrintCall",
             "SearchCall",
             "SimulationCall",
             "PredictionCall",
@@ -254,7 +256,7 @@
         },
         "arguments": {
           "type": "array",
-          "minItems": 1,
+          "minItems": 0,
           "maxItems": 1,
           "items": {"$ref": "#/$defs/expression_value"}
         },
