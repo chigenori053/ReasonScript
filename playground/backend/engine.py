@@ -81,6 +81,7 @@ def build_execution_plan(ir: dict[str, Any]) -> dict[str, Any]:
         }
         for i, t in enumerate(found_path)
     ]
+    selected_branches = _branch_evidence_path(found_path)
 
     # Build alternative paths (up to 3 shortest)
     alt_candidates = sorted(
@@ -101,6 +102,9 @@ def build_execution_plan(ir: dict[str, Any]) -> dict[str, Any]:
         "reachable": reachable,
         "distance": len(selected_steps),
         "selected_steps": selected_steps,
+        "selected_branch": selected_branches[0] if selected_branches else None,
+        "selected_branches": selected_branches,
+        "path_signature": _path_signature(selected_branches),
         "alternative_paths": alternative_paths,
         "expected_cost": found_cost,
         "evidence_refs": [],
@@ -160,6 +164,15 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
             }
             applied.append(t["transition_id"])
             total_cost += t.get("expected_cost", 1.0)
+            if t.get("relation") == "FunctionReturnTransition":
+                trace.append({
+                    "step": len(applied),
+                    "state": t["target"],
+                    "transition": t["transition_id"],
+                    "event": "branch_selection",
+                    "event_type": "BranchSelection",
+                    "branch": t["transition_id"],
+                })
             trace.append({
                 "step": len(applied),
                 "state": t["target"],
@@ -177,6 +190,11 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
     # Confidence: degrades with cost; semantic goals slightly lower
     base = 0.92 if not semantic_goal else 0.82
     confidence = round(max(0.3, base - total_cost * 0.04), 2) if success else 0.0
+    selected_branches = [
+        item["branch"]
+        for item in trace
+        if item.get("event_type") == "BranchSelection" and item.get("branch")
+    ]
 
     return {
         "schema_version": "semantic-simulation/0.2",
@@ -186,6 +204,9 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
         "confidence": confidence,
         "final_state": current.get("state_id", ""),
         "step_count": len(applied),
+        "selected_branch": selected_branches[0] if selected_branches else None,
+        "selected_branches": selected_branches,
+        "path_signature": _path_signature(selected_branches),
         "violations": violations,
         "trace": trace,
     }
@@ -204,7 +225,12 @@ def _constraint_passes(expression: str, data: Any) -> bool:
 # Knowledge engine
 # ---------------------------------------------------------------------------
 
-def extract_knowledge(ir: dict[str, Any], simulation: dict[str, Any]) -> dict[str, Any]:
+def extract_knowledge(
+    ir: dict[str, Any],
+    simulation: dict[str, Any],
+    *,
+    include_all_branches: bool = False,
+) -> dict[str, Any]:
     """
     Extract domain knowledge from Reason IR + simulation result.
 
@@ -233,6 +259,11 @@ def extract_knowledge(ir: dict[str, Any], simulation: dict[str, Any]) -> dict[st
     queue: deque[tuple[str, list[dict[str, Any]]]] = deque()
     queue.append((initial_id, []))
     visited_states: set[str] = {initial_id}
+    selected_branches = set(simulation.get("selected_branches") or [])
+    if simulation.get("selected_branch"):
+        selected_branches.add(simulation["selected_branch"])
+    constrain_to_selected = bool(selected_branches) and not include_all_branches
+    seen_knowledge: set[tuple[str, str, str, str]] = set()
     max_knowledge = 16
 
     while queue and len(knowledge_units) < max_knowledge:
@@ -241,6 +272,8 @@ def extract_knowledge(ir: dict[str, Any], simulation: dict[str, Any]) -> dict[st
             new_path = path + [t]
             target = t["target"]
             if t.get("relation") == "FunctionReturnTransition":
+                if constrain_to_selected and t["transition_id"] not in selected_branches:
+                    continue
                 if target not in visited_states:
                     visited_states.add(target)
                     queue.append((target, new_path))
@@ -259,12 +292,21 @@ def extract_knowledge(ir: dict[str, Any], simulation: dict[str, Any]) -> dict[st
                 "path": path_labels,
                 "transitions": [s["transition_id"] for s in new_path],
             }
+            evidence_path = _branch_evidence_path(new_path)
+            path_signature = _path_signature(evidence_path)
+            identity = (new_path[0]["source"], relation, target, path_signature)
+            if identity in seen_knowledge:
+                continue
+            seen_knowledge.add(identity)
 
             knowledge_units.append({
                 "id": f"K{len(knowledge_units) + 1:03d}",
                 "source": new_path[0]["source"],
                 "relation": relation,
                 "target": target,
+                "evidence_path": evidence_path,
+                "path_signature": path_signature,
+                "branch_id": _branch_id(evidence_path),
                 "confidence": confidence,
                 "path_length": len(new_path),
                 "evidence": evidence,
@@ -283,3 +325,21 @@ def extract_knowledge(ir: dict[str, Any], simulation: dict[str, Any]) -> dict[st
         "evidence_count": sum(1 for k in knowledge_units if k.get("from_simulation")),
         "knowledge": knowledge_units,
     }
+
+
+def _branch_evidence_path(path: list[dict[str, Any]]) -> list[str]:
+    return [
+        transition["transition_id"]
+        for transition in path
+        if transition.get("relation") == "FunctionReturnTransition"
+    ]
+
+
+def _path_signature(evidence_path: list[str]) -> str:
+    return "|".join(evidence_path)
+
+
+def _branch_id(evidence_path: list[str]) -> str | None:
+    if not evidence_path:
+        return None
+    return evidence_path[-1].rsplit(".", 1)[-1]

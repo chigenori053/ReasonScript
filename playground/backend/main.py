@@ -289,7 +289,10 @@ def _knowledge_lines(value: Any) -> set[str]:
         return lines
     items = value.get("knowledge", []) if isinstance(value, dict) else []
     return {
-        f"{item.get('source')} {item.get('relation')} {item.get('target')}"
+        (
+            f"{item.get('source')} {item.get('relation')} {item.get('target')} "
+            f"{item.get('path_signature', '')}"
+        )
         for item in items
         if isinstance(item, dict)
     }

@@ -81,6 +81,28 @@ export default function KnowledgePanel({ data }) {
                       <span className="pp-key">Path Length</span>
                       <span className="pp-val">{unit.path_length}</span>
                     </div>
+                    {unit.path_signature && (
+                      <div className="pp-kv">
+                        <span className="pp-key">Path Signature</span>
+                        <span className="pp-val">{unit.path_signature}</span>
+                      </div>
+                    )}
+                    {unit.branch_id && (
+                      <div className="pp-kv">
+                        <span className="pp-key">Branch</span>
+                        <span className="pp-val">{unit.branch_id}</span>
+                      </div>
+                    )}
+                    {unit.evidence_path && unit.evidence_path.length > 0 && (
+                      <div className="pp-kv pp-kv-col">
+                        <span className="pp-key">Branch Evidence</span>
+                        <div className="pp-tag-row">
+                          {unit.evidence_path.map((t, j) => (
+                            <span key={j} className="pp-tag pp-tag-sm">{t}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {unit.evidence?.path && (
                       <div className="pp-kv pp-kv-col">
                         <span className="pp-key">Evidence Path</span>

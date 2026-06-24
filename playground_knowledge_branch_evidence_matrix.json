@@ -1,0 +1,38 @@
+{
+  "specification": "knowledge-branch-evidence/1.0",
+  "features": [
+    {
+      "id": "KBE-001",
+      "name": "different branch signatures remain distinct",
+      "fixture": "tests/kbe_001.rsn",
+      "expected": "selected knowledge evidence_path Select.return.true",
+      "compiler": true,
+      "playground": true
+    },
+    {
+      "id": "KBE-002",
+      "name": "identical branch signatures are merged",
+      "fixture": "unit-level duplicate signature IR",
+      "expected": "knowledge_count 1",
+      "compiler": true,
+      "playground": true
+    },
+    {
+      "id": "KBE-003",
+      "name": "path signature is deterministic",
+      "fixture": "tests/kbe_003.rsn",
+      "expected": "export/import path_signature unchanged",
+      "compiler": true,
+      "playground": true
+    },
+    {
+      "id": "KBE-004",
+      "name": "branch evidence survives export/import",
+      "fixture": "tests/kbe_003.rsn",
+      "expected": "evidence_path unchanged",
+      "compiler": true,
+      "playground": true
+    }
+  ],
+  "status": "implemented"
+}

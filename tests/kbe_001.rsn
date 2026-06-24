@@ -1,0 +1,13 @@
+module Basic {
+    fn Select(flag: bool) -> int {
+        if flag {
+            return 1
+        }
+
+        return 0
+    }
+
+    calculation Result {
+        result = Select(true)
+    }
+}
