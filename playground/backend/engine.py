@@ -170,6 +170,14 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
             total_cost += t.get("expected_cost", 1.0)
             if t.get("relation") == "FunctionReturnTransition":
                 branch_event = _branch_selection_event(t)
+                for comparison_event in branch_event.pop("comparison_evaluations", []):
+                    trace.append({
+                        "step": len(applied),
+                        "state": t["target"],
+                        "transition": t["transition_id"],
+                        "event": "comparison_evaluation",
+                        **comparison_event,
+                    })
                 trace.append({
                     "step": len(applied),
                     "state": t["target"],
@@ -245,9 +253,60 @@ def _evaluate_bool_condition(
     condition: dict[str, Any],
     context: dict[str, Any],
 ) -> bool | None:
+    comparison = condition.get("comparison")
+    if comparison is not None:
+        value = _evaluate_comparison(comparison, context)
+        return value if isinstance(value, bool) else None
     expression = condition.get("expression")
     value = _expression_value(expression, context)
     return value if isinstance(value, bool) else None
+
+
+def _evaluate_comparison(
+    comparison: dict[str, Any],
+    context: dict[str, Any],
+) -> bool | None:
+    operator = comparison.get("operator")
+    left = _comparison_operand_value(comparison.get("left"), context)
+    right = _comparison_operand_value(comparison.get("right"), context)
+    if left is None or right is None:
+        return None
+    if type(left) is not type(right):
+        if not (
+            isinstance(left, (int, float))
+            and not isinstance(left, bool)
+            and isinstance(right, (int, float))
+            and not isinstance(right, bool)
+        ):
+            return None
+    if isinstance(left, bool) or isinstance(right, bool):
+        if operator == "==":
+            return left is right
+        if operator == "!=":
+            return left is not right
+        return None
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+        if operator == ">":
+            return left > right
+        if operator == "<":
+            return left < right
+        if operator == ">=":
+            return left >= right
+        if operator == "<=":
+            return left <= right
+        if operator == "==":
+            return left == right
+        if operator == "!=":
+            return left != right
+    return None
+
+
+def _comparison_operand_value(operand: Any, context: dict[str, Any]) -> Any:
+    if isinstance(operand, str):
+        return context.get(operand)
+    if isinstance(operand, (bool, int, float)):
+        return operand
+    return _expression_value(operand, context)
 
 
 def _expression_value(expression: Any, context: dict[str, Any]) -> Any:
@@ -260,6 +319,19 @@ def _expression_value(expression: Any, context: dict[str, Any]) -> Any:
         return context.get(expression.get("name"))
     if node_type == "BooleanLiteralNode":
         return expression.get("value")
+    if node_type in {"IntegerLiteralNode", "FloatLiteralNode"}:
+        return expression.get("value")
+    if node_type == "ComparisonExpressionIRNode":
+        return _evaluate_comparison(expression, context)
+    if node_type == "ComparisonExpressionNode":
+        return _evaluate_comparison(
+            {
+                "operator": _surface_comparison_operator(expression.get("operator")),
+                "left": expression.get("left"),
+                "right": expression.get("right"),
+            },
+            context,
+        )
     return None
 
 
@@ -273,13 +345,75 @@ def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
         }
         for condition in conditions
     ]
+    comparison_events = [
+        _comparison_evaluation_event(condition, context)
+        for condition in conditions
+        if condition.get("comparison") is not None
+    ]
     if not evaluated:
         return {}
-    return {
+    result = {
         "condition": evaluated[-1]["condition"],
         "value": evaluated[-1]["value"],
         "conditions": evaluated,
     }
+    if comparison_events:
+        result["comparison_evaluations"] = comparison_events
+        result["comparison_evidence"] = {
+            "expression": comparison_events[-1]["expression"],
+            "result": comparison_events[-1]["result"],
+        }
+    return result
+
+
+def _comparison_evaluation_event(
+    condition: dict[str, Any],
+    context: dict[str, Any],
+) -> dict[str, Any]:
+    comparison = condition["comparison"]
+    left = _comparison_operand_value(comparison.get("left"), context)
+    right = _comparison_operand_value(comparison.get("right"), context)
+    operator = comparison.get("operator")
+    return {
+        "event_type": "ComparisonEvaluation",
+        "expression": _comparison_expression_text(comparison),
+        "left_value": left,
+        "right_value": right,
+        "result": _evaluate_comparison(comparison, context),
+        "operator": operator,
+    }
+
+
+def _comparison_expression_text(comparison: dict[str, Any]) -> str:
+    return (
+        f"{_comparison_operand_text(comparison.get('left'))} "
+        f"{comparison.get('operator')} "
+        f"{_comparison_operand_text(comparison.get('right'))}"
+    )
+
+
+def _comparison_operand_text(operand: Any) -> str:
+    if isinstance(operand, dict):
+        if operand.get("node_type") == "IdentifierNode":
+            return str(operand.get("name"))
+        if operand.get("node_type") in {"IntegerLiteralNode", "FloatLiteralNode"}:
+            return str(operand.get("value"))
+        if operand.get("node_type") == "BooleanLiteralNode":
+            return "true" if operand.get("value") else "false"
+    if isinstance(operand, bool):
+        return "true" if operand else "false"
+    return str(operand)
+
+
+def _surface_comparison_operator(operator: Any) -> str | None:
+    return {
+        "Equal": "==",
+        "NotEqual": "!=",
+        "GreaterThan": ">",
+        "GreaterThanOrEqual": ">=",
+        "LessThan": "<",
+        "LessThanOrEqual": "<=",
+    }.get(str(operator))
 
 
 # ---------------------------------------------------------------------------
@@ -355,12 +489,13 @@ def extract_knowledge(
             }
             evidence_path = _branch_evidence_path(new_path)
             path_signature = _path_signature(evidence_path)
+            comparison_evidence = _path_comparison_evidence(new_path)
             identity = (new_path[0]["source"], relation, target, path_signature)
             if identity in seen_knowledge:
                 continue
             seen_knowledge.add(identity)
 
-            knowledge_units.append({
+            unit = {
                 "id": f"K{len(knowledge_units) + 1:03d}",
                 "source": new_path[0]["source"],
                 "relation": relation,
@@ -372,7 +507,10 @@ def extract_knowledge(
                 "path_length": len(new_path),
                 "evidence": evidence,
                 "from_simulation": simulation.get("success", False) and target == goal_target,
-            })
+            }
+            if comparison_evidence is not None:
+                unit["comparison_evidence"] = comparison_evidence
+            knowledge_units.append(unit)
 
             if target not in visited_states and len(new_path) < 8:
                 visited_states.add(target)
@@ -404,3 +542,20 @@ def _branch_id(evidence_path: list[str]) -> str | None:
     if not evidence_path:
         return None
     return evidence_path[-1].rsplit(".", 1)[-1]
+
+
+def _path_comparison_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for transition in reversed(path):
+        if transition.get("relation") != "FunctionReturnTransition":
+            continue
+        effect = transition.get("effect") or {}
+        context = effect.get("evaluation_context") or {}
+        for condition in reversed(effect.get("branch_conditions") or []):
+            comparison = condition.get("comparison")
+            if comparison is None:
+                continue
+            return {
+                "expression": _comparison_expression_text(comparison),
+                "result": _evaluate_comparison(comparison, context),
+            }
+    return None

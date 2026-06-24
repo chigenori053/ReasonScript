@@ -1,0 +1,13 @@
+module Basic {
+    fn Max(a: int, b: int) -> int {
+        if a > b {
+            return a
+        }
+
+        return b
+    }
+
+    calculation Result {
+        result = Max(10, 20)
+    }
+}

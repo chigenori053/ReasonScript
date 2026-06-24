@@ -17,6 +17,7 @@ from .nodes import (
     BreakStatementNode,
     CallExpressionNode,
     ComparisonExpressionNode,
+    ComparisonOperator,
     ConstDeclarationNode,
     ConstStatementNode,
     ContinueStatementNode,
@@ -685,6 +686,8 @@ def _function_return_paths(function: FunctionDeclarationNode) -> list[dict[str, 
 def _return_path_label(prefix: tuple[str, ...], index: int) -> str:
     if not prefix:
         return f"path_{index}"
+    if all(not item.endswith(("_true", "_false")) for item in prefix):
+        return "_and_".join(prefix)
     separator = "_" if any("_" in item for item in prefix) else "."
     return separator.join(prefix)
 
@@ -771,16 +774,22 @@ def _branch_label(condition: ExpressionNode, value: bool, named_labels: bool) ->
     if not named_labels:
         return suffix
     name = _condition_name(condition)
+    if name and _is_comparison_condition(condition):
+        return name if value else f"not_{name}"
     return f"{name}_{suffix}" if name else suffix
 
 
 def _branch_condition(condition: ExpressionNode, expected_value: bool) -> dict[str, Any]:
-    return {
+    result = {
         "condition": _condition_name(condition) or _condition_literal_name(condition),
         "condition_type": "Bool",
         "expected_value": expected_value,
         "expression": to_json_value(condition),
     }
+    comparison = _comparison_ir(condition)
+    if comparison is not None:
+        result["comparison"] = comparison
+    return result
 
 
 def _condition_name(condition: ExpressionNode) -> str | None:
@@ -792,6 +801,9 @@ def _condition_name(condition: ExpressionNode) -> str | None:
         IdentifierNode,
     ):
         return expression.expression.name
+    comparison = _comparison_ir(condition)
+    if comparison is not None:
+        return _comparison_condition_name(comparison)
     return None
 
 
@@ -800,6 +812,73 @@ def _condition_literal_name(condition: ExpressionNode) -> str:
     if isinstance(expression, BooleanLiteralNode):
         return "true" if expression.value else "false"
     return "<unsupported>"
+
+
+_COMPARISON_OPERATOR_SYMBOLS = {
+    ComparisonOperator.EQUAL: "==",
+    ComparisonOperator.NOT_EQUAL: "!=",
+    ComparisonOperator.GREATER_THAN: ">",
+    ComparisonOperator.GREATER_THAN_OR_EQUAL: ">=",
+    ComparisonOperator.LESS_THAN: "<",
+    ComparisonOperator.LESS_THAN_OR_EQUAL: "<=",
+}
+
+
+_COMPARISON_OPERATOR_NAMES = {
+    "==": "eq",
+    "!=": "ne",
+    ">": "gt",
+    ">=": "gte",
+    "<": "lt",
+    "<=": "lte",
+}
+
+
+def _is_comparison_condition(condition: ExpressionNode) -> bool:
+    return _comparison_ir(condition) is not None
+
+
+def _comparison_ir(condition: ExpressionNode) -> dict[str, Any] | None:
+    value = condition.expression
+    if isinstance(value, ParenthesizedExpressionNode):
+        value = value.expression.expression
+    if not isinstance(value, ComparisonExpressionNode):
+        return None
+    return {
+        "node_type": "ComparisonExpressionIRNode",
+        "operator": _COMPARISON_OPERATOR_SYMBOLS[value.operator],
+        "left": _comparison_operand(value.left),
+        "right": _comparison_operand(value.right),
+        "result_type": "Bool",
+    }
+
+
+def _comparison_operand(expression: ExpressionNode) -> Any:
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    if isinstance(value, IdentifierNode):
+        return value.name
+    if isinstance(value, BooleanLiteralNode):
+        return value.value
+    if value.__class__.__name__ in {"IntegerLiteralNode", "FloatLiteralNode"}:
+        return value.value
+    return to_json_value(expression)
+
+
+def _comparison_condition_name(comparison: dict[str, Any]) -> str:
+    left = _condition_operand_name(comparison.get("left"))
+    right = _condition_operand_name(comparison.get("right"))
+    operator = _COMPARISON_OPERATOR_NAMES.get(str(comparison.get("operator")), "cmp")
+    return f"{left}_{operator}_{right}"
+
+
+def _condition_operand_name(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value).replace("-", "neg_").replace(".", "_")
+    if isinstance(value, str):
+        return "".join(ch if ch.isalnum() else "_" for ch in value).strip("_") or "value"
+    return "value"
 
 
 def _function_evaluation_context(
@@ -815,6 +894,10 @@ def _function_evaluation_context(
 def _literal_value(expression: Any) -> Any:
     value = expression.expression if isinstance(expression, ExpressionNode) else expression
     if isinstance(value, BooleanLiteralNode):
+        return value.value
+    if value.__class__.__name__ == "IntegerLiteralNode":
+        return value.value
+    if value.__class__.__name__ == "FloatLiteralNode":
         return value.value
     return to_json_value(expression)
 

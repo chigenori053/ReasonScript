@@ -1,0 +1,37 @@
+{
+  "specification": "comparison-expression-evaluation/1.0",
+  "phase": "CSI-BE-002",
+  "status": "implemented",
+  "tests": [
+    {
+      "id": "CEE-001",
+      "input": "Max(10, 20)",
+      "expected": "Max.return.false"
+    },
+    {
+      "id": "CEE-002",
+      "input": "Max(20, 10)",
+      "expected": "Max.return.true"
+    },
+    {
+      "id": "CEE-003",
+      "input": "Equal(10, 10)",
+      "expected": "Equal.return.true"
+    },
+    {
+      "id": "CEE-004",
+      "input": "Equal(10, 20)",
+      "expected": "Equal.return.false"
+    },
+    {
+      "id": "CEE-005",
+      "input": "Compare(120, 50)",
+      "expected": "Compare.return.a_gt_b_and_a_gt_100"
+    },
+    {
+      "id": "CEE-006",
+      "input": "Max(10, 20) repeated",
+      "expected": "identical selected_branch, path_signature, and knowledge"
+    }
+  ]
+}
