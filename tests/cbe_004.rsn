@@ -1,0 +1,17 @@
+module Basic {
+    fn Score(a: bool, b: bool) -> int {
+        if a {
+            if b {
+                return 3
+            }
+
+            return 2
+        }
+
+        return 1
+    }
+
+    calculation Result {
+        result = Score(true, false)
+    }
+}

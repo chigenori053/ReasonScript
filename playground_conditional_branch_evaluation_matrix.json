@@ -1,0 +1,32 @@
+{
+  "phase": "CSI-BE-001",
+  "specification": "conditional-branch-evaluation/1.0",
+  "status": "implemented",
+  "tests": [
+    {
+      "id": "CBE-001",
+      "fixture": "tests/cbe_001.rsn",
+      "expected": "Select(true) selects Select.return.true"
+    },
+    {
+      "id": "CBE-002",
+      "fixture": "tests/cbe_002.rsn",
+      "expected": "Select(false) selects Select.return.false"
+    },
+    {
+      "id": "CBE-003",
+      "fixture": "tests/cbe_003.rsn",
+      "expected": "Knowledge preserves branch_id false and path_signature Select.return.false"
+    },
+    {
+      "id": "CBE-004",
+      "fixture": "tests/cbe_004.rsn",
+      "expected": "Score(true, false) selects Score.return.a_true_b_false"
+    },
+    {
+      "id": "CBE-005",
+      "fixture": "tests/cbe_005.rsn",
+      "expected": "Repeat execution is deterministic"
+    }
+  ]
+}

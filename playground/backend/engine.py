@@ -61,6 +61,8 @@ def build_execution_plan(ir: dict[str, Any]) -> dict[str, Any]:
         if len(path) >= max_depth:
             continue
         for t in adj.get(current, []):
+            if not _branch_transition_matches(t):
+                continue
             if t["target"] not in bfs_visited:
                 bfs_visited.add(t["target"])
                 bfs_queue.append((t["target"], path + [t], cost + t.get("expected_cost", 1.0)))
@@ -157,6 +159,8 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
                 break
             if t["source"] != current.get("state_id"):
                 continue
+            if not _branch_transition_matches(t):
+                continue
             current = {
                 "state_id": t["target"],
                 "state_type": current.get("state_type", ""),
@@ -165,6 +169,7 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
             applied.append(t["transition_id"])
             total_cost += t.get("expected_cost", 1.0)
             if t.get("relation") == "FunctionReturnTransition":
+                branch_event = _branch_selection_event(t)
                 trace.append({
                     "step": len(applied),
                     "state": t["target"],
@@ -172,6 +177,7 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
                     "event": "branch_selection",
                     "event_type": "BranchSelection",
                     "branch": t["transition_id"],
+                    **branch_event,
                 })
             trace.append({
                 "step": len(applied),
@@ -219,6 +225,61 @@ def _constraint_passes(expression: str, data: Any) -> bool:
     if isinstance(data, dict):
         return expression not in data.get("violated", [])
     return True
+
+
+def _branch_transition_matches(transition: dict[str, Any]) -> bool:
+    if transition.get("relation") != "FunctionReturnTransition":
+        return True
+    effect = transition.get("effect") or {}
+    conditions = effect.get("branch_conditions") or []
+    context = effect.get("evaluation_context") or {}
+    for condition in conditions:
+        expected = condition.get("expected_value")
+        actual = _evaluate_bool_condition(condition, context)
+        if actual is None or actual != expected:
+            return False
+    return True
+
+
+def _evaluate_bool_condition(
+    condition: dict[str, Any],
+    context: dict[str, Any],
+) -> bool | None:
+    expression = condition.get("expression")
+    value = _expression_value(expression, context)
+    return value if isinstance(value, bool) else None
+
+
+def _expression_value(expression: Any, context: dict[str, Any]) -> Any:
+    if not isinstance(expression, dict):
+        return None
+    node_type = expression.get("node_type")
+    if node_type == "ExpressionNode":
+        return _expression_value(expression.get("expression"), context)
+    if node_type == "IdentifierNode":
+        return context.get(expression.get("name"))
+    if node_type == "BooleanLiteralNode":
+        return expression.get("value")
+    return None
+
+
+def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
+    conditions = (transition.get("effect") or {}).get("branch_conditions") or []
+    context = (transition.get("effect") or {}).get("evaluation_context") or {}
+    evaluated = [
+        {
+            "condition": condition.get("condition"),
+            "value": _evaluate_bool_condition(condition, context),
+        }
+        for condition in conditions
+    ]
+    if not evaluated:
+        return {}
+    return {
+        "condition": evaluated[-1]["condition"],
+        "value": evaluated[-1]["value"],
+        "conditions": evaluated,
+    }
 
 
 # ---------------------------------------------------------------------------

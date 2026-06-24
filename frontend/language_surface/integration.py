@@ -13,6 +13,7 @@ from .nodes import (
     ArrayLiteralNode,
     BinaryExpressionNode,
     BinaryOperator,
+    BooleanLiteralNode,
     BreakStatementNode,
     CallExpressionNode,
     ComparisonExpressionNode,
@@ -342,6 +343,8 @@ def _project_calculations(
                 if function is None or function_name in emitted_function_returns:
                     continue
                 return_paths = _function_return_paths(function)
+                arguments = _function_call_arguments(expression, function_name)
+                evaluation_context = _function_evaluation_context(function, arguments)
                 next_sources: list[str] = []
                 for source in current_sources:
                     for return_path in return_paths:
@@ -359,6 +362,8 @@ def _project_calculations(
                                     "node_type": "FunctionIRNode",
                                     "return_path": return_path["label"],
                                     "return": to_json_value(return_path["expression"]),
+                                    "branch_conditions": return_path.get("branch_conditions", []),
+                                    "evaluation_context": evaluation_context,
                                 },
                             )
                         )
@@ -619,49 +624,69 @@ def _function_return_statement(function: FunctionDeclarationNode) -> ReturnState
 
 def _function_return_paths(function: FunctionDeclarationNode) -> list[dict[str, Any]]:
     paths: list[dict[str, Any]] = []
+    named_labels = _has_nested_if(function.body)
 
-    def walk(statements: tuple[Any, ...], prefixes: list[tuple[str, ...]]) -> list[tuple[str, ...]]:
+    def walk(
+        statements: tuple[Any, ...],
+        prefixes: list[tuple[str, ...]],
+        branch_conditions: list[tuple[dict[str, Any], ...]],
+    ) -> list[tuple[tuple[str, ...], tuple[dict[str, Any], ...]]]:
         active = prefixes
+        active_conditions = branch_conditions
         for statement in statements:
             if not active:
                 return []
             if isinstance(statement, ReturnStatementNode):
-                for prefix in active:
+                for prefix, conditions in zip(active, active_conditions):
                     paths.append(
                         {
                             "label": _return_path_label(prefix, len(paths) + 1),
                             "expression": statement.expression,
+                            "branch_conditions": list(conditions),
                         }
                     )
                 return []
             if isinstance(statement, IfStatementNode):
                 next_active: list[tuple[str, ...]] = []
-                branches = [("true", statement.body)]
+                next_conditions: list[tuple[dict[str, Any], ...]] = []
+                branches = [(True, statement.condition, statement.body)]
                 branches.extend(
-                    (f"elif_{index}", branch.body)
+                    (True, branch.condition, branch.body)
                     for index, branch in enumerate(statement.elif_branches, 1)
                 )
-                for prefix in active:
-                    for label, body in branches:
+                for prefix, conditions in zip(active, active_conditions):
+                    for branch_value, condition, body in branches:
+                        label = _branch_label(condition, branch_value, named_labels)
                         branch_prefix = (*prefix, label)
-                        if walk(body, [branch_prefix]):
+                        branch_condition = _branch_condition(condition, branch_value)
+                        if walk(body, [branch_prefix], [(*conditions, branch_condition)]):
                             next_active.append(branch_prefix)
+                            next_conditions.append((*conditions, branch_condition))
                     if statement.else_branch is not None:
-                        else_prefix = (*prefix, "false")
-                        if walk(statement.else_branch.body, [else_prefix]):
+                        else_label = _branch_label(statement.condition, False, named_labels)
+                        else_prefix = (*prefix, else_label)
+                        branch_condition = _branch_condition(statement.condition, False)
+                        if walk(statement.else_branch.body, [else_prefix], [(*conditions, branch_condition)]):
                             next_active.append(else_prefix)
+                            next_conditions.append((*conditions, branch_condition))
                     else:
-                        next_active.append((*prefix, "false"))
+                        branch_condition = _branch_condition(statement.condition, False)
+                        next_active.append((*prefix, _branch_label(statement.condition, False, named_labels)))
+                        next_conditions.append((*conditions, branch_condition))
                 active = next_active
+                active_conditions = next_conditions
                 continue
-        return active
+        return list(zip(active, active_conditions))
 
-    walk(function.body, [()])
+    walk(function.body, [()], [()])
     return paths
 
 
 def _return_path_label(prefix: tuple[str, ...], index: int) -> str:
-    return ".".join(prefix) if prefix else f"path_{index}"
+    if not prefix:
+        return f"path_{index}"
+    separator = "_" if any("_" in item for item in prefix) else "."
+    return separator.join(prefix)
 
 
 def _function_return_target(function_name: str, label: str) -> str:
@@ -674,26 +699,36 @@ def _function_control_flow_ir(function: FunctionDeclarationNode) -> list[dict[st
         path["label"]: _function_return_target(function.name, path["label"])
         for path in _function_return_paths(function)
     }
-    for statement in function.body:
-        if isinstance(statement, IfStatementNode):
-            true_label = _first_return_label(statement.body, "true")
+    named_labels = _has_nested_if(function.body)
+
+    def add_branch_nodes(statements: tuple[Any, ...], prefix: tuple[str, ...] = ()) -> None:
+        for statement in statements:
+            if not isinstance(statement, IfStatementNode):
+                continue
+            true_prefix = (*prefix, _branch_label(statement.condition, True, named_labels))
+            false_prefix = (*prefix, _branch_label(statement.condition, False, named_labels))
+            true_label = _first_return_label(statement.body, _return_path_label(true_prefix, 1))
             false_label = (
-                _first_return_label(statement.else_branch.body, "false")
+                _first_return_label(statement.else_branch.body, _return_path_label(false_prefix, 1))
                 if statement.else_branch is not None
-                else "fallthrough"
+                else _return_path_label(false_prefix, 1)
             )
-            if false_label == "fallthrough" and "false" in return_targets:
-                false_label = "false"
             nodes.append(
                 {
                     "node_type": "ConditionalBranchIRNode",
                     "condition": to_json_value(statement.condition),
+                    "condition_type": "Bool",
                     "true_target": return_targets.get(
                         true_label, _function_return_target(function.name, true_label)
                     ),
                     "false_target": return_targets.get(false_label, "fallthrough"),
                 }
             )
+            add_branch_nodes(statement.body, true_prefix)
+            if statement.else_branch is not None:
+                add_branch_nodes(statement.else_branch.body, false_prefix)
+
+    add_branch_nodes(function.body)
     for path in _function_return_paths(function):
         nodes.append(
             {
@@ -713,6 +748,75 @@ def _first_return_label(statements: tuple[Any, ...], default: str) -> str:
         if isinstance(statement, ReturnStatementNode):
             return default
     return default
+
+
+def _has_nested_if(statements: tuple[Any, ...], *, inside_if: bool = False) -> bool:
+    for statement in statements:
+        if not isinstance(statement, IfStatementNode):
+            continue
+        if inside_if:
+            return True
+        if _has_nested_if(statement.body, inside_if=True):
+            return True
+        if statement.else_branch is not None and _has_nested_if(
+            statement.else_branch.body,
+            inside_if=True,
+        ):
+            return True
+    return False
+
+
+def _branch_label(condition: ExpressionNode, value: bool, named_labels: bool) -> str:
+    suffix = "true" if value else "false"
+    if not named_labels:
+        return suffix
+    name = _condition_name(condition)
+    return f"{name}_{suffix}" if name else suffix
+
+
+def _branch_condition(condition: ExpressionNode, expected_value: bool) -> dict[str, Any]:
+    return {
+        "condition": _condition_name(condition) or _condition_literal_name(condition),
+        "condition_type": "Bool",
+        "expected_value": expected_value,
+        "expression": to_json_value(condition),
+    }
+
+
+def _condition_name(condition: ExpressionNode) -> str | None:
+    expression = condition.expression
+    if isinstance(expression, IdentifierNode):
+        return expression.name
+    if isinstance(expression, ParenthesizedExpressionNode) and isinstance(
+        expression.expression,
+        IdentifierNode,
+    ):
+        return expression.expression.name
+    return None
+
+
+def _condition_literal_name(condition: ExpressionNode) -> str:
+    expression = condition.expression
+    if isinstance(expression, BooleanLiteralNode):
+        return "true" if expression.value else "false"
+    return "<unsupported>"
+
+
+def _function_evaluation_context(
+    function: FunctionDeclarationNode,
+    arguments: tuple[Any, ...],
+) -> dict[str, Any]:
+    context: dict[str, Any] = {}
+    for parameter, argument in zip(function.parameters, arguments):
+        context[_function_parameter_name(parameter)] = _literal_value(argument)
+    return context
+
+
+def _literal_value(expression: Any) -> Any:
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    if isinstance(value, BooleanLiteralNode):
+        return value.value
+    return to_json_value(expression)
 
 
 def _type_label(value: Any) -> str | None:
