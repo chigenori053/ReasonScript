@@ -21,11 +21,13 @@ import ExhaustivenessPanel from './ExhaustivenessPanel.jsx'
 import DeterminismPanel from './DeterminismPanel.jsx'
 import ComplexityPanel from './ComplexityPanel.jsx'
 import QualityDashboard from './QualityDashboard.jsx'
+import LanguageAuditPanel from './LanguageAuditPanel.jsx'
 import './TabPanel.css'
 
 const TABS = [
   // v0.3 tabs
   { id: 'ast',            label: 'AST',         icon: 'AST',   group: 'core' },
+  { id: 'semantic_ast',   label: 'Semantic AST', icon: 'SEM',  group: 'core' },
   { id: 'reason_ir',      label: 'Reason IR',   icon: 'IR',    group: 'core' },
   { id: 'execution_plan', label: 'ExecPlan',    icon: 'EP',    group: 'core' },
   { id: 'simulation',     label: 'Simulation',  icon: 'SIM',   group: 'core' },
@@ -51,6 +53,7 @@ const TABS = [
   { id: 'diff',           label: 'Diff',        icon: 'DIFF',  group: 'tool' },
   { id: 'regression',     label: 'Regression',  icon: 'TEST',  group: 'tool' },
   { id: 'baseline',       label: 'Baseline',    icon: 'BASE',  group: 'tool' },
+  { id: 'audit',          label: 'Audit',       icon: 'AUD',   group: 'tool' },
 ]
 
 function getAnalysis(results, key) {
@@ -61,6 +64,7 @@ function getDataForTab(results, tabId) {
   if (!results) return null
   switch (tabId) {
     case 'ast':            return results.ast ?? null
+    case 'semantic_ast':   return results.semantic_ast ?? results.artifacts?.semantic_ast ?? null
     case 'reason_ir':      { const irs = results.reason_irs; return irs?.length ? (irs.length === 1 ? irs[0] : irs) : null }
     case 'execution_plan': return results.execution_plan ?? null
     case 'simulation':     return results.simulation ?? null
@@ -84,6 +88,7 @@ function getDataForTab(results, tabId) {
     case 'diff':           return results.diff ?? null
     case 'regression':     return results.regression ?? null
     case 'baseline':       return results.baseline_path ?? null
+    case 'audit':          return results.audit ?? null
     default:               return null
   }
 }
@@ -112,7 +117,9 @@ function TabContent({ tabId, data, controls }) {
     case 'diff':            return <DiffPanel {...controls} />
     case 'regression':      return <RegressionRunner result={controls.regression} onRunAll={controls.onRunAll} disabled={controls.disabled} />
     case 'baseline':        return <BaselinePanel baselinePath={controls.baselinePath} onSaveBaseline={controls.onSaveBaseline} disabled={controls.disabled} />
+    case 'audit':           return <LanguageAuditPanel data={data} onRunAudit={controls.onRunAudit} onExportAudit={controls.onExportAudit} disabled={controls.disabled} />
     case 'ast':
+    case 'semantic_ast':
     case 'reason_ir':
       return data ? <JsonViewer data={data} /> : null
     default:
@@ -122,6 +129,7 @@ function TabContent({ tabId, data, controls }) {
 
 const EMPTY_HINTS = {
   ast:            'Validate または Run を実行すると AST が表示されます',
+  semantic_ast:   'Run を実行すると Semantic AST が表示されます',
   reason_ir:      'Run を実行すると Reason IR が表示されます',
   execution_plan: 'Run を実行すると ExecutionPlan が表示されます',
   simulation:     'Run を実行すると Simulation 結果が表示されます',
@@ -145,6 +153,7 @@ const EMPTY_HINTS = {
   diff:           'Artifact A/B を設定すると差分比較できます',
   regression:     'Run All Tests で examples/ を一括実行できます',
   baseline:       'Run 後に Baseline を保存できます',
+  audit:          'Audit を実行すると Feature Matrix が表示されます',
 }
 
 const GROUP_LABELS = {
@@ -156,7 +165,7 @@ const GROUP_LABELS = {
 export default function TabPanel({ results, activeView, onChangeView, controls }) {
   const active = TABS.find(t => t.id === activeView) ?? TABS[0]
   const data = getDataForTab(results, active.id)
-  const actionTabs = new Set(['artifacts', 'diff', 'regression', 'baseline', 'strict'])
+  const actionTabs = new Set(['artifacts', 'diff', 'regression', 'baseline', 'strict', 'audit'])
 
   const groups = ['core', 'v05', 'tool']
 

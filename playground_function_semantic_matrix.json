@@ -1,0 +1,13 @@
+{
+  "schema_version": "playground-function-semantic-matrix/1.0",
+  "specification_id": "function-semantic-integration/1.0",
+  "features": [
+    {"id": "FSI-001", "name": "Function Declaration", "status": "CONNECTED"},
+    {"id": "FSI-002", "name": "Function Call from Calculation", "status": "CONNECTED"},
+    {"id": "FSI-003", "name": "Function with Parameter", "status": "CONNECTED"},
+    {"id": "FSI-004", "name": "Type Mismatch", "status": "CONNECTED"},
+    {"id": "FSI-005", "name": "Missing Return", "status": "CONNECTED"},
+    {"id": "FSI-006", "name": "Duplicate Function", "status": "CONNECTED"}
+  ]
+}
+

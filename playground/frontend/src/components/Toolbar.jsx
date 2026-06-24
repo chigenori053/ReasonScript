@@ -20,7 +20,7 @@ const MODE_LABELS = {
 }
 
 export default function Toolbar({
-  status, examples, onValidate, onRun, onAnalyze, onLoadExample, disabled,
+  status, examples, onValidate, onRun, onAnalyze, onAudit, onLoadExample, disabled,
   compilerMode, onCompilerModeChange,
 }) {
   const categories = [...new Set(examples.map(e => e.category))]
@@ -98,6 +98,14 @@ export default function Toolbar({
         }}
       >
         ⚡ Analyze
+      </button>
+      <button
+        className="btn-validate"
+        onClick={onAudit}
+        disabled={disabled}
+        title="Run the full language feature integration audit"
+      >
+        Audit
       </button>
 
       {status !== 'idle' && (

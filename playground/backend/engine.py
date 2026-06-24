@@ -240,6 +240,11 @@ def extract_knowledge(ir: dict[str, Any], simulation: dict[str, Any]) -> dict[st
         for t in adj.get(current, []):
             new_path = path + [t]
             target = t["target"]
+            if t.get("relation") == "FunctionReturnTransition":
+                if target not in visited_states:
+                    visited_states.add(target)
+                    queue.append((target, new_path))
+                continue
 
             # Determine relation kind from transition_id naming
             relation = t.get("relation", t["transition_id"])

@@ -19,12 +19,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from frontend.ast import to_json_value as semantic_to_json_value
 from frontend.language_surface.parser import parse, SurfaceSyntaxError
 from frontend.language_surface.integration import compile_program, project_program
+from frontend.language_surface.nodes import to_json_value as surface_to_json_value
 from frontend.language_surface.validation import SurfaceValidationError
 from frontend.language_surface.namespace import NamespaceResolutionError
 from playground.backend.engine import build_execution_plan, simulate, extract_knowledge
 from playground.backend.analyzer import analyze_ir
+from playground.backend.language_audit import run_language_audit, write_language_audit_reports
 
 EXAMPLES_DIR = REPO_ROOT / "TestPlayground" / "examples"
 REGRESSION_EXAMPLES_DIR = REPO_ROOT / "examples"
@@ -81,6 +84,7 @@ class PipelineResponse(BaseModel):
     phase: str | None = None
     errors: list[dict[str, Any]] = []
     ast: dict[str, Any] | None = None
+    semantic_ast: dict[str, Any] | None = None
     reason_irs: list[dict[str, Any]] = []
     execution_plan: dict[str, Any] | None = None
     simulation: dict[str, Any] | None = None
@@ -157,19 +161,27 @@ def _validation_report(ok: bool, errors: list[dict[str, Any]] | None = None) -> 
 
 
 def _run_pipeline_artifacts(req: SourceRequest) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    reason_irs, ast_dict, errors = _compile_ir(req)
-    if errors:
-        validation = _validation_report(False, errors)
-        return {
-            "ast": ast_dict,
-            "semantic_ast": ast_dict,
-            "reason_ir": [],
-            "execution_plan": None,
-            "simulation": None,
-            "knowledge": None,
-            "validation": validation,
-            "source": {"filename": req.filename, "text": req.source},
-        }, errors
+    try:
+        program = parse(req.source)
+    except SurfaceSyntaxError as e:
+        errors = [_make_error("Parse", str(e))]
+        return _failed_artifacts(req, {}, errors), errors
+    except Exception as e:
+        errors = [_make_error("Parse", str(e))]
+        return _failed_artifacts(req, {}, errors), errors
+
+    ast_dict = surface_to_json_value(program)
+
+    try:
+        semantic_modules = project_program(program)
+        semantic_ast = [semantic_to_json_value(module) for module in semantic_modules]
+        reason_irs = list(compile_program(program))
+    except (SurfaceValidationError, NamespaceResolutionError) as e:
+        errors = [_make_error("Compile", str(e))]
+        return _failed_artifacts(req, ast_dict, errors), errors
+    except Exception as e:
+        errors = [_make_error("Compile", str(e))]
+        return _failed_artifacts(req, ast_dict, errors), errors
 
     plans = [build_execution_plan(ir) for ir in reason_irs]
     sims = [simulate(ir) for ir in reason_irs]
@@ -178,7 +190,7 @@ def _run_pipeline_artifacts(req: SourceRequest) -> tuple[dict[str, Any], list[di
 
     return {
         "ast": ast_dict,
-        "semantic_ast": ast_dict,
+        "semantic_ast": semantic_ast[0] if len(semantic_ast) == 1 else {"modules": semantic_ast},
         "reason_ir": reason_irs[0] if len(reason_irs) == 1 else {"modules": reason_irs},
         "execution_plan": plans[0] if len(plans) == 1 else {"modules": plans},
         "simulation": sims[0] if len(sims) == 1 else {"modules": sims},
@@ -186,6 +198,20 @@ def _run_pipeline_artifacts(req: SourceRequest) -> tuple[dict[str, Any], list[di
         "validation": validation,
         "source": {"filename": req.filename, "text": req.source},
     }, []
+
+
+def _failed_artifacts(req: SourceRequest, ast_dict: dict[str, Any], errors: list[dict[str, Any]]) -> dict[str, Any]:
+    validation = _validation_report(False, errors)
+    return {
+        "ast": ast_dict,
+        "semantic_ast": None,
+        "reason_ir": [],
+        "execution_plan": None,
+        "simulation": None,
+        "knowledge": None,
+        "validation": validation,
+        "source": {"filename": req.filename, "text": req.source},
+    }
 
 
 def _artifact_response(artifacts: dict[str, Any], ok: bool = True, errors: list[dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -491,6 +517,7 @@ def pipeline_endpoint(req: SourceRequest) -> PipelineResponse:
             phase="Compile",
             errors=errors,
             ast=artifacts.get("ast"),
+            semantic_ast=artifacts.get("semantic_ast"),
             validation=artifacts.get("validation"),
         )
     reason_ir = artifacts.get("reason_ir")
@@ -499,6 +526,7 @@ def pipeline_endpoint(req: SourceRequest) -> PipelineResponse:
     return PipelineResponse(
         ok=True,
         ast=artifacts.get("ast"),
+        semantic_ast=artifacts.get("semantic_ast"),
         reason_irs=reason_irs,
         execution_plan=artifacts.get("execution_plan"),
         simulation=artifacts.get("simulation"),
@@ -585,10 +613,22 @@ def analyze_endpoint(req: SourceRequest) -> dict[str, Any]:
     return {
         "ok": True,
         "ast": ast_dict,
+        "semantic_ast": artifacts.get("semantic_ast"),
         "analysis": analysis,
         "runtime_operations": runtime_ops,
         "compiler_mode": req.compiler_mode,
     }
+
+
+@app.get("/api/language-audit")
+def language_audit_endpoint() -> dict[str, Any]:
+    return {"ok": True, "matrix": run_language_audit()}
+
+
+@app.post("/api/language-audit/export")
+def language_audit_export_endpoint() -> dict[str, Any]:
+    files = write_language_audit_reports(REPO_ROOT)
+    return {"ok": True, "files": files, "matrix": run_language_audit()}
 
 
 @app.post("/api/baseline")

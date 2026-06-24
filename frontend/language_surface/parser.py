@@ -457,7 +457,7 @@ def _parse_calculation(cursor: _Cursor) -> CalculationNode:
     match = re.fullmatch(
         r"(?:(pub|export)\s+)?calculation\s+([A-Za-z_]\w*)"
         r"(?:\s+goal:([A-Za-z_]\w*))?"
-        r"(?:\s*->\s*([A-Za-z_]\w*))?\s*\{",
+        r"(?:\s*->\s*(.+?))?\s*\{",
         cursor.take(),
     )
     if not match:
@@ -522,7 +522,7 @@ def _parse_enum(cursor: _Cursor) -> EnumDeclarationNode:
 def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
     match = re.fullmatch(
         r"(?:(pub|export)\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)"
-        r"(?:\s*:\s*(.+?))?\s*\{",
+        r"(?:\s*(?:->|:)\s*(.+?))?\s*\{",
         cursor.take(),
     )
     if not match:
@@ -899,16 +899,20 @@ def _type_annotation(source: str):
         return NamedTypeNode(source)
 
 
-def _parameters(source: str) -> tuple[str, ...]:
+def _parameters(source: str) -> tuple[dict[str, object], ...]:
     text = source.strip()
     if not text:
         return ()
-    parameters = tuple(part.strip() for part in text.split(","))
+    parameters: list[dict[str, object]] = []
     seen: set[str] = set()
-    for parameter in parameters:
-        if not re.fullmatch(r"[A-Za-z_]\w*", parameter):
-            raise SurfaceSyntaxError(f"FN-002 invalid parameter: {parameter}")
-        if parameter in seen:
-            raise SurfaceSyntaxError(f"FN-003 duplicate parameter: {parameter}")
-        seen.add(parameter)
-    return parameters
+    for part in text.split(","):
+        parameter = part.strip()
+        match = re.fullmatch(r"([A-Za-z_]\w*)\s*:\s*(.+)", parameter)
+        if not match:
+            raise SurfaceSyntaxError(f"FN-002 parameter type required: {parameter}")
+        name = match.group(1)
+        if name in seen:
+            raise SurfaceSyntaxError(f"FN-006 duplicate parameter: {name}")
+        seen.add(name)
+        parameters.append({"name": name, "type": _type_annotation(match.group(2))})
+    return tuple(parameters)

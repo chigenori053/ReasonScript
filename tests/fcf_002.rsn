@@ -1,0 +1,7 @@
+module Basic {
+    fn Select(flag: bool) -> int {
+        if flag {
+            return 1
+        }
+    }
+}

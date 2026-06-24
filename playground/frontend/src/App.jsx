@@ -35,7 +35,7 @@ export default function App() {
 
   const artifactsFromPipeline = useCallback((data) => ({
     ast: data.ast,
-    semantic_ast: data.ast,
+    semantic_ast: data.semantic_ast,
     reason_ir: data.reason_irs?.length === 1 ? data.reason_irs[0] : { modules: data.reason_irs ?? [] },
     execution_plan: data.execution_plan,
     simulation: data.simulation,
@@ -115,6 +115,7 @@ export default function App() {
         setResults(prev => ({
           ...(prev || {}),
           ast: data.ast,
+          semantic_ast: data.semantic_ast,
           reason_irs: data.reason_irs,
           execution_plan: data.execution_plan,
           simulation: data.simulation,
@@ -284,6 +285,39 @@ export default function App() {
     }
   }, [source, compilerMode, addLog])
 
+  const handleAudit = useCallback(async () => {
+    setStatus('running')
+    addLog('info', 'Language Integration Audit 開始...')
+    try {
+      const res = await fetch('/api/language-audit')
+      const data = await res.json()
+      setResults(prev => ({ ...(prev || {}), audit: data.matrix }))
+      setStatus(data.ok ? 'ok' : 'error')
+      const summary = data.matrix?.summary
+      addLog(data.ok ? 'success' : 'error', `Audit 完了: CONNECTED ${summary?.connected ?? 0}/${summary?.total ?? 0}`)
+      setActiveView('audit')
+    } catch (e) {
+      setStatus('error')
+      addLog('error', `Audit error: ${e.message}`)
+    }
+  }, [addLog])
+
+  const handleExportAudit = useCallback(async () => {
+    setStatus('running')
+    addLog('info', 'Language Audit Report Export 開始...')
+    try {
+      const res = await fetch('/api/language-audit/export', { method: 'POST' })
+      const data = await res.json()
+      setResults(prev => ({ ...(prev || {}), audit: data.matrix, audit_files: data.files }))
+      setStatus(data.ok ? 'ok' : 'error')
+      addLog(data.ok ? 'success' : 'error', `Audit Report Export 完了`)
+      setActiveView('audit')
+    } catch (e) {
+      setStatus('error')
+      addLog('error', `Audit export error: ${e.message}`)
+    }
+  }, [addLog])
+
   const handleLoadExample = useCallback((id) => {
     const ex = examples.find(e => e.id === id)
     if (!ex) return
@@ -301,6 +335,7 @@ export default function App() {
         onValidate={handleValidate}
         onRun={handleRun}
         onAnalyze={handleAnalyze}
+        onAudit={handleAudit}
         onLoadExample={handleLoadExample}
         disabled={status === 'running'}
         compilerMode={compilerMode}
@@ -348,6 +383,8 @@ export default function App() {
               onCompare: handleCompare,
               onRunAll: handleRunAll,
               onSaveBaseline: handleSaveBaseline,
+              onRunAudit: handleAudit,
+              onExportAudit: handleExportAudit,
               compilerMode,
             }}
           />

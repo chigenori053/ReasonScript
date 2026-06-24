@@ -236,6 +236,7 @@ class SurfaceValidationError(ValueError):
 
 
 _CURRENT_NAMESPACE: ModuleNamespace | None = None
+_CURRENT_FUNCTION: str | None = None
 RUNTIME_RESULT_TYPES = {
     "SearchResult",
     "SimulationResult",
@@ -318,9 +319,8 @@ def _validate_module(module: ModuleNode) -> None:
             name = node.name
             _identifier(name, f"AST-V002 {type(node).__name__}.name")
             if name in symbols:
-                raise SurfaceValidationError(
-                    f"AST-V003 duplicate module symbol: {name}"
-                )
+                code = "FN-001" if isinstance(node, FunctionDeclarationNode) else "AST-V003"
+                raise SurfaceValidationError(f"{code} duplicate module symbol: {name}")
             symbols[name] = node
         if isinstance(
             node,
@@ -398,14 +398,20 @@ def _validate_ast_node(node: Any) -> None:
         _identifier(node.name, "FN-001 FunctionDeclarationNode.name")
         if not isinstance(node.visibility, Visibility):
             raise SurfaceValidationError("FN-001 invalid function visibility")
-        if node.return_type is not None:
-            _validate_type_node(node.return_type)
+        if node.return_type is None:
+            raise SurfaceValidationError("FN-003 Function return type required")
+        _validate_type_node(node.return_type)
         seen: set[str] = set()
         for parameter in node.parameters:
-            _identifier(parameter, "FN-002 FunctionDeclarationNode.parameter")
-            if parameter in seen:
-                raise SurfaceValidationError(f"FN-003 duplicate parameter: {parameter}")
-            seen.add(parameter)
+            name = _function_parameter_name(parameter)
+            parameter_type = _function_parameter_type(parameter)
+            _identifier(name, "FN-002 FunctionDeclarationNode.parameter")
+            if parameter_type is None:
+                raise SurfaceValidationError(f"FN-002 parameter type required: {name}")
+            _validate_type_node(parameter_type)
+            if name in seen:
+                raise SurfaceValidationError(f"FN-006 duplicate parameter: {name}")
+            seen.add(name)
     elif isinstance(node, StructDeclarationNode):
         _identifier(node.name, "TV-1 StructDeclarationNode.name")
         if not isinstance(node.visibility, Visibility):
@@ -748,25 +754,46 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
 
 
 def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -> None:
+    global _CURRENT_FUNCTION
     _validate_ast_node(node)
-    if node.return_type is not None:
-        _resolve_type(node.return_type, symbols)
+    if node.return_type is None:
+        raise SurfaceValidationError("FN-003 Function return type required")
+    _resolve_type(node.return_type, symbols)
     bindings = {
-        parameter: _Binding(_UNKNOWN_TYPE, mutable=False)
+        _function_parameter_name(parameter): _Binding(
+            _function_parameter_type(parameter) or _UNKNOWN_TYPE,
+            mutable=False,
+        )
         for parameter in node.parameters
     }
-    _validate_function_statements(
-        node.body,
-        symbols=symbols,
-        bindings=bindings,
-        allow_terminal_return=True,
-        loop_depth=0,
-        return_type=node.return_type,
-    )
-    if not _statement_list_terminates_with_return(node.body):
-        raise SurfaceValidationError(
-            "FN-010 function requires a terminal ReturnStatementNode"
+    previous_function = _CURRENT_FUNCTION
+    _CURRENT_FUNCTION = node.name
+    try:
+        _validate_function_statements(
+            node.body,
+            symbols=symbols,
+            bindings=bindings,
+            allow_terminal_return=True,
+            loop_depth=0,
+            return_type=node.return_type,
         )
+    finally:
+        _CURRENT_FUNCTION = previous_function
+    _validate_function_control_flow(node.body)
+    if not _statement_list_terminates_with_return(node.body):
+        raise SurfaceValidationError("FCF-001 Not all execution paths return")
+
+
+def _function_parameter_name(parameter: Any) -> str:
+    if isinstance(parameter, dict):
+        return str(parameter.get("name", ""))
+    return str(parameter)
+
+
+def _function_parameter_type(parameter: Any) -> Any:
+    if isinstance(parameter, dict):
+        return parameter.get("type")
+    return None
 
 
 def _validate_statement_list(
@@ -1160,13 +1187,6 @@ def _validate_function_statements(
         ExpressionStatementNode,
         ReturnStatementNode,
     )
-    direct_returns = sum(
-        isinstance(statement, ReturnStatementNode) for statement in statements
-    )
-    if direct_returns > 1:
-        raise SurfaceValidationError(
-            "FN-011 function path contains multiple ReturnStatementNode values"
-        )
     local_bindings = dict(bindings)
     for index, statement in enumerate(statements):
         if not isinstance(statement, allowed):
@@ -1236,9 +1256,9 @@ def _validate_function_statements(
                 statement.expression, symbols, local_bindings
             )
         elif isinstance(statement, ReturnStatementNode):
-            if not allow_terminal_return or not is_last:
+            if not allow_terminal_return:
                 raise SurfaceValidationError(
-                    "FN-012 ReturnStatementNode must be the final statement"
+                    "FCF-002 unreachable statement"
                 )
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
@@ -1255,7 +1275,7 @@ def _validate_function_statements(
                     ),
                     statement.expression,
                     symbols,
-                    "TYPE-V003 function return mismatch",
+                    "FN-005 function return mismatch",
                 )
         elif isinstance(statement, BreakStatementNode):
             if loop_depth <= 0:
@@ -1289,7 +1309,7 @@ def _validate_function_statements(
             _validate_calculation_expression(
                 statement.condition, symbols, local_bindings
             )
-            _require_bool_condition(statement.condition, symbols, local_bindings)
+            _require_function_bool_condition(statement.condition, symbols, local_bindings)
             _validate_function_statements(
                 statement.body,
                 symbols=symbols,
@@ -1311,12 +1331,12 @@ def _validate_function_statements(
             _validate_calculation_expression(
                 statement.condition, symbols, local_bindings
             )
-            _require_bool_condition(statement.condition, symbols, local_bindings)
+            _require_function_bool_condition(statement.condition, symbols, local_bindings)
             _validate_function_statements(
                 statement.body,
                 symbols=symbols,
                 bindings=local_bindings,
-                allow_terminal_return=is_last,
+                allow_terminal_return=True,
                 loop_depth=loop_depth,
                 return_type=return_type,
             )
@@ -1324,12 +1344,12 @@ def _validate_function_statements(
                 _validate_calculation_expression(
                     branch.condition, symbols, local_bindings
                 )
-                _require_bool_condition(branch.condition, symbols, local_bindings)
+                _require_function_bool_condition(branch.condition, symbols, local_bindings)
                 _validate_function_statements(
                     branch.body,
                     symbols=symbols,
                     bindings=local_bindings,
-                    allow_terminal_return=is_last,
+                    allow_terminal_return=True,
                     loop_depth=loop_depth,
                     return_type=return_type,
                 )
@@ -1338,7 +1358,7 @@ def _validate_function_statements(
                     statement.else_branch.body,
                     symbols=symbols,
                     bindings=local_bindings,
-                    allow_terminal_return=is_last,
+                    allow_terminal_return=True,
                     loop_depth=loop_depth,
                     return_type=return_type,
                 )
@@ -1358,7 +1378,7 @@ def _validate_function_statements(
                     arm.body,
                     symbols=symbols,
                     bindings={**local_bindings, **arm_bindings},
-                    allow_terminal_return=is_last,
+                    allow_terminal_return=True,
                     loop_depth=loop_depth,
                     return_type=return_type,
                 )
@@ -1367,21 +1387,50 @@ def _validate_function_statements(
 def _statement_list_terminates_with_return(statements: tuple[Any, ...]) -> bool:
     if not statements:
         return False
-    final = statements[-1]
-    if isinstance(final, ReturnStatementNode):
+    reachable = True
+    for statement in statements:
+        if not reachable:
+            return True
+        if _statement_terminates_with_return(statement):
+            reachable = False
+    return not reachable
+
+
+def _statement_terminates_with_return(statement: Any) -> bool:
+    if isinstance(statement, ReturnStatementNode):
         return True
-    if isinstance(final, IfStatementNode):
-        if final.else_branch is None:
+    if isinstance(statement, IfStatementNode):
+        if statement.else_branch is None:
             return False
-        branches = [final.body]
-        branches.extend(branch.body for branch in final.elif_branches)
-        branches.append(final.else_branch.body)
+        branches = [statement.body]
+        branches.extend(branch.body for branch in statement.elif_branches)
+        branches.append(statement.else_branch.body)
         return all(_statement_list_terminates_with_return(body) for body in branches)
-    if isinstance(final, MatchStatementNode):
-        return bool(final.arms) and all(
-            _statement_list_terminates_with_return(arm.body) for arm in final.arms
+    if isinstance(statement, MatchStatementNode):
+        return bool(statement.arms) and all(
+            _statement_list_terminates_with_return(arm.body) for arm in statement.arms
         )
     return False
+
+
+def _validate_function_control_flow(statements: tuple[Any, ...]) -> None:
+    reachable = True
+    for statement in statements:
+        if not reachable:
+            raise SurfaceValidationError("FCF-002 unreachable statement")
+        if isinstance(statement, IfStatementNode):
+            _validate_function_control_flow(statement.body)
+            for branch in statement.elif_branches:
+                _validate_function_control_flow(branch.body)
+            if statement.else_branch is not None:
+                _validate_function_control_flow(statement.else_branch.body)
+        elif isinstance(statement, MatchStatementNode):
+            for arm in statement.arms:
+                _validate_function_control_flow(arm.body)
+        elif isinstance(statement, (ForStatementNode, WhileStatementNode, LoopStatementNode)):
+            _validate_function_control_flow(statement.body)
+        if _statement_terminates_with_return(statement):
+            reachable = False
 
 
 def _validate_calculation_expression(
@@ -1757,6 +1806,34 @@ def _expression_type(
             return _UNKNOWN_TYPE
         raise SurfaceValidationError("CV5-7 index access requires collection type")
     if isinstance(value, CallExpressionNode):
+        if isinstance(value.callee, IdentifierNode):
+            if value.callee.name == _CURRENT_FUNCTION:
+                raise SurfaceValidationError("FN-007 recursive function calls are rejected")
+            function = symbols.get(value.callee.name)
+            if isinstance(function, FunctionDeclarationNode):
+                if len(value.arguments) != len(function.parameters):
+                    raise SurfaceValidationError(
+                        f"FN-005 function argument count mismatch: {value.callee.name}"
+                    )
+                for argument, parameter in zip(value.arguments, function.parameters):
+                    expected_type = _function_parameter_type(parameter)
+                    argument_expression = (
+                        argument if isinstance(argument, ExpressionNode) else ExpressionNode(argument)
+                    )
+                    actual_type = _expression_type(
+                        argument_expression.expression,
+                        symbols,
+                        bindings,
+                    )
+                    if expected_type is not None:
+                        _require_compatible(
+                            expected_type,
+                            actual_type,
+                            argument_expression,
+                            symbols,
+                            "FN-005 function argument mismatch",
+                        )
+                return function.return_type or _UNKNOWN_TYPE
         return _UNKNOWN_TYPE
     return _UNKNOWN_TYPE
 
@@ -1894,6 +1971,19 @@ def _require_bool_condition(
     bool_type = PrimitiveTypeNode(PrimitiveKind.BOOL)
     if expression_type is _UNKNOWN_TYPE or expression_type != bool_type:
         raise SurfaceValidationError("CV-1 ConditionMustBeBoolean")
+
+
+def _require_function_bool_condition(
+    expression: ExpressionNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    try:
+        _require_bool_condition(expression, symbols, bindings)
+    except SurfaceValidationError as error:
+        if "ConditionMustBeBoolean" in str(error):
+            raise SurfaceValidationError("FCF-004 condition must be Bool") from error
+        raise
 
 
 def _require_iterable(

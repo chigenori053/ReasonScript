@@ -655,7 +655,7 @@ class CalculationNode:
 @dataclass(frozen=True)
 class FunctionDeclarationNode:
     name: str
-    parameters: tuple[str, ...]
+    parameters: tuple[Any, ...]
     body: tuple[StatementNode, ...]
     visibility: Visibility = Visibility.PRIVATE
     return_type: TypeNode | None = None
@@ -1242,7 +1242,7 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
     if node_type == "FunctionDeclarationNode":
         return FunctionDeclarationNode(
             value["name"],
-            tuple(value["parameters"]),
+            tuple(_function_parameter_from_json(item) for item in value["parameters"]),
             tuple(_from_json_node(item) for item in value["body"]),
             Visibility(value.get("visibility", Visibility.PRIVATE.value)),
             (
@@ -1252,3 +1252,17 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
             ),
         )
     raise AssertionError(f"unhandled surface node_type: {node_type}")
+
+
+def _function_parameter_from_json(value: Any) -> Any:
+    if isinstance(value, Mapping) and "type" in value:
+        type_value = value["type"]
+        return {
+            "name": value["name"],
+            "type": (
+                _from_json_node(type_value)
+                if isinstance(type_value, Mapping)
+                else type_value
+            ),
+        }
+    return value

@@ -27,6 +27,18 @@ def analyze_ir(ir: dict[str, Any], simulation: dict[str, Any], compiler_mode: st
     }
 
 
+def _runtime_call_kind(call: Any) -> str:
+    if isinstance(call, dict):
+        return call.get("function") or call.get("kind") or call.get("operation", "")
+    return str(call)
+
+
+def _runtime_call_argument(call: Any) -> Any:
+    if isinstance(call, dict):
+        return call.get("argument") or call.get("target")
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Output Panel
 # ---------------------------------------------------------------------------
@@ -144,9 +156,13 @@ def _analyze_runtime_operations(ir: dict[str, Any]) -> dict[str, Any]:
     runtime_calls = meta.get("runtime_calls", [])
 
     all_ops = list(ops) + [
-        {"kind": c.get("function") or c.get("kind", "unknown"), "argument": c.get("argument")}
+        (
+            {"kind": c.get("function") or c.get("kind", "unknown"), "argument": c.get("argument")}
+            if isinstance(c, dict)
+            else {"kind": str(c), "argument": None}
+        )
         for c in runtime_calls
-        if c.get("function") not in {o.get("kind") for o in ops}
+        if (c.get("function") if isinstance(c, dict) else str(c)) not in {o.get("kind") for o in ops}
     ]
 
     by_kind: dict[str, list[dict[str, Any]]] = {}
@@ -174,12 +190,12 @@ def _analyze_input_states(ir: dict[str, Any]) -> dict[str, Any]:
     input_states: list[dict[str, Any]] = []
     idx = 1
     for call in runtime_calls:
-        if call.get("function") == "input" or call.get("kind") == "input":
+        if _runtime_call_kind(call) == "input":
             input_states.append({
                 "state_id": f"Input{idx}",
                 "state_type": "Input",
-                "argument": call.get("argument"),
-                "value": call.get("value"),
+                "argument": _runtime_call_argument(call),
+                "value": call.get("value") if isinstance(call, dict) else None,
             })
             idx += 1
     for op in runtime_ops:
@@ -433,8 +449,12 @@ def _analyze_type_coverage(ir: dict[str, Any]) -> dict[str, Any]:
     unknown: list[dict[str, Any]] = []
 
     for rt in reasoning_types:
-        name = rt.get("name") or rt.get("id", "?")
-        kind = rt.get("kind") or rt.get("type", "Unknown")
+        if isinstance(rt, dict):
+            name = rt.get("name") or rt.get("id", "?")
+            kind = rt.get("kind") or rt.get("type", "Unknown")
+        else:
+            name = str(rt)
+            kind = str(rt)
         entry = {"name": name, "type": kind}
         if kind in {"InputState", "OutputState", "Calculation", "GoalState"}:
             declared.append(entry)
@@ -511,9 +531,9 @@ def _analyze_determinism(ir: dict[str, Any], simulation: dict[str, Any]) -> dict
     non_deterministic: list[dict[str, Any]] = []
 
     for op in runtime_ops + runtime_calls:
-        kind = op.get("kind") or op.get("function") or op.get("operation", "")
+        kind = _runtime_call_kind(op)
         if kind == "input":
-            input_boundaries.append({"kind": "input", "argument": op.get("argument") or op.get("target")})
+            input_boundaries.append({"kind": "input", "argument": _runtime_call_argument(op)})
             non_deterministic.append({"source": "input()", "reason": "External user input"})
         elif kind in {"search", "predict", "simulate", "plan"}:
             non_deterministic.append({"source": f"{kind}()", "reason": "External system dependency"})

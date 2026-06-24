@@ -1,0 +1,7 @@
+module Basic {
+    fn Value() -> int {
+        return 1
+
+        return 2
+    }
+}

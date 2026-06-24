@@ -183,6 +183,12 @@ def _symbols(
         else:
             name = node.name
         if name in result:
+            if isinstance(node, FunctionDeclarationNode) and isinstance(
+                result[name].node, FunctionDeclarationNode
+            ):
+                raise NamespaceResolutionError(
+                    f"FN-001 duplicate function symbol in {namespace}: {name}"
+                )
             raise NamespaceResolutionError(
                 f"NS-001 NS-V002 duplicate symbol in {namespace}: {name}"
             )

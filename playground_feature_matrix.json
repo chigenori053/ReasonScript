@@ -1,0 +1,1506 @@
+{
+  "schema_version": "playground-feature-matrix/1.0",
+  "specification_id": "playground-integration/1.0",
+  "generated_at": "2026-06-22T09:53:15.653068Z",
+  "summary": {
+    "total": 31,
+    "connected": 31,
+    "partial": 0,
+    "missing": 0,
+    "broken": 0,
+    "connected_pct": 100.0
+  },
+  "features": [
+    {
+      "feature": "module",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains ModuleNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "semantic_ast contains ModuleNode",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains BasicStart",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n}\n"
+    },
+    {
+      "feature": "calculation",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains CalculationNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains ResultStatementNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains ResultTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    result = 42\n  }\n}\n"
+    },
+    {
+      "feature": "dependency graph",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains CalculationNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains BinaryExpressionNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains calculation_dependencies",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        },
+        {
+          "name": "analysis path dependency_graph.dependencies",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation A {\n    result = 10\n  }\n  calculation B {\n    result = A * 2\n  }\n}\n"
+    },
+    {
+      "feature": "execution plan",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains TransitionNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains GoalNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains Move",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        },
+        {
+          "name": "pipeline path execution_plan.selected_steps",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  object Start\n  object End\n  transition Move {\n    Start -> End\n  }\n  goal ReachEnd\n}\n"
+    },
+    {
+      "feature": "simulation",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains TransitionNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        },
+        {
+          "name": "pipeline path simulation.trace",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  object Start\n  object End\n  transition Move {\n    Start -> End\n  }\n  goal ReachEnd\n}\n"
+    },
+    {
+      "feature": "knowledge",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains TransitionNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        },
+        {
+          "name": "pipeline path knowledge.knowledge",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  object Start\n  object End\n  transition Move {\n    Start -> End\n  }\n  goal ReachEnd\n}\n"
+    },
+    {
+      "feature": "fn",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains FunctionDeclarationNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains function_declarations",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  fn Value() -> int {\n    return 42\n  }\n}\n"
+    },
+    {
+      "feature": "return",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains ReturnStatementNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains ReturnStatementNode",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  fn Value() -> int {\n    return 42\n  }\n}\n"
+    },
+    {
+      "feature": "bool",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains BooleanLiteralNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains PrimitiveTypeNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains ExpressionTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    let ok: bool = true\n    result = ok\n  }\n}\n"
+    },
+    {
+      "feature": "if",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains IfStatementNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains ElseStatementNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains DecisionTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    if true {\n      let x = 1\n    } else {\n      let y = 2\n    }\n    result = 42\n  }\n}\n"
+    },
+    {
+      "feature": "elif",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains ElseIfStatementNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains DecisionTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    if false {\n      let x = 1\n    } elif true {\n      let y = 2\n    } else {\n      let z = 3\n    }\n    result = 42\n  }\n}\n"
+    },
+    {
+      "feature": "match",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains MatchStatementNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains MatchArmNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains DecisionTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  enum Color {\n    Red\n    Blue\n  }\n  calculation Value {\n    let c: Color = Color.Red\n    match c {\n      Color.Red => let x = 1\n      Color.Blue => let y = 2\n    }\n    result = 1\n  }\n}\n"
+    },
+    {
+      "feature": "for",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains ForStatementNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains ForTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    for item in [1, 2] {\n      continue\n    }\n    result = 2\n  }\n}\n"
+    },
+    {
+      "feature": "while",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains WhileStatementNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains WhileTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    let x = 0\n    while x < 1 {\n      break\n    }\n    result = x\n  }\n}\n"
+    },
+    {
+      "feature": "loop",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains LoopStatementNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains LoopTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    loop {\n      break\n    }\n    result = 1\n  }\n}\n"
+    },
+    {
+      "feature": "break",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains BreakStatementNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains BreakStatementNode",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    loop {\n      break\n    }\n    result = 1\n  }\n}\n"
+    },
+    {
+      "feature": "continue",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains ContinueStatementNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains ContinueStatementNode",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    for item in [1, 2] {\n      continue\n    }\n    result = 2\n  }\n}\n"
+    },
+    {
+      "feature": "struct",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains StructDeclarationNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains StructLiteralNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains composite_declarations",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains StructLiteralTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  struct Point {\n    x: int\n  }\n  calculation Value {\n    let p: Point = Point {\n      x: 1\n    }\n    result = p.x\n  }\n}\n"
+    },
+    {
+      "feature": "enum",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains EnumDeclarationNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains EnumValueNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains composite_declarations",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  enum Color {\n    Red\n    Blue\n  }\n  calculation Value {\n    let c: Color = Color.Red\n    result = 1\n  }\n}\n"
+    },
+    {
+      "feature": "array",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains ArrayTypeNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains ArrayLiteralNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains IndexAccessNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains ArrayTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    let xs: [int] = [1, 2]\n    result = xs[0]\n  }\n}\n"
+    },
+    {
+      "feature": "tuple",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains TupleTypeNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains TupleLiteralNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains TupleTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    let pair: (int, int) = (1, 2)\n    result = pair.0\n  }\n}\n"
+    },
+    {
+      "feature": "map",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains MapTypeNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains MapLiteralNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains MapTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    let xs: map<string, int> = map {\n      \"a\": 1\n    }\n    result = xs[\"a\"]\n  }\n}\n"
+    },
+    {
+      "feature": "set",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains SetTypeNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains SetLiteralNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains SetTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    let xs: set<int> = set {\n      1\n    }\n    result = 1\n  }\n}\n"
+    },
+    {
+      "feature": "optional",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains OptionalTypeNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains SomeExpressionNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains SomeTransition",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value -> optional<int> {\n    let x: optional<int> = some(1)\n    result = x\n  }\n}\n"
+    },
+    {
+      "feature": "package",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains PackageDeclarationNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains package",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "package Demo\nmodule Basic {\n  calculation Value {\n    result = 1\n  }\n}\n"
+    },
+    {
+      "feature": "import",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains ImportNode",
+          "ok": true
+        },
+        {
+          "name": "ast contains ImportResolutionNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains import_resolution",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Lib {\n  export calculation Value {\n    result = 1\n  }\n}\nmodule Basic {\n  import Lib.Value\n  calculation Use {\n    result = 2\n  }\n}\n"
+    },
+    {
+      "feature": "export",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains CalculationNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains exports",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains Value",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  export calculation Value {\n    result = 1\n  }\n}\n"
+    },
+    {
+      "feature": "runtime.search",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains RuntimeCallExpressionNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains RuntimeSearchNode",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        },
+        {
+          "name": "analysis path runtime_operations.operations",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    let x = runtime.search(\"goal\")\n    result = x\n  }\n}\n"
+    },
+    {
+      "feature": "runtime.simulate",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains RuntimeCallExpressionNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains RuntimeSimulateNode",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        },
+        {
+          "name": "analysis path runtime_operations.operations",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    let x = runtime.simulate(\"plan\")\n    result = x\n  }\n}\n"
+    },
+    {
+      "feature": "runtime.predict",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains RuntimeCallExpressionNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains RuntimePredictNode",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        },
+        {
+          "name": "analysis path runtime_operations.operations",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    let x = runtime.predict(\"state\")\n    result = x\n  }\n}\n"
+    },
+    {
+      "feature": "runtime.plan",
+      "compiler": true,
+      "playground": true,
+      "status": "CONNECTED",
+      "checks": [
+        {
+          "name": "parse",
+          "ok": true
+        },
+        {
+          "name": "ast contains RuntimeCallExpressionNode",
+          "ok": true
+        },
+        {
+          "name": "semantic",
+          "ok": true
+        },
+        {
+          "name": "reason_ir",
+          "ok": true
+        },
+        {
+          "name": "reason_ir contains RuntimePlanNode",
+          "ok": true
+        },
+        {
+          "name": "execution_plan",
+          "ok": true
+        },
+        {
+          "name": "simulation",
+          "ok": true
+        },
+        {
+          "name": "knowledge",
+          "ok": true
+        },
+        {
+          "name": "exportable_artifacts",
+          "ok": true
+        },
+        {
+          "name": "analysis path runtime_operations.operations",
+          "ok": true
+        }
+      ],
+      "source": "module Basic {\n  calculation Value {\n    let x = runtime.plan(\"goal\")\n    result = x\n  }\n}\n"
+    }
+  ]
+}

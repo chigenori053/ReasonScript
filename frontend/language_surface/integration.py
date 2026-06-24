@@ -83,6 +83,7 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
     namespace = f"{package}.{module.name}" if package else module.name
     calculation_order = _topological_calculations(module)
     calculation_dependencies = _calculation_dependencies(module)
+    function_call_dependencies = _function_call_dependencies(module)
     calculation_result_target = (
         f"{calculation_order[-1].name}.state.result"
         if calculation_order
@@ -114,6 +115,7 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                     for node in module.body
                     if not isinstance(node, ImportNode)
                 ],
+                "semantic_functions": _semantic_function_nodes(module, namespace),
             },
         )
     )
@@ -232,6 +234,26 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                 ],
             ),
             semantic.MetadataNode(
+                f"{namespace}-semantic-functions",
+                "semantic_functions",
+                _semantic_function_nodes(module, namespace),
+            ),
+            semantic.MetadataNode(
+                f"{namespace}-function-symbols",
+                "function_symbols",
+                _function_symbols(module, namespace),
+            ),
+            semantic.MetadataNode(
+                f"{namespace}-function-ir",
+                "function_ir",
+                _function_ir_nodes(module, namespace),
+            ),
+            semantic.MetadataNode(
+                f"{namespace}-function-calls",
+                "function_calls",
+                _function_call_ir_nodes(module, namespace),
+            ),
+            semantic.MetadataNode(
                 f"{namespace}-composite-types",
                 "composite_declarations",
                 [
@@ -281,6 +303,11 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                     {"source": source, "target": target}
                     for target in sorted(calculation_dependencies)
                     for source in sorted(calculation_dependencies[target])
+                ]
+                + [
+                    {"source": source, "target": target}
+                    for target in sorted(function_call_dependencies)
+                    for source in sorted(function_call_dependencies[target])
                 ],
             ),
         ),
@@ -298,56 +325,107 @@ def _project_calculations(
     transition_index = start_index
     current = f"{module.name}Start"
     calculation_names = {node.name for node in calculations}
+    functions = {
+        node.name: node for node in module.body if isinstance(node, FunctionDeclarationNode)
+    }
+    emitted_function_returns: set[str] = set()
     for node in calculations:
         local_names: set[str] = set()
+        current_sources = [current]
         for index, statement in enumerate(node.body, 1):
             identifier, statement_data, relation = _statement_projection(
                 statement, index
             )
             expression = _statement_expression(statement)
+            for function_name in _expression_function_calls(expression):
+                function = functions.get(function_name)
+                if function is None or function_name in emitted_function_returns:
+                    continue
+                return_paths = _function_return_paths(function)
+                next_sources: list[str] = []
+                for source in current_sources:
+                    for return_path in return_paths:
+                        transition_index += 1
+                        target = _function_return_target(function_name, return_path["label"])
+                        declarations.append(
+                            semantic.TransitionNode(
+                                f"{namespace}-function-{transition_index}",
+                                target,
+                                source,
+                                "FunctionReturnTransition",
+                                target,
+                                effect={
+                                    "function": f"{namespace}.{function_name}",
+                                    "node_type": "FunctionIRNode",
+                                    "return_path": return_path["label"],
+                                    "return": to_json_value(return_path["expression"]),
+                                },
+                            )
+                        )
+                        next_sources.append(target)
+                current_sources = next_sources or current_sources
+                emitted_function_returns.add(function_name)
             if isinstance(statement, (LetStatementNode, ConstStatementNode)):
                 local_names.add(statement.identifier)
             if _terminates_with_result(statement):
                 identifier = "result"
-            transition_index += 1
             target = (
                 f"{node.name}.state.result"
                 if identifier == "result"
                 else f"{node.name}.state.{identifier}"
             )
-            declarations.append(
-                semantic.TransitionNode(
-                    f"{namespace}-calculation-{transition_index}",
-                    f"{node.name}-{index}-{identifier}",
-                    current,
-                    relation,
-                    target,
-                    effect={
-                        "calculation": node.name,
-                        "visibility": node.visibility.value,
-                        "goal_annotation": node.goal_annotation,
-                        "return_type": (
-                            to_json_value(node.return_type)
-                            if node.return_type is not None
-                            else None
-                        ),
-                        "target": identifier,
-                        "statement": statement_data,
-                        "inputs": _resolved_expression_inputs(
-                            expression,
-                            calculation=node.name,
-                            calculation_names=calculation_names,
-                            local_names=local_names,
-                        ),
-                        **(
-                            {"expression": statement_data["expression"]}
-                            if "expression" in statement_data
-                            else {}
-                        ),
-                    },
+            for source in current_sources:
+                transition_index += 1
+                declarations.append(
+                    semantic.TransitionNode(
+                        f"{namespace}-calculation-{transition_index}",
+                        f"{node.name}-{index}-{identifier}-{transition_index}",
+                        source,
+                        relation,
+                        target,
+                        effect={
+                            "calculation": node.name,
+                            "visibility": node.visibility.value,
+                            "goal_annotation": node.goal_annotation,
+                            "return_type": (
+                                to_json_value(node.return_type)
+                                if node.return_type is not None
+                                else None
+                            ),
+                            "target": identifier,
+                            "statement": statement_data,
+                            "inputs": _resolved_expression_inputs(
+                                expression,
+                                calculation=node.name,
+                                calculation_names=calculation_names,
+                                local_names=local_names,
+                            ),
+                            "function_calls": [
+                                {
+                                    "node_type": "FunctionCallIRNode",
+                                    "function": f"{namespace}.{function_name}",
+                                    "arguments": [
+                                        to_json_value(argument)
+                                        for argument in _function_call_arguments(expression, function_name)
+                                    ],
+                                    "return_type": _type_label(
+                                        functions[function_name].return_type
+                                        if function_name in functions
+                                        else None
+                                    ),
+                                }
+                                for function_name in _expression_function_calls(expression)
+                            ],
+                            **(
+                                {"expression": statement_data["expression"]}
+                                if "expression" in statement_data
+                                else {}
+                            ),
+                        },
+                    )
                 )
-            )
             current = target
+            current_sources = [target]
             if isinstance(statement, AssignmentStatementNode):
                 local_names.add(statement.target)
     return transition_index
@@ -399,6 +477,254 @@ def _runtime_operations(module: ModuleNode) -> list[dict[str, Any]]:
             }
         )
     return result
+
+
+def _function_symbols(module: ModuleNode, namespace: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "node_type": "FunctionSymbol",
+            "name": node.name,
+            "qualified_name": f"{namespace}.{node.name}",
+            "parameters": [
+                {
+                    "name": _function_parameter_name(parameter),
+                    "type": _type_label(_function_parameter_type(parameter)),
+                }
+                for parameter in node.parameters
+            ],
+            "return_type": _type_label(node.return_type),
+        }
+        for node in module.body
+        if isinstance(node, FunctionDeclarationNode)
+    ]
+
+
+def _semantic_function_nodes(module: ModuleNode, namespace: str) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for node in module.body:
+        if not isinstance(node, FunctionDeclarationNode):
+            continue
+        return_paths = _function_return_paths(node)
+        result.append(
+            {
+                "node_type": "SemanticFunctionNode",
+                "name": node.name,
+                "qualified_name": f"{namespace}.{node.name}",
+                "parameters": [
+                    {
+                        "name": _function_parameter_name(parameter),
+                        "type": _type_label(_function_parameter_type(parameter)),
+                    }
+                    for parameter in node.parameters
+                ],
+                "return_type": _type_label(node.return_type),
+                "body_type": (
+                    _type_label(node.return_type) if return_paths else None
+                ),
+                "return_guaranteed": bool(return_paths),
+                "return_paths": [path["label"] for path in return_paths],
+                "pure": True,
+            }
+        )
+    return result
+
+
+def _function_ir_nodes(module: ModuleNode, namespace: str) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for node in module.body:
+        if not isinstance(node, FunctionDeclarationNode):
+            continue
+        result.append(
+            {
+                "node_type": "FunctionIRNode",
+                "id": f"{namespace}.{node.name}",
+                "name": node.name,
+                "return_type": _type_label(node.return_type),
+                "pure": True,
+                "parameters": [
+                    {
+                        "name": _function_parameter_name(parameter),
+                        "type": _type_label(_function_parameter_type(parameter)),
+                    }
+                    for parameter in node.parameters
+                ],
+                "body": _function_control_flow_ir(node),
+            }
+        )
+    return result
+
+
+def _function_call_ir_nodes(module: ModuleNode, namespace: str) -> list[dict[str, Any]]:
+    functions = {
+        node.name: node for node in module.body if isinstance(node, FunctionDeclarationNode)
+    }
+    result: list[dict[str, Any]] = []
+    for calculation in [node for node in module.body if isinstance(node, CalculationNode)]:
+        for statement in calculation.body:
+            expression = _statement_expression(statement)
+            for function_name in _expression_function_calls(expression):
+                function = functions.get(function_name)
+                result.append(
+                    {
+                        "node_type": "FunctionCallIRNode",
+                        "function": f"{namespace}.{function_name}",
+                        "caller": calculation.name,
+                        "arguments": [
+                            to_json_value(argument)
+                            for argument in _function_call_arguments(expression, function_name)
+                        ],
+                        "return_type": _type_label(
+                            function.return_type if function is not None else None
+                        ),
+                    }
+                )
+    return result
+
+
+def _function_call_dependencies(module: ModuleNode) -> dict[str, set[str]]:
+    result: dict[str, set[str]] = {}
+    functions = {
+        node.name for node in module.body if isinstance(node, FunctionDeclarationNode)
+    }
+    for calculation in [node for node in module.body if isinstance(node, CalculationNode)]:
+        dependencies: set[str] = set()
+        for statement in calculation.body:
+            dependencies.update(
+                name
+                for name in _expression_function_calls(_statement_expression(statement))
+                if name in functions
+            )
+        result[calculation.name] = dependencies
+    return result
+
+
+def _function_parameter_name(parameter: Any) -> str:
+    if isinstance(parameter, dict):
+        return str(parameter.get("name", ""))
+    return str(parameter)
+
+
+def _function_parameter_type(parameter: Any) -> Any:
+    if isinstance(parameter, dict):
+        return parameter.get("type")
+    return None
+
+
+def _function_return_statement(function: FunctionDeclarationNode) -> ReturnStatementNode | None:
+    for statement in reversed(function.body):
+        if isinstance(statement, ReturnStatementNode):
+            return statement
+    return None
+
+
+def _function_return_paths(function: FunctionDeclarationNode) -> list[dict[str, Any]]:
+    paths: list[dict[str, Any]] = []
+
+    def walk(statements: tuple[Any, ...], prefixes: list[tuple[str, ...]]) -> list[tuple[str, ...]]:
+        active = prefixes
+        for statement in statements:
+            if not active:
+                return []
+            if isinstance(statement, ReturnStatementNode):
+                for prefix in active:
+                    paths.append(
+                        {
+                            "label": _return_path_label(prefix, len(paths) + 1),
+                            "expression": statement.expression,
+                        }
+                    )
+                return []
+            if isinstance(statement, IfStatementNode):
+                next_active: list[tuple[str, ...]] = []
+                branches = [("true", statement.body)]
+                branches.extend(
+                    (f"elif_{index}", branch.body)
+                    for index, branch in enumerate(statement.elif_branches, 1)
+                )
+                for prefix in active:
+                    for label, body in branches:
+                        branch_prefix = (*prefix, label)
+                        if walk(body, [branch_prefix]):
+                            next_active.append(branch_prefix)
+                    if statement.else_branch is not None:
+                        else_prefix = (*prefix, "false")
+                        if walk(statement.else_branch.body, [else_prefix]):
+                            next_active.append(else_prefix)
+                    else:
+                        next_active.append((*prefix, "false"))
+                active = next_active
+                continue
+        return active
+
+    walk(function.body, [()])
+    return paths
+
+
+def _return_path_label(prefix: tuple[str, ...], index: int) -> str:
+    return ".".join(prefix) if prefix else f"path_{index}"
+
+
+def _function_return_target(function_name: str, label: str) -> str:
+    return f"{function_name}.return" if label == "path_1" else f"{function_name}.return.{label}"
+
+
+def _function_control_flow_ir(function: FunctionDeclarationNode) -> list[dict[str, Any]]:
+    nodes: list[dict[str, Any]] = []
+    return_targets = {
+        path["label"]: _function_return_target(function.name, path["label"])
+        for path in _function_return_paths(function)
+    }
+    for statement in function.body:
+        if isinstance(statement, IfStatementNode):
+            true_label = _first_return_label(statement.body, "true")
+            false_label = (
+                _first_return_label(statement.else_branch.body, "false")
+                if statement.else_branch is not None
+                else "fallthrough"
+            )
+            if false_label == "fallthrough" and "false" in return_targets:
+                false_label = "false"
+            nodes.append(
+                {
+                    "node_type": "ConditionalBranchIRNode",
+                    "condition": to_json_value(statement.condition),
+                    "true_target": return_targets.get(
+                        true_label, _function_return_target(function.name, true_label)
+                    ),
+                    "false_target": return_targets.get(false_label, "fallthrough"),
+                }
+            )
+    for path in _function_return_paths(function):
+        nodes.append(
+            {
+                "node_type": "ReturnIRNode",
+                "id": _function_return_target(function.name, path["label"]),
+                "path": path["label"],
+                "expression": to_json_value(path["expression"]),
+            }
+        )
+    if any(isinstance(statement, IfStatementNode) for statement in function.body):
+        nodes.append({"node_type": "MergeIRNode", "id": f"{function.name}.merge.return"})
+    return nodes
+
+
+def _first_return_label(statements: tuple[Any, ...], default: str) -> str:
+    for statement in statements:
+        if isinstance(statement, ReturnStatementNode):
+            return default
+    return default
+
+
+def _type_label(value: Any) -> str | None:
+    if value is None:
+        return None
+    encoded = to_json_value(value)
+    if isinstance(encoded, dict):
+        if encoded.get("node_type") == "PrimitiveTypeNode":
+            return str(encoded.get("kind", "")).lower()
+        if encoded.get("node_type") == "NamedTypeNode":
+            return str(encoded.get("name"))
+    return str(encoded)
 
 
 def _reasoning_types(module: ModuleNode) -> list[str]:
@@ -619,6 +945,125 @@ def _expression_identifiers(expression: ExpressionNode | Any) -> set[str]:
             return
         if isinstance(item, SomeExpressionNode):
             visit(item.value)
+
+    visit(value)
+    return found
+
+
+def _expression_function_calls(expression: ExpressionNode | Any | None) -> list[str]:
+    if expression is None:
+        return []
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    found: list[str] = []
+
+    def visit(item: Any) -> None:
+        if isinstance(item, CallExpressionNode):
+            if isinstance(item.callee, IdentifierNode) and item.callee.name not in found:
+                found.append(item.callee.name)
+            visit(item.callee)
+            for argument in item.arguments:
+                visit(argument)
+            return
+        if isinstance(item, ExpressionNode):
+            visit(item.expression)
+            return
+        if isinstance(item, RuntimeCallExpressionNode):
+            for argument in item.arguments:
+                visit(argument)
+            return
+        if isinstance(item, UnaryExpressionNode):
+            visit(item.operand)
+            return
+        if isinstance(
+            item,
+            (
+                BinaryExpressionNode,
+                ComparisonExpressionNode,
+                LogicalExpressionNode,
+            ),
+        ):
+            visit(item.left)
+            visit(item.right)
+            return
+        if isinstance(item, ParenthesizedExpressionNode):
+            visit(item.expression)
+            return
+        if isinstance(item, MemberAccessNode):
+            visit(item.object)
+            return
+        if isinstance(item, StructLiteralNode):
+            for field in item.fields:
+                visit(field.expression)
+            return
+        if isinstance(item, (ArrayLiteralNode, TupleLiteralNode, SetLiteralNode)):
+            for element in item.elements:
+                visit(element)
+            return
+        if isinstance(item, MapLiteralNode):
+            for entry in item.entries:
+                visit(entry.key)
+                visit(entry.value)
+            return
+        if isinstance(item, IndexAccessNode):
+            visit(item.collection)
+            visit(item.index)
+            return
+        if isinstance(item, SomeExpressionNode):
+            visit(item.value)
+
+    visit(value)
+    return found
+
+
+def _function_call_arguments(
+    expression: ExpressionNode | Any | None,
+    function_name: str,
+) -> list[ExpressionNode]:
+    if expression is None:
+        return []
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    found: list[ExpressionNode] = []
+
+    def visit(item: Any) -> None:
+        if isinstance(item, CallExpressionNode):
+            if isinstance(item.callee, IdentifierNode) and item.callee.name == function_name:
+                found.extend(item.arguments)
+            for argument in item.arguments:
+                visit(argument)
+            return
+        if isinstance(item, ExpressionNode):
+            visit(item.expression)
+            return
+        if isinstance(item, (UnaryExpressionNode, ParenthesizedExpressionNode, SomeExpressionNode)):
+            visit(getattr(item, "operand", getattr(item, "expression", getattr(item, "value", None))))
+            return
+        if isinstance(item, (BinaryExpressionNode, ComparisonExpressionNode, LogicalExpressionNode)):
+            visit(item.left)
+            visit(item.right)
+            return
+        if isinstance(item, MemberAccessNode):
+            visit(item.object)
+            return
+        if isinstance(item, RuntimeCallExpressionNode):
+            for argument in item.arguments:
+                visit(argument)
+            return
+        if isinstance(item, StructLiteralNode):
+            for field in item.fields:
+                visit(field.expression)
+            return
+        if isinstance(item, (ArrayLiteralNode, TupleLiteralNode, SetLiteralNode)):
+            for element in item.elements:
+                visit(element)
+            return
+        if isinstance(item, MapLiteralNode):
+            for entry in item.entries:
+                visit(entry.key)
+                visit(entry.value)
+            return
+        if isinstance(item, IndexAccessNode):
+            visit(item.collection)
+            visit(item.index)
 
     visit(value)
     return found

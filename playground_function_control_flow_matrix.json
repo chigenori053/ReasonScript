@@ -1,0 +1,47 @@
+{
+  "specification": "function-control-flow/1.0",
+  "phase": "FSI-2",
+  "features": [
+    {
+      "id": "FCF-001",
+      "name": "if return with fallthrough return",
+      "fixture": "tests/fcf_001.rsn",
+      "expected": "PASS",
+      "compiler": true,
+      "playground": true
+    },
+    {
+      "id": "FCF-002",
+      "name": "missing fallthrough return",
+      "fixture": "tests/fcf_002.rsn",
+      "expected": "FCF-001",
+      "compiler": true,
+      "playground": true
+    },
+    {
+      "id": "FCF-003",
+      "name": "unreachable return statement",
+      "fixture": "tests/fcf_003.rsn",
+      "expected": "FCF-002",
+      "compiler": true,
+      "playground": true
+    },
+    {
+      "id": "FCF-004",
+      "name": "condition must be bool",
+      "fixture": "tests/fcf_004.rsn",
+      "expected": "FCF-004",
+      "compiler": true,
+      "playground": true
+    },
+    {
+      "id": "FCF-005",
+      "name": "function call preserves branch evidence",
+      "fixture": "tests/fcf_005.rsn",
+      "expected": "Reachable true, distance >= 2, knowledge >= 1",
+      "compiler": true,
+      "playground": true
+    }
+  ],
+  "status": "implemented"
+}
