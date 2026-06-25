@@ -14,6 +14,7 @@ from .nodes import (
     CallExpressionNode,
     ComparisonExpressionNode,
     ComparisonOperator,
+    DefaultPatternNode,
     Expression,
     ExpressionNode,
     EnumValuePatternNode,
@@ -31,6 +32,7 @@ from .nodes import (
     OptionalPatternNode,
     ParenthesizedExpressionNode,
     PatternNode,
+    QualifiedPatternNode,
     QualifiedIdentifierNode,
     StringLiteralNode,
     SomeExpressionNode,
@@ -99,8 +101,23 @@ def parse_pattern(source: str) -> PatternNode:
     text = source.strip()
     if not text:
         raise ExpressionSyntaxError("PT-V001 pattern is required")
+    if " if " in text:
+        raise ExpressionSyntaxError("PT-201 guard patterns are not supported in LSI-200")
+    if "|" in text:
+        raise ExpressionSyntaxError("PT-202 OR patterns are not supported in LSI-200")
+    if ".." in text:
+        raise ExpressionSyntaxError("PT-203 range patterns are not supported in LSI-200")
+    if text.startswith("(") and text.endswith(")") and "," in text:
+        raise ExpressionSyntaxError("PT-204 destructuring patterns are not supported in LSI-200")
+    if "{" in text or "}" in text:
+        raise ExpressionSyntaxError("PT-205 struct patterns are not supported in LSI-200")
+    nested_match = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(.+\)", text)
+    if nested_match and nested_match.group(1) != "some":
+        raise ExpressionSyntaxError("PT-206 nested patterns are not supported in LSI-200")
     if text == "_":
         return PatternNode(WildcardPatternNode())
+    if text == "default":
+        return PatternNode(DefaultPatternNode())
     if text == "none":
         return PatternNode(OptionalPatternNode("None"))
     some_match = re.fullmatch(r"some\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", text)
@@ -113,9 +130,7 @@ def parse_pattern(source: str) -> PatternNode:
         isinstance(expression, MemberAccessNode)
         and isinstance(expression.object, IdentifierNode)
     ):
-        return PatternNode(
-            EnumValuePatternNode(expression.object.name, expression.member)
-        )
+        return PatternNode(QualifiedPatternNode(expression.object.name, expression.member))
     if isinstance(
         expression,
         (

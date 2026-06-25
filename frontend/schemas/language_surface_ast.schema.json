@@ -452,7 +452,9 @@
     "pattern_value": {
       "oneOf": [
         {"$ref": "#/$defs/identifier_pattern"},
+        {"$ref": "#/$defs/qualified_pattern"},
         {"$ref": "#/$defs/wildcard_pattern"},
+        {"$ref": "#/$defs/default_pattern"},
         {"$ref": "#/$defs/literal_pattern"},
         {"$ref": "#/$defs/enum_value_pattern"},
         {"$ref": "#/$defs/optional_pattern"}
@@ -467,12 +469,30 @@
         "node_type": {"const": "IdentifierPatternNode"}
       }
     },
+    "qualified_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "identifier", "node_type"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/identifier"},
+        "identifier": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "QualifiedPatternNode"}
+      }
+    },
     "wildcard_pattern": {
       "type": "object",
       "additionalProperties": false,
       "required": ["node_type"],
       "properties": {
         "node_type": {"const": "WildcardPatternNode"}
+      }
+    },
+    "default_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_type"],
+      "properties": {
+        "node_type": {"const": "DefaultPatternNode"}
       }
     },
     "literal_pattern": {

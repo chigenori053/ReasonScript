@@ -27,6 +27,7 @@ from .nodes import (
     ConstDeclarationNode,
     ConstStatementNode,
     ContinueStatementNode,
+    DefaultPatternNode,
     EnumDeclarationNode,
     EnumValueNode,
     EnumValuePatternNode,
@@ -75,6 +76,7 @@ from .nodes import (
     PrimitiveKind,
     PrimitiveTypeNode,
     ProgramNode,
+    QualifiedPatternNode,
     QualifiedIdentifierNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
@@ -223,8 +225,10 @@ KNOWN_NODE_TYPES = (
     NoneLiteralNode,
     OptionalPatternNode,
     IdentifierPatternNode,
+    QualifiedPatternNode,
     EnumValuePatternNode,
     WildcardPatternNode,
+    DefaultPatternNode,
     LiteralPatternNode,
     PrimitiveTypeNode,
     StateTypeNode,
@@ -491,21 +495,25 @@ def _validate_ast_node(node: Any) -> None:
             raise SurfaceValidationError("MT-002 MatchNode requires at least one arm")
         arm_keys: set[tuple[str, Any]] = set()
         default_seen = False
+        wildcard_seen = False
+        precomputed_keys = [_pattern_key(arm.pattern) for arm in node.arms]
+        if sum(1 for key in precomputed_keys if key[0] == "default") > 1:
+            raise SurfaceValidationError("PT-003 MSI-003 multiple default")
+        if sum(1 for key in precomputed_keys if key[0] == "wildcard") > 1:
+            raise SurfaceValidationError("PT-006 duplicate wildcard")
         for index, arm in enumerate(node.arms):
             _pattern(arm.pattern)
             key = _pattern_key(arm.pattern)
-            if key[0] == "wildcard":
-                if default_seen:
-                    raise SurfaceValidationError(
-                        "CV-6 only one default match arm is permitted"
-                    )
+            if key[0] == "default":
                 default_seen = True
                 if index != len(node.arms) - 1:
-                    raise SurfaceValidationError(
-                        "CV-7 default match arm must be last"
-                    )
+                    raise SurfaceValidationError("PT-002 MSI-002 default not last")
+            elif key[0] == "wildcard":
+                wildcard_seen = True
+                if index != len(node.arms) - 1:
+                    raise SurfaceValidationError("PT-007 unreachable pattern")
             elif key in arm_keys:
-                raise SurfaceValidationError("CV-5 duplicate match arm")
+                raise SurfaceValidationError("PT-001 MSI-001 duplicate pattern")
             arm_keys.add(key)
     elif isinstance(node, ConstraintNode):
         _identifier(node.name, "AST-V002 ConstraintNode.name")
@@ -1124,10 +1132,12 @@ def _validate_calculation_statements(
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
+            _validate_match_patterns(statement, symbols, local_bindings)
             _validate_enum_match_exhaustiveness(statement, symbols, local_bindings)
             _validate_optional_match_exhaustiveness(
                 statement, symbols, local_bindings
             )
+            _validate_bool_match_exhaustiveness(statement, symbols, local_bindings)
             for arm in statement.arms:
                 arm_bindings = _match_arm_bindings(
                     statement, arm.pattern, symbols, local_bindings
@@ -1366,10 +1376,12 @@ def _validate_function_statements(
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
             )
+            _validate_match_patterns(statement, symbols, local_bindings)
             _validate_enum_match_exhaustiveness(statement, symbols, local_bindings)
             _validate_optional_match_exhaustiveness(
                 statement, symbols, local_bindings
             )
+            _validate_bool_match_exhaustiveness(statement, symbols, local_bindings)
             for arm in statement.arms:
                 arm_bindings = _match_arm_bindings(
                     statement, arm.pattern, symbols, local_bindings
@@ -1453,6 +1465,10 @@ def _validate_calculation_expression(
                 and value.name not in symbols
                 and imported is None
             ):
+                if _is_unqualified_enum_variant(value.name, symbols):
+                    raise SurfaceValidationError(
+                        "ESR-003 enum variants must be qualified"
+                    )
                 raise SurfaceValidationError(
                     f"CAL-020 undefined variable: {value.name}"
                 )
@@ -1486,7 +1502,17 @@ def _validate_calculation_expression(
         elif isinstance(value, MemberAccessNode):
             if isinstance(value.object, RuntimeNamespaceNode):
                 raise SurfaceValidationError("RV-4 UnknownRuntimeMethod")
+            enum_reference = _enum_variant_reference(value, symbols)
+            if enum_reference is not None:
+                return
             parts = _member_access_parts(value)
+            if (
+                len(parts) == 2
+                and parts[0] not in bindings
+                and parts[0] not in symbols
+                and _looks_like_type_name(parts[0])
+            ):
+                raise SurfaceValidationError("ESR-002 unknown enum")
             if (
                 len(parts) >= 2
                 and parts[0] not in bindings
@@ -2256,16 +2282,66 @@ def _validate_struct_literal(
 
 
 def _enum_value_type(value: MemberAccessNode, symbols: dict[str, Any]) -> Any:
+    reference = _enum_variant_reference(value, symbols)
+    if reference is None:
+        return None
+    return NamedTypeNode(reference["enum_name"])
+
+
+def _enum_variant_reference(
+    value: MemberAccessNode,
+    symbols: dict[str, Any],
+) -> dict[str, str] | None:
     if not isinstance(value.object, IdentifierNode):
         return None
-    enum = symbols.get(value.object.name)
+    enum_name = value.object.name
+    enum = symbols.get(enum_name)
+    if enum is None:
+        if _CURRENT_NAMESPACE is not None:
+            try:
+                imported = _CURRENT_NAMESPACE.imported(enum_name)
+            except NamespaceResolutionError as error:
+                raise SurfaceValidationError("PT-011 qualified symbol is ambiguous") from error
+            if imported is not None and isinstance(imported.node, EnumDeclarationNode):
+                enum = imported.node
+        if isinstance(enum, EnumDeclarationNode):
+            variants = {item.name for item in enum.values}
+            if value.member not in variants:
+                raise SurfaceValidationError(
+                    "ESR-001 ESR-004 unknown enum variant"
+                )
+            return {
+                "enum_name": enum_name,
+                "variant_name": value.member,
+                "qualified_name": f"{enum_name}.{value.member}",
+            }
+        if _looks_like_type_name(enum_name):
+            raise SurfaceValidationError("ESR-002 unknown enum")
+        return None
     if not isinstance(enum, EnumDeclarationNode):
         return None
-    if value.member not in {item.name for item in enum.values}:
+    variants = {item.name for item in enum.values}
+    if value.member not in variants:
         raise SurfaceValidationError(
-            f"TV-7 unknown enum value: {value.object.name}.{value.member}"
+            "ESR-001 ESR-004 unknown enum variant"
         )
-    return NamedTypeNode(enum.name)
+    return {
+        "enum_name": enum.name,
+        "variant_name": value.member,
+        "qualified_name": f"{enum.name}.{value.member}",
+    }
+
+
+def _is_unqualified_enum_variant(name: str, symbols: dict[str, Any]) -> bool:
+    return any(
+        isinstance(node, EnumDeclarationNode)
+        and any(value.name == name for value in node.values)
+        for node in symbols.values()
+    )
+
+
+def _looks_like_type_name(name: str) -> bool:
+    return bool(name) and name[0].isupper()
 
 
 def _struct_field_type(struct: StructDeclarationNode, field_name: str) -> Any:
@@ -2352,7 +2428,11 @@ def _validate_enum_match_exhaustiveness(
     if not isinstance(enum, EnumDeclarationNode):
         return
     keys = {_pattern_key(arm.pattern) for arm in node.arms}
-    if any(key[0] == "wildcard" for key in keys):
+    variants = {value.name for value in enum.values}
+    for key in keys:
+        if key[0] == "enum_value" and key[1] == enum.name and key[2] not in variants:
+            raise SurfaceValidationError("ESR-001 ESR-004 unknown enum variant")
+    if _match_has_default(keys):
         return
     matched: set[str] = set()
     for key in keys:
@@ -2360,9 +2440,90 @@ def _validate_enum_match_exhaustiveness(
             matched.add(key[1])
         elif key[0] == "enum_value" and key[1] == enum.name:
             matched.add(key[2])
-    missing = {value.name for value in enum.values} - matched
+        elif key[0] == "qualified" and key[1] == enum.name:
+            matched.add(key[2])
+    missing = [value.name for value in enum.values if value.name not in matched]
     if missing:
-        raise SurfaceValidationError("TV-7 NonExhaustiveMatch")
+        missing_values = ", ".join(f"{enum.name}.{value}" for value in missing)
+        raise SurfaceValidationError(
+            f"TV-7 NonExhaustiveMatch Missing: {missing_values}"
+        )
+
+
+def _validate_match_patterns(
+    node: MatchStatementNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    match_type = _expression_type(node.expression.expression, symbols, bindings)
+    for arm in node.arms:
+        pattern = arm.pattern.pattern
+        if isinstance(pattern, LiteralPatternNode):
+            literal_type = _expression_type(pattern.value, symbols, bindings)
+            if (
+                match_type is not _UNKNOWN_TYPE
+                and literal_type is not _UNKNOWN_TYPE
+                and not _types_compatible(match_type, literal_type)
+            ):
+                raise SurfaceValidationError("PT-005 literal type mismatch")
+            continue
+        if isinstance(pattern, IdentifierPatternNode):
+            _validate_identifier_pattern(pattern, match_type, symbols)
+            continue
+        if isinstance(pattern, QualifiedPatternNode):
+            _qualified_pattern_reference(pattern, symbols)
+            continue
+        if isinstance(pattern, EnumValuePatternNode):
+            continue
+
+
+def _validate_identifier_pattern(
+    pattern: IdentifierPatternNode,
+    match_type: Any,
+    symbols: dict[str, Any],
+) -> None:
+    if pattern.name == "default":
+        return
+    if isinstance(match_type, NamedTypeNode):
+        enum = symbols.get(match_type.name)
+        if isinstance(enum, EnumDeclarationNode):
+            if pattern.name in {value.name for value in enum.values}:
+                raise SurfaceValidationError("ESR-003 enum variants must be qualified")
+            raise SurfaceValidationError("PT-004 undefined identifier pattern")
+    if isinstance(match_type, OptionalTypeNode) and pattern.name in {"Some", "None"}:
+        return
+    declaration = symbols.get(pattern.name)
+    if isinstance(declaration, ConstDeclarationNode):
+        return
+    raise SurfaceValidationError("PT-004 undefined identifier pattern")
+
+
+def _qualified_pattern_reference(
+    pattern: QualifiedPatternNode,
+    symbols: dict[str, Any],
+) -> dict[str, str]:
+    enum_name = pattern.namespace
+    enum = symbols.get(enum_name)
+    symbol_id = f"{enum_name}.{pattern.identifier}"
+    if not isinstance(enum, EnumDeclarationNode) and _CURRENT_NAMESPACE is not None:
+        try:
+            imported = _CURRENT_NAMESPACE.imported(enum_name)
+        except NamespaceResolutionError as error:
+            raise SurfaceValidationError("PT-011 qualified symbol is ambiguous") from error
+        if imported is not None and isinstance(imported.node, EnumDeclarationNode):
+            enum = imported.node
+            enum_name = imported.name
+            symbol_id = f"{imported.qualified_name}.{pattern.identifier}"
+    if not isinstance(enum, EnumDeclarationNode):
+        raise SurfaceValidationError("PT-009 undefined namespace")
+    if pattern.identifier not in {value.name for value in enum.values}:
+        raise SurfaceValidationError("PT-010 ESR-001 undefined enum variant")
+    return {
+        "enum_name": enum.name,
+        "variant_name": pattern.identifier,
+        "qualified_name": f"{enum.name}.{pattern.identifier}",
+        "symbol_id": symbol_id,
+    }
 
 
 def _validate_optional_match_exhaustiveness(
@@ -2374,11 +2535,31 @@ def _validate_optional_match_exhaustiveness(
     if not isinstance(optional_type, OptionalTypeNode):
         return
     keys = {_pattern_key(arm.pattern) for arm in node.arms}
-    if any(key[0] == "wildcard" for key in keys):
+    if _match_has_default(keys):
         return
     matched = {key[1] for key in keys if key[0] == "optional"}
+    matched.update(key[1] for key in keys if key[0] == "identifier" and key[1] in {"Some", "None"})
     if {"Some", "None"} - matched:
         raise SurfaceValidationError("OV-5 NonExhaustiveOptionalMatch")
+
+
+def _validate_bool_match_exhaustiveness(
+    node: MatchStatementNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    match_type = _expression_type(node.expression.expression, symbols, bindings)
+    if match_type != PrimitiveTypeNode(PrimitiveKind.BOOL):
+        return
+    keys = {_pattern_key(arm.pattern) for arm in node.arms}
+    if _match_has_default(keys):
+        return
+    matched = {key[2] for key in keys if key[0] == "literal" and key[1] == "BooleanLiteralNode"}
+    if matched != {True, False}:
+        missing = ["true" if value else "false" for value in (True, False) if value not in matched]
+        raise SurfaceValidationError(
+            f"TV-7 NonExhaustiveMatch Missing: {', '.join(missing)}"
+        )
 
 
 def _match_arm_bindings(
@@ -2396,6 +2577,10 @@ def _match_arm_bindings(
     if pattern_value.kind == "Some" and pattern_value.binding is not None:
         return {pattern_value.binding: _Binding(match_type.inner_type, mutable=False)}
     return {}
+
+
+def _match_has_default(keys: set[tuple[str, Any]]) -> bool:
+    return any(key[0] in {"wildcard", "default"} for key in keys)
 
 
 def _validate_node_types(value: Any) -> None:
@@ -2526,10 +2711,16 @@ def _pattern(value: PatternNode) -> None:
     pattern = value.pattern
     if isinstance(pattern, WildcardPatternNode):
         return
+    if isinstance(pattern, DefaultPatternNode):
+        return
     if isinstance(pattern, IdentifierPatternNode):
         _identifier(pattern.name, "PT-V004 IdentifierPatternNode.name")
         if pattern.name == "_":
             raise SurfaceValidationError("PT-V002 wildcard must use WildcardPatternNode")
+        return
+    if isinstance(pattern, QualifiedPatternNode):
+        _identifier(pattern.namespace, "PT-009 QualifiedPatternNode.namespace")
+        _identifier(pattern.identifier, "PT-010 QualifiedPatternNode.identifier")
         return
     if isinstance(pattern, LiteralPatternNode):
         if not isinstance(
@@ -2569,8 +2760,14 @@ def _pattern_key(value: PatternNode) -> tuple[str, Any]:
     pattern = value.pattern
     if isinstance(pattern, WildcardPatternNode):
         return ("wildcard", "_")
+    if isinstance(pattern, DefaultPatternNode):
+        return ("default", "default")
     if isinstance(pattern, IdentifierPatternNode):
+        if pattern.name == "default":
+            return ("default", "default")
         return ("identifier", pattern.name)
+    if isinstance(pattern, QualifiedPatternNode):
+        return ("qualified", pattern.namespace, pattern.identifier)
     if isinstance(pattern, EnumValuePatternNode):
         return ("enum_value", pattern.enum_name, pattern.value_name)
     if isinstance(pattern, LiteralPatternNode):

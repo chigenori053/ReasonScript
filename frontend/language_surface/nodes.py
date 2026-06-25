@@ -224,6 +224,13 @@ class MemberAccessNode:
 
 
 @dataclass(frozen=True)
+class EnumVariantReferenceNode:
+    enum_name: str
+    variant_name: str
+    qualified_name: str
+
+
+@dataclass(frozen=True)
 class CallExpressionNode:
     callee: "Expression"
     arguments: tuple["Expression", ...]
@@ -317,7 +324,18 @@ class IdentifierPatternNode:
 
 
 @dataclass(frozen=True)
+class QualifiedPatternNode:
+    namespace: str
+    identifier: str
+
+
+@dataclass(frozen=True)
 class WildcardPatternNode:
+    pass
+
+
+@dataclass(frozen=True)
+class DefaultPatternNode:
     pass
 
 
@@ -346,7 +364,9 @@ class OptionalPatternNode:
 
 Pattern: TypeAlias = (
     IdentifierPatternNode
+    | QualifiedPatternNode
     | WildcardPatternNode
+    | DefaultPatternNode
     | LiteralPatternNode
     | EnumValuePatternNode
     | OptionalPatternNode
@@ -713,6 +733,7 @@ _NODE_TYPES = {
         BreakStatementNode,
         ConstStatementNode,
         ContinueStatementNode,
+        DefaultPatternNode,
         AssignmentStatementNode,
         FieldAssignmentStatementNode,
         IndexAssignmentStatementNode,
@@ -724,6 +745,7 @@ _NODE_TYPES = {
         EnumDeclarationNode,
         EnumValueNode,
         EnumValuePatternNode,
+        EnumVariantReferenceNode,
         ExpressionStatementNode,
         ExpressionNode,
         FloatLiteralNode,
@@ -733,6 +755,7 @@ _NODE_TYPES = {
         GoalStatementNode,
         IdentifierNode,
         IdentifierPatternNode,
+        QualifiedPatternNode,
         IfStatementNode,
         ImportNode,
         ImportResolutionNode,
@@ -950,6 +973,8 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return NoneLiteralNode()
     if node_type == "IdentifierNode":
         return IdentifierNode(value["name"])
+    if node_type == "QualifiedPatternNode":
+        return QualifiedPatternNode(value["namespace"], value["identifier"])
     if node_type == "QualifiedIdentifierNode":
         return QualifiedIdentifierNode(
             tuple(value["path"]),
@@ -992,6 +1017,12 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
     if node_type == "MemberAccessNode":
         return MemberAccessNode(
             _from_json_node(value["object"]), value["member"]
+        )
+    if node_type == "EnumVariantReferenceNode":
+        return EnumVariantReferenceNode(
+            value["enum_name"],
+            value["variant_name"],
+            value["qualified_name"],
         )
     if node_type == "CallExpressionNode":
         return CallExpressionNode(
@@ -1194,6 +1225,8 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return BreakStatementNode()
     if node_type == "ContinueStatementNode":
         return ContinueStatementNode()
+    if node_type == "DefaultPatternNode":
+        return DefaultPatternNode()
     if node_type in {"ElseIfNode", "ElseIfStatementNode"}:
         return ElseIfStatementNode(
             _from_json_node(value["condition"]),

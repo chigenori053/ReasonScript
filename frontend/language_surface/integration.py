@@ -21,7 +21,9 @@ from .nodes import (
     ConstDeclarationNode,
     ConstStatementNode,
     ContinueStatementNode,
+    DefaultPatternNode,
     EnumDeclarationNode,
+    EnumValuePatternNode,
     ExecutionPlanDeclarationNode,
     ExpressionNode,
     ConstraintNode,
@@ -32,19 +34,27 @@ from .nodes import (
     GoalNode,
     GoalStatementNode,
     IdentifierNode,
+    IdentifierPatternNode,
     ImportNode,
     IfStatementNode,
     IndexAccessNode,
     IndexAssignmentStatementNode,
+    IntegerLiteralNode,
+    FloatLiteralNode,
     LetStatementNode,
+    LiteralPatternNode,
     LogicalExpressionNode,
     LoopStatementNode,
     MapLiteralNode,
+    MatchStatementNode,
     MemberAccessNode,
+    NamedTypeNode,
     NoneLiteralNode,
     ModuleNode,
+    PatternNode,
     ParenthesizedExpressionNode,
     ProgramNode,
+    QualifiedPatternNode,
     QualifiedIdentifierNode,
     ReasonGraphDeclarationNode,
     ReachStatementNode,
@@ -57,6 +67,7 @@ from .nodes import (
     RuntimeNamespaceNode,
     SetLiteralNode,
     SomeExpressionNode,
+    StringLiteralNode,
     StateDeclarationNode,
     StructDeclarationNode,
     StructLiteralNode,
@@ -65,6 +76,7 @@ from .nodes import (
     UnaryExpressionNode,
     Visibility,
     WhileStatementNode,
+    WildcardPatternNode,
     to_json_value,
 )
 from .validation import SurfaceValidationError, validate
@@ -265,6 +277,11 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                 ],
             ),
             semantic.MetadataNode(
+                f"{namespace}-enum-symbols",
+                "enum_symbols",
+                _enum_symbols(module),
+            ),
+            semantic.MetadataNode(
                 f"{namespace}-consts",
                 "const_declarations",
                 [
@@ -343,7 +360,7 @@ def _project_calculations(
                 function = functions.get(function_name)
                 if function is None or function_name in emitted_function_returns:
                     continue
-                return_paths = _function_return_paths(function)
+                return_paths = _function_return_paths(function, module)
                 arguments = _function_call_arguments(expression, function_name)
                 evaluation_context = _function_evaluation_context(function, arguments)
                 next_sources: list[str] = []
@@ -363,7 +380,9 @@ def _project_calculations(
                                     "node_type": "FunctionIRNode",
                                     "return_path": return_path["label"],
                                     "return": to_json_value(return_path["expression"]),
+                                    "return_value": _ir_value(return_path["expression"]),
                                     "branch_conditions": return_path.get("branch_conditions", []),
+                                    "match_conditions": return_path.get("match_conditions", []),
                                     "evaluation_context": evaluation_context,
                                 },
                             )
@@ -510,7 +529,7 @@ def _semantic_function_nodes(module: ModuleNode, namespace: str) -> list[dict[st
     for node in module.body:
         if not isinstance(node, FunctionDeclarationNode):
             continue
-        return_paths = _function_return_paths(node)
+        return_paths = _function_return_paths(node, module)
         result.append(
             {
                 "node_type": "SemanticFunctionNode",
@@ -554,7 +573,7 @@ def _function_ir_nodes(module: ModuleNode, namespace: str) -> list[dict[str, Any
                     }
                     for parameter in node.parameters
                 ],
-                "body": _function_control_flow_ir(node),
+                "body": _function_control_flow_ir(node, module),
             }
         )
     return result
@@ -576,7 +595,7 @@ def _function_call_ir_nodes(module: ModuleNode, namespace: str) -> list[dict[str
                         "function": f"{namespace}.{function_name}",
                         "caller": calculation.name,
                         "arguments": [
-                            to_json_value(argument)
+                            _ir_value(argument)
                             for argument in _function_call_arguments(expression, function_name)
                         ],
                         "return_type": _type_label(
@@ -623,7 +642,10 @@ def _function_return_statement(function: FunctionDeclarationNode) -> ReturnState
     return None
 
 
-def _function_return_paths(function: FunctionDeclarationNode) -> list[dict[str, Any]]:
+def _function_return_paths(
+    function: FunctionDeclarationNode,
+    module: ModuleNode | None = None,
+) -> list[dict[str, Any]]:
     paths: list[dict[str, Any]] = []
     named_labels = _has_nested_if(function.body)
 
@@ -631,55 +653,108 @@ def _function_return_paths(function: FunctionDeclarationNode) -> list[dict[str, 
         statements: tuple[Any, ...],
         prefixes: list[tuple[str, ...]],
         branch_conditions: list[tuple[dict[str, Any], ...]],
+        match_conditions: list[tuple[dict[str, Any], ...]],
     ) -> list[tuple[tuple[str, ...], tuple[dict[str, Any], ...]]]:
         active = prefixes
         active_conditions = branch_conditions
+        active_match_conditions = match_conditions
         for statement in statements:
             if not active:
                 return []
             if isinstance(statement, ReturnStatementNode):
-                for prefix, conditions in zip(active, active_conditions):
+                for prefix, conditions, matches in zip(
+                    active,
+                    active_conditions,
+                    active_match_conditions,
+                ):
                     paths.append(
                         {
                             "label": _return_path_label(prefix, len(paths) + 1),
                             "expression": statement.expression,
                             "branch_conditions": list(conditions),
+                            "match_conditions": list(matches),
                         }
                     )
                 return []
             if isinstance(statement, IfStatementNode):
                 next_active: list[tuple[str, ...]] = []
                 next_conditions: list[tuple[dict[str, Any], ...]] = []
+                next_match_conditions: list[tuple[dict[str, Any], ...]] = []
                 branches = [(True, statement.condition, statement.body)]
                 branches.extend(
                     (True, branch.condition, branch.body)
                     for index, branch in enumerate(statement.elif_branches, 1)
                 )
-                for prefix, conditions in zip(active, active_conditions):
+                for prefix, conditions, matches in zip(
+                    active,
+                    active_conditions,
+                    active_match_conditions,
+                ):
                     for branch_value, condition, body in branches:
                         label = _branch_label(condition, branch_value, named_labels)
                         branch_prefix = (*prefix, label)
                         branch_condition = _branch_condition(condition, branch_value)
-                        if walk(body, [branch_prefix], [(*conditions, branch_condition)]):
+                        if walk(
+                            body,
+                            [branch_prefix],
+                            [(*conditions, branch_condition)],
+                            [matches],
+                        ):
                             next_active.append(branch_prefix)
                             next_conditions.append((*conditions, branch_condition))
+                            next_match_conditions.append(matches)
                     if statement.else_branch is not None:
                         else_label = _branch_label(statement.condition, False, named_labels)
                         else_prefix = (*prefix, else_label)
                         branch_condition = _branch_condition(statement.condition, False)
-                        if walk(statement.else_branch.body, [else_prefix], [(*conditions, branch_condition)]):
+                        if walk(
+                            statement.else_branch.body,
+                            [else_prefix],
+                            [(*conditions, branch_condition)],
+                            [matches],
+                        ):
                             next_active.append(else_prefix)
                             next_conditions.append((*conditions, branch_condition))
+                            next_match_conditions.append(matches)
                     else:
                         branch_condition = _branch_condition(statement.condition, False)
                         next_active.append((*prefix, _branch_label(statement.condition, False, named_labels)))
                         next_conditions.append((*conditions, branch_condition))
+                        next_match_conditions.append(matches)
                 active = next_active
                 active_conditions = next_conditions
+                active_match_conditions = next_match_conditions
+                continue
+            if isinstance(statement, MatchStatementNode):
+                enum = _match_enum_declaration(statement, function, module) if module is not None else None
+                next_active = []
+                next_conditions = []
+                next_match_conditions = []
+                for prefix, conditions, matches in zip(
+                    active,
+                    active_conditions,
+                    active_match_conditions,
+                ):
+                    for arm in statement.arms:
+                        label = _match_case_label(arm.pattern, enum)
+                        branch_prefix = (*prefix, label)
+                        match_condition = _match_condition(statement, arm, label, enum)
+                        if walk(
+                            arm.body,
+                            [branch_prefix],
+                            [conditions],
+                            [(*matches, match_condition)],
+                        ):
+                            next_active.append(branch_prefix)
+                            next_conditions.append(conditions)
+                            next_match_conditions.append((*matches, match_condition))
+                active = next_active
+                active_conditions = next_conditions
+                active_match_conditions = next_match_conditions
                 continue
         return list(zip(active, active_conditions))
 
-    walk(function.body, [()], [()])
+    walk(function.body, [()], [()], [()])
     return paths
 
 
@@ -693,19 +768,89 @@ def _return_path_label(prefix: tuple[str, ...], index: int) -> str:
 
 
 def _function_return_target(function_name: str, label: str) -> str:
+    if label.startswith("match."):
+        return f"{function_name}.{label}"
     return f"{function_name}.return" if label == "path_1" else f"{function_name}.return.{label}"
 
 
-def _function_control_flow_ir(function: FunctionDeclarationNode) -> list[dict[str, Any]]:
+def _function_control_flow_ir(
+    function: FunctionDeclarationNode,
+    module: ModuleNode,
+) -> list[dict[str, Any]]:
     nodes: list[dict[str, Any]] = []
     return_targets = {
         path["label"]: _function_return_target(function.name, path["label"])
-        for path in _function_return_paths(function)
+        for path in _function_return_paths(function, module)
     }
     named_labels = _has_nested_if(function.body)
 
     def add_branch_nodes(statements: tuple[Any, ...], prefix: tuple[str, ...] = ()) -> None:
         for statement in statements:
+            if isinstance(statement, MatchStatementNode):
+                coverage = _match_coverage(statement, function, module)
+                enum = _match_enum_declaration(statement, function, module)
+                nodes.append(
+                    {
+                        "node_type": "MatchExpressionIRNode",
+                        "value": _match_value_name(statement.expression),
+                        "expression": to_json_value(statement.expression),
+                        "cases": [
+                            {
+                                "node_type": "MatchCaseIRNode",
+                                "pattern": _match_pattern_value(arm.pattern, enum),
+                                "target": _function_return_target(
+                                    function.name,
+                                    _return_path_label(
+                                        (*prefix, _match_case_label(arm.pattern, enum)),
+                                        1,
+                                    ),
+                                ),
+                            }
+                            for arm in statement.arms
+                        ],
+                        **({"coverage": coverage} if coverage is not None else {}),
+                    }
+                )
+                nodes.append(
+                    {
+                        "node_type": "PatternDecisionNode",
+                        "input": _match_value_name(statement.expression),
+                        "expression": to_json_value(statement.expression),
+                        "arms": [
+                            {
+                                "branch_index": index,
+                                "pattern": _pattern_decision_value(arm.pattern, enum),
+                                "target_transition": _function_return_target(
+                                    function.name,
+                                    _return_path_label(
+                                        (*prefix, _match_case_label(arm.pattern, enum)),
+                                        1,
+                                    ),
+                                ),
+                            }
+                            for index, arm in enumerate(statement.arms)
+                        ],
+                        "selected_arm": None,
+                    }
+                )
+                for arm in statement.arms:
+                    label = _return_path_label(
+                        (*prefix, _match_case_label(arm.pattern, enum)),
+                        1,
+                    )
+                    nodes.append(
+                        {
+                            "node_type": "MatchSelectionIRNode",
+                            "value": _match_value_name(statement.expression),
+                            "pattern": _match_pattern_value(arm.pattern, enum),
+                            "target": _function_return_target(function.name, label),
+                        }
+                    )
+                    add_branch_nodes(
+                        arm.body,
+                        (*prefix, _match_case_label(arm.pattern, enum)),
+                    )
+                continue
             if not isinstance(statement, IfStatementNode):
                 continue
             true_prefix = (*prefix, _branch_label(statement.condition, True, named_labels))
@@ -732,16 +877,23 @@ def _function_control_flow_ir(function: FunctionDeclarationNode) -> list[dict[st
                 add_branch_nodes(statement.else_branch.body, false_prefix)
 
     add_branch_nodes(function.body)
-    for path in _function_return_paths(function):
+    for path in _function_return_paths(function, module):
         nodes.append(
             {
                 "node_type": "ReturnIRNode",
                 "id": _function_return_target(function.name, path["label"]),
                 "path": path["label"],
                 "expression": to_json_value(path["expression"]),
+                "return_value": _ir_value(path["expression"]),
+                **(
+                    {"semantic_reference": _enum_variant_reference(path["expression"].expression)}
+                    if isinstance(path["expression"], ExpressionNode)
+                    and _enum_variant_reference(path["expression"].expression) is not None
+                    else {}
+                ),
             }
         )
-    if any(isinstance(statement, IfStatementNode) for statement in function.body):
+    if any(isinstance(statement, (IfStatementNode, MatchStatementNode)) for statement in function.body):
         nodes.append({"node_type": "MergeIRNode", "id": f"{function.name}.merge.return"})
     return nodes
 
@@ -790,6 +942,167 @@ def _branch_condition(condition: ExpressionNode, expected_value: bool) -> dict[s
     if comparison is not None:
         result["comparison"] = comparison
     return result
+
+
+def _match_condition(
+    statement: MatchStatementNode,
+    arm: Any,
+    label: str,
+    enum: EnumDeclarationNode | None = None,
+) -> dict[str, Any]:
+    return {
+        "node_type": "MatchSelectionIRNode",
+        "value": _match_value_name(statement.expression),
+        "expression": to_json_value(statement.expression),
+        "pattern": _match_pattern_value(arm.pattern, enum),
+        "target": label,
+    }
+
+
+def _match_value_name(expression: ExpressionNode) -> str:
+    value = expression.expression
+    if isinstance(value, IdentifierNode):
+        return value.name
+    return _condition_operand_name(_comparison_operand(expression))
+
+
+def _match_case_label(
+    pattern: PatternNode,
+    enum: EnumDeclarationNode | None = None,
+) -> str:
+    return f"match.{_match_pattern_label(pattern, enum)}"
+
+
+def _match_pattern_label(
+    pattern: PatternNode,
+    enum: EnumDeclarationNode | None = None,
+) -> str:
+    value = _match_pattern_value(pattern, enum)
+    if value == "default":
+        return "default"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if _is_enum_value_pattern(value):
+        return f"{value['enum_name']}.{value['value_name']}"
+    return str(value).replace("-", "neg_").replace(".", "_")
+
+
+def _match_pattern_value(
+    pattern: PatternNode,
+    enum: EnumDeclarationNode | None = None,
+) -> Any:
+    value = pattern.pattern
+    if isinstance(value, WildcardPatternNode):
+        return "wildcard"
+    if isinstance(value, DefaultPatternNode) or (
+        isinstance(value, IdentifierPatternNode) and value.name == "default"
+    ):
+        return "default"
+    if isinstance(value, LiteralPatternNode):
+        literal = value.value
+        if isinstance(literal, (BooleanLiteralNode, IntegerLiteralNode, FloatLiteralNode)):
+            return literal.value
+        if isinstance(literal, StringLiteralNode):
+            return literal.value
+    if isinstance(value, QualifiedPatternNode):
+        return {
+            "node_type": "EnumValuePatternNode",
+            "enum_name": value.namespace,
+            "value_name": value.identifier,
+        }
+    if isinstance(value, EnumValuePatternNode):
+        return {
+            "node_type": "EnumValuePatternNode",
+            "enum_name": value.enum_name,
+            "value_name": value.value_name,
+        }
+    return to_json_value(pattern)
+
+
+def _pattern_decision_value(
+    pattern: PatternNode,
+    enum: EnumDeclarationNode | None = None,
+) -> Any:
+    value = pattern.pattern
+    if isinstance(value, QualifiedPatternNode):
+        return {
+            "node_type": "EnumVariantReferenceNode",
+            "enum": value.namespace,
+            "variant": value.identifier,
+            "symbol_id": f"{value.namespace}.{value.identifier}",
+        }
+    return _match_pattern_value(pattern, enum)
+
+
+def _match_coverage(
+    statement: MatchStatementNode,
+    function: FunctionDeclarationNode,
+    module: ModuleNode,
+) -> dict[str, Any] | None:
+    enum = _match_enum_declaration(statement, function, module)
+    if enum is None:
+        return None
+    explicit: list[str] = []
+    for arm in statement.arms:
+        pattern = arm.pattern.pattern
+        if isinstance(pattern, EnumValuePatternNode) and pattern.enum_name == enum.name:
+            explicit.append(f"{pattern.enum_name}.{pattern.value_name}")
+        elif isinstance(pattern, QualifiedPatternNode) and pattern.namespace == enum.name:
+            explicit.append(f"{pattern.namespace}.{pattern.identifier}")
+    default_present = any(
+        _pattern_key in {"default", "wildcard"}
+        for _pattern_key in (_match_pattern_kind(arm.pattern) for arm in statement.arms)
+    )
+    all_variants = [f"{enum.name}.{value.name}" for value in enum.values]
+    covered = all_variants if default_present else [item for item in all_variants if item in explicit]
+    return {
+        "enum_name": enum.name,
+        "explicit_variants": explicit,
+        "default_present": default_present,
+        "covered_variants": covered,
+        "missing_variants": [item for item in all_variants if item not in covered],
+    }
+
+
+def _match_enum_declaration(
+    statement: MatchStatementNode,
+    function: FunctionDeclarationNode,
+    module: ModuleNode,
+) -> EnumDeclarationNode | None:
+    expression = statement.expression.expression
+    if not isinstance(expression, IdentifierNode):
+        return None
+    parameter_type = None
+    for parameter in function.parameters:
+        if _function_parameter_name(parameter) == expression.name:
+            parameter_type = _function_parameter_type(parameter)
+            break
+    if not isinstance(parameter_type, NamedTypeNode):
+        return None
+    for node in module.body:
+        if isinstance(node, EnumDeclarationNode) and node.name == parameter_type.name:
+            return node
+    return None
+
+
+def _match_pattern_kind(pattern: PatternNode) -> str:
+    value = pattern.pattern
+    if isinstance(value, WildcardPatternNode):
+        return "wildcard"
+    if isinstance(value, DefaultPatternNode) or (
+        isinstance(value, IdentifierPatternNode) and value.name == "default"
+    ):
+        return "default"
+    return "pattern"
+
+
+def _is_enum_value_pattern(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and value.get("node_type") == "EnumValuePatternNode"
+        and isinstance(value.get("enum_name"), str)
+        and isinstance(value.get("value_name"), str)
+    )
 
 
 def _condition_name(condition: ExpressionNode) -> str | None:
@@ -899,7 +1212,73 @@ def _literal_value(expression: Any) -> Any:
         return value.value
     if value.__class__.__name__ == "FloatLiteralNode":
         return value.value
+    enum_value = _enum_variant_ir(value)
+    if enum_value is not None:
+        return {
+            "enum": enum_value["enum_name"],
+            "variant": enum_value["variant_name"],
+        }
     return to_json_value(expression)
+
+
+def _ir_value(expression: Any) -> Any:
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    enum_value = _enum_variant_ir(value)
+    if enum_value is not None:
+        return enum_value
+    return to_json_value(expression)
+
+
+def _enum_variant_ir(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, MemberAccessNode) and isinstance(value.object, IdentifierNode):
+        return {
+            "node_type": "EnumVariantIRNode",
+            "enum_name": value.object.name,
+            "variant_name": value.member,
+        }
+    if isinstance(value, EnumValuePatternNode):
+        return {
+            "node_type": "EnumVariantIRNode",
+            "enum_name": value.enum_name,
+            "variant_name": value.value_name,
+        }
+    return None
+
+
+def _enum_variant_reference(value: Any) -> dict[str, Any] | None:
+    enum_value = _enum_variant_ir(value)
+    if enum_value is None:
+        return None
+    return {
+        "node_type": "EnumVariantReferenceNode",
+        "enum_name": enum_value["enum_name"],
+        "variant_name": enum_value["variant_name"],
+        "qualified_name": f"{enum_value['enum_name']}.{enum_value['variant_name']}",
+    }
+
+
+def _enum_symbols(module: ModuleNode) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for node in module.body:
+        if not isinstance(node, EnumDeclarationNode):
+            continue
+        result.append(
+            {
+                "symbol_type": "EnumSymbol",
+                "enum_name": node.name,
+                "qualified_name": node.name,
+            }
+        )
+        for value in node.values:
+            result.append(
+                {
+                    "symbol_type": "EnumVariantSymbol",
+                    "enum_name": node.name,
+                    "variant_name": value.name,
+                    "qualified_name": f"{node.name}.{value.name}",
+                }
+            )
+    return result
 
 
 def _type_label(value: Any) -> str | None:
