@@ -2482,6 +2482,8 @@ def _validate_match_patterns(
         if isinstance(pattern, EnumValuePatternNode):
             continue
         if isinstance(pattern, StructPatternNode):
+            if _struct_pattern_contains_nested(pattern):
+                continue
             try:
                 resolve_struct_pattern(pattern, symbols, _CURRENT_NAMESPACE)
             except StructPatternSemanticError as error:
@@ -2781,13 +2783,18 @@ def _pattern(value: PatternNode) -> None:
             if field.field_name in field_names:
                 raise SurfaceValidationError("SP-001 duplicate struct field")
             field_names.add(field.field_name)
-            if isinstance(field.pattern, StructPatternNode):
-                raise SurfaceValidationError("SP-002 invalid struct pattern syntax")
             _pattern(PatternNode(field.pattern))
         return
     raise SurfaceValidationError(
         f"PT-V001 unknown pattern type: {type(pattern).__name__}"
     )
+
+
+def _struct_pattern_contains_nested(pattern: StructPatternNode) -> bool:
+    for field in pattern.fields:
+        if isinstance(field.pattern, StructPatternNode):
+            return True
+    return False
 
 
 def _pattern_key(value: PatternNode) -> tuple[str, Any]:

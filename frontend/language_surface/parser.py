@@ -651,12 +651,37 @@ def _collect_struct_pattern_arm(cursor: _Cursor, line: str) -> str:
     ):
         return line
     parts = [line]
+    depth = _brace_delta(line)
     while cursor.index < len(cursor.lines):
         next_line = cursor.take()
         parts.append(next_line)
-        if next_line.startswith("}"):
+        depth += _brace_delta(next_line)
+        if depth <= 0 and "=>" in next_line:
             return " ".join(parts)
-    raise SurfaceSyntaxError("SP-002 invalid struct pattern syntax")
+    raise SurfaceSyntaxError("SP-002 NP-003 missing closing brace")
+
+
+def _brace_delta(line: str) -> int:
+    depth = 0
+    in_string: str | None = None
+    escaped = False
+    for char in line:
+        if in_string is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == in_string:
+                in_string = None
+            continue
+        if char in {'"', "'"}:
+            in_string = char
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+    return depth
 
 
 def _expression(source: str):
