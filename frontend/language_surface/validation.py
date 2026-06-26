@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, fields, is_dataclass
 from typing import Any
 
-from .expressions import ExpressionSyntaxError, parse_expression
+from .expressions import MAX_PATTERN_DEPTH, ExpressionSyntaxError, parse_expression
 from .nodes import (
     ActionNode,
     ArrayLiteralNode,
@@ -2728,6 +2728,7 @@ def _expression_value(value: Any) -> None:
 
 
 def _pattern(value: PatternNode) -> None:
+    _validate_pattern_depth(value)
     if not isinstance(value, PatternNode):
         raise SurfaceValidationError("PT-V001 pattern is required")
     pattern = value.pattern
@@ -2788,6 +2789,18 @@ def _pattern(value: PatternNode) -> None:
     raise SurfaceValidationError(
         f"PT-V001 unknown pattern type: {type(pattern).__name__}"
     )
+
+
+def _validate_pattern_depth(value: PatternNode, depth: int = 0) -> None:
+    if depth > MAX_PATTERN_DEPTH:
+        raise SurfaceValidationError("NP-010 nested pattern depth exceeded")
+    if not isinstance(value, PatternNode):
+        return
+    pattern = value.pattern
+    if not isinstance(pattern, StructPatternNode):
+        return
+    for field in pattern.fields:
+        _validate_pattern_depth(PatternNode(field.pattern), depth + 1)
 
 
 def _struct_pattern_contains_nested(pattern: StructPatternNode) -> bool:

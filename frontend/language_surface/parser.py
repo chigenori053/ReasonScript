@@ -5,7 +5,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .expressions import ExpressionSyntaxError, parse_expression, parse_pattern
+from .expressions import (
+    MAX_PATTERN_DEPTH,
+    ExpressionSyntaxError,
+    parse_expression,
+    parse_pattern,
+)
 from .lexer import tokenize
 from .namespace import NamespaceResolutionError, resolve_program
 from .nodes import (
@@ -652,10 +657,14 @@ def _collect_struct_pattern_arm(cursor: _Cursor, line: str) -> str:
         return line
     parts = [line]
     depth = _brace_delta(line)
+    if depth > MAX_PATTERN_DEPTH + 1:
+        raise SurfaceSyntaxError("NP-010 nested pattern depth exceeded")
     while cursor.index < len(cursor.lines):
         next_line = cursor.take()
         parts.append(next_line)
         depth += _brace_delta(next_line)
+        if depth > MAX_PATTERN_DEPTH + 1:
+            raise SurfaceSyntaxError("NP-010 nested pattern depth exceeded")
         if depth <= 0 and "=>" in next_line:
             return " ".join(parts)
     raise SurfaceSyntaxError("SP-002 NP-003 missing closing brace")

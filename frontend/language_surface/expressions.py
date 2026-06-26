@@ -51,6 +51,10 @@ class ExpressionSyntaxError(ValueError):
     pass
 
 
+MAX_PATTERN_DEPTH = 128
+_NP_010 = "NP-010 nested pattern depth exceeded"
+
+
 class _Kind(str, Enum):
     IDENTIFIER = "identifier"
     INTEGER = "integer"
@@ -104,7 +108,9 @@ def parse_expression(source: str, *, allow_tuple_access: bool = False) -> Expres
     return ExpressionNode(expression)
 
 
-def parse_pattern(source: str) -> PatternNode:
+def parse_pattern(source: str, depth: int = 0) -> PatternNode:
+    if depth > MAX_PATTERN_DEPTH:
+        raise ExpressionSyntaxError(_NP_010)
     text = source.strip()
     if not text:
         raise ExpressionSyntaxError("PT-V001 pattern is required")
@@ -117,7 +123,7 @@ def parse_pattern(source: str) -> PatternNode:
     if text.startswith("(") and text.endswith(")") and "," in text:
         raise ExpressionSyntaxError("PT-204 destructuring patterns are not supported in LSI-200")
     if "{" in text or "}" in text:
-        return _parse_struct_pattern(text)
+        return _parse_struct_pattern(text, depth)
     nested_match = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(.+\)", text)
     if nested_match and nested_match.group(1) != "some":
         raise ExpressionSyntaxError("PT-206 nested patterns are not supported in LSI-200")
@@ -152,7 +158,7 @@ def parse_pattern(source: str) -> PatternNode:
     raise ExpressionSyntaxError("pattern must be an identifier, literal, or wildcard")
 
 
-def _parse_struct_pattern(source: str) -> PatternNode:
+def _parse_struct_pattern(source: str, depth: int) -> PatternNode:
     type_name, body = _struct_pattern_parts(source)
     fields: list[StructFieldPatternNode] = []
     seen: set[str] = set()
@@ -168,7 +174,7 @@ def _parse_struct_pattern(source: str) -> PatternNode:
             fields.append(
                 StructFieldPatternNode(
                     field_name,
-                    parse_pattern(field.group(2).strip()).pattern,
+                    parse_pattern(field.group(2).strip(), depth + 1).pattern,
                 )
             )
     return PatternNode(StructPatternNode(type_name, tuple(fields)))

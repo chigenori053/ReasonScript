@@ -3,8 +3,11 @@ import pytest
 from conformance.framework import ROOT
 from conformance.schema_validator import SchemaValidator
 from frontend.language_surface import (
+    IntegerLiteralNode,
     LiteralPatternNode,
+    PatternNode,
     QualifiedPatternNode,
+    StructFieldPatternNode,
     StructPatternNode,
     WildcardPatternNode,
     parse,
@@ -12,7 +15,12 @@ from frontend.language_surface import (
     pattern_from_json,
     to_json_value,
 )
-from frontend.language_surface.expressions import ExpressionSyntaxError
+from frontend.language_surface.expressions import (
+    MAX_PATTERN_DEPTH,
+    ExpressionSyntaxError,
+)
+from frontend.language_surface.parser import SurfaceSyntaxError
+from frontend.language_surface.validation import SurfaceValidationError, _pattern
 
 
 def test_np_a001_single_nested_pattern():
@@ -190,3 +198,70 @@ def test_np_a009_schema_validation():
     SchemaValidator(ROOT / "frontend" / "schemas").validate_file(
         to_json_value(program), "language_surface_ast.schema.json"
     )
+
+
+def test_np_a010_depth_limit_passes_for_shallow_nested_pattern():
+    pattern = parse_pattern(_nested_pattern_source(8)).pattern
+
+    assert isinstance(pattern, StructPatternNode)
+
+
+def test_np_a011_depth_limit_exceeded_reports_np_010():
+    with pytest.raises(ExpressionSyntaxError, match="NP-010 nested pattern depth exceeded"):
+        parse_pattern(_nested_pattern_source(MAX_PATTERN_DEPTH + 2))
+
+
+def test_np_a011_match_arm_collection_depth_limit_reports_np_010():
+    nested_arm = "\n".join(
+        f"                {line}"
+        for line in _nested_pattern_lines(MAX_PATTERN_DEPTH + 2)
+    )
+    source = f"""
+    module Basic {{
+        fn Score(person: Person) -> int {{
+            match person {{
+{nested_arm}
+                => return 1
+                default => return 0
+            }}
+        }}
+    }}
+    """
+
+    with pytest.raises(SurfaceSyntaxError, match="NP-010 nested pattern depth exceeded"):
+        parse(source)
+
+
+def test_np_a012_ast_validation_depth_guard_reports_np_010():
+    pattern = _nested_pattern_node(MAX_PATTERN_DEPTH + 2)
+
+    with pytest.raises(SurfaceValidationError, match="NP-010 nested pattern depth exceeded"):
+        _pattern(pattern)
+
+
+def _nested_pattern_source(depth: int) -> str:
+    value = "1"
+    for index in reversed(range(depth)):
+        value = f"N{index} {{ f{index}: {value} }}"
+    return value
+
+
+def _nested_pattern_lines(depth: int) -> list[str]:
+    if depth <= 0:
+        return ["1"]
+    lines = ["N0 {"]
+    for index in range(1, depth):
+        lines.append(f"f{index - 1}: N{index} {{")
+    lines.append(f"f{depth - 1}: 1")
+    lines.extend("}" for _ in range(depth))
+    return lines
+
+
+def _nested_pattern_node(depth: int) -> PatternNode:
+    current = LiteralPatternNode(IntegerLiteralNode(1))
+    for index in reversed(range(depth)):
+        current = StructPatternNode(
+            f"N{index}",
+            (StructFieldPatternNode(f"f{index}", current),),
+        )
+    return PatternNode(current)
