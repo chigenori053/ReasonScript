@@ -97,9 +97,11 @@ from .nodes import (
     StateKind,
     StateTypeNode,
     StructDeclarationNode,
+    StructFieldPatternNode,
     StructFieldNode,
     StructLiteralFieldNode,
     StructLiteralNode,
+    StructPatternNode,
     TupleLiteralNode,
     TupleTypeNode,
     TransitionNode,
@@ -224,6 +226,8 @@ KNOWN_NODE_TYPES = (
     SomeExpressionNode,
     NoneLiteralNode,
     OptionalPatternNode,
+    StructFieldPatternNode,
+    StructPatternNode,
     IdentifierPatternNode,
     QualifiedPatternNode,
     EnumValuePatternNode,
@@ -2475,6 +2479,8 @@ def _validate_match_patterns(
             continue
         if isinstance(pattern, EnumValuePatternNode):
             continue
+        if isinstance(pattern, StructPatternNode):
+            continue
 
 
 def _validate_identifier_pattern(
@@ -2751,6 +2757,20 @@ def _pattern(value: PatternNode) -> None:
                 raise SurfaceValidationError("OV-6 NonePatternCannotBind")
             return
         raise SurfaceValidationError("OV-6 invalid optional pattern")
+    if isinstance(pattern, StructPatternNode):
+        _identifier(pattern.type_name.split(".")[-1], "SP-002 StructPatternNode.type_name")
+        field_names: set[str] = set()
+        for field in pattern.fields:
+            if not isinstance(field, StructFieldPatternNode):
+                raise SurfaceValidationError("SP-002 invalid struct pattern syntax")
+            _identifier(field.field_name, "SP-002 StructFieldPatternNode.field_name")
+            if field.field_name in field_names:
+                raise SurfaceValidationError("SP-001 duplicate struct field")
+            field_names.add(field.field_name)
+            if isinstance(field.pattern, StructPatternNode):
+                raise SurfaceValidationError("SP-002 invalid struct pattern syntax")
+            _pattern(PatternNode(field.pattern))
+        return
     raise SurfaceValidationError(
         f"PT-V001 unknown pattern type: {type(pattern).__name__}"
     )
@@ -2781,4 +2801,13 @@ def _pattern_key(value: PatternNode) -> tuple[str, Any]:
         )
     if isinstance(pattern, OptionalPatternNode):
         return ("optional", pattern.kind, pattern.binding)
+    if isinstance(pattern, StructPatternNode):
+        return (
+            "struct",
+            pattern.type_name,
+            tuple(
+                (field.field_name, _pattern_key(PatternNode(field.pattern)))
+                for field in pattern.fields
+            ),
+        )
     return ("unknown", type(pattern).__name__)

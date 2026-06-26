@@ -88,8 +88,12 @@ def try_parse(source_text: str) -> ParseResult:
     try:
         prog = parse_surface(source_text)
         return ParseResult("surface", prog)
-    except (SurfaceSyntaxError, Exception):
-        pass
+    except SurfaceSyntaxError:
+        if "module " in source_text:
+            raise
+    except Exception:
+        if "module " in source_text:
+            raise
     # Phase 2 parser has no comment support — strip // comments first
     clean = _strip_comments(source_text)
     ast = parse_phase2(clean)

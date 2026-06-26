@@ -1,0 +1,37 @@
+{
+  "specification_id": "enum-match-branch-evaluation/1.0",
+  "phase": "MSI-002A",
+  "status": "implemented",
+  "acceptance_tests": [
+    {
+      "id": "EMB-001",
+      "fixture": "tests/emb_001.rsn",
+      "assertion": "Color.Red selects Score.match.Color.Red"
+    },
+    {
+      "id": "EMB-002",
+      "fixture": "tests/emb_002.rsn",
+      "assertion": "Color.Blue selects Score.match.Color.Blue"
+    },
+    {
+      "id": "EMB-003",
+      "fixture": "tests/emb_003.rsn",
+      "assertion": "Knowledge preserves enum path signature and enum_match_evidence"
+    },
+    {
+      "id": "EMB-004",
+      "fixture": "tests/emb_004.rsn",
+      "assertion": "Simulation emits EnumPatternEvaluation"
+    },
+    {
+      "id": "EMB-005",
+      "fixture": "tests/emb_005.rsn",
+      "assertion": "Unmatched enum branch does not survive selected planning path"
+    },
+    {
+      "id": "EMB-006",
+      "fixture": "tests/emb_006.rsn",
+      "assertion": "Repeated enum execution is deterministic"
+    }
+  ]
+}

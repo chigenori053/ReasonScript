@@ -1,0 +1,12 @@
+module Basic {
+    fn Select(x: int) -> int {
+        match x {
+            1 => return 10
+            default => return 0
+        }
+    }
+
+    calculation Result {
+        result = Select(1)
+    }
+}

@@ -1,0 +1,48 @@
+{
+  "specification_id": "match-semantic-integration/1.0",
+  "phase": "MSI-001",
+  "checks": [
+    {
+      "id": "MSI-001",
+      "name": "Select(1)",
+      "status": "CONNECTED",
+      "expected": "Select.match.1"
+    },
+    {
+      "id": "MSI-002",
+      "name": "Select(2)",
+      "status": "CONNECTED",
+      "expected": "Select.match.2"
+    },
+    {
+      "id": "MSI-003",
+      "name": "Select(99)",
+      "status": "CONNECTED",
+      "expected": "Select.match.default"
+    },
+    {
+      "id": "MSI-004",
+      "name": "Knowledge evidence",
+      "status": "CONNECTED",
+      "expected": "branch_id case_2"
+    },
+    {
+      "id": "MSI-005",
+      "name": "Duplicate pattern",
+      "status": "CONNECTED",
+      "expected": "MSI-001"
+    },
+    {
+      "id": "MSI-006",
+      "name": "Default ordering",
+      "status": "CONNECTED",
+      "expected": "MSI-002"
+    },
+    {
+      "id": "MSI-007",
+      "name": "Repeated execution determinism",
+      "status": "CONNECTED",
+      "expected": "identical branch, path signature, knowledge"
+    }
+  ]
+}

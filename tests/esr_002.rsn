@@ -1,0 +1,14 @@
+module Basic {
+    enum Color {
+        Red
+        Blue
+    }
+
+    fn Get() -> Color {
+        return Color.Blue
+    }
+
+    calculation Result {
+        result = Get()
+    }
+}

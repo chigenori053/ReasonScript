@@ -1,0 +1,37 @@
+{
+  "specification_id": "default-exhaustiveness-integration/1.0",
+  "phase": "MSI-003A",
+  "status": "implemented",
+  "acceptance_tests": [
+    {
+      "id": "MSI-301",
+      "fixture": "tests/msi_301.rsn",
+      "assertion": "Default satisfies the remaining Color.Blue variant"
+    },
+    {
+      "id": "MSI-302",
+      "fixture": "tests/msi_302.rsn",
+      "assertion": "Default satisfies multiple remaining enum variants"
+    },
+    {
+      "id": "MSI-303",
+      "fixture": "tests/msi_303.rsn",
+      "assertion": "TV-7 reports missing Color.Blue without default"
+    },
+    {
+      "id": "MSI-304",
+      "fixture": "tests/msi_304.rsn",
+      "assertion": "TV-7 reports missing Color.Green without default"
+    },
+    {
+      "id": "MSI-305",
+      "fixture": "tests/msi_305.rsn",
+      "assertion": "Default does not hide duplicate-pattern MSI-001"
+    },
+    {
+      "id": "MSI-306",
+      "fixture": "tests/msi_306.rsn",
+      "assertion": "Coverage analysis is deterministic across repeated compilation"
+    }
+  ]
+}

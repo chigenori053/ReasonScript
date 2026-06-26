@@ -265,13 +265,13 @@ def test_pt_007_wildcard_before_other_arm_is_unreachable():
 
 
 def test_pt_p005_unsupported_patterns_have_dedicated_diagnostics():
-    with pytest.raises(SurfaceSyntaxError, match="PT-205"):
+    with pytest.raises(SurfaceSyntaxError, match="SP-002"):
         parse(
             """
             module Basic {
                 fn Select(x: int) -> int {
                     match x {
-                        Person { name: "a" } => return 1
+                        Person { name: } => return 1
                         default => return 0
                     }
                 }

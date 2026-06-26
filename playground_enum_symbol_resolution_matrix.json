@@ -1,0 +1,42 @@
+{
+  "specification_id": "enum-symbol-resolution/1.0",
+  "phase": "ESR-001",
+  "checks": [
+    {
+      "id": "ESR-001",
+      "name": "return Color.Red",
+      "status": "CONNECTED",
+      "expected": "PASS"
+    },
+    {
+      "id": "ESR-002",
+      "name": "return Color.Blue",
+      "status": "CONNECTED",
+      "expected": "PASS"
+    },
+    {
+      "id": "ESR-003",
+      "name": "return Red",
+      "status": "CONNECTED",
+      "expected": "ESR-003"
+    },
+    {
+      "id": "ESR-004",
+      "name": "return Color.Green",
+      "status": "CONNECTED",
+      "expected": "ESR-001"
+    },
+    {
+      "id": "ESR-005",
+      "name": "Score(Color.Red)",
+      "status": "CONNECTED",
+      "expected": "evaluation_context enum Color variant Red"
+    },
+    {
+      "id": "ESR-006",
+      "name": "Repeated compilation",
+      "status": "CONNECTED",
+      "expected": "identical symbol resolution"
+    }
+  ]
+}

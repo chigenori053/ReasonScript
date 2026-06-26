@@ -1,0 +1,19 @@
+module Basic {
+    enum Color {
+        Red
+        Blue
+        Green
+    }
+
+    fn Score(color: Color) -> int {
+        match color {
+            Color.Red => return 1
+            Color.Red => return 2
+            default => return 0
+        }
+    }
+
+    calculation Result {
+        result = Score(Color.Red)
+    }
+}

@@ -605,6 +605,7 @@ def _parse_match(cursor: _Cursor, *, context: str) -> MatchStatementNode:
         line = cursor.take()
         if line == "}":
             return MatchStatementNode(_expression(match.group(1)), tuple(arms))
+        line = _collect_struct_pattern_arm(cursor, line)
         arm = re.fullmatch(r"(.+?)\s*=>\s*(.+)", line)
         if not arm:
             raise SurfaceSyntaxError(f"invalid match arm: {line}")
@@ -620,6 +621,20 @@ def _parse_match(cursor: _Cursor, *, context: str) -> MatchStatementNode:
             )
         )
     raise SurfaceSyntaxError("unterminated match block")
+
+
+def _collect_struct_pattern_arm(cursor: _Cursor, line: str) -> str:
+    if "=>" in line or not re.fullmatch(
+        r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*\s*\{", line
+    ):
+        return line
+    parts = [line]
+    while cursor.index < len(cursor.lines):
+        next_line = cursor.take()
+        parts.append(next_line)
+        if next_line.startswith("}"):
+            return " ".join(parts)
+    raise SurfaceSyntaxError("SP-002 invalid struct pattern syntax")
 
 
 def _expression(source: str):

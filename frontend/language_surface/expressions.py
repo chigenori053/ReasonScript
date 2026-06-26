@@ -36,6 +36,8 @@ from .nodes import (
     QualifiedIdentifierNode,
     StringLiteralNode,
     SomeExpressionNode,
+    StructFieldPatternNode,
+    StructPatternNode,
     TupleLiteralNode,
     UnaryExpressionNode,
     UnaryOperator,
@@ -110,7 +112,7 @@ def parse_pattern(source: str) -> PatternNode:
     if text.startswith("(") and text.endswith(")") and "," in text:
         raise ExpressionSyntaxError("PT-204 destructuring patterns are not supported in LSI-200")
     if "{" in text or "}" in text:
-        raise ExpressionSyntaxError("PT-205 struct patterns are not supported in LSI-200")
+        return _parse_struct_pattern(text)
     nested_match = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(.+\)", text)
     if nested_match and nested_match.group(1) != "some":
         raise ExpressionSyntaxError("PT-206 nested patterns are not supported in LSI-200")
@@ -143,6 +145,60 @@ def parse_pattern(source: str) -> PatternNode:
     ):
         return PatternNode(LiteralPatternNode(expression))
     raise ExpressionSyntaxError("pattern must be an identifier, literal, or wildcard")
+
+
+def _parse_struct_pattern(source: str) -> PatternNode:
+    match = re.fullmatch(
+        r"([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\{\s*(.*)\s*\}",
+        source,
+        re.DOTALL,
+    )
+    if not match:
+        raise ExpressionSyntaxError("SP-002 invalid struct pattern syntax")
+    type_name = match.group(1)
+    body = match.group(2).strip()
+    if "{" in body or "}" in body:
+        raise ExpressionSyntaxError("SP-002 invalid struct pattern syntax")
+    fields: list[StructFieldPatternNode] = []
+    seen: set[str] = set()
+    if body:
+        for item in _struct_pattern_field_sources(body):
+            field = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)", item, re.DOTALL)
+            if not field or not field.group(2).strip():
+                raise ExpressionSyntaxError("SP-002 invalid struct pattern syntax")
+            field_name = field.group(1)
+            if field_name in seen:
+                raise ExpressionSyntaxError("SP-001 duplicate struct field")
+            seen.add(field_name)
+            fields.append(
+                StructFieldPatternNode(
+                    field_name,
+                    parse_pattern(field.group(2).strip()).pattern,
+                )
+            )
+    return PatternNode(StructPatternNode(type_name, tuple(fields)))
+
+
+def _struct_pattern_field_sources(body: str) -> list[str]:
+    normalized = re.sub(r"\s+", " ", body).strip()
+    if not normalized:
+        return []
+    starts = list(
+        re.finditer(
+            r"(?:(?<=^)|(?<=[,\s]))([A-Za-z_][A-Za-z0-9_]*)\s*:",
+            normalized,
+        )
+    )
+    if not starts:
+        raise ExpressionSyntaxError("SP-002 invalid struct pattern syntax")
+    fields: list[str] = []
+    for index, start in enumerate(starts):
+        end = starts[index + 1].start() if index + 1 < len(starts) else len(normalized)
+        item = normalized[start.start():end].strip().rstrip(",").strip()
+        if not item:
+            raise ExpressionSyntaxError("SP-002 invalid struct pattern syntax")
+        fields.append(item)
+    return fields
 
 
 class _Parser:

@@ -457,7 +457,8 @@
         {"$ref": "#/$defs/default_pattern"},
         {"$ref": "#/$defs/literal_pattern"},
         {"$ref": "#/$defs/enum_value_pattern"},
-        {"$ref": "#/$defs/optional_pattern"}
+        {"$ref": "#/$defs/optional_pattern"},
+        {"$ref": "#/$defs/struct_pattern"}
       ]
     },
     "identifier_pattern": {
@@ -535,6 +536,29 @@
           ]
         },
         "node_type": {"const": "OptionalPatternNode"}
+      }
+    },
+    "struct_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type_name", "fields", "node_type"],
+      "properties": {
+        "type_name": {"type": "string", "minLength": 1},
+        "fields": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/struct_field_pattern"}
+        },
+        "node_type": {"const": "StructPatternNode"}
+      }
+    },
+    "struct_field_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_name", "pattern", "node_type"],
+      "properties": {
+        "field_name": {"$ref": "#/$defs/identifier"},
+        "pattern": {"$ref": "#/$defs/pattern_value"},
+        "node_type": {"const": "StructFieldPatternNode"}
       }
     },
     "program": {
@@ -1092,7 +1116,7 @@
         "name": {"$ref": "#/$defs/identifier"},
         "parameters": {
           "type": "array",
-          "items": {"$ref": "#/$defs/identifier"}
+          "items": {"$ref": "#/$defs/function_parameter"}
         },
         "body": {
           "type": "array",
@@ -1109,6 +1133,20 @@
         },
         "node_type": {"const": "FunctionDeclarationNode"}
       }
+    },
+    "function_parameter": {
+      "oneOf": [
+        {"$ref": "#/$defs/identifier"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "type"],
+          "properties": {
+            "name": {"$ref": "#/$defs/identifier"},
+            "type": {"$ref": "#/$defs/type_node"}
+          }
+        }
+      ]
     },
     "struct_field": {
       "type": "object",

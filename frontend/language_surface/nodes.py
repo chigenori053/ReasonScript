@@ -362,6 +362,18 @@ class OptionalPatternNode:
     binding: str | None = None
 
 
+@dataclass(frozen=True)
+class StructFieldPatternNode:
+    field_name: str
+    pattern: "Pattern"
+
+
+@dataclass(frozen=True)
+class StructPatternNode:
+    type_name: str
+    fields: tuple[StructFieldPatternNode, ...]
+
+
 Pattern: TypeAlias = (
     IdentifierPatternNode
     | QualifiedPatternNode
@@ -370,6 +382,7 @@ Pattern: TypeAlias = (
     | LiteralPatternNode
     | EnumValuePatternNode
     | OptionalPatternNode
+    | StructPatternNode
 )
 
 
@@ -756,6 +769,8 @@ _NODE_TYPES = {
         IdentifierNode,
         IdentifierPatternNode,
         QualifiedPatternNode,
+        StructFieldPatternNode,
+        StructPatternNode,
         IfStatementNode,
         ImportNode,
         ImportResolutionNode,
@@ -1076,6 +1091,15 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return EnumValuePatternNode(value["enum_name"], value["value_name"])
     if node_type == "OptionalPatternNode":
         return OptionalPatternNode(value["kind"], value.get("binding"))
+    if node_type == "StructFieldPatternNode":
+        return StructFieldPatternNode(
+            value["field_name"], _from_json_node(value["pattern"])
+        )
+    if node_type == "StructPatternNode":
+        return StructPatternNode(
+            value["type_name"],
+            tuple(_from_json_node(item) for item in value["fields"]),
+        )
     if node_type == "ImportNode":
         return ImportNode(
             tuple(value["path"]),
