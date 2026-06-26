@@ -665,8 +665,18 @@ def _collect_struct_pattern_arm(cursor: _Cursor, line: str) -> str:
         depth += _brace_delta(next_line)
         if depth > MAX_PATTERN_DEPTH + 1:
             raise SurfaceSyntaxError("NP-010 nested pattern depth exceeded")
-        if depth <= 0 and "=>" in next_line:
-            return " ".join(parts)
+        if depth <= 0:
+            return _complete_struct_pattern_arm(cursor, parts)
+    raise SurfaceSyntaxError("SP-002 NP-003 missing closing brace")
+
+
+def _complete_struct_pattern_arm(cursor: _Cursor, parts: list[str]) -> str:
+    collected = " ".join(parts)
+    if "=>" in parts[-1]:
+        return collected
+    if cursor.index < len(cursor.lines) and cursor.current().startswith("=>"):
+        parts.append(cursor.take())
+        return " ".join(parts)
     raise SurfaceSyntaxError("SP-002 NP-003 missing closing brace")
 
 

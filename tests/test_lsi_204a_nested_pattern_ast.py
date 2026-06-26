@@ -239,6 +239,128 @@ def test_np_a012_ast_validation_depth_guard_reports_np_010():
         _pattern(pattern)
 
 
+def test_np_p101_single_nested_pattern_with_separate_arrow_line():
+    pattern = _first_match_pattern(
+        """
+        Person {
+            profile: Profile {
+                status: Status.Active
+            }
+        }
+        => return 1
+        """
+    )
+
+    assert isinstance(pattern, StructPatternNode)
+    assert isinstance(pattern.fields[0].pattern, StructPatternNode)
+
+
+def test_np_p102_two_level_nested_pattern_with_separate_arrow_line():
+    pattern = _first_match_pattern(
+        """
+        Person {
+            profile: Profile {
+                state: State {
+                    active: true
+                }
+            }
+        }
+        => return 1
+        """
+    )
+
+    profile = pattern.fields[0].pattern
+    assert isinstance(profile, StructPatternNode)
+    state = profile.fields[0].pattern
+    assert isinstance(state, StructPatternNode)
+
+
+def test_np_p103_three_level_nested_pattern_with_separate_arrow_line():
+    pattern = _first_match_pattern(
+        """
+        Person {
+            profile: Profile {
+                state: State {
+                    detail: Detail {
+                        active: true
+                    }
+                }
+            }
+        }
+        => return 1
+        """
+    )
+
+    profile = pattern.fields[0].pattern
+    state = profile.fields[0].pattern
+    detail = state.fields[0].pattern
+    assert isinstance(detail, StructPatternNode)
+
+
+def test_np_p104_wildcard_nested_pattern_with_separate_arrow_line():
+    pattern = _first_match_pattern(
+        """
+        Person {
+            profile: Profile {
+                status: _
+            }
+        }
+        => return 1
+        """
+    )
+
+    profile = pattern.fields[0].pattern
+    assert isinstance(profile.fields[0].pattern, WildcardPatternNode)
+
+
+def test_np_p105_literal_nested_pattern_with_separate_arrow_line():
+    pattern = _first_match_pattern(
+        """
+        Person {
+            profile: Profile {
+                age: 42
+            }
+        }
+        => return 1
+        """
+    )
+
+    profile = pattern.fields[0].pattern
+    assert isinstance(profile.fields[0].pattern, LiteralPatternNode)
+
+
+def test_np_p106_mixed_nested_pattern_with_separate_arrow_line():
+    pattern = _first_match_pattern(
+        """
+        Person {
+            profile: Profile {
+                status: _
+                age: 42
+            }
+            role: Role.Admin
+        }
+        => return 1
+        """
+    )
+
+    assert [field.field_name for field in pattern.fields] == ["profile", "role"]
+    profile = pattern.fields[0].pattern
+    assert [field.field_name for field in profile.fields] == ["status", "age"]
+
+
+def test_np_p107_missing_nested_pattern_brace_still_reports_np_003():
+    with pytest.raises(SurfaceSyntaxError, match="NP-003"):
+        _first_match_pattern(
+            """
+            Person {
+                profile: Profile {
+                    status: Status.Active
+            }
+            => return 1
+            """
+        )
+
+
 def _nested_pattern_source(depth: int) -> str:
     value = "1"
     for index in reversed(range(depth)):
@@ -265,3 +387,54 @@ def _nested_pattern_node(depth: int) -> PatternNode:
             (StructFieldPatternNode(f"f{index}", current),),
         )
     return PatternNode(current)
+
+
+def _first_match_pattern(arm_source: str):
+    source = f"""
+    module Basic {{
+        enum Status {{
+            Active
+        }}
+
+        enum Role {{
+            Admin
+        }}
+
+        struct Detail {{
+            active: bool
+        }}
+
+        struct State {{
+            active: bool
+            detail: Detail
+        }}
+
+        struct Profile {{
+            status: Status
+            state: State
+            age: int
+        }}
+
+        struct Person {{
+            profile: Profile
+            role: Role
+        }}
+
+        fn Score(person: Person) -> int {{
+            match person {{
+{_indent_arm(arm_source)}
+                default => return 0
+            }}
+        }}
+    }}
+    """
+    program = parse(source)
+    function = program.modules[0].body[6]
+    return function.body[0].arms[0].pattern.pattern
+
+
+def _indent_arm(value: str) -> str:
+    return "\n".join(
+        f"                {line}" if line.strip() else ""
+        for line in value.strip("\n").splitlines()
+    )
