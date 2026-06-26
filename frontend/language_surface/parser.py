@@ -662,7 +662,7 @@ def _collect_struct_pattern_arm(cursor: _Cursor, line: str) -> str:
     while cursor.index < len(cursor.lines):
         next_line = cursor.take()
         parts.append(next_line)
-        depth += _brace_delta(next_line)
+        depth += _pattern_brace_delta(next_line)
         if depth > MAX_PATTERN_DEPTH + 1:
             raise SurfaceSyntaxError("NP-010 nested pattern depth exceeded")
         if depth <= 0:
@@ -701,6 +701,10 @@ def _brace_delta(line: str) -> int:
         elif char == "}":
             depth -= 1
     return depth
+
+
+def _pattern_brace_delta(line: str) -> int:
+    return _brace_delta(line.split("=>", 1)[0])
 
 
 def _expression(source: str):

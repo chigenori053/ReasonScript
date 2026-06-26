@@ -361,6 +361,97 @@ def test_np_p107_missing_nested_pattern_brace_still_reports_np_003():
         )
 
 
+def test_fp_001_single_nested_struct_pattern_frame():
+    pattern = parse_pattern("Person { profile: Profile { status: Status.Active } }").pattern
+
+    assert isinstance(pattern, StructPatternNode)
+    assert isinstance(pattern.fields[0].pattern, StructPatternNode)
+
+
+def test_fp_002_two_level_nested_struct_pattern_frame():
+    pattern = parse_pattern(
+        "Person { profile: Profile { state: State { active: true } } }"
+    ).pattern
+
+    profile = pattern.fields[0].pattern
+    state = profile.fields[0].pattern
+    assert isinstance(state, StructPatternNode)
+
+
+def test_fp_003_three_level_nested_struct_pattern_frame():
+    pattern = parse_pattern(
+        "Person { profile: Profile { state: State { detail: Detail { active: true } } } }"
+    ).pattern
+
+    profile = pattern.fields[0].pattern
+    state = profile.fields[0].pattern
+    detail = state.fields[0].pattern
+    assert isinstance(detail, StructPatternNode)
+
+
+def test_fp_004_nested_wildcard_frame():
+    pattern = parse_pattern("Person { profile: Profile { status: _ } }").pattern
+
+    profile = pattern.fields[0].pattern
+    assert isinstance(profile.fields[0].pattern, WildcardPatternNode)
+
+
+def test_fp_005_nested_literal_frame():
+    pattern = parse_pattern("Person { profile: Profile { age: 42 } }").pattern
+
+    profile = pattern.fields[0].pattern
+    assert isinstance(profile.fields[0].pattern, LiteralPatternNode)
+
+
+def test_fp_006_nested_qualified_pattern_frame():
+    pattern = parse_pattern("Person { profile: Profile { status: Status.Active } }").pattern
+
+    profile = pattern.fields[0].pattern
+    assert isinstance(profile.fields[0].pattern, QualifiedPatternNode)
+
+
+def test_fp_007_struct_pattern_block_body_after_arrow_parses():
+    source = """
+    module Basic {
+        enum Status {
+            Active
+        }
+
+        struct Profile {
+            status: Status
+        }
+
+        struct Person {
+            profile: Profile
+        }
+
+        fn Score(person: Person) -> int {
+            match person {
+                Person {
+                    profile: Profile {
+                        status: Status.Active
+                    }
+                } => {
+                    return 1
+                }
+                default => return 0
+            }
+        }
+    }
+    """
+
+    program = parse(source)
+    function = program.modules[0].body[3]
+    pattern = function.body[0].arms[0].pattern.pattern
+    assert isinstance(pattern, StructPatternNode)
+    assert isinstance(pattern.fields[0].pattern, StructPatternNode)
+
+
+def test_fp_008_missing_frame_closing_brace_reports_np_003():
+    with pytest.raises(ExpressionSyntaxError, match="NP-003"):
+        parse_pattern("Person { profile: Profile { status: Status.Active }")
+
+
 def _nested_pattern_source(depth: int) -> str:
     value = "1"
     for index in reversed(range(depth)):

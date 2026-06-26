@@ -17,6 +17,7 @@ from .nodes import (
     NamedTypeNode,
     NullLiteralNode,
     Pattern,
+    PatternNode,
     PrimitiveKind,
     PrimitiveTypeNode,
     QualifiedPatternNode,
@@ -54,19 +55,11 @@ class SemanticDefaultPattern:
     pass
 
 
-SemanticPattern: TypeAlias = (
-    SemanticQualifiedPattern
-    | SemanticLiteralPattern
-    | SemanticWildcardPattern
-    | SemanticDefaultPattern
-)
-
-
 @dataclass(frozen=True)
 class SemanticStructFieldPattern:
     field_symbol: str
     field_type: str
-    pattern: SemanticPattern
+    pattern: "SemanticPattern"
 
 
 @dataclass(frozen=True)
@@ -74,6 +67,35 @@ class SemanticStructPattern:
     struct_symbol: str
     fields: tuple[SemanticStructFieldPattern, ...]
     source_span: str | None = None
+
+
+SemanticPattern: TypeAlias = (
+    SemanticQualifiedPattern
+    | SemanticLiteralPattern
+    | SemanticWildcardPattern
+    | SemanticDefaultPattern
+    | SemanticStructPattern
+)
+
+
+def resolve_pattern(
+    pattern: Pattern | PatternNode,
+    expected_type: TypeNode,
+    symbols: Mapping[str, Any],
+    namespace: ModuleNamespace | None = None,
+    *,
+    require_complete: bool = False,
+) -> SemanticPattern:
+    value = pattern.pattern if isinstance(pattern, PatternNode) else pattern
+    if isinstance(value, StructPatternNode):
+        return _resolve_struct_pattern_for_type(
+            value,
+            expected_type,
+            symbols,
+            namespace,
+            require_complete=require_complete,
+        )
+    return _resolve_terminal_pattern(value, expected_type, symbols, namespace)
 
 
 def resolve_struct_pattern(
@@ -99,11 +121,12 @@ def resolve_struct_pattern(
         if declaration_field.name in seen_semantic:
             raise StructPatternSemanticError("SP-106 duplicate semantic field symbol")
         seen_semantic.add(declaration_field.name)
-        semantic_pattern = _resolve_field_pattern(
+        semantic_pattern = resolve_pattern(
             field.pattern,
             declaration_field.field_type,
             symbols,
             namespace,
+            require_complete=require_complete,
         )
         resolved_fields.append(
             SemanticStructFieldPattern(
@@ -119,6 +142,27 @@ def resolve_struct_pattern(
             raise StructPatternSemanticError("SP-105 required field missing")
 
     return SemanticStructPattern(struct_symbol, tuple(resolved_fields))
+
+
+def _resolve_struct_pattern_for_type(
+    pattern: StructPatternNode,
+    expected_type: TypeNode,
+    symbols: Mapping[str, Any],
+    namespace: ModuleNamespace | None,
+    *,
+    require_complete: bool,
+) -> SemanticStructPattern:
+    if not isinstance(expected_type, NamedTypeNode):
+        raise StructPatternSemanticError("SP-104 field type mismatch")
+    semantic = resolve_struct_pattern(
+        pattern,
+        symbols,
+        namespace,
+        require_complete=require_complete,
+    )
+    if semantic.struct_symbol != expected_type.name:
+        raise StructPatternSemanticError("SP-104 field type mismatch")
+    return semantic
 
 
 def semantic_pattern_to_json(value: Any) -> Any:
@@ -207,7 +251,7 @@ def _resolve_struct(
     return symbol.name, symbol.node
 
 
-def _resolve_field_pattern(
+def _resolve_terminal_pattern(
     pattern: Pattern,
     field_type: TypeNode,
     symbols: Mapping[str, Any],

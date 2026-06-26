@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from .nodes import (
     BinaryExpressionNode,
@@ -159,94 +160,12 @@ def parse_pattern(source: str, depth: int = 0) -> PatternNode:
 
 
 def _parse_struct_pattern(source: str, depth: int) -> PatternNode:
-    type_name, body = _struct_pattern_parts(source)
-    fields: list[StructFieldPatternNode] = []
-    seen: set[str] = set()
-    if body:
-        for item in _struct_pattern_field_sources(body):
-            field = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)", item, re.DOTALL)
-            if not field or not field.group(2).strip():
-                raise ExpressionSyntaxError("SP-002 NP-002 invalid struct pattern syntax")
-            field_name = field.group(1)
-            if field_name in seen:
-                raise ExpressionSyntaxError("SP-001 duplicate struct field")
-            seen.add(field_name)
-            fields.append(
-                StructFieldPatternNode(
-                    field_name,
-                    parse_pattern(field.group(2).strip(), depth + 1).pattern,
-                )
-            )
-    return PatternNode(StructPatternNode(type_name, tuple(fields)))
-
-
-def _struct_pattern_parts(source: str) -> tuple[str, str]:
-    match = re.match(
-        r"\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\{",
-        source,
-    )
-    if not match:
-        raise ExpressionSyntaxError("SP-002 NP-002 invalid struct pattern syntax")
-    type_name = match.group(1)
-    body_start = match.end()
-    body_end = _matching_brace(source, body_start - 1)
-    if body_end is None:
-        raise ExpressionSyntaxError("SP-002 NP-003 missing closing brace")
-    if source[body_end + 1:].strip():
+    parser = _StructPatternFrameParser(source, depth)
+    pattern = parser.parse_struct_pattern()
+    parser.skip_separators()
+    if not parser.at_end():
         raise ExpressionSyntaxError("SP-002 NP-002 unexpected token after struct pattern")
-    return type_name, source[body_start:body_end].strip()
-
-
-def _matching_brace(source: str, open_index: int) -> int | None:
-    depth = 0
-    in_string: str | None = None
-    escaped = False
-    for index in range(open_index, len(source)):
-        char = source[index]
-        if in_string is not None:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == in_string:
-                in_string = None
-            continue
-        if char in {'"', "'"}:
-            in_string = char
-            continue
-        if char == "{":
-            depth += 1
-            continue
-        if char == "}":
-            depth -= 1
-            if depth == 0:
-                return index
-            if depth < 0:
-                return None
-    return None
-
-
-def _struct_pattern_field_sources(body: str) -> list[str]:
-    if not body.strip():
-        return []
-    fields: list[str] = []
-    index = 0
-    length = len(body)
-    while index < length:
-        index = _skip_pattern_separators(body, index)
-        if index >= length:
-            break
-        field = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\s*:", body[index:])
-        if not field:
-            raise ExpressionSyntaxError("SP-002 NP-002 invalid struct pattern syntax")
-        value_start = index + field.end()
-        value_end = _next_struct_field_start(body, value_start)
-        item = body[index:value_end].strip().rstrip(",").strip()
-        if not item:
-            raise ExpressionSyntaxError("SP-002 NP-002 invalid struct pattern syntax")
-        fields.append(item)
-        index = value_end
-    return fields
+    return PatternNode(pattern)
 
 
 def _skip_pattern_separators(source: str, index: int) -> int:
@@ -255,7 +174,93 @@ def _skip_pattern_separators(source: str, index: int) -> int:
     return index
 
 
-def _next_struct_field_start(source: str, index: int) -> int:
+class _StructPatternFrameParser:
+    def __init__(self, source: str, depth: int):
+        self.source = source
+        self.index = 0
+        self.depth = depth
+
+    def at_end(self) -> bool:
+        return self.index >= len(self.source)
+
+    def skip_separators(self) -> None:
+        self.index = _skip_pattern_separators(self.source, self.index)
+
+    def parse_struct_pattern(self) -> StructPatternNode:
+        if self.depth > MAX_PATTERN_DEPTH:
+            raise ExpressionSyntaxError(_NP_010)
+        type_name = self._qualified_identifier()
+        self._skip_whitespace()
+        self._consume("{", "SP-002 NP-002 invalid struct pattern syntax")
+        fields: list[StructFieldPatternNode] = []
+        seen: set[str] = set()
+        while True:
+            self.skip_separators()
+            if self.at_end():
+                raise ExpressionSyntaxError("SP-002 NP-003 missing closing brace")
+            if self.source[self.index] == "}":
+                self.index += 1
+                return StructPatternNode(type_name, tuple(fields))
+            field_name = self._identifier()
+            if field_name in seen:
+                raise ExpressionSyntaxError("SP-001 duplicate struct field")
+            seen.add(field_name)
+            self._skip_whitespace()
+            self._consume(":", "SP-002 NP-002 invalid struct pattern syntax")
+            field_pattern = self._field_pattern()
+            fields.append(StructFieldPatternNode(field_name, field_pattern))
+
+    def _field_pattern(self) -> Any:
+        self._skip_whitespace()
+        if self.at_end() or self.source[self.index] == "}":
+            raise ExpressionSyntaxError("SP-002 NP-002 invalid struct pattern syntax")
+        if self._starts_struct_pattern():
+            child = _StructPatternFrameParser(self.source[self.index:], self.depth + 1)
+            pattern = child.parse_struct_pattern()
+            self.index += child.index
+            return pattern
+        end = _next_struct_field_boundary(self.source, self.index)
+        pattern_source = self.source[self.index:end].strip().rstrip(",").strip()
+        if not pattern_source:
+            raise ExpressionSyntaxError("SP-002 NP-002 invalid struct pattern syntax")
+        self.index = end
+        return parse_pattern(pattern_source, self.depth + 1).pattern
+
+    def _starts_struct_pattern(self) -> bool:
+        match = re.match(
+            r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*\s*\{",
+            self.source[self.index:],
+        )
+        return match is not None
+
+    def _qualified_identifier(self) -> str:
+        match = re.match(
+            r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*",
+            self.source[self.index:],
+        )
+        if not match:
+            raise ExpressionSyntaxError("SP-002 NP-002 invalid struct pattern syntax")
+        self.index += match.end()
+        return match.group(0)
+
+    def _identifier(self) -> str:
+        match = re.match(r"[A-Za-z_][A-Za-z0-9_]*", self.source[self.index:])
+        if not match:
+            raise ExpressionSyntaxError("SP-002 NP-002 invalid struct pattern syntax")
+        self.index += match.end()
+        return match.group(0)
+
+    def _skip_whitespace(self) -> None:
+        while self.index < len(self.source) and self.source[self.index].isspace():
+            self.index += 1
+
+    def _consume(self, expected: str, diagnostic: str) -> None:
+        if self.index >= len(self.source) or self.source[self.index] != expected:
+            raise ExpressionSyntaxError(diagnostic)
+        self.index += 1
+
+
+def _next_struct_field_boundary(source: str, index: int) -> int:
     depth = 0
     in_string: str | None = None
     escaped = False
@@ -281,7 +286,7 @@ def _next_struct_field_start(source: str, index: int) -> int:
             continue
         if char == "}":
             if depth == 0:
-                raise ExpressionSyntaxError("SP-002 NP-002 unexpected token")
+                return cursor
             depth -= 1
             cursor += 1
             continue

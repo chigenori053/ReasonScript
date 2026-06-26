@@ -1077,6 +1077,8 @@ def _pattern_decisions_for_return_path(
             and pattern.get("node_type") == "StructPatternNode"
         ):
             continue
+        if _struct_pattern_has_nested_field(pattern):
+            continue
         value = context.get(condition.get("value"))
         runtime_value = _runtime_struct_value(value)
         if runtime_value is None:
@@ -1103,6 +1105,17 @@ def _pattern_decisions_for_return_path(
         )
         decisions.append(pattern_decision_to_json(decision))
     return decisions
+
+
+def _struct_pattern_has_nested_field(pattern: dict[str, Any]) -> bool:
+    for field in pattern.get("fields") or []:
+        field_pattern = field.get("pattern")
+        if (
+            isinstance(field_pattern, dict)
+            and field_pattern.get("node_type") == "StructPatternNode"
+        ):
+            return True
+    return False
 
 
 def _runtime_struct_value(value: Any) -> RuntimeStructValue | None:

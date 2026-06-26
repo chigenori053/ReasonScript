@@ -2482,8 +2482,6 @@ def _validate_match_patterns(
         if isinstance(pattern, EnumValuePatternNode):
             continue
         if isinstance(pattern, StructPatternNode):
-            if _struct_pattern_contains_nested(pattern):
-                continue
             try:
                 resolve_struct_pattern(pattern, symbols, _CURRENT_NAMESPACE)
             except StructPatternSemanticError as error:
@@ -2801,13 +2799,6 @@ def _validate_pattern_depth(value: PatternNode, depth: int = 0) -> None:
         return
     for field in pattern.fields:
         _validate_pattern_depth(PatternNode(field.pattern), depth + 1)
-
-
-def _struct_pattern_contains_nested(pattern: StructPatternNode) -> bool:
-    for field in pattern.fields:
-        if isinstance(field.pattern, StructPatternNode):
-            return True
-    return False
 
 
 def _pattern_key(value: PatternNode) -> tuple[str, Any]:
