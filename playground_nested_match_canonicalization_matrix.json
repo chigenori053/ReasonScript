@@ -1,0 +1,33 @@
+{
+  "spec": "nested-match-canonicalization/1.0",
+  "phase": "MSI-004A",
+  "cases": [
+    {
+      "id": "NMC-001",
+      "fixture": "tests/nmc_001.rsn",
+      "expected": "Score.match.Color.Red|Shape.Circle"
+    },
+    {
+      "id": "NMC-002",
+      "fixture": "tests/nmc_002.rsn",
+      "expected": "Score.match.Color.Red|Shape.Square"
+    },
+    {
+      "id": "NMC-003",
+      "fixture": "tests/nmc_003.rsn",
+      "expected": "Score.match.Color.Blue"
+    },
+    {
+      "id": "NMC-004",
+      "assertion": "ExecutionPlan, Simulation, and Knowledge share identical nested path_signature"
+    },
+    {
+      "id": "NMC-005",
+      "assertion": "Knowledge branch_id is Color.Red|Shape.Circle and contains no parser-specific fragments"
+    },
+    {
+      "id": "NMC-006",
+      "assertion": "Repeated compilation produces identical canonical paths"
+    }
+  ]
+}

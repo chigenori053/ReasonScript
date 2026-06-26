@@ -780,10 +780,20 @@ def _function_return_paths(
 def _return_path_label(prefix: tuple[str, ...], index: int) -> str:
     if not prefix:
         return f"path_{index}"
+    if all(item.startswith("match.") for item in prefix):
+        return f"match.{_canonical_match_branch_id(prefix)}"
     if all(not item.endswith(("_true", "_false")) for item in prefix):
         return "_and_".join(prefix)
     separator = "_" if any("_" in item for item in prefix) else "."
     return separator.join(prefix)
+
+
+def _canonical_match_branch_id(prefix: tuple[str, ...]) -> str:
+    return "|".join(item.removeprefix("match.") for item in prefix)
+
+
+def _canonical_match_path(prefix: tuple[str, ...]) -> list[str]:
+    return [item.removeprefix("match.") for item in prefix if item.startswith("match.")]
 
 
 def _function_return_target(function_name: str, label: str) -> str:
@@ -853,16 +863,15 @@ def _function_control_flow_ir(
                     }
                 )
                 for arm in statement.arms:
-                    label = _return_path_label(
-                        (*prefix, _match_case_label(arm.pattern, enum)),
-                        1,
-                    )
+                    branch_prefix = (*prefix, _match_case_label(arm.pattern, enum))
+                    label = _return_path_label(branch_prefix, 1)
                     nodes.append(
                         {
                             "node_type": "MatchSelectionIRNode",
                             "value": _match_value_name(statement.expression),
                             "pattern": _match_pattern_value(arm.pattern, enum),
                             "target": _function_return_target(function.name, label),
+                            "canonical_path": _canonical_match_path(branch_prefix),
                         }
                     )
                     add_branch_nodes(

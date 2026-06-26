@@ -83,7 +83,8 @@ def build_execution_plan(ir: dict[str, Any]) -> dict[str, Any]:
         }
         for i, t in enumerate(found_path)
     ]
-    selected_branches = _branch_evidence_path(found_path)
+    selected_return = _selected_return_transition_id(found_path)
+    selected_branches = _selected_branches_for_transition(selected_return)
 
     # Build alternative paths (up to 3 shortest)
     alt_candidates = sorted(
@@ -104,9 +105,9 @@ def build_execution_plan(ir: dict[str, Any]) -> dict[str, Any]:
         "reachable": reachable,
         "distance": len(selected_steps),
         "selected_steps": selected_steps,
-        "selected_branch": selected_branches[0] if selected_branches else None,
+        "selected_branch": selected_return,
         "selected_branches": selected_branches,
-        "path_signature": _path_signature(selected_branches),
+        "path_signature": selected_return or _path_signature(selected_branches),
         "alternative_paths": alternative_paths,
         "expected_cost": found_cost,
         "evidence_refs": [],
@@ -196,15 +197,16 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
                         "event_type": "PatternDecision",
                         **pattern_decision,
                     })
-                trace.append({
-                    "step": len(applied),
-                    "state": t["target"],
-                    "transition": t["transition_id"],
-                    "event": "branch_selection",
-                    "event_type": "BranchSelection",
-                    "branch": t["transition_id"],
-                    **branch_event,
-                })
+                for selection in _branch_selection_events(t):
+                    trace.append({
+                        "step": len(applied),
+                        "state": t["target"],
+                        "transition": t["transition_id"],
+                        "event": "branch_selection",
+                        "event_type": "BranchSelection",
+                        **selection,
+                        **branch_event,
+                    })
             trace.append({
                 "step": len(applied),
                 "state": t["target"],
@@ -227,6 +229,14 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
         for item in trace
         if item.get("event_type") == "BranchSelection" and item.get("branch")
     ]
+    selected_return = next(
+        (
+            item.get("transition")
+            for item in trace
+            if item.get("event_type") == "BranchSelection" and item.get("transition")
+        ),
+        None,
+    )
 
     return {
         "schema_version": "semantic-simulation/0.2",
@@ -236,9 +246,9 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
         "confidence": confidence,
         "final_state": current.get("state_id", ""),
         "step_count": len(applied),
-        "selected_branch": selected_branches[0] if selected_branches else None,
+        "selected_branch": selected_return,
         "selected_branches": selected_branches,
-        "path_signature": _path_signature(selected_branches),
+        "path_signature": selected_return or _path_signature(selected_branches),
         "violations": violations,
         "trace": trace,
     }
@@ -513,6 +523,23 @@ def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _branch_selection_events(transition: dict[str, Any]) -> list[dict[str, Any]]:
+    transition_id = transition.get("transition_id")
+    branches = _selected_branches_for_transition(transition_id)
+    if not branches:
+        return []
+    if len(branches) == 1:
+        return [{"branch": branches[0]}]
+    return [
+        {
+            "branch": branch,
+            "depth": index,
+            "path_signature": transition_id,
+        }
+        for index, branch in enumerate(branches)
+    ]
+
+
 def _match_evaluation_event(
     condition: dict[str, Any],
     context: dict[str, Any],
@@ -661,7 +688,7 @@ def extract_knowledge(
                 "transitions": [s["transition_id"] for s in new_path],
             }
             evidence_path = _branch_evidence_path(new_path)
-            path_signature = _path_signature(evidence_path)
+            path_signature = _path_signature_for_path(new_path, evidence_path)
             comparison_evidence = _path_comparison_evidence(new_path)
             match_evidence = _path_match_evidence(new_path)
             enum_match_evidence = _path_enum_match_evidence(new_path)
@@ -711,11 +738,38 @@ def extract_knowledge(
 
 
 def _branch_evidence_path(path: list[dict[str, Any]]) -> list[str]:
-    return [
-        transition["transition_id"]
-        for transition in path
-        if transition.get("relation") == "FunctionReturnTransition"
-    ]
+    selected = _selected_return_transition_id(path)
+    if selected is None:
+        return []
+    return _selected_branches_for_transition(selected)
+
+
+def _selected_return_transition_id(path: list[dict[str, Any]]) -> str | None:
+    for transition in path:
+        if transition.get("relation") == "FunctionReturnTransition":
+            return transition.get("transition_id")
+    return None
+
+
+def _selected_branches_for_transition(transition_id: str | None) -> list[str]:
+    if not transition_id:
+        return []
+    if ".match." not in transition_id:
+        return [transition_id]
+    branch_id = transition_id.split(".match.", 1)[1]
+    if "|" not in branch_id:
+        return [transition_id]
+    return branch_id.split("|")
+
+
+def _path_signature_for_path(
+    path: list[dict[str, Any]],
+    evidence_path: list[str],
+) -> str:
+    selected = _selected_return_transition_id(path)
+    if selected and ".match." in selected and "|" in selected:
+        return selected
+    return _path_signature(evidence_path)
 
 
 def _path_signature(evidence_path: list[str]) -> str:
@@ -725,6 +779,8 @@ def _path_signature(evidence_path: list[str]) -> str:
 def _branch_id(evidence_path: list[str]) -> str | None:
     if not evidence_path:
         return None
+    if len(evidence_path) > 1:
+        return "|".join(evidence_path)
     branch = evidence_path[-1]
     if ".match." in branch:
         match_id = branch.split(".match.", 1)[1]
@@ -765,19 +821,22 @@ def _path_match_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | None:
     return None
 
 
-def _path_enum_match_evidence(path: list[dict[str, Any]]) -> dict[str, str] | None:
+def _path_enum_match_evidence(path: list[dict[str, Any]]) -> dict[str, str] | list[dict[str, str]] | None:
+    evidence: list[dict[str, str]] = []
     for transition in reversed(path):
         if transition.get("relation") != "FunctionReturnTransition":
             continue
         effect = transition.get("effect") or {}
         context = effect.get("evaluation_context") or {}
-        for condition in reversed(effect.get("match_conditions") or []):
+        for condition in effect.get("match_conditions") or []:
             pattern = condition.get("pattern")
             if not _is_enum_pattern(pattern):
                 continue
             enum_value = _enum_match_value(_match_value(condition, context))
             if enum_value is not None:
-                return enum_value
+                evidence.append(enum_value)
+        if evidence:
+            return evidence if len(evidence) > 1 else evidence[0]
     return None
 
 
