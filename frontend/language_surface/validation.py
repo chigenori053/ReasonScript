@@ -112,6 +112,7 @@ from .nodes import (
     WildcardPatternNode,
 )
 from .namespace import ModuleNamespace, NamespaceResolutionError, resolve_program
+from .semantic_patterns import StructPatternSemanticError, resolve_struct_pattern
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -2481,6 +2482,10 @@ def _validate_match_patterns(
         if isinstance(pattern, EnumValuePatternNode):
             continue
         if isinstance(pattern, StructPatternNode):
+            try:
+                resolve_struct_pattern(pattern, symbols, _CURRENT_NAMESPACE)
+            except StructPatternSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
             continue
 
 

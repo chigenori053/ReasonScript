@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/semantic-pattern/0.1",
+  "title": "ReasonScript Semantic Pattern 0.1",
+  "$ref": "#/$defs/semantic_struct_pattern",
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "semantic_pattern": {
+      "oneOf": [
+        {"$ref": "#/$defs/semantic_qualified_pattern"},
+        {"$ref": "#/$defs/semantic_literal_pattern"},
+        {"$ref": "#/$defs/semantic_wildcard_pattern"},
+        {"$ref": "#/$defs/semantic_default_pattern"}
+      ]
+    },
+    "semantic_struct_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["struct_symbol", "fields", "node_type"],
+      "properties": {
+        "struct_symbol": {"$ref": "#/$defs/identifier"},
+        "fields": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/semantic_struct_field_pattern"}
+        },
+        "source_span": {
+          "type": ["string", "null"]
+        },
+        "node_type": {"const": "SemanticStructPattern"}
+      }
+    },
+    "semantic_struct_field_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_symbol", "field_type", "pattern", "node_type"],
+      "properties": {
+        "field_symbol": {"$ref": "#/$defs/identifier"},
+        "field_type": {"type": "string", "minLength": 1},
+        "pattern": {"$ref": "#/$defs/semantic_pattern"},
+        "node_type": {"const": "SemanticStructFieldPattern"}
+      }
+    },
+    "semantic_qualified_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "identifier", "node_type"],
+      "properties": {
+        "namespace": {"$ref": "#/$defs/identifier"},
+        "identifier": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "SemanticQualifiedPattern"}
+      }
+    },
+    "semantic_literal_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "literal_type", "node_type"],
+      "properties": {
+        "value": {},
+        "literal_type": {"type": "string", "minLength": 1},
+        "node_type": {"const": "SemanticLiteralPattern"}
+      }
+    },
+    "semantic_wildcard_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_type"],
+      "properties": {
+        "node_type": {"const": "SemanticWildcardPattern"}
+      }
+    },
+    "semantic_default_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_type"],
+      "properties": {
+        "node_type": {"const": "SemanticDefaultPattern"}
+      }
+    }
+  }
+}

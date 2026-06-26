@@ -127,6 +127,27 @@ from .nodes import (
 )
 from .parser import SurfaceSyntaxError, parse
 from .namespace import NamespaceResolutionError, resolve_program
+from .pattern_evaluator import (
+    PatternEvaluator,
+    PatternMatchResult,
+    RuntimeEnumValue,
+    RuntimeStructFieldValue,
+    RuntimeStructValue,
+    pattern_match_result_from_json,
+    pattern_match_result_to_json,
+)
+from .semantic_patterns import (
+    SemanticDefaultPattern,
+    SemanticLiteralPattern,
+    SemanticQualifiedPattern,
+    SemanticStructFieldPattern,
+    SemanticStructPattern,
+    SemanticWildcardPattern,
+    StructPatternSemanticError,
+    resolve_struct_pattern,
+    semantic_pattern_from_json,
+    semantic_pattern_to_json,
+)
 from .validation import SurfaceValidationError, validate
 
 __all__ = [
@@ -202,6 +223,8 @@ __all__ = [
     "PackageDeclarationNode",
     "ParenthesizedExpressionNode",
     "PatternNode",
+    "PatternEvaluator",
+    "PatternMatchResult",
     "PlanStepNode",
     "ProgramNode",
     "PrimitiveKind",
@@ -217,9 +240,18 @@ __all__ = [
     "ReturnStatementNode",
     "RuntimeCallExpressionNode",
     "RuntimeCallKind",
+    "RuntimeEnumValue",
     "RuntimeNamespaceNode",
+    "RuntimeStructFieldValue",
+    "RuntimeStructValue",
     "SetLiteralNode",
     "SetTypeNode",
+    "SemanticDefaultPattern",
+    "SemanticLiteralPattern",
+    "SemanticQualifiedPattern",
+    "SemanticStructFieldPattern",
+    "SemanticStructPattern",
+    "SemanticWildcardPattern",
     "SomeExpressionNode",
     "StringLiteralNode",
     "StateDeclarationNode",
@@ -232,6 +264,7 @@ __all__ = [
     "StructLiteralFieldNode",
     "StructLiteralNode",
     "StructPatternNode",
+    "StructPatternSemanticError",
     "TupleLiteralNode",
     "TupleTypeNode",
     "SurfaceSyntaxError",
@@ -253,7 +286,12 @@ __all__ = [
     "parse_expression",
     "parse_pattern",
     "pattern_from_json",
+    "pattern_match_result_from_json",
+    "pattern_match_result_to_json",
+    "resolve_struct_pattern",
     "statement_from_json",
+    "semantic_pattern_from_json",
+    "semantic_pattern_to_json",
     "type_from_json",
     "project_module",
     "project_program",
