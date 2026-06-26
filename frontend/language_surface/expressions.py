@@ -37,6 +37,8 @@ from .nodes import (
     StringLiteralNode,
     SomeExpressionNode,
     StructFieldPatternNode,
+    StructLiteralExpressionNode,
+    StructLiteralFieldNode,
     StructPatternNode,
     TupleLiteralNode,
     UnaryExpressionNode,
@@ -60,6 +62,9 @@ class _Kind(str, Enum):
     COMMA = "comma"
     LEFT_BRACKET = "left_bracket"
     RIGHT_BRACKET = "right_bracket"
+    LEFT_BRACE = "left_brace"
+    RIGHT_BRACE = "right_brace"
+    COLON = "colon"
     DOT = "dot"
     QUALIFIER = "qualifier"
     EOF = "eof"
@@ -228,12 +233,20 @@ class _Parser:
             if self.current.kind == _Kind.LEFT_BRACKET:
                 left = self._index(left)
                 continue
+            if self.current.kind == _Kind.LEFT_BRACE:
+                left = self._struct_literal(left)
+                continue
             entry = _BINARY.get(self.current.value)
             if entry is None or entry[0] < minimum_precedence:
                 return left
             precedence, operator, node_type = entry
             self.take()
-            if self.current.kind in {_Kind.EOF, _Kind.RIGHT_PAREN, _Kind.COMMA}:
+            if self.current.kind in {
+                _Kind.EOF,
+                _Kind.RIGHT_PAREN,
+                _Kind.RIGHT_BRACE,
+                _Kind.COMMA,
+            }:
                 raise ExpressionSyntaxError("D-001 binary operator is missing operand")
             right = self.parse(precedence + 1)
             left = node_type(left, operator, right)
@@ -329,6 +342,46 @@ class _Parser:
         self.take()
         return IndexAccessNode(collection, index)
 
+    def _struct_literal(self, type_expression: Expression) -> Expression:
+        type_name = _qualified_type_name(type_expression)
+        if type_name is None:
+            raise ExpressionSyntaxError("EX-201A-002 invalid struct literal syntax")
+        self.take()
+        fields: list[StructLiteralFieldNode] = []
+        seen: set[str] = set()
+        if self.current.kind == _Kind.RIGHT_BRACE:
+            self.take()
+            return StructLiteralExpressionNode(type_name, ())
+        while True:
+            if self.current.kind != _Kind.IDENTIFIER:
+                raise ExpressionSyntaxError("EX-201A-002 invalid struct literal syntax")
+            field_name = self.take().value
+            if self.current.kind != _Kind.COLON:
+                raise ExpressionSyntaxError("EX-201A-002 invalid struct literal syntax")
+            self.take()
+            if self.current.kind in {_Kind.RIGHT_BRACE, _Kind.COMMA, _Kind.EOF}:
+                raise ExpressionSyntaxError("EX-201A-002 invalid struct literal syntax")
+            if field_name in seen:
+                raise ExpressionSyntaxError("EX-201A-001 duplicate struct literal field")
+            seen.add(field_name)
+            fields.append(StructLiteralFieldNode(field_name, ExpressionNode(self.parse(0))))
+            if self.current.kind == _Kind.RIGHT_BRACE:
+                self.take()
+                return StructLiteralExpressionNode(type_name, tuple(fields))
+            if self.current.kind == _Kind.COMMA:
+                self.take()
+                if self.current.kind == _Kind.RIGHT_BRACE:
+                    raise ExpressionSyntaxError("EX-201A-002 invalid struct literal syntax")
+                continue
+            if self.current.kind == _Kind.IDENTIFIER and self._next_kind() == _Kind.COLON:
+                continue
+            raise ExpressionSyntaxError("EX-201A-002 invalid struct literal syntax")
+
+    def _next_kind(self) -> _Kind:
+        if self.index + 1 >= len(self.tokens):
+            return _Kind.EOF
+        return self.tokens[self.index + 1].kind
+
     def _call(self, callee: Expression) -> Expression:
         self.take()
         arguments: list[Expression] = []
@@ -353,6 +406,19 @@ class _Parser:
             self.take()
             if self.current.kind == _Kind.RIGHT_PAREN:
                 raise ExpressionSyntaxError("EX-V004 trailing comma is not supported")
+
+
+def _qualified_type_name(expression: Expression) -> str | None:
+    if isinstance(expression, IdentifierNode):
+        return expression.name
+    if isinstance(expression, QualifiedIdentifierNode):
+        return ".".join((*expression.path, expression.symbol))
+    if isinstance(expression, MemberAccessNode):
+        base = _qualified_type_name(expression.object)
+        if base is None:
+            return None
+        return f"{base}.{expression.member}"
+    return None
 
 
 def _tokenize(source: str) -> tuple[_Token, ...]:
@@ -413,6 +479,9 @@ def _tokenize(source: str) -> tuple[_Token, ...]:
             ")": _Kind.RIGHT_PAREN,
             "[": _Kind.LEFT_BRACKET,
             "]": _Kind.RIGHT_BRACKET,
+            "{": _Kind.LEFT_BRACE,
+            "}": _Kind.RIGHT_BRACE,
+            ":": _Kind.COLON,
             ",": _Kind.COMMA,
             ".": _Kind.DOT,
         }.get(char)

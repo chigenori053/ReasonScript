@@ -221,8 +221,30 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
         elif line.startswith("match "):
             nodes.append(_parse_match(cursor, context=context))
         else:
-            nodes.append(_parse_simple(cursor.take(), context=context))
+            nodes.append(_parse_simple(_collect_simple_statement(cursor), context=context))
     raise SurfaceSyntaxError(f"unterminated {context} block")
+
+
+def _collect_simple_statement(cursor: _Cursor) -> str:
+    parts = [cursor.take()]
+    balance = _expression_delimiter_balance(parts[0])
+    while balance > 0 and cursor.index < len(cursor.lines):
+        next_line = cursor.take()
+        parts.append(next_line)
+        balance += _expression_delimiter_balance(next_line)
+    if balance != 0:
+        raise SurfaceSyntaxError("EX-201A-002 invalid struct literal syntax")
+    return " ".join(parts)
+
+
+def _expression_delimiter_balance(line: str) -> int:
+    balance = 0
+    for char in line:
+        if char in "([{":
+            balance += 1
+        elif char in ")]}":
+            balance -= 1
+    return balance
 
 
 def _parse_simple(line: str, *, context: str):

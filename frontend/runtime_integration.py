@@ -1493,9 +1493,11 @@ def runtime_value_from_ir_expression(value: Any) -> RuntimeValue:
         return RuntimeValue.array(
             [runtime_value_from_ir_expression(item) for item in value["elements"]]
         )
-    if node_type == "StructLiteralNode":
+    if node_type in {"StructLiteralExpressionNode", "StructLiteralNode"}:
         fields = {
-            field["name"]: runtime_value_from_ir_expression(field["expression"])
+            field.get("field_name", field.get("name")): runtime_value_from_ir_expression(
+                field["expression"]
+            )
             for field in value["fields"]
         }
         plain_fields = {

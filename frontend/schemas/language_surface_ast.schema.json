@@ -8,6 +8,10 @@
       "type": "string",
       "minLength": 1
     },
+    "qualified_identifier_string": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+    },
     "type_node": {
       "oneOf": [
         {"$ref": "#/$defs/primitive_type"},
@@ -352,9 +356,9 @@
     "struct_literal_field": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "expression", "node_type"],
+      "required": ["field_name", "expression", "node_type"],
       "properties": {
-        "name": {"$ref": "#/$defs/identifier"},
+        "field_name": {"$ref": "#/$defs/identifier"},
         "expression": {"$ref": "#/$defs/expression"},
         "node_type": {"const": "StructLiteralFieldNode"}
       }
@@ -364,12 +368,12 @@
       "additionalProperties": false,
       "required": ["type_name", "fields", "node_type"],
       "properties": {
-        "type_name": {"$ref": "#/$defs/identifier"},
+        "type_name": {"$ref": "#/$defs/qualified_identifier_string"},
         "fields": {
           "type": "array",
           "items": {"$ref": "#/$defs/struct_literal_field"}
         },
-        "node_type": {"const": "StructLiteralNode"}
+        "node_type": {"const": "StructLiteralExpressionNode"}
       }
     },
     "array_literal": {

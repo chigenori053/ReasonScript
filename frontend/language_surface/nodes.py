@@ -238,14 +238,21 @@ class CallExpressionNode:
 
 @dataclass(frozen=True)
 class StructLiteralFieldNode:
-    name: str
+    field_name: str
     expression: "ExpressionNode"
+
+    @property
+    def name(self) -> str:
+        return self.field_name
 
 
 @dataclass(frozen=True)
-class StructLiteralNode:
+class StructLiteralExpressionNode:
     type_name: str
     fields: tuple[StructLiteralFieldNode, ...]
+
+
+StructLiteralNode = StructLiteralExpressionNode
 
 
 @dataclass(frozen=True)
@@ -303,7 +310,7 @@ Expression: TypeAlias = (
     | ParenthesizedExpressionNode
     | MemberAccessNode
     | CallExpressionNode
-    | StructLiteralNode
+    | StructLiteralExpressionNode
     | ArrayLiteralNode
     | TupleLiteralNode
     | SetLiteralNode
@@ -817,7 +824,7 @@ _NODE_TYPES = {
         StructDeclarationNode,
         StructFieldNode,
         StructLiteralFieldNode,
-        StructLiteralNode,
+        StructLiteralExpressionNode,
         StateTypeNode,
         TransitionNode,
         TupleLiteralNode,
@@ -834,6 +841,7 @@ _NODE_TYPES.update(
         "ElseNode": ElseStatementNode,
         "IfNode": IfStatementNode,
         "MatchNode": MatchStatementNode,
+        "StructLiteralNode": StructLiteralExpressionNode,
     }
 )
 
@@ -1046,10 +1054,11 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         )
     if node_type == "StructLiteralFieldNode":
         return StructLiteralFieldNode(
-            value["name"], _from_json_node(value["expression"])
+            value.get("field_name", value.get("name")),
+            _from_json_node(value["expression"]),
         )
-    if node_type == "StructLiteralNode":
-        return StructLiteralNode(
+    if node_type in {"StructLiteralExpressionNode", "StructLiteralNode"}:
+        return StructLiteralExpressionNode(
             value["type_name"],
             tuple(_from_json_node(item) for item in value["fields"]),
         )

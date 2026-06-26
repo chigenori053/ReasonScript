@@ -115,6 +115,7 @@ from .namespace import ModuleNamespace, NamespaceResolutionError, resolve_progra
 
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+QUALIFIED_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
 RESERVED_IDENTIFIERS = {
     "bool",
     "true",
@@ -2609,6 +2610,14 @@ def _identifier(value: Any, location: str) -> None:
         raise SurfaceValidationError(f"{location} is a reserved keyword: {value}")
 
 
+def _qualified_identifier(value: Any, location: str) -> None:
+    if not isinstance(value, str) or not QUALIFIED_IDENTIFIER.fullmatch(value):
+        raise SurfaceValidationError(f"{location} is not a valid qualified identifier")
+    for part in value.split("."):
+        if part in RESERVED_IDENTIFIERS:
+            raise SurfaceValidationError(f"{location} contains a reserved keyword: {part}")
+
+
 def _expression(value: ExpressionNode, location: str) -> None:
     if not isinstance(value, ExpressionNode):
         raise SurfaceValidationError(f"{location} is required")
@@ -2683,7 +2692,7 @@ def _expression_value(value: Any) -> None:
         for argument in value.arguments:
             _expression_value(argument)
     elif isinstance(value, StructLiteralNode):
-        _identifier(value.type_name, "TV-4 StructLiteralNode.type_name")
+        _qualified_identifier(value.type_name, "TV-4 StructLiteralExpressionNode.type_name")
         names: set[str] = set()
         for field in value.fields:
             _expression_value(field)
