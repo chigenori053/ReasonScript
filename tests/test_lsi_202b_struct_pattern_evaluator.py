@@ -61,6 +61,15 @@ def test_sp_e001_struct_pattern_matches_runtime_struct():
         None,
         None,
         ("Person", "role", "Role.Admin", "Matched", "Matched"),
+        (
+            PatternMatchResult(
+                True,
+                (),
+                None,
+                None,
+                ("Role.Admin", "Matched"),
+            ),
+        ),
     )
 
 
@@ -233,5 +242,6 @@ def test_sp_e007_pattern_match_result_json_round_trip():
         "failed_field": None,
         "failure_reason": None,
         "evaluation_trace": ["Person", "role", "Role.Admin", "Matched"],
+        "children": [],
     }
     assert pattern_match_result_from_json(value) == result

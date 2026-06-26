@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from .semantic_patterns import (
     SemanticDefaultPattern,
     SemanticLiteralPattern,
+    SemanticPattern,
     SemanticQualifiedPattern,
     SemanticStructPattern,
     SemanticWildcardPattern,
@@ -57,6 +58,7 @@ class PatternMatchResult:
     failed_field: str | None = None
     failure_reason: str | None = None
     evaluation_trace: tuple[str, ...] = ()
+    children: tuple["PatternMatchResult", ...] = ()
 
 
 class PatternEvaluator:
@@ -65,7 +67,47 @@ class PatternEvaluator:
         pattern: SemanticStructPattern,
         value: RuntimeStructValue,
     ) -> PatternMatchResult:
+        return self.evaluate_pattern(pattern, value)
+
+    def evaluate_pattern(
+        self,
+        pattern: SemanticPattern,
+        value: Any,
+    ) -> PatternMatchResult:
+        if isinstance(pattern, SemanticStructPattern):
+            return self.evaluate_struct(pattern, value)
+        if isinstance(pattern, SemanticLiteralPattern):
+            return self.evaluate_literal(pattern, value)
+        if isinstance(pattern, SemanticQualifiedPattern):
+            return self.evaluate_qualified(pattern, value)
+        if isinstance(pattern, SemanticWildcardPattern):
+            return self.evaluate_wildcard(pattern, value)
+        if isinstance(pattern, SemanticDefaultPattern):
+            return self.evaluate_default(pattern, value)
+        return PatternMatchResult(
+            False,
+            (),
+            None,
+            "UnsupportedPattern",
+            (_value_label(value), "NotMatched"),
+        )
+
+    def evaluate_struct(
+        self,
+        pattern: SemanticStructPattern,
+        value: Any,
+    ) -> PatternMatchResult:
         trace: list[str] = [pattern.struct_symbol]
+        if not isinstance(value, RuntimeStructValue):
+            trace.append(_value_label(value))
+            trace.append("NotMatched")
+            return PatternMatchResult(
+                False,
+                (),
+                None,
+                "StructTypeMismatch",
+                tuple(trace),
+            )
         if pattern.struct_symbol != value.type_name:
             trace.append(value.type_name)
             trace.append("NotMatched")
@@ -78,6 +120,7 @@ class PatternEvaluator:
             )
 
         matched_fields: list[str] = []
+        children: list[PatternMatchResult] = []
         for field in pattern.fields:
             trace.append(field.field_symbol)
             runtime_value = value.field(field.field_symbol)
@@ -89,25 +132,96 @@ class PatternEvaluator:
                     field.field_symbol,
                     "MissingField",
                     tuple(trace),
+                    tuple(children),
                 )
-            matched, reason, value_label = _evaluate_field_pattern(
-                field.pattern,
-                runtime_value,
-            )
-            trace.append(value_label)
-            trace.append("Matched" if matched else "NotMatched")
-            if not matched:
+            child = self.evaluate_pattern(field.pattern, runtime_value)
+            children.append(child)
+            trace.extend(child.evaluation_trace)
+            if not child.matched:
                 return PatternMatchResult(
                     False,
                     tuple(matched_fields),
                     field.field_symbol,
-                    reason,
+                    child.failure_reason,
                     tuple(trace),
+                    tuple(children),
                 )
             matched_fields.append(field.field_symbol)
 
         trace.append("Matched")
-        return PatternMatchResult(True, tuple(matched_fields), None, None, tuple(trace))
+        return PatternMatchResult(
+            True,
+            tuple(matched_fields),
+            None,
+            None,
+            tuple(trace),
+            tuple(children),
+        )
+
+    def evaluate_literal(
+        self,
+        pattern: SemanticLiteralPattern,
+        value: Any,
+    ) -> PatternMatchResult:
+        matched = pattern.value == value
+        return PatternMatchResult(
+            matched,
+            (),
+            None,
+            None if matched else "LiteralMismatch",
+            (_value_label(value), "Matched" if matched else "NotMatched"),
+        )
+
+    def evaluate_qualified(
+        self,
+        pattern: SemanticQualifiedPattern,
+        value: Any,
+    ) -> PatternMatchResult:
+        if not isinstance(value, RuntimeEnumValue):
+            return PatternMatchResult(
+                False,
+                (),
+                None,
+                "EnumVariantMismatch",
+                (_value_label(value), "NotMatched"),
+            )
+        matched = (
+            pattern.namespace == value.enum_name
+            and pattern.identifier == value.variant_name
+        )
+        return PatternMatchResult(
+            matched,
+            (),
+            None,
+            None if matched else "EnumVariantMismatch",
+            (value.symbol, "Matched" if matched else "NotMatched"),
+        )
+
+    def evaluate_wildcard(
+        self,
+        pattern: SemanticWildcardPattern,
+        value: Any,
+    ) -> PatternMatchResult:
+        return PatternMatchResult(
+            True,
+            (),
+            None,
+            None,
+            (_value_label(value), "Matched"),
+        )
+
+    def evaluate_default(
+        self,
+        pattern: SemanticDefaultPattern,
+        value: Any,
+    ) -> PatternMatchResult:
+        return PatternMatchResult(
+            False,
+            (),
+            None,
+            "DefaultPatternNotAllowed",
+            (_value_label(value), "NotMatched"),
+        )
 
 
 def pattern_match_result_to_json(value: Any) -> Any:
@@ -121,6 +235,9 @@ def pattern_match_result_to_json(value: Any) -> Any:
         if isinstance(value, PatternMatchResult):
             result["matched_fields"] = list(value.matched_fields)
             result["evaluation_trace"] = list(value.evaluation_trace)
+            result["children"] = [
+                pattern_match_result_to_json(item) for item in value.children
+            ]
         result["node_type"] = type(value).__name__
         return result
     if isinstance(value, Mapping):
@@ -139,29 +256,11 @@ def pattern_match_result_from_json(value: Mapping[str, Any]) -> PatternMatchResu
         value.get("failed_field"),
         value.get("failure_reason"),
         tuple(value.get("evaluation_trace", ())),
+        tuple(
+            pattern_match_result_from_json(item)
+            for item in value.get("children", ())
+        ),
     )
-
-
-def _evaluate_field_pattern(pattern: Any, value: Any) -> tuple[bool, str | None, str]:
-    if isinstance(pattern, SemanticQualifiedPattern):
-        if not isinstance(value, RuntimeEnumValue):
-            return False, "EnumVariantMismatch", _value_label(value)
-        return (
-            pattern.namespace == value.enum_name and pattern.identifier == value.variant_name,
-            None if pattern.namespace == value.enum_name and pattern.identifier == value.variant_name else "EnumVariantMismatch",
-            value.symbol,
-        )
-    if isinstance(pattern, SemanticLiteralPattern):
-        return (
-            pattern.value == value,
-            None if pattern.value == value else "LiteralMismatch",
-            _value_label(value),
-        )
-    if isinstance(pattern, SemanticWildcardPattern):
-        return True, None, _value_label(value)
-    if isinstance(pattern, SemanticDefaultPattern):
-        return False, "DefaultPatternNotAllowed", _value_label(value)
-    return False, "UnsupportedPattern", _value_label(value)
 
 
 def _value_label(value: Any) -> str:
