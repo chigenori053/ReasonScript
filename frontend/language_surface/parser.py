@@ -988,12 +988,18 @@ def _parameters(source: str) -> tuple[dict[str, object], ...]:
     text = source.strip()
     if not text:
         return ()
-    parameters: list[dict[str, object]] = []
+    parameters: list[object] = []
     seen: set[str] = set()
     for part in text.split(","):
         parameter = part.strip()
         match = re.fullmatch(r"([A-Za-z_]\w*)\s*:\s*(.+)", parameter)
         if not match:
+            if re.fullmatch(r"[A-Za-z_]\w*", parameter):
+                if parameter in seen:
+                    raise SurfaceSyntaxError(f"FN-006 duplicate parameter: {parameter}")
+                seen.add(parameter)
+                parameters.append(parameter)
+                continue
             raise SurfaceSyntaxError(f"FN-002 parameter type required: {parameter}")
         name = match.group(1)
         if name in seen:

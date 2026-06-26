@@ -45,11 +45,7 @@ impl RuntimeIo {
         Self::project(source_state, state, ProjectionPolicy::Canonical)
     }
 
-    pub fn project(
-        source_state: &str,
-        state: &Value,
-        projection: ProjectionPolicy,
-    ) -> OutputEvent {
+    pub fn project(source_state: &str, state: &Value, projection: ProjectionPolicy) -> OutputEvent {
         let rendered_value = canonical_state_projection(state);
         OutputEvent {
             output_id: deterministic_output_id(source_state, projection.as_str(), &rendered_value),
@@ -64,11 +60,7 @@ pub fn canonical_state_projection(state: &Value) -> Value {
     state.clone()
 }
 
-fn deterministic_output_id(
-    source_state: &str,
-    projection: &str,
-    rendered_value: &Value,
-) -> String {
+fn deterministic_output_id(source_state: &str, projection: &str, rendered_value: &Value) -> String {
     format!(
         "output:{}:{}:{}",
         source_state,

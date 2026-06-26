@@ -1,0 +1,348 @@
+{
+  "declarations": [
+    {
+      "kind": "reach_state",
+      "node_id": "Sample-goal",
+      "node_type": "GoalNode",
+      "target": "Result.state.result"
+    },
+    {
+      "data": {
+        "declarations": [
+          "FunctionDeclarationNode",
+          "CalculationNode"
+        ],
+        "module": "Sample",
+        "namespace": "Sample",
+        "package": null,
+        "semantic_functions": [
+          {
+            "body_type": "int",
+            "name": "Value",
+            "node_type": "SemanticFunctionNode",
+            "parameters": [],
+            "pure": true,
+            "qualified_name": "Sample.Value",
+            "return_guaranteed": true,
+            "return_paths": [
+              "path_1"
+            ],
+            "return_type": "int"
+          }
+        ],
+        "visibility": "Private"
+      },
+      "node_id": "Sample-state",
+      "node_type": "StateNode",
+      "state_id": "SampleStart",
+      "state_type": "language_surface"
+    },
+    {
+      "effect": {
+        "branch_conditions": [],
+        "evaluation_context": {},
+        "function": "Sample.Value",
+        "match_conditions": [],
+        "node_type": "FunctionIRNode",
+        "return": {
+          "expression": {
+            "node_type": "IntegerLiteralNode",
+            "value": 42
+          },
+          "node_type": "ExpressionNode"
+        },
+        "return_path": "path_1",
+        "return_value": {
+          "expression": {
+            "node_type": "IntegerLiteralNode",
+            "value": 42
+          },
+          "node_type": "ExpressionNode"
+        }
+      },
+      "expected_cost": 1.0,
+      "guard": null,
+      "node_id": "Sample-function-1",
+      "node_type": "TransitionNode",
+      "relation": "FunctionReturnTransition",
+      "source": "SampleStart",
+      "target": "Value.return",
+      "transition_id": "Value.return"
+    },
+    {
+      "effect": {
+        "calculation": "Result",
+        "expression": {
+          "expression": {
+            "arguments": [],
+            "callee": {
+              "name": "Value",
+              "node_type": "IdentifierNode"
+            },
+            "node_type": "CallExpressionNode"
+          },
+          "node_type": "ExpressionNode"
+        },
+        "function_calls": [
+          {
+            "arguments": [],
+            "function": "Sample.Value",
+            "node_type": "FunctionCallIRNode",
+            "return_type": "int"
+          }
+        ],
+        "goal_annotation": null,
+        "inputs": [
+          "Value"
+        ],
+        "return_type": null,
+        "statement": {
+          "expression": {
+            "expression": {
+              "arguments": [],
+              "callee": {
+                "name": "Value",
+                "node_type": "IdentifierNode"
+              },
+              "node_type": "CallExpressionNode"
+            },
+            "node_type": "ExpressionNode"
+          },
+          "node_type": "ResultStatementNode"
+        },
+        "target": "result",
+        "visibility": "Private"
+      },
+      "expected_cost": 1.0,
+      "guard": null,
+      "node_id": "Sample-calculation-2",
+      "node_type": "TransitionNode",
+      "relation": "ResultTransition",
+      "source": "Value.return",
+      "target": "Result.state.result",
+      "transition_id": "Result-1-result"
+    }
+  ],
+  "imports": [],
+  "metadata": [
+    {
+      "key": "language_surface",
+      "node_id": "Sample-surface-version",
+      "node_type": "MetadataNode",
+      "value": "reasonscript-language-surface/0.1"
+    },
+    {
+      "key": "namespace",
+      "node_id": "Sample-namespace",
+      "node_type": "MetadataNode",
+      "value": "Sample"
+    },
+    {
+      "key": "package",
+      "node_id": "Sample-package",
+      "node_type": "MetadataNode",
+      "value": null
+    },
+    {
+      "key": "module",
+      "node_id": "Sample-module",
+      "node_type": "MetadataNode",
+      "value": "Sample"
+    },
+    {
+      "key": "exports",
+      "node_id": "Sample-exports",
+      "node_type": "MetadataNode",
+      "value": []
+    },
+    {
+      "key": "import_resolution",
+      "node_id": "Sample-import-resolution",
+      "node_type": "MetadataNode",
+      "value": []
+    },
+    {
+      "key": "function_declarations",
+      "node_id": "Sample-functions",
+      "node_type": "MetadataNode",
+      "value": [
+        {
+          "body": [
+            {
+              "expression": {
+                "expression": {
+                  "node_type": "IntegerLiteralNode",
+                  "value": 42
+                },
+                "node_type": "ExpressionNode"
+              },
+              "node_type": "ReturnStatementNode"
+            }
+          ],
+          "name": "Value",
+          "node_type": "FunctionDeclarationNode",
+          "parameters": [],
+          "return_type": {
+            "kind": "Int",
+            "node_type": "PrimitiveTypeNode"
+          },
+          "visibility": "Private"
+        }
+      ]
+    },
+    {
+      "key": "semantic_functions",
+      "node_id": "Sample-semantic-functions",
+      "node_type": "MetadataNode",
+      "value": [
+        {
+          "body_type": "int",
+          "name": "Value",
+          "node_type": "SemanticFunctionNode",
+          "parameters": [],
+          "pure": true,
+          "qualified_name": "Sample.Value",
+          "return_guaranteed": true,
+          "return_paths": [
+            "path_1"
+          ],
+          "return_type": "int"
+        }
+      ]
+    },
+    {
+      "key": "function_symbols",
+      "node_id": "Sample-function-symbols",
+      "node_type": "MetadataNode",
+      "value": [
+        {
+          "name": "Value",
+          "node_type": "FunctionSymbol",
+          "parameters": [],
+          "qualified_name": "Sample.Value",
+          "return_type": "int"
+        }
+      ]
+    },
+    {
+      "key": "function_ir",
+      "node_id": "Sample-function-ir",
+      "node_type": "MetadataNode",
+      "value": [
+        {
+          "body": [
+            {
+              "expression": {
+                "expression": {
+                  "node_type": "IntegerLiteralNode",
+                  "value": 42
+                },
+                "node_type": "ExpressionNode"
+              },
+              "id": "Value.return",
+              "node_type": "ReturnIRNode",
+              "path": "path_1",
+              "return_value": {
+                "expression": {
+                  "node_type": "IntegerLiteralNode",
+                  "value": 42
+                },
+                "node_type": "ExpressionNode"
+              }
+            }
+          ],
+          "id": "Sample.Value",
+          "name": "Value",
+          "node_type": "FunctionIRNode",
+          "parameters": [],
+          "pure": true,
+          "return_type": "int"
+        }
+      ]
+    },
+    {
+      "key": "function_calls",
+      "node_id": "Sample-function-calls",
+      "node_type": "MetadataNode",
+      "value": [
+        {
+          "arguments": [],
+          "caller": "Result",
+          "function": "Sample.Value",
+          "node_type": "FunctionCallIRNode",
+          "return_type": "int"
+        }
+      ]
+    },
+    {
+      "key": "composite_declarations",
+      "node_id": "Sample-composite-types",
+      "node_type": "MetadataNode",
+      "value": []
+    },
+    {
+      "key": "enum_symbols",
+      "node_id": "Sample-enum-symbols",
+      "node_type": "MetadataNode",
+      "value": []
+    },
+    {
+      "key": "const_declarations",
+      "node_id": "Sample-consts",
+      "node_type": "MetadataNode",
+      "value": []
+    },
+    {
+      "key": "runtime_calls",
+      "node_id": "Sample-runtime-calls",
+      "node_type": "MetadataNode",
+      "value": []
+    },
+    {
+      "key": "runtime_operations",
+      "node_id": "Sample-runtime-operations",
+      "node_type": "MetadataNode",
+      "value": []
+    },
+    {
+      "key": "reasoning_types",
+      "node_id": "Sample-reasoning-types",
+      "node_type": "MetadataNode",
+      "value": []
+    },
+    {
+      "key": "reasoning_declarations",
+      "node_id": "Sample-reasoning-declarations",
+      "node_type": "MetadataNode",
+      "value": {
+        "constraints": [],
+        "execution_plans": [],
+        "goals": [],
+        "reason_graphs": [],
+        "states": []
+      }
+    },
+    {
+      "key": "calculation_order",
+      "node_id": "Sample-calculation-order",
+      "node_type": "MetadataNode",
+      "value": [
+        "Result"
+      ]
+    },
+    {
+      "key": "calculation_dependencies",
+      "node_id": "Sample-calculation-dependencies",
+      "node_type": "MetadataNode",
+      "value": [
+        {
+          "source": "Value",
+          "target": "Result"
+        }
+      ]
+    }
+  ],
+  "node_id": "Sample",
+  "node_type": "ModuleNode",
+  "version": "reasonscript-ast/0.1"
+}

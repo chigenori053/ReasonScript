@@ -50,3 +50,9 @@ impl ExecutionContext {
         self.trace.push(event);
     }
 }
+
+impl Default for ExecutionContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}

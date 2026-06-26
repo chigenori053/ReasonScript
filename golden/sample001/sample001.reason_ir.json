@@ -1,0 +1,250 @@
+{
+  "execution_policy": {
+    "constraint_mode": "reject",
+    "max_steps": 128,
+    "rollback_on_failure": true
+  },
+  "goal": {
+    "kind": "reach_state",
+    "target": "Result.state.result"
+  },
+  "initial_state": {
+    "data": {
+      "declarations": [
+        "FunctionDeclarationNode",
+        "CalculationNode"
+      ],
+      "module": "Sample",
+      "namespace": "Sample",
+      "package": null,
+      "semantic_functions": [
+        {
+          "body_type": "int",
+          "name": "Value",
+          "node_type": "SemanticFunctionNode",
+          "parameters": [],
+          "pure": true,
+          "qualified_name": "Sample.Value",
+          "return_guaranteed": true,
+          "return_paths": [
+            "path_1"
+          ],
+          "return_type": "int"
+        }
+      ],
+      "visibility": "Private"
+    },
+    "state_id": "SampleStart",
+    "state_type": "language_surface"
+  },
+  "metadata": {
+    "calculation_dependencies": [
+      {
+        "source": "Value",
+        "target": "Result"
+      }
+    ],
+    "calculation_order": [
+      "Result"
+    ],
+    "composite_declarations": [],
+    "const_declarations": [],
+    "enum_symbols": [],
+    "exports": [],
+    "function_calls": [
+      {
+        "arguments": [],
+        "caller": "Result",
+        "function": "Sample.Value",
+        "node_type": "FunctionCallIRNode",
+        "return_type": "int"
+      }
+    ],
+    "function_declarations": [
+      {
+        "body": [
+          {
+            "expression": {
+              "expression": {
+                "node_type": "IntegerLiteralNode",
+                "value": 42
+              },
+              "node_type": "ExpressionNode"
+            },
+            "node_type": "ReturnStatementNode"
+          }
+        ],
+        "name": "Value",
+        "node_type": "FunctionDeclarationNode",
+        "parameters": [],
+        "return_type": {
+          "kind": "Int",
+          "node_type": "PrimitiveTypeNode"
+        },
+        "visibility": "Private"
+      }
+    ],
+    "function_ir": [
+      {
+        "body": [
+          {
+            "expression": {
+              "expression": {
+                "node_type": "IntegerLiteralNode",
+                "value": 42
+              },
+              "node_type": "ExpressionNode"
+            },
+            "id": "Value.return",
+            "node_type": "ReturnIRNode",
+            "path": "path_1",
+            "return_value": {
+              "expression": {
+                "node_type": "IntegerLiteralNode",
+                "value": 42
+              },
+              "node_type": "ExpressionNode"
+            }
+          }
+        ],
+        "id": "Sample.Value",
+        "name": "Value",
+        "node_type": "FunctionIRNode",
+        "parameters": [],
+        "pure": true,
+        "return_type": "int"
+      }
+    ],
+    "function_symbols": [
+      {
+        "name": "Value",
+        "node_type": "FunctionSymbol",
+        "parameters": [],
+        "qualified_name": "Sample.Value",
+        "return_type": "int"
+      }
+    ],
+    "import_resolution": [],
+    "language_surface": "reasonscript-language-surface/0.1",
+    "module": "Sample",
+    "namespace": "Sample",
+    "package": null,
+    "reasoning_declarations": {
+      "constraints": [],
+      "execution_plans": [],
+      "goals": [],
+      "reason_graphs": [],
+      "states": []
+    },
+    "reasoning_types": [],
+    "runtime_calls": [],
+    "runtime_operations": [],
+    "semantic_functions": [
+      {
+        "body_type": "int",
+        "name": "Value",
+        "node_type": "SemanticFunctionNode",
+        "parameters": [],
+        "pure": true,
+        "qualified_name": "Sample.Value",
+        "return_guaranteed": true,
+        "return_paths": [
+          "path_1"
+        ],
+        "return_type": "int"
+      }
+    ]
+  },
+  "planner_policy": {
+    "max_alternatives": 8,
+    "max_depth": 128,
+    "strategy": "minimum_expected_cost"
+  },
+  "schema_version": "reason-ir/0.1",
+  "trace_policy": {
+    "include_alternatives": true,
+    "include_state_data": true,
+    "level": "standard"
+  },
+  "transitions": [
+    {
+      "effect": {
+        "branch_conditions": [],
+        "evaluation_context": {},
+        "function": "Sample.Value",
+        "match_conditions": [],
+        "node_type": "FunctionIRNode",
+        "return": {
+          "expression": {
+            "node_type": "IntegerLiteralNode",
+            "value": 42
+          },
+          "node_type": "ExpressionNode"
+        },
+        "return_path": "path_1",
+        "return_value": {
+          "expression": {
+            "node_type": "IntegerLiteralNode",
+            "value": 42
+          },
+          "node_type": "ExpressionNode"
+        }
+      },
+      "expected_cost": 1.0,
+      "relation": "FunctionReturnTransition",
+      "source": "SampleStart",
+      "target": "Value.return",
+      "transition_id": "Value.return"
+    },
+    {
+      "effect": {
+        "calculation": "Result",
+        "expression": {
+          "expression": {
+            "arguments": [],
+            "callee": {
+              "name": "Value",
+              "node_type": "IdentifierNode"
+            },
+            "node_type": "CallExpressionNode"
+          },
+          "node_type": "ExpressionNode"
+        },
+        "function_calls": [
+          {
+            "arguments": [],
+            "function": "Sample.Value",
+            "node_type": "FunctionCallIRNode",
+            "return_type": "int"
+          }
+        ],
+        "goal_annotation": null,
+        "inputs": [
+          "Value"
+        ],
+        "return_type": null,
+        "statement": {
+          "expression": {
+            "expression": {
+              "arguments": [],
+              "callee": {
+                "name": "Value",
+                "node_type": "IdentifierNode"
+              },
+              "node_type": "CallExpressionNode"
+            },
+            "node_type": "ExpressionNode"
+          },
+          "node_type": "ResultStatementNode"
+        },
+        "target": "result",
+        "visibility": "Private"
+      },
+      "expected_cost": 1.0,
+      "relation": "ResultTransition",
+      "source": "Value.return",
+      "target": "Result.state.result",
+      "transition_id": "Result-1-result"
+    }
+  ]
+}

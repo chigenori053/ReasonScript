@@ -1,0 +1,33 @@
+version: "3"
+
+tasks:
+  fmt:
+    cmds:
+      - python3 scripts/test_platform.py fmt
+  lint:
+    cmds:
+      - python3 scripts/test_platform.py lint
+  test:
+    cmds:
+      - python3 scripts/test_platform.py test
+  unit:
+    cmds:
+      - python3 scripts/test_platform.py unit
+  integration:
+    cmds:
+      - python3 scripts/test_platform.py integration
+  regression:
+    cmds:
+      - python3 scripts/test_platform.py regression
+  golden:
+    cmds:
+      - python3 scripts/test_platform.py golden
+  compatibility:
+    cmds:
+      - python3 scripts/test_platform.py compatibility
+  playground:
+    cmds:
+      - python3 scripts/test_platform.py playground
+  release-check:
+    cmds:
+      - python3 scripts/test_platform.py release-check

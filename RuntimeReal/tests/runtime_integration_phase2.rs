@@ -1,8 +1,7 @@
 use reasonscript_runtime_real::runtime_binding::{
     execute_runtime_operation, PlanningEngine, PlanningRequest, PredictionEngine,
     PredictionRequest, RuntimeEngineRegistry, RuntimeOperation, RuntimeOperationKind,
-    RuntimeResult, RuntimeValue, SearchEngine, SearchRequest, SimulationEngine,
-    SimulationRequest,
+    RuntimeResult, RuntimeValue, SearchEngine, SearchRequest, SimulationEngine, SimulationRequest,
 };
 use std::sync::Arc;
 

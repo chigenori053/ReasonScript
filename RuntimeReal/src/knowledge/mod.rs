@@ -1,5 +1,6 @@
 mod evidence;
 mod generator;
+#[allow(clippy::module_inception)]
 mod knowledge;
 mod validator;
 

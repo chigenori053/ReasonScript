@@ -107,7 +107,10 @@ fn typed_reasoning_values_dispatch_to_expected_requests() {
 
     for (kind, argument, expected) in cases {
         let result = execute_runtime_operation(&registry(), RuntimeOperation { kind, argument });
-        assert_eq!(result.value, Some(RuntimeValue::String(expected.to_string())));
+        assert_eq!(
+            result.value,
+            Some(RuntimeValue::String(expected.to_string()))
+        );
     }
 }
 
@@ -125,9 +128,12 @@ fn reason_graph_value_preserves_identity() {
         },
     );
 
-    assert_eq!(graph, RuntimeValue::ReasonGraphValue(RuntimeReasonGraph {
-        nodes: vec!["Dog".to_string()],
-        edges: vec![],
-    }));
+    assert_eq!(
+        graph,
+        RuntimeValue::ReasonGraphValue(RuntimeReasonGraph {
+            nodes: vec!["Dog".to_string()],
+            edges: vec![],
+        })
+    );
     assert_eq!(result.value, Some(RuntimeValue::Int(1)));
 }

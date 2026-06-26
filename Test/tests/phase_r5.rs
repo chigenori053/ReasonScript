@@ -18,12 +18,10 @@
 ///   R5-9  Symbol Discovery
 ///   R5-10 Semantic State Emergence
 ///   Metrics: CP / NA / HES / SBS / CLAS / ES
-
 use reasonunit_phase1_test::discovery_engine::{
-    build_r5_boundary_dataset, build_r5_crosslang_dataset,
-    build_r5_full_dataset, build_r5_mixed_dataset, build_r5_outlier_dataset,
-    build_r5_symbol_dataset, build_r5_transition_dataset,
-    DiscoveryEngine, true_category,
+    build_r5_boundary_dataset, build_r5_crosslang_dataset, build_r5_full_dataset,
+    build_r5_mixed_dataset, build_r5_outlier_dataset, build_r5_symbol_dataset,
+    build_r5_transition_dataset, true_category, DiscoveryEngine,
 };
 
 // ============================================================
@@ -51,14 +49,20 @@ fn r5_1_unsupervised_cluster_discovery() {
     );
 
     // Rain and Ocean must be in the same cluster
-    let rain  = assignments[eng.labels.iter().position(|l| l == "Rain").unwrap()];
+    let rain = assignments[eng.labels.iter().position(|l| l == "Rain").unwrap()];
     let ocean = assignments[eng.labels.iter().position(|l| l == "Ocean").unwrap()];
-    assert_eq!(rain, ocean, "FAIL R5-1: Rain and Ocean should cluster together");
+    assert_eq!(
+        rain, ocean,
+        "FAIL R5-1: Rain and Ocean should cluster together"
+    );
 
     // Database and CPU must be in the same cluster
-    let db  = assignments[eng.labels.iter().position(|l| l == "Database").unwrap()];
+    let db = assignments[eng.labels.iter().position(|l| l == "Database").unwrap()];
     let cpu = assignments[eng.labels.iter().position(|l| l == "CPU").unwrap()];
-    assert_eq!(db, cpu, "FAIL R5-1: Database and CPU should cluster together");
+    assert_eq!(
+        db, cpu,
+        "FAIL R5-1: Database and CPU should cluster together"
+    );
 
     println!("[R5-1] PASS — semantic clusters formed without category labels");
 }
@@ -76,14 +80,15 @@ fn r5_2_category_recovery_test() {
     let cp = DiscoveryEngine::cluster_purity(&assignments, &ground_truth, k);
 
     println!("[R5-2] Cluster purity CP={cp:.4}");
-    for (l, (&a, &gt)) in eng.labels.iter().zip(assignments.iter().zip(ground_truth.iter())) {
+    for (l, (&a, &gt)) in eng
+        .labels
+        .iter()
+        .zip(assignments.iter().zip(ground_truth.iter()))
+    {
         println!("  {l:12} → cluster {a}  (true_cat={gt})");
     }
 
-    assert!(
-        cp > 0.80,
-        "FAIL R5-2: CP={cp:.4} should be > 0.80"
-    );
+    assert!(cp > 0.80, "FAIL R5-2: CP={cp:.4} should be > 0.80");
 }
 
 // ============================================================
@@ -97,7 +102,8 @@ fn r5_3_nearest_neighbor_discovery() {
     let neighbors = eng.nearest_neighbors("Dog", 3);
     println!("[R5-3] Dog top-3 neighbors: {neighbors:?}");
 
-    let animal_hits = neighbors.iter()
+    let animal_hits = neighbors
+        .iter()
         .filter(|n| animal_labels.contains(&n.as_str()))
         .count();
     let na = animal_hits as f64 / 3.0;
@@ -121,7 +127,7 @@ fn r5_4_hierarchical_discovery() {
     let assignments = eng.kmeans(k, 300);
 
     // Find the cluster that contains "Dog"
-    let dog_idx   = eng.labels.iter().position(|l| l == "Dog").unwrap();
+    let dog_idx = eng.labels.iter().position(|l| l == "Dog").unwrap();
     let dog_cluster = assignments[dog_idx];
 
     let centroids = eng.cluster_centroids(&assignments, k);
@@ -129,9 +135,23 @@ fn r5_4_hierarchical_discovery() {
 
     // Collect animal labels and non-animal labels
     let animal_labels = ["Dog", "Cat", "Tiger", "Lion", "Wolf"];
-    let non_animal_labels = ["Car", "Truck", "Bus", "Train", "Motorcycle",
-                              "Computer", "Database", "CPU", "Network", "Algorithm",
-                              "Rain", "Cloud", "River", "Ocean", "Mountain"];
+    let non_animal_labels = [
+        "Car",
+        "Truck",
+        "Bus",
+        "Train",
+        "Motorcycle",
+        "Computer",
+        "Database",
+        "CPU",
+        "Network",
+        "Algorithm",
+        "Rain",
+        "Cloud",
+        "River",
+        "Ocean",
+        "Mountain",
+    ];
 
     // All animals should be closer to the animal centroid than to the
     // centroid of any other cluster
@@ -173,14 +193,20 @@ fn r5_5_semantic_boundary_test() {
     }
 
     // Dog+Cat must be together, Car+Train must be together
-    let dog   = assignments[eng.labels.iter().position(|l| l == "Dog").unwrap()];
-    let cat   = assignments[eng.labels.iter().position(|l| l == "Cat").unwrap()];
-    let car   = assignments[eng.labels.iter().position(|l| l == "Car").unwrap()];
+    let dog = assignments[eng.labels.iter().position(|l| l == "Dog").unwrap()];
+    let cat = assignments[eng.labels.iter().position(|l| l == "Cat").unwrap()];
+    let car = assignments[eng.labels.iter().position(|l| l == "Car").unwrap()];
     let train = assignments[eng.labels.iter().position(|l| l == "Train").unwrap()];
 
-    assert_eq!(dog, cat,   "FAIL R5-5: Dog and Cat should be in same cluster");
-    assert_eq!(car, train, "FAIL R5-5: Car and Train should be in same cluster");
-    assert_ne!(dog, car,   "FAIL R5-5: Animals and Vehicles should be in different clusters");
+    assert_eq!(dog, cat, "FAIL R5-5: Dog and Cat should be in same cluster");
+    assert_eq!(
+        car, train,
+        "FAIL R5-5: Car and Train should be in same cluster"
+    );
+    assert_ne!(
+        dog, car,
+        "FAIL R5-5: Animals and Vehicles should be in different clusters"
+    );
 
     let sbs = DiscoveryEngine::cluster_separation_ratio(&eng, &assignments, k);
     println!("[R5-5] SBS={sbs:.4}");
@@ -199,13 +225,19 @@ fn r5_6_outlier_detection() {
     println!("[R5-6] detected outliers: {outliers:?}");
 
     // Also compute pairwise avg distances to verify Database is farthest
-    let mut avg_dists: Vec<(String, f64)> = eng.labels.iter().enumerate().map(|(i, l)| {
-        let n = eng.len();
-        let sum: f64 = (0..n).filter(|&j| j != i)
-            .map(|j| DiscoveryEngine::cosine_dist(&eng.states[i], &eng.states[j]))
-            .sum();
-        (l.clone(), sum / (n - 1) as f64)
-    }).collect();
+    let mut avg_dists: Vec<(String, f64)> = eng
+        .labels
+        .iter()
+        .enumerate()
+        .map(|(i, l)| {
+            let n = eng.len();
+            let sum: f64 = (0..n)
+                .filter(|&j| j != i)
+                .map(|j| DiscoveryEngine::cosine_dist(&eng.states[i], &eng.states[j]))
+                .sum();
+            (l.clone(), sum / (n - 1) as f64)
+        })
+        .collect();
     avg_dists.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
     println!("[R5-6] avg distances (highest = most outlying):");
@@ -285,7 +317,10 @@ fn r5_8_cross_language_discovery() {
 
     // Database must be in a different cluster
     let db_cluster = assignments[eng.labels.iter().position(|l| l == "Database").unwrap()];
-    assert_ne!(dog_cluster, db_cluster, "FAIL R5-8: Database should be in different cluster from dogs");
+    assert_ne!(
+        dog_cluster, db_cluster,
+        "FAIL R5-8: Database should be in different cluster from dogs"
+    );
 
     println!("[R5-8] PASS — all language forms of 'dog' co-clustered");
 }
@@ -299,14 +334,20 @@ fn r5_9_symbol_discovery() {
     let eng = build_r5_symbol_dataset();
 
     // Direct distance check (cluster with 4 elements is too small for k-means instability)
-    let d_dog_inu   = eng.dist_by_label("Dog", "犬");
+    let d_dog_inu = eng.dist_by_label("Dog", "犬");
     let d_dog_emoji = eng.dist_by_label("Dog", "🐕");
-    let d_dog_db    = eng.dist_by_label("Dog", "Database");
+    let d_dog_db = eng.dist_by_label("Dog", "Database");
 
     println!("[R5-9] dist(Dog,犬)={d_dog_inu:.4}  dist(Dog,🐕)={d_dog_emoji:.4}  dist(Dog,Database)={d_dog_db:.4}");
 
-    assert!(d_dog_inu   < d_dog_db, "FAIL R5-9: 犬 should be closer to Dog than Database");
-    assert!(d_dog_emoji < d_dog_db, "FAIL R5-9: 🐕 should be closer to Dog than Database");
+    assert!(
+        d_dog_inu < d_dog_db,
+        "FAIL R5-9: 犬 should be closer to Dog than Database"
+    );
+    assert!(
+        d_dog_emoji < d_dog_db,
+        "FAIL R5-9: 🐕 should be closer to Dog than Database"
+    );
 
     // Clustering: k=2 → {Dog, 犬, 🐕} vs {Database}
     let assignments = eng.kmeans(2, 200);
@@ -315,14 +356,23 @@ fn r5_9_symbol_discovery() {
         println!("  {} → cluster {c}", l);
     }
 
-    let dog_c   = assignments[eng.labels.iter().position(|l| l == "Dog").unwrap()];
-    let inu_c   = assignments[eng.labels.iter().position(|l| l == "犬").unwrap()];
+    let dog_c = assignments[eng.labels.iter().position(|l| l == "Dog").unwrap()];
+    let inu_c = assignments[eng.labels.iter().position(|l| l == "犬").unwrap()];
     let emoji_c = assignments[eng.labels.iter().position(|l| l == "🐕").unwrap()];
-    let db_c    = assignments[eng.labels.iter().position(|l| l == "Database").unwrap()];
+    let db_c = assignments[eng.labels.iter().position(|l| l == "Database").unwrap()];
 
-    assert_eq!(dog_c, inu_c,   "FAIL R5-9: Dog and 犬 should be in same cluster");
-    assert_eq!(dog_c, emoji_c, "FAIL R5-9: Dog and 🐕 should be in same cluster");
-    assert_ne!(dog_c, db_c,    "FAIL R5-9: Database should be in different cluster");
+    assert_eq!(
+        dog_c, inu_c,
+        "FAIL R5-9: Dog and 犬 should be in same cluster"
+    );
+    assert_eq!(
+        dog_c, emoji_c,
+        "FAIL R5-9: Dog and 🐕 should be in same cluster"
+    );
+    assert_ne!(
+        dog_c, db_c,
+        "FAIL R5-9: Database should be in different cluster"
+    );
 }
 
 // ============================================================
@@ -337,16 +387,26 @@ fn r5_10_semantic_state_emergence() {
 
     let ground_truth: Vec<usize> = eng.labels.iter().map(|l| true_category(l)).collect();
 
-    let cp  = DiscoveryEngine::cluster_purity(&assignments, &ground_truth, k);
+    let cp = DiscoveryEngine::cluster_purity(&assignments, &ground_truth, k);
     let hes = DiscoveryEngine::hierarchical_emergence_score(&eng, &assignments, k);
     let sbs = DiscoveryEngine::cluster_separation_ratio(&eng, &assignments, k);
 
     // Neighbor accuracy: for each concept, is its nearest neighbor in the same category?
-    let na = eng.labels.iter().enumerate().map(|(_i, l)| {
-        let nn = eng.nearest_neighbors(l, 1);
-        let nn_cat = true_category(&nn[0]);
-        if nn_cat == true_category(l) { 1.0 } else { 0.0 }
-    }).sum::<f64>() / eng.len() as f64;
+    let na = eng
+        .labels
+        .iter()
+        .enumerate()
+        .map(|(_i, l)| {
+            let nn = eng.nearest_neighbors(l, 1);
+            let nn_cat = true_category(&nn[0]);
+            if nn_cat == true_category(l) {
+                1.0
+            } else {
+                0.0
+            }
+        })
+        .sum::<f64>()
+        / eng.len() as f64;
 
     // Cross-language: Dog/犬 not in full_dataset, use cluster membership test on full
     // (all 4 categories well-recovered ⟹ CLAS implied; just verify via CP)
@@ -360,11 +420,11 @@ fn r5_10_semantic_state_emergence() {
         println!("  {l:12} → cluster {a}  (true={})", true_category(l));
     }
 
-    assert!(cp  > 0.80, "FAIL R5-10: CP={cp:.4} < 0.80");
-    assert!(na  > 0.80, "FAIL R5-10: NA={na:.4} < 0.80");
+    assert!(cp > 0.80, "FAIL R5-10: CP={cp:.4} < 0.80");
+    assert!(na > 0.80, "FAIL R5-10: NA={na:.4} < 0.80");
     assert!(hes > 0.70, "FAIL R5-10: HES={hes:.4} < 0.70");
-    assert!(sbs > 2.0,  "FAIL R5-10: SBS={sbs:.4} < 2.0");
-    assert!(es  > 0.80, "FAIL R5-10: ES={es:.4} < 0.80");
+    assert!(sbs > 2.0, "FAIL R5-10: SBS={sbs:.4} < 2.0");
+    assert!(es > 0.80, "FAIL R5-10: ES={es:.4} < 0.80");
 
     println!("[R5-10] PASS — semantic state emergence confirmed");
 }
@@ -391,14 +451,23 @@ fn metric_cp_cluster_purity() {
 fn metric_na_neighbor_accuracy() {
     let eng = build_r5_full_dataset();
 
-    let correct = eng.labels.iter().enumerate().filter(|(_i, l)| {
-        let nn  = eng.nearest_neighbors(l, 1);
-        let own = true_category(l);
-        let got = true_category(&nn[0]);
-        let hit = own == got;
-        println!("[NA] {l:12} → {:<12}  {}", nn[0], if hit {"✓"} else {"✗"});
-        hit
-    }).count();
+    let correct = eng
+        .labels
+        .iter()
+        .enumerate()
+        .filter(|(_i, l)| {
+            let nn = eng.nearest_neighbors(l, 1);
+            let own = true_category(l);
+            let got = true_category(&nn[0]);
+            let hit = own == got;
+            println!(
+                "[NA] {l:12} → {:<12}  {}",
+                nn[0],
+                if hit { "✓" } else { "✗" }
+            );
+            hit
+        })
+        .count();
 
     let na = correct as f64 / eng.len() as f64;
     println!("[NA] NA={na:.4} ({correct}/{})", eng.len());
@@ -439,7 +508,8 @@ fn metric_clas_cross_language_alignment_score() {
     let dog_langs = ["Dog", "犬", "Hund", "Perro", "Chien"];
     let dog_cluster = assignments[eng.labels.iter().position(|l| l == "Dog").unwrap()];
 
-    let aligned = dog_langs.iter()
+    let aligned = dog_langs
+        .iter()
         .filter(|&&lang| {
             let c = assignments[eng.labels.iter().position(|l| l == lang).unwrap()];
             c == dog_cluster
@@ -459,15 +529,19 @@ fn metric_es_emergence_score() {
     let assignments = eng.kmeans(k, 300);
     let ground_truth: Vec<usize> = eng.labels.iter().map(|l| true_category(l)).collect();
 
-    let cp  = DiscoveryEngine::cluster_purity(&assignments, &ground_truth, k);
+    let cp = DiscoveryEngine::cluster_purity(&assignments, &ground_truth, k);
     let hes = DiscoveryEngine::hierarchical_emergence_score(&eng, &assignments, k);
     let sbs = DiscoveryEngine::cluster_separation_ratio(&eng, &assignments, k);
-    let na  = eng.labels.iter().enumerate()
+    let na = eng
+        .labels
+        .iter()
+        .enumerate()
         .filter(|(_i, l)| {
             let nn = eng.nearest_neighbors(l, 1);
             true_category(&nn[0]) == true_category(l)
         })
-        .count() as f64 / eng.len() as f64;
+        .count() as f64
+        / eng.len() as f64;
     let clas = cp;
 
     let es = DiscoveryEngine::emergence_score(cp, na, hes, sbs, clas);

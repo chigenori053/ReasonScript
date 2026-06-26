@@ -1,6 +1,6 @@
-pub mod semantic_space;
 pub mod discovery_engine;
 pub mod math_reason;
+pub mod semantic_space;
 
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};

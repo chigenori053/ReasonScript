@@ -701,10 +701,9 @@ def extract_knowledge(
                 visited_states.add(target)
                 queue.append((target, new_path))
 
-    import datetime
     return {
         "schema_version": "knowledge-emergence/0.2",
-        "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+        "generated_at": "1970-01-01T00:00:00Z",
         "knowledge_count": len(knowledge_units),
         "evidence_count": sum(1 for k in knowledge_units if k.get("from_simulation")),
         "knowledge": knowledge_units,

@@ -112,7 +112,7 @@ FEATURE_SAMPLES: dict[str, dict[str, Any]] = {
     },
     "struct": {
         "source": "module Basic {\n  struct Point {\n    x: int\n  }\n  calculation Value {\n    let p: Point = Point {\n      x: 1\n    }\n    result = p.x\n  }\n}\n",
-        "surface_nodes": ["StructDeclarationNode", "StructLiteralNode"],
+        "surface_nodes": ["StructDeclarationNode", "StructLiteralExpressionNode"],
         "ir_markers": ["composite_declarations", "StructLiteralTransition"],
     },
     "enum": {

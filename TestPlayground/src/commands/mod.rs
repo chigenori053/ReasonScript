@@ -14,11 +14,7 @@ use std::process::Command;
 /// The script is located at `<CARGO_MANIFEST_DIR>/scripts/pipeline.py`.
 /// The repo root (parent of `CARGO_MANIFEST_DIR`) is set as the working
 /// directory so that `from frontend.*` imports resolve correctly.
-pub fn invoke_pipeline(
-    stage: &str,
-    source: &str,
-    format: &Format,
-) -> Result<(), PlaygroundError> {
+pub fn invoke_pipeline(stage: &str, source: &str, format: &Format) -> Result<(), PlaygroundError> {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let script = Path::new(manifest_dir).join("scripts").join("pipeline.py");
     let repo_root = Path::new(manifest_dir)

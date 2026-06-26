@@ -408,17 +408,15 @@ def _validate_ast_node(node: Any) -> None:
         _identifier(node.name, "FN-001 FunctionDeclarationNode.name")
         if not isinstance(node.visibility, Visibility):
             raise SurfaceValidationError("FN-001 invalid function visibility")
-        if node.return_type is None:
-            raise SurfaceValidationError("FN-003 Function return type required")
-        _validate_type_node(node.return_type)
+        if node.return_type is not None:
+            _validate_type_node(node.return_type)
         seen: set[str] = set()
         for parameter in node.parameters:
             name = _function_parameter_name(parameter)
             parameter_type = _function_parameter_type(parameter)
             _identifier(name, "FN-002 FunctionDeclarationNode.parameter")
-            if parameter_type is None:
-                raise SurfaceValidationError(f"FN-002 parameter type required: {name}")
-            _validate_type_node(parameter_type)
+            if parameter_type is not None:
+                _validate_type_node(parameter_type)
             if name in seen:
                 raise SurfaceValidationError(f"FN-006 duplicate parameter: {name}")
             seen.add(name)
@@ -770,9 +768,8 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
 def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -> None:
     global _CURRENT_FUNCTION
     _validate_ast_node(node)
-    if node.return_type is None:
-        raise SurfaceValidationError("FN-003 Function return type required")
-    _resolve_type(node.return_type, symbols)
+    if node.return_type is not None:
+        _resolve_type(node.return_type, symbols)
     bindings = {
         _function_parameter_name(parameter): _Binding(
             _function_parameter_type(parameter) or _UNKNOWN_TYPE,
@@ -2495,6 +2492,8 @@ def _validate_identifier_pattern(
     symbols: dict[str, Any],
 ) -> None:
     if pattern.name == "default":
+        return
+    if match_type is _UNKNOWN_TYPE:
         return
     if isinstance(match_type, NamedTypeNode):
         enum = symbols.get(match_type.name)

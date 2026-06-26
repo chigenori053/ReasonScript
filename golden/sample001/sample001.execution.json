@@ -1,0 +1,36 @@
+{
+  "alternative_paths": [
+    {
+      "expected_cost": 1.0,
+      "step_ids": [
+        "alt-step-1"
+      ]
+    }
+  ],
+  "distance": 2,
+  "evidence_refs": [],
+  "expected_cost": 2.0,
+  "goal": "Result.state.result",
+  "path_signature": "Value.return",
+  "planner_version": "playground-planner/0.2",
+  "reachable": true,
+  "schema_version": "execution-plan/0.1",
+  "selected_branch": "Value.return",
+  "selected_branches": [
+    "Value.return"
+  ],
+  "selected_steps": [
+    {
+      "source": "SampleStart",
+      "step_id": "step-1",
+      "target": "Value.return",
+      "transition_id": "Value.return"
+    },
+    {
+      "source": "Value.return",
+      "step_id": "step-2",
+      "target": "Result.state.result",
+      "transition_id": "Result-1-result"
+    }
+  ]
+}

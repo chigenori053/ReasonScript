@@ -21,7 +21,9 @@ impl Poly {
         p
     }
 
-    pub fn zero() -> Self { Self(vec![]) }
+    pub fn zero() -> Self {
+        Self(vec![])
+    }
 
     fn trim(&mut self) {
         while self.0.last().map(|&c| c.abs() < 1e-9).unwrap_or(false) {
@@ -29,12 +31,20 @@ impl Poly {
         }
     }
 
-    pub fn coeff(&self, i: usize) -> f64 { self.0.get(i).copied().unwrap_or(0.0) }
+    pub fn coeff(&self, i: usize) -> f64 {
+        self.0.get(i).copied().unwrap_or(0.0)
+    }
 
-    pub fn degree(&self) -> usize { self.0.len().saturating_sub(1) }
+    pub fn degree(&self) -> usize {
+        self.0.len().saturating_sub(1)
+    }
 
     pub fn eval(&self, x: f64) -> f64 {
-        self.0.iter().enumerate().map(|(i, c)| c * x.powi(i as i32)).sum()
+        self.0
+            .iter()
+            .enumerate()
+            .map(|(i, c)| c * x.powi(i as i32))
+            .sum()
     }
 
     pub fn add(&self, other: &Poly) -> Poly {
@@ -52,7 +62,9 @@ impl Poly {
     }
 
     pub fn mul(&self, other: &Poly) -> Poly {
-        if self.0.is_empty() || other.0.is_empty() { return Poly::zero(); }
+        if self.0.is_empty() || other.0.is_empty() {
+            return Poly::zero();
+        }
         let n = self.0.len() + other.0.len() - 1;
         let mut c = vec![0.0f64; n];
         for (i, &a) in self.0.iter().enumerate() {
@@ -65,16 +77,21 @@ impl Poly {
 
     /// Numeric equality: same value at all test points
     pub fn numerically_equal(&self, other: &Poly) -> bool {
-        [-7.3, -1.0, 0.0, 1.0, 2.5, 5.0, 13.7].iter()
+        [-7.3, -1.0, 0.0, 1.0, 2.5, 5.0, 13.7]
+            .iter()
             .all(|&x| (self.eval(x) - other.eval(x)).abs() < 1e-9)
     }
 
     /// Human-readable form
     pub fn fmt(&self) -> String {
-        if self.0.is_empty() { return "0".to_string(); }
+        if self.0.is_empty() {
+            return "0".to_string();
+        }
         let mut parts: Vec<String> = Vec::new();
         for (deg, &c) in self.0.iter().enumerate().rev() {
-            if c.abs() < 1e-9 { continue; }
+            if c.abs() < 1e-9 {
+                continue;
+            }
             let abs = c.abs();
             let abs_s = if (abs.round() - abs).abs() < 1e-9 {
                 format!("{}", abs as i64)
@@ -96,7 +113,11 @@ impl Poly {
                 parts.push(format!("+ {}", term));
             }
         }
-        if parts.is_empty() { "0".to_string() } else { parts.join(" ") }
+        if parts.is_empty() {
+            "0".to_string()
+        } else {
+            parts.join(" ")
+        }
     }
 }
 
@@ -122,18 +143,31 @@ impl MathState {
             MathState::Expr(p) => p.fmt(),
             MathState::Equation { lhs, rhs } => format!("{} = {}", lhs.fmt(), rhs.fmt()),
             MathState::Factored { roots } => {
-                let fs: Vec<String> = roots.iter().map(|&r| {
-                    if r.abs() < 1e-9 { "x".to_string() }
-                    else if r > 0.0   { format!("(x - {})", r as i64) }
-                    else              { format!("(x + {})", (-r) as i64) }
-                }).collect();
+                let fs: Vec<String> = roots
+                    .iter()
+                    .map(|&r| {
+                        if r.abs() < 1e-9 {
+                            "x".to_string()
+                        } else if r > 0.0 {
+                            format!("(x - {})", r as i64)
+                        } else {
+                            format!("(x + {})", (-r) as i64)
+                        }
+                    })
+                    .collect();
                 format!("{} = 0", fs.join(""))
             }
             MathState::Solutions(sols) => {
-                let ss: Vec<String> = sols.iter().map(|&s| {
-                    if (s.round() - s).abs() < 1e-9 { format!("x = {}", s as i64) }
-                    else                             { format!("x = {:.3}", s) }
-                }).collect();
+                let ss: Vec<String> = sols
+                    .iter()
+                    .map(|&s| {
+                        if (s.round() - s).abs() < 1e-9 {
+                            format!("x = {}", s as i64)
+                        } else {
+                            format!("x = {:.3}", s)
+                        }
+                    })
+                    .collect();
                 ss.join(" or ")
             }
         }
@@ -142,9 +176,9 @@ impl MathState {
     /// Residual polynomial (lhs - rhs for equations, poly for expressions, None for solutions)
     pub fn residual(&self) -> Option<Poly> {
         match self {
-            MathState::Expr(p)                    => Some(p.clone()),
-            MathState::Equation { lhs, rhs }      => Some(lhs.sub(rhs)),
-            MathState::Factored { roots }          => {
+            MathState::Expr(p) => Some(p.clone()),
+            MathState::Equation { lhs, rhs } => Some(lhs.sub(rhs)),
+            MathState::Factored { roots } => {
                 let mut prod = Poly::new(vec![1.0]);
                 for &r in roots {
                     prod = prod.mul(&Poly::new(vec![-r, 1.0]));
@@ -159,9 +193,9 @@ impl MathState {
     pub fn satisfied_by(&self, x: f64) -> bool {
         match self {
             MathState::Equation { lhs, rhs } => (lhs.eval(x) - rhs.eval(x)).abs() < 1e-9,
-            MathState::Solutions(sols)        => sols.iter().any(|&s| (s - x).abs() < 1e-9),
-            MathState::Factored { roots }     => roots.iter().any(|&r| (r - x).abs() < 1e-9),
-            MathState::Expr(p)                => p.eval(x).abs() < 1e-9,
+            MathState::Solutions(sols) => sols.iter().any(|&s| (s - x).abs() < 1e-9),
+            MathState::Factored { roots } => roots.iter().any(|&r| (r - x).abs() < 1e-9),
+            MathState::Expr(p) => p.eval(x).abs() < 1e-9,
         }
     }
 }
@@ -194,41 +228,43 @@ pub fn is_valid_transition(before: &MathState, after: &MathState) -> bool {
 
 #[derive(Debug)]
 pub struct StepRecord {
-    pub rule:         String,
+    pub rule: String,
     pub state_before: String,
-    pub state_after:  String,
-    pub valid:        bool,
+    pub state_after: String,
+    pub valid: bool,
 }
 
 #[derive(Debug)]
 pub struct MathTrace {
-    pub initial:          String,
-    pub steps:            Vec<StepRecord>,
-    pub final_state:      String,
+    pub initial: String,
+    pub steps: Vec<StepRecord>,
+    pub final_state: String,
     /// Every transition was equivalence-preserving
-    pub all_valid:        bool,
+    pub all_valid: bool,
     /// Final state reached the intended solution
-    pub converged:        bool,
+    pub converged: bool,
 }
 
 impl MathTrace {
     pub fn new(initial: &MathState) -> Self {
         Self {
-            initial:     initial.fmt(),
-            steps:       Vec::new(),
+            initial: initial.fmt(),
+            steps: Vec::new(),
             final_state: initial.fmt(),
-            all_valid:   true,
-            converged:   false,
+            all_valid: true,
+            converged: false,
         }
     }
 
     pub fn push(&mut self, rule: &str, before: &MathState, after: &MathState) {
         let valid = is_valid_transition(before, after);
-        if !valid { self.all_valid = false; }
+        if !valid {
+            self.all_valid = false;
+        }
         self.steps.push(StepRecord {
-            rule:         rule.to_string(),
+            rule: rule.to_string(),
             state_before: before.fmt(),
-            state_after:  after.fmt(),
+            state_after: after.fmt(),
             valid,
         });
         self.final_state = after.fmt();
@@ -237,11 +273,13 @@ impl MathTrace {
     /// Record an INVALID transition (for collapse detection tests)
     pub fn push_unchecked(&mut self, rule: &str, before: &MathState, after: &MathState) {
         let valid = is_valid_transition(before, after);
-        if !valid { self.all_valid = false; }
+        if !valid {
+            self.all_valid = false;
+        }
         self.steps.push(StepRecord {
-            rule:         rule.to_string(),
+            rule: rule.to_string(),
             state_before: before.fmt(),
-            state_after:  after.fmt(),
+            state_after: after.fmt(),
             valid,
         });
         self.final_state = after.fmt();
@@ -254,28 +292,43 @@ impl MathTrace {
 
 /// Test 1 — Solve linear equation: x + c = d  →  x = d - c  →  x = value
 pub fn solve_linear(lhs: Poly, rhs: Poly) -> MathTrace {
-    let s0 = MathState::Equation { lhs: lhs.clone(), rhs: rhs.clone() };
+    let s0 = MathState::Equation {
+        lhs: lhs.clone(),
+        rhs: rhs.clone(),
+    };
     let mut trace = MathTrace::new(&s0);
 
     // Step 1: move constant term from LHS to RHS
     let const_term = lhs.coeff(0);
     let new_lhs = Poly::new({
         let mut v = lhs.0.clone();
-        if !v.is_empty() { v[0] = 0.0; }
+        if !v.is_empty() {
+            v[0] = 0.0;
+        }
         v
     });
     // RHS: original - constant  (shown as intermediate "d - c" form)
     let new_rhs = rhs.add(&Poly::new(vec![-const_term]));
-    let _s1 = MathState::Equation { lhs: new_lhs.clone(), rhs: Poly::new(vec![rhs.coeff(0), 0.0]) };
+    let _s1 = MathState::Equation {
+        lhs: new_lhs.clone(),
+        rhs: Poly::new(vec![rhs.coeff(0), 0.0]),
+    };
     // We display the subtraction step symbolically; validate against correct residual
     let s1_symbolic = MathState::Equation {
         lhs: new_lhs.clone(),
         rhs: Poly::new(vec![rhs.coeff(0)]).add(&Poly::new(vec![-const_term])),
     };
-    trace.push("subtract constant from LHS (move to RHS)", &s0, &s1_symbolic);
+    trace.push(
+        "subtract constant from LHS (move to RHS)",
+        &s0,
+        &s1_symbolic,
+    );
 
     // Step 2: evaluate RHS arithmetic
-    let s2 = MathState::Equation { lhs: new_lhs.clone(), rhs: new_rhs.clone() };
+    let s2 = MathState::Equation {
+        lhs: new_lhs.clone(),
+        rhs: new_rhs.clone(),
+    };
     trace.push("evaluate RHS arithmetic", &s1_symbolic, &s2);
 
     // Step 3: extract solution
@@ -290,7 +343,10 @@ pub fn solve_linear(lhs: Poly, rhs: Poly) -> MathTrace {
 
 /// Test 2 — Solve quadratic: ax² + bx + c = 0 → (x - r₁)(x - r₂) = 0 → x = r₁ or x = r₂
 pub fn solve_quadratic_by_factoring(poly: Poly) -> MathTrace {
-    let s0 = MathState::Equation { lhs: poly.clone(), rhs: Poly::zero() };
+    let s0 = MathState::Equation {
+        lhs: poly.clone(),
+        rhs: Poly::zero(),
+    };
     let mut trace = MathTrace::new(&s0);
 
     // Find roots via quadratic formula (integer roots for our test)
@@ -306,7 +362,9 @@ pub fn solve_quadratic_by_factoring(poly: Poly) -> MathTrace {
     // Step 1: factor into (x - r1)(x - r2) = 0
     let mut roots = vec![r1, r2];
     roots.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let s1 = MathState::Factored { roots: roots.clone() };
+    let s1 = MathState::Factored {
+        roots: roots.clone(),
+    };
     trace.push("factor quadratic (find integer roots)", &s0, &s1);
 
     // Step 2: extract solutions from factored form
@@ -321,9 +379,9 @@ pub fn solve_quadratic_by_factoring(poly: Poly) -> MathTrace {
 /// Test 3 — Expand distribution: k·(p(x)) → k·p(x)
 pub fn expand_distribution(scalar: f64, inner: Poly) -> MathTrace {
     let _s0 = MathState::Expr(Poly::new(vec![scalar])); // represents "scalar * (...)"
-    // We'll use a two-expression comparison rather than a single Expr
-    // Represent before as (scalar * inner) before multiplication
-    let before_poly  = inner.scale(1.0);   // inner unchanged
+                                                        // We'll use a two-expression comparison rather than a single Expr
+                                                        // Represent before as (scalar * inner) before multiplication
+    let before_poly = inner.scale(1.0); // inner unchanged
     let before_state = MathState::Expr(before_poly.scale(scalar)); // conceptually "scalar*(inner)"
     let mut trace = MathTrace::new(&before_state);
 
@@ -334,7 +392,11 @@ pub fn expand_distribution(scalar: f64, inner: Poly) -> MathTrace {
     let expanded = inner.scale(scalar);
     let after_state = MathState::Expr(expanded.clone());
     trace.initial = format!("{}({})", scalar as i64, inner.fmt());
-    trace.push("distribute scalar over polynomial (expansion)", &before_display, &after_state);
+    trace.push(
+        "distribute scalar over polynomial (expansion)",
+        &before_display,
+        &after_state,
+    );
 
     // Convergence: expanded poly equals scalar * inner numerically
     trace.converged = expanded.numerically_equal(&inner.scale(scalar));
@@ -345,7 +407,11 @@ pub fn expand_distribution(scalar: f64, inner: Poly) -> MathTrace {
 pub fn simplify_polynomial(terms: Vec<Poly>) -> MathTrace {
     // Build the "unsimplified" polynomial by summing parts
     let combined: Poly = terms.iter().fold(Poly::zero(), |acc, p| acc.add(p));
-    let before_repr = terms.iter().map(|p| p.fmt()).collect::<Vec<_>>().join(" + ");
+    let before_repr = terms
+        .iter()
+        .map(|p| p.fmt())
+        .collect::<Vec<_>>()
+        .join(" + ");
 
     let s0 = MathState::Expr(combined.clone()); // already combined numerically
     let mut trace = MathTrace::new(&s0);
@@ -365,8 +431,11 @@ pub fn simplify_polynomial(terms: Vec<Poly>) -> MathTrace {
 /// Shows that "x + 2 = 5  →  x = 7" is a collapsed (non-equivalent) transition.
 pub fn detect_invalid_transition() -> MathTrace {
     let lhs = Poly::new(vec![2.0, 1.0]); // x + 2
-    let rhs = Poly::new(vec![5.0]);       // 5
-    let s0  = MathState::Equation { lhs: lhs.clone(), rhs: rhs.clone() };
+    let rhs = Poly::new(vec![5.0]); // 5
+    let s0 = MathState::Equation {
+        lhs: lhs.clone(),
+        rhs: rhs.clone(),
+    };
     let mut trace = MathTrace::new(&s0);
 
     // WRONG step 1: x = 5 + 2 (should be 5 - 2)
@@ -375,7 +444,11 @@ pub fn detect_invalid_transition() -> MathTrace {
         lhs: Poly::new(vec![0.0, 1.0]),
         rhs: wrong_rhs.clone(),
     };
-    trace.push_unchecked("subtract constant from LHS [WRONG: added instead]", &s0, &s1_wrong);
+    trace.push_unchecked(
+        "subtract constant from LHS [WRONG: added instead]",
+        &s0,
+        &s1_wrong,
+    );
 
     // WRONG step 2: x = 7
     let s2_wrong = MathState::Solutions(vec![7.0]);

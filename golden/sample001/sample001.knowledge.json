@@ -1,0 +1,33 @@
+{
+  "evidence_count": 1,
+  "generated_at": "1970-01-01T00:00:00Z",
+  "knowledge": [
+    {
+      "branch_id": "return",
+      "confidence": 0.84,
+      "evidence": {
+        "path": [
+          "SampleStart",
+          "Value.return",
+          "Result.state.result"
+        ],
+        "transitions": [
+          "Value.return",
+          "Result-1-result"
+        ]
+      },
+      "evidence_path": [
+        "Value.return"
+      ],
+      "from_simulation": true,
+      "id": "K001",
+      "path_length": 2,
+      "path_signature": "Value.return",
+      "relation": "ResultTransition",
+      "source": "SampleStart",
+      "target": "Result.state.result"
+    }
+  ],
+  "knowledge_count": 1,
+  "schema_version": "knowledge-emergence/0.2"
+}

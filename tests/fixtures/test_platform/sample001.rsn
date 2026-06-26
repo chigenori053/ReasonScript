@@ -1,0 +1,9 @@
+module Sample {
+    fn Value() -> int {
+        return 42
+    }
+
+    calculation Result {
+        result = Value()
+    }
+}

@@ -119,13 +119,16 @@ fn tp002_ast_json_minimal_goal() {
     let src = examples_dir().join("graph/ex_001_minimal_goal.rsn");
     let (ok, stdout) = run_json("ast", src.to_str().unwrap());
     assert!(ok, "ast command should succeed");
-    let parsed: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("ast output should be valid JSON");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("ast output should be valid JSON");
     // Phase 2 AST: ModuleNode with declarations
     let has_goal = parsed
         .get("declarations")
         .and_then(|d| d.as_array())
-        .map(|arr| arr.iter().any(|n| n.get("node_type").and_then(|t| t.as_str()) == Some("GoalNode")))
+        .map(|arr| {
+            arr.iter()
+                .any(|n| n.get("node_type").and_then(|t| t.as_str()) == Some("GoalNode"))
+        })
         .unwrap_or(false);
     assert!(has_goal, "AST should contain a GoalNode");
 }
@@ -137,7 +140,8 @@ fn tp002_ast_json_taxonomy() {
     assert!(ok);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     let decls = parsed["declarations"].as_array().unwrap();
-    let transition_count = decls.iter()
+    let transition_count = decls
+        .iter()
         .filter(|n| n.get("node_type").and_then(|t| t.as_str()) == Some("TransitionNode"))
         .count();
     assert_eq!(transition_count, 2, "taxonomy should have 2 transitions");
@@ -164,7 +168,11 @@ fn tp003_semantic_ast_phase2() {
 fn tp003_semantic_ast_surface() {
     let src = examples_dir().join("planning/ex_009_planning_module.rsn");
     let (ok, _, stderr) = run_cmd("semantic", src.to_str().unwrap());
-    assert!(ok, "semantic command should succeed for surface file: {}", stderr);
+    assert!(
+        ok,
+        "semantic command should succeed for surface file: {}",
+        stderr
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -182,10 +190,7 @@ fn tp004_ir_basic_inference() {
         "reason-ir/0.1",
         "IR should have schema_version reason-ir/0.1"
     );
-    assert!(
-        parsed["goal"].is_object(),
-        "IR should contain a goal field"
-    );
+    assert!(parsed["goal"].is_object(), "IR should contain a goal field");
 }
 
 #[test]
@@ -204,7 +209,8 @@ fn tp004_ir_with_constraint() {
     let (ok, stdout) = run_json("ir", src.to_str().unwrap());
     assert!(ok);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let constraints = parsed.get("constraints")
+    let constraints = parsed
+        .get("constraints")
         .and_then(|c| c.as_array())
         .map(|a| a.len())
         .unwrap_or(0);
@@ -239,11 +245,7 @@ fn tp005_validate_full_pipeline() {
     ] {
         let src = examples_dir().join(path);
         let (ok, stdout, stderr) = run_cmd("validate", src.to_str().unwrap());
-        assert!(
-            ok,
-            "validation should pass for {}: stderr={}",
-            path, stderr
-        );
+        assert!(ok, "validation should pass for {}: stderr={}", path, stderr);
         assert!(
             stdout.contains("Validation PASS"),
             "output should contain 'Validation PASS' for {}",

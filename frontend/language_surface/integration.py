@@ -413,10 +413,17 @@ def _project_calculations(
             )
             for source in current_sources:
                 transition_index += 1
+                transition_id = _calculation_transition_id(
+                    node.name,
+                    index,
+                    identifier,
+                    transition_index,
+                    current_sources,
+                )
                 declarations.append(
                     semantic.TransitionNode(
                         f"{namespace}-calculation-{transition_index}",
-                        f"{node.name}-{index}-{identifier}-{transition_index}",
+                        transition_id,
                         source,
                         relation,
                         target,
@@ -1834,6 +1841,19 @@ def execution_plan_for(reason_ir: dict[str, Any]) -> dict[str, Any]:
         "evidence_refs": [],
         "planner_version": "language-surface-validation/0.1",
     }
+
+
+def _calculation_transition_id(
+    calculation_name: str,
+    statement_index: int,
+    identifier: str,
+    transition_index: int,
+    current_sources: list[str],
+) -> str:
+    base = f"{calculation_name}-{statement_index}-{identifier}"
+    if len(current_sources) == 1:
+        return base
+    return f"{base}-{transition_index}"
 
 
 def _expression_relation(expression: ExpressionNode) -> str:

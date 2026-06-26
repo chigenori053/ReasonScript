@@ -7,10 +7,9 @@
 ///   Reasoning       = 解への状態遷移
 ///   Convergence     = 解に到達
 ///   Collapse        = 不正変形・非等価変形
-
 use reasonunit_phase1_test::math_reason::{
-    detect_invalid_transition, expand_distribution, simplify_polynomial,
-    solve_linear, solve_quadratic_by_factoring, verify_solution, Poly,
+    detect_invalid_transition, expand_distribution, simplify_polynomial, solve_linear,
+    solve_quadratic_by_factoring, verify_solution, Poly,
 };
 
 fn print_trace(label: &str, trace: &reasonunit_phase1_test::math_reason::MathTrace) {
@@ -23,7 +22,10 @@ fn print_trace(label: &str, trace: &reasonunit_phase1_test::math_reason::MathTra
         println!("          after : {}", step.state_after);
     }
     println!("  FINAL   : {}", trace.final_state);
-    println!("  all_valid={:?}  converged={:?}", trace.all_valid, trace.converged);
+    println!(
+        "  all_valid={:?}  converged={:?}",
+        trace.all_valid, trace.converged
+    );
 }
 
 // ============================================================
@@ -41,9 +43,9 @@ fn r6_math_1_linear_equation() {
     print_trace("R6-Math-1: Linear Equation  x + 2 = 5", &trace);
 
     // All transitions must be equivalence-preserving
-    assert!(trace.all_valid,   "FAIL R6-1: invalid transition detected");
+    assert!(trace.all_valid, "FAIL R6-1: invalid transition detected");
     // Final state must have converged to a solution
-    assert!(trace.converged,   "FAIL R6-1: did not converge");
+    assert!(trace.converged, "FAIL R6-1: did not converge");
 
     // The solution x = 3 must satisfy the original equation
     assert!(
@@ -58,7 +60,10 @@ fn r6_math_1_linear_equation() {
         trace.final_state
     );
 
-    println!("[R6-1] PASS — x + 2 = 5 converged to x = 3 via {} valid steps", trace.steps.len());
+    println!(
+        "[R6-1] PASS — x + 2 = 5 converged to x = 3 via {} valid steps",
+        trace.steps.len()
+    );
 }
 
 // ============================================================
@@ -69,7 +74,7 @@ fn r6_math_1_linear_equation() {
 fn r6_math_2_quadratic_equation() {
     // x^2 - 5x + 6 = Poly([6, -5, 1]) (coeff[0]=6, coeff[1]=-5, coeff[2]=1)
     let poly = Poly::new(vec![6.0, -5.0, 1.0]);
-    let rhs  = Poly::new(vec![0.0]);
+    let rhs = Poly::new(vec![0.0]);
 
     let trace = solve_quadratic_by_factoring(poly.clone());
     print_trace("R6-Math-2: Quadratic  x^2 - 5x + 6 = 0", &trace);
@@ -92,8 +97,10 @@ fn r6_math_2_quadratic_equation() {
         trace.final_state
     );
 
-    println!("[R6-2] PASS — x^2 - 5x + 6 = 0 converged to x=2 or x=3 via {} steps",
-             trace.steps.len());
+    println!(
+        "[R6-2] PASS — x^2 - 5x + 6 = 0 converged to x=2 or x=3 via {} steps",
+        trace.steps.len()
+    );
 }
 
 // ============================================================
@@ -103,7 +110,7 @@ fn r6_math_2_quadratic_equation() {
 #[test]
 fn r6_math_3_identity_expansion() {
     // inner: x + 3 = Poly([3, 1])
-    let inner  = Poly::new(vec![3.0, 1.0]);
+    let inner = Poly::new(vec![3.0, 1.0]);
     let scalar = 2.0_f64;
 
     let trace = expand_distribution(scalar, inner.clone());
@@ -114,7 +121,7 @@ fn r6_math_3_identity_expansion() {
 
     // Result must be 2x + 6 = Poly([6, 2])
     let expected = Poly::new(vec![6.0, 2.0]);
-    let expanded  = inner.scale(scalar);
+    let expanded = inner.scale(scalar);
 
     assert!(
         expanded.numerically_equal(&expected),
@@ -148,7 +155,7 @@ fn r6_math_4_simplification() {
 
     // Result must be 5x - 4 = Poly([-4, 5])
     let expected = Poly::new(vec![-4.0, 5.0]);
-    let result   = Poly::new(vec![0.0, 3.0])
+    let result = Poly::new(vec![0.0, 3.0])
         .add(&Poly::new(vec![0.0, 2.0]))
         .add(&Poly::new(vec![-4.0]));
 
@@ -165,11 +172,15 @@ fn r6_math_4_simplification() {
     assert!(
         (original_val - simplified_val).abs() < 1e-9,
         "FAIL R6-4: value mismatch at x=2: original={} simplified={}",
-        original_val, simplified_val
+        original_val,
+        simplified_val
     );
 
-    println!("[R6-4] PASS — 3x + 2x - 4 = {} (numeric at x=2: {})",
-             result.fmt(), simplified_val);
+    println!(
+        "[R6-4] PASS — 3x + 2x - 4 = {} (numeric at x=2: {})",
+        result.fmt(),
+        simplified_val
+    );
 }
 
 // ============================================================
@@ -179,7 +190,10 @@ fn r6_math_4_simplification() {
 #[test]
 fn r6_math_5_invalid_transition_detection() {
     let trace = detect_invalid_transition();
-    print_trace("R6-Math-5: Invalid Transition Detection  x + 2 = 5 → x = 7 [WRONG]", &trace);
+    print_trace(
+        "R6-Math-5: Invalid Transition Detection  x + 2 = 5 → x = 7 [WRONG]",
+        &trace,
+    );
 
     // The trace must contain at least one invalid step
     let invalid_steps: Vec<_> = trace.steps.iter().filter(|s| !s.valid).collect();
@@ -208,8 +222,10 @@ fn r6_math_5_invalid_transition_detection() {
         "FAIL R6-5: x=3 should satisfy x + 2 = 5"
     );
 
-    println!("[R6-5] PASS — {} invalid step(s) detected; x=7 collapsed (not converged)",
-             invalid_steps.len());
+    println!(
+        "[R6-5] PASS — {} invalid step(s) detected; x=7 collapsed (not converged)",
+        invalid_steps.len()
+    );
     println!("         Collapse at: '{}'", invalid_steps[0].rule);
     println!("         before : {}", invalid_steps[0].state_before);
     println!("         after  : {}", invalid_steps[0].state_after);
@@ -244,14 +260,32 @@ fn r6_math_integration_all_proofs() {
     // Invalid transition
     let t5 = detect_invalid_transition();
     let has_collapse = t5.steps.iter().any(|s| !s.valid);
-    assert!(has_collapse && !t5.converged, "Invalid transition not detected");
+    assert!(
+        has_collapse && !t5.converged,
+        "Invalid transition not detected"
+    );
 
     println!("\n[R6-Math Integration]");
-    println!("  Test1 (linear)       : valid={} converged={}", t1.all_valid, t1.converged);
-    println!("  Test2 (quadratic)    : valid={} converged={}", t2.all_valid, t2.converged);
-    println!("  Test3 (expansion)    : valid={} converged={}", t3.all_valid, t3.converged);
-    println!("  Test4 (simplify)     : valid={} converged={}", t4.all_valid, t4.converged);
-    println!("  Test5 (collapse det) : collapse={} not_converged={}", has_collapse, !t5.converged);
+    println!(
+        "  Test1 (linear)       : valid={} converged={}",
+        t1.all_valid, t1.converged
+    );
+    println!(
+        "  Test2 (quadratic)    : valid={} converged={}",
+        t2.all_valid, t2.converged
+    );
+    println!(
+        "  Test3 (expansion)    : valid={} converged={}",
+        t3.all_valid, t3.converged
+    );
+    println!(
+        "  Test4 (simplify)     : valid={} converged={}",
+        t4.all_valid, t4.converged
+    );
+    println!(
+        "  Test5 (collapse det) : collapse={} not_converged={}",
+        has_collapse, !t5.converged
+    );
     println!("\n  ReasonUnit = 数式状態            ✓");
     println!("  Transition = 等価変形            ✓");
     println!("  Reasoning  = 解への状態遷移      ✓");

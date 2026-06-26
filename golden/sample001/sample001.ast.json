@@ -1,0 +1,58 @@
+{
+  "modules": [
+    {
+      "body": [
+        {
+          "body": [
+            {
+              "expression": {
+                "expression": {
+                  "node_type": "IntegerLiteralNode",
+                  "value": 42
+                },
+                "node_type": "ExpressionNode"
+              },
+              "node_type": "ReturnStatementNode"
+            }
+          ],
+          "name": "Value",
+          "node_type": "FunctionDeclarationNode",
+          "parameters": [],
+          "return_type": {
+            "kind": "Int",
+            "node_type": "PrimitiveTypeNode"
+          },
+          "visibility": "Private"
+        },
+        {
+          "body": [
+            {
+              "expression": {
+                "expression": {
+                  "arguments": [],
+                  "callee": {
+                    "name": "Value",
+                    "node_type": "IdentifierNode"
+                  },
+                  "node_type": "CallExpressionNode"
+                },
+                "node_type": "ExpressionNode"
+              },
+              "node_type": "ResultStatementNode"
+            }
+          ],
+          "goal_annotation": null,
+          "name": "Result",
+          "node_type": "CalculationNode",
+          "return_type": null,
+          "visibility": "Private"
+        }
+      ],
+      "name": "Sample",
+      "node_type": "ModuleNode",
+      "visibility": "Private"
+    }
+  ],
+  "node_type": "ProgramNode",
+  "package": null
+}

@@ -27,7 +27,10 @@ pub struct RawConcept {
 
 impl RawConcept {
     pub fn new(label: &str, state: Vec16) -> Self {
-        Self { label: label.to_string(), state }
+        Self {
+            label: label.to_string(),
+            state,
+        }
     }
 }
 
@@ -47,7 +50,9 @@ impl DiscoveryEngine {
         Self { labels, states }
     }
 
-    pub fn len(&self) -> usize { self.labels.len() }
+    pub fn len(&self) -> usize {
+        self.labels.len()
+    }
 
     // -----------------------------------------------------------------------
     // Distance
@@ -55,9 +60,11 @@ impl DiscoveryEngine {
 
     pub fn cosine_dist(a: &Vec16, b: &Vec16) -> f64 {
         let dot: f64 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
-        let na: f64  = a.iter().map(|x| x * x).sum::<f64>().sqrt();
-        let nb: f64  = b.iter().map(|x| x * x).sum::<f64>().sqrt();
-        if na < 1e-12 || nb < 1e-12 { return 1.0; }
+        let na: f64 = a.iter().map(|x| x * x).sum::<f64>().sqrt();
+        let nb: f64 = b.iter().map(|x| x * x).sum::<f64>().sqrt();
+        if na < 1e-12 || nb < 1e-12 {
+            return 1.0;
+        }
         (1.0 - dot / (na * nb)).clamp(0.0, 1.0)
     }
 
@@ -82,10 +89,12 @@ impl DiscoveryEngine {
             let next = (0..self.len())
                 .filter(|i| !selected.contains(i))
                 .max_by(|&i, &j| {
-                    let di = selected.iter()
+                    let di = selected
+                        .iter()
                         .map(|&s| Self::cosine_dist(&self.states[i], &self.states[s]))
                         .fold(f64::MAX, f64::min);
-                    let dj = selected.iter()
+                    let dj = selected
+                        .iter()
                         .map(|&s| Self::cosine_dist(&self.states[j], &self.states[s]))
                         .fold(f64::MAX, f64::min);
                     di.partial_cmp(&dj).unwrap_or(std::cmp::Ordering::Equal)
@@ -107,7 +116,9 @@ impl DiscoveryEngine {
 
         for _ in 0..max_iter {
             // Assign each concept to nearest centroid
-            let new_assignments: Vec<usize> = self.states.iter()
+            let new_assignments: Vec<usize> = self
+                .states
+                .iter()
                 .map(|s| {
                     (0..k)
                         .min_by(|&a, &b| {
@@ -119,22 +130,33 @@ impl DiscoveryEngine {
                 })
                 .collect();
 
-            if new_assignments == assignments { break; }
+            if new_assignments == assignments {
+                break;
+            }
             assignments = new_assignments;
 
             // Recompute centroids as unnormalized mean
             for cid in 0..k {
-                let members: Vec<&Vec16> = self.states.iter().enumerate()
+                let members: Vec<&Vec16> = self
+                    .states
+                    .iter()
+                    .enumerate()
                     .filter(|(i, _)| assignments[*i] == cid)
                     .map(|(_, s)| s)
                     .collect();
-                if members.is_empty() { continue; }
+                if members.is_empty() {
+                    continue;
+                }
                 let mut c = [0.0f64; DIM];
                 for s in &members {
-                    for d in 0..DIM { c[d] += s[d]; }
+                    for d in 0..DIM {
+                        c[d] += s[d];
+                    }
                 }
                 let n = members.len() as f64;
-                for d in 0..DIM { c[d] /= n; }
+                for d in 0..DIM {
+                    c[d] /= n;
+                }
                 centroids[cid] = c;
             }
         }
@@ -148,16 +170,20 @@ impl DiscoveryEngine {
 
     pub fn cluster_centroids(&self, assignments: &[usize], k: usize) -> Vec<Vec16> {
         let mut centroids = vec![[0.0f64; DIM]; k];
-        let mut counts    = vec![0u32; k];
+        let mut counts = vec![0u32; k];
         for (i, &c) in assignments.iter().enumerate() {
             if c < k {
-                for d in 0..DIM { centroids[c][d] += self.states[i][d]; }
+                for d in 0..DIM {
+                    centroids[c][d] += self.states[i][d];
+                }
                 counts[c] += 1;
             }
         }
         for c in 0..k {
             if counts[c] > 0 {
-                for d in 0..DIM { centroids[c][d] /= counts[c] as f64; }
+                for d in 0..DIM {
+                    centroids[c][d] /= counts[c] as f64;
+                }
             }
         }
         centroids
@@ -169,12 +195,19 @@ impl DiscoveryEngine {
 
     pub fn nearest_neighbors(&self, label: &str, k: usize) -> Vec<String> {
         let idx = self.idx(label).expect("label not found");
-        let mut dists: Vec<(usize, f64)> = self.states.iter().enumerate()
+        let mut dists: Vec<(usize, f64)> = self
+            .states
+            .iter()
+            .enumerate()
             .filter(|(i, _)| *i != idx)
             .map(|(i, s)| (i, Self::cosine_dist(&self.states[idx], s)))
             .collect();
         dists.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-        dists.into_iter().take(k).map(|(i, _)| self.labels[i].clone()).collect()
+        dists
+            .into_iter()
+            .take(k)
+            .map(|(i, _)| self.labels[i].clone())
+            .collect()
     }
 
     // -----------------------------------------------------------------------
@@ -206,11 +239,15 @@ impl DiscoveryEngine {
 
     pub fn hierarchical_emergence_score(&self, assignments: &[usize], k: usize) -> f64 {
         let centroids = self.cluster_centroids(assignments, k);
-        let correct = self.states.iter().enumerate()
+        let correct = self
+            .states
+            .iter()
+            .enumerate()
             .filter(|(i, s)| {
-                let own_c  = assignments[*i];
-                let d_own  = Self::cosine_dist(s, &centroids[own_c]);
-                (0..k).filter(|&c| c != own_c)
+                let own_c = assignments[*i];
+                let d_own = Self::cosine_dist(s, &centroids[own_c]);
+                (0..k)
+                    .filter(|&c| c != own_c)
                     .all(|c| Self::cosine_dist(s, &centroids[c]) > d_own)
             })
             .count();
@@ -230,14 +267,18 @@ impl DiscoveryEngine {
             for j in (i + 1)..n {
                 let d = Self::cosine_dist(&self.states[i], &self.states[j]);
                 if assignments[i] == assignments[j] {
-                    intra.0 += d; intra.1 += 1;
+                    intra.0 += d;
+                    intra.1 += 1;
                 } else {
-                    inter.0 += d; inter.1 += 1;
+                    inter.0 += d;
+                    inter.1 += 1;
                 }
             }
         }
 
-        if intra.1 == 0 { return f64::MAX; }
+        if intra.1 == 0 {
+            return f64::MAX;
+        }
         (inter.0 / inter.1 as f64) / (intra.0 / intra.1 as f64)
     }
 
@@ -249,17 +290,22 @@ impl DiscoveryEngine {
 
     pub fn detect_outliers_global(&self, threshold_sigma: f64) -> Vec<String> {
         let n = self.len();
-        let avg_dists: Vec<f64> = (0..n).map(|i| {
-            let sum: f64 = (0..n).filter(|&j| j != i)
-                .map(|j| Self::cosine_dist(&self.states[i], &self.states[j]))
-                .sum();
-            sum / (n - 1) as f64
-        }).collect();
+        let avg_dists: Vec<f64> = (0..n)
+            .map(|i| {
+                let sum: f64 = (0..n)
+                    .filter(|&j| j != i)
+                    .map(|j| Self::cosine_dist(&self.states[i], &self.states[j]))
+                    .sum();
+                sum / (n - 1) as f64
+            })
+            .collect();
 
         let mean = avg_dists.iter().sum::<f64>() / n as f64;
-        let std  = (avg_dists.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / n as f64).sqrt();
+        let std = (avg_dists.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / n as f64).sqrt();
 
-        self.labels.iter().enumerate()
+        self.labels
+            .iter()
+            .enumerate()
             .filter(|(i, _)| avg_dists[*i] > mean + threshold_sigma * std)
             .map(|(_, l)| l.clone())
             .collect()
@@ -270,9 +316,10 @@ impl DiscoveryEngine {
     // -----------------------------------------------------------------------
 
     pub fn path_consistency_score(&self, chain: &[&str]) -> f64 {
-        let dists: Vec<f64> = chain.windows(2).map(|w| {
-            self.dist_by_label(w[0], w[1])
-        }).collect();
+        let dists: Vec<f64> = chain
+            .windows(2)
+            .map(|w| self.dist_by_label(w[0], w[1]))
+            .collect();
         // Lower avg distance → more coherent path
         let avg = dists.iter().sum::<f64>() / dists.len() as f64;
         1.0 - avg
@@ -280,7 +327,10 @@ impl DiscoveryEngine {
 
     /// Returns step-distances for the given chain
     pub fn path_distances(&self, chain: &[&str]) -> Vec<f64> {
-        chain.windows(2).map(|w| self.dist_by_label(w[0], w[1])).collect()
+        chain
+            .windows(2)
+            .map(|w| self.dist_by_label(w[0], w[1]))
+            .collect()
     }
 
     // -----------------------------------------------------------------------
@@ -325,105 +375,447 @@ pub fn true_category(label: &str) -> usize {
 /// Full 20-concept dataset (interleaved order, no category grouping)
 pub fn build_r5_full_dataset() -> DiscoveryEngine {
     DiscoveryEngine::new(vec![
-        RawConcept::new("Dog",        [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Car",        [0.00,0.90,0.20,0.00,0.45,0.70,0.00,0.55,0.00,0.00,0.80,0.10,0.00,0.00,0.90,0.00]),
-        RawConcept::new("Computer",   [0.00,0.10,0.90,0.00,0.40,0.00,0.00,0.90,0.30,0.00,0.00,0.95,0.00,0.00,0.70,0.00]),
-        RawConcept::new("Rain",       [0.00,0.00,0.00,0.90,0.30,0.30,0.00,0.05,0.10,0.00,0.70,0.00,0.90,0.70,0.00,0.00]),
-        RawConcept::new("Cat",        [0.90,0.00,0.00,0.05,0.25,0.40,0.90,0.10,0.00,0.95,0.60,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Train",      [0.00,0.90,0.20,0.00,1.00,0.65,0.00,0.55,0.00,0.00,0.70,0.10,0.00,0.00,0.90,0.00]),
-        RawConcept::new("Database",   [0.00,0.00,0.90,0.00,0.10,0.00,0.00,0.85,0.60,0.00,0.00,0.95,0.00,0.00,0.40,0.00]),
-        RawConcept::new("Cloud",      [0.00,0.00,0.00,0.90,0.50,0.20,0.00,0.05,0.15,0.00,0.30,0.00,0.60,0.90,0.00,0.00]),
-        RawConcept::new("Tiger",      [0.90,0.00,0.00,0.15,0.70,0.80,0.05,0.10,0.00,0.95,0.75,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Bus",        [0.00,0.90,0.10,0.00,0.85,0.50,0.00,0.40,0.00,0.00,0.75,0.05,0.00,0.00,0.90,0.00]),
-        RawConcept::new("CPU",        [0.00,0.00,0.90,0.00,0.10,0.00,0.00,0.80,0.30,0.00,0.00,0.95,0.00,0.00,0.80,0.00]),
-        RawConcept::new("River",      [0.00,0.00,0.00,0.90,0.55,0.40,0.00,0.05,0.05,0.00,0.80,0.00,0.95,0.10,0.00,0.00]),
-        RawConcept::new("Lion",       [0.90,0.00,0.00,0.15,0.80,0.75,0.05,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Truck",      [0.00,0.90,0.10,0.00,0.90,0.50,0.00,0.45,0.00,0.00,0.75,0.05,0.00,0.00,0.90,0.00]),
-        RawConcept::new("Network",    [0.00,0.10,0.90,0.00,0.10,0.00,0.00,0.75,0.55,0.00,0.00,0.95,0.00,0.00,0.40,0.00]),
-        RawConcept::new("Ocean",      [0.00,0.00,0.00,0.90,1.00,0.30,0.00,0.10,0.10,0.00,0.60,0.00,0.95,0.20,0.00,0.00]),
-        RawConcept::new("Wolf",       [0.90,0.00,0.00,0.20,0.60,0.70,0.15,0.10,0.00,0.95,0.75,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Motorcycle", [0.00,0.90,0.10,0.00,0.25,0.80,0.00,0.50,0.00,0.00,0.85,0.05,0.00,0.00,0.90,0.00]),
-        RawConcept::new("Algorithm",  [0.00,0.00,0.80,0.00,0.00,0.00,0.00,0.90,0.90,0.00,0.00,0.90,0.00,0.00,0.10,0.00]),
-        RawConcept::new("Mountain",   [0.00,0.00,0.00,0.90,1.00,0.00,0.00,0.10,0.10,0.00,0.00,0.00,0.05,0.10,0.00,0.00]),
+        RawConcept::new(
+            "Dog",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Car",
+            [
+                0.00, 0.90, 0.20, 0.00, 0.45, 0.70, 0.00, 0.55, 0.00, 0.00, 0.80, 0.10, 0.00, 0.00,
+                0.90, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Computer",
+            [
+                0.00, 0.10, 0.90, 0.00, 0.40, 0.00, 0.00, 0.90, 0.30, 0.00, 0.00, 0.95, 0.00, 0.00,
+                0.70, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Rain",
+            [
+                0.00, 0.00, 0.00, 0.90, 0.30, 0.30, 0.00, 0.05, 0.10, 0.00, 0.70, 0.00, 0.90, 0.70,
+                0.00, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Cat",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.25, 0.40, 0.90, 0.10, 0.00, 0.95, 0.60, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Train",
+            [
+                0.00, 0.90, 0.20, 0.00, 1.00, 0.65, 0.00, 0.55, 0.00, 0.00, 0.70, 0.10, 0.00, 0.00,
+                0.90, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Database",
+            [
+                0.00, 0.00, 0.90, 0.00, 0.10, 0.00, 0.00, 0.85, 0.60, 0.00, 0.00, 0.95, 0.00, 0.00,
+                0.40, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Cloud",
+            [
+                0.00, 0.00, 0.00, 0.90, 0.50, 0.20, 0.00, 0.05, 0.15, 0.00, 0.30, 0.00, 0.60, 0.90,
+                0.00, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Tiger",
+            [
+                0.90, 0.00, 0.00, 0.15, 0.70, 0.80, 0.05, 0.10, 0.00, 0.95, 0.75, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Bus",
+            [
+                0.00, 0.90, 0.10, 0.00, 0.85, 0.50, 0.00, 0.40, 0.00, 0.00, 0.75, 0.05, 0.00, 0.00,
+                0.90, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "CPU",
+            [
+                0.00, 0.00, 0.90, 0.00, 0.10, 0.00, 0.00, 0.80, 0.30, 0.00, 0.00, 0.95, 0.00, 0.00,
+                0.80, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "River",
+            [
+                0.00, 0.00, 0.00, 0.90, 0.55, 0.40, 0.00, 0.05, 0.05, 0.00, 0.80, 0.00, 0.95, 0.10,
+                0.00, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Lion",
+            [
+                0.90, 0.00, 0.00, 0.15, 0.80, 0.75, 0.05, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Truck",
+            [
+                0.00, 0.90, 0.10, 0.00, 0.90, 0.50, 0.00, 0.45, 0.00, 0.00, 0.75, 0.05, 0.00, 0.00,
+                0.90, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Network",
+            [
+                0.00, 0.10, 0.90, 0.00, 0.10, 0.00, 0.00, 0.75, 0.55, 0.00, 0.00, 0.95, 0.00, 0.00,
+                0.40, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Ocean",
+            [
+                0.00, 0.00, 0.00, 0.90, 1.00, 0.30, 0.00, 0.10, 0.10, 0.00, 0.60, 0.00, 0.95, 0.20,
+                0.00, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Wolf",
+            [
+                0.90, 0.00, 0.00, 0.20, 0.60, 0.70, 0.15, 0.10, 0.00, 0.95, 0.75, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Motorcycle",
+            [
+                0.00, 0.90, 0.10, 0.00, 0.25, 0.80, 0.00, 0.50, 0.00, 0.00, 0.85, 0.05, 0.00, 0.00,
+                0.90, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Algorithm",
+            [
+                0.00, 0.00, 0.80, 0.00, 0.00, 0.00, 0.00, 0.90, 0.90, 0.00, 0.00, 0.90, 0.00, 0.00,
+                0.10, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Mountain",
+            [
+                0.00, 0.00, 0.00, 0.90, 1.00, 0.00, 0.00, 0.10, 0.10, 0.00, 0.00, 0.00, 0.05, 0.10,
+                0.00, 0.00,
+            ],
+        ),
     ])
 }
 
 /// Mixed 8-concept dataset — 2 per category, interleaved
 pub fn build_r5_mixed_dataset() -> DiscoveryEngine {
     DiscoveryEngine::new(vec![
-        RawConcept::new("Dog",      [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Cat",      [0.90,0.00,0.00,0.05,0.25,0.40,0.90,0.10,0.00,0.95,0.60,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Car",      [0.00,0.90,0.20,0.00,0.45,0.70,0.00,0.55,0.00,0.00,0.80,0.10,0.00,0.00,0.90,0.00]),
-        RawConcept::new("Train",    [0.00,0.90,0.20,0.00,1.00,0.65,0.00,0.55,0.00,0.00,0.70,0.10,0.00,0.00,0.90,0.00]),
-        RawConcept::new("Database", [0.00,0.00,0.90,0.00,0.10,0.00,0.00,0.85,0.60,0.00,0.00,0.95,0.00,0.00,0.40,0.00]),
-        RawConcept::new("CPU",      [0.00,0.00,0.90,0.00,0.10,0.00,0.00,0.80,0.30,0.00,0.00,0.95,0.00,0.00,0.80,0.00]),
-        RawConcept::new("Rain",     [0.00,0.00,0.00,0.90,0.30,0.30,0.00,0.05,0.10,0.00,0.70,0.00,0.90,0.70,0.00,0.00]),
-        RawConcept::new("Ocean",    [0.00,0.00,0.00,0.90,1.00,0.30,0.00,0.10,0.10,0.00,0.60,0.00,0.95,0.20,0.00,0.00]),
+        RawConcept::new(
+            "Dog",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Cat",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.25, 0.40, 0.90, 0.10, 0.00, 0.95, 0.60, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Car",
+            [
+                0.00, 0.90, 0.20, 0.00, 0.45, 0.70, 0.00, 0.55, 0.00, 0.00, 0.80, 0.10, 0.00, 0.00,
+                0.90, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Train",
+            [
+                0.00, 0.90, 0.20, 0.00, 1.00, 0.65, 0.00, 0.55, 0.00, 0.00, 0.70, 0.10, 0.00, 0.00,
+                0.90, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Database",
+            [
+                0.00, 0.00, 0.90, 0.00, 0.10, 0.00, 0.00, 0.85, 0.60, 0.00, 0.00, 0.95, 0.00, 0.00,
+                0.40, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "CPU",
+            [
+                0.00, 0.00, 0.90, 0.00, 0.10, 0.00, 0.00, 0.80, 0.30, 0.00, 0.00, 0.95, 0.00, 0.00,
+                0.80, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Rain",
+            [
+                0.00, 0.00, 0.00, 0.90, 0.30, 0.30, 0.00, 0.05, 0.10, 0.00, 0.70, 0.00, 0.90, 0.70,
+                0.00, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Ocean",
+            [
+                0.00, 0.00, 0.00, 0.90, 1.00, 0.30, 0.00, 0.10, 0.10, 0.00, 0.60, 0.00, 0.95, 0.20,
+                0.00, 0.00,
+            ],
+        ),
     ])
 }
 
 /// 5-animal dataset for hierarchical test
 pub fn build_r5_animal_dataset() -> DiscoveryEngine {
     DiscoveryEngine::new(vec![
-        RawConcept::new("Dog",   [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Cat",   [0.90,0.00,0.00,0.05,0.25,0.40,0.90,0.10,0.00,0.95,0.60,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Tiger", [0.90,0.00,0.00,0.15,0.70,0.80,0.05,0.10,0.00,0.95,0.75,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Lion",  [0.90,0.00,0.00,0.15,0.80,0.75,0.05,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Wolf",  [0.90,0.00,0.00,0.20,0.60,0.70,0.15,0.10,0.00,0.95,0.75,0.00,0.00,0.00,0.00,0.90]),
+        RawConcept::new(
+            "Dog",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Cat",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.25, 0.40, 0.90, 0.10, 0.00, 0.95, 0.60, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Tiger",
+            [
+                0.90, 0.00, 0.00, 0.15, 0.70, 0.80, 0.05, 0.10, 0.00, 0.95, 0.75, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Lion",
+            [
+                0.90, 0.00, 0.00, 0.15, 0.80, 0.75, 0.05, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Wolf",
+            [
+                0.90, 0.00, 0.00, 0.20, 0.60, 0.70, 0.15, 0.10, 0.00, 0.95, 0.75, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
     ])
 }
 
 /// Boundary dataset: 2 animals + 2 vehicles
 pub fn build_r5_boundary_dataset() -> DiscoveryEngine {
     DiscoveryEngine::new(vec![
-        RawConcept::new("Dog",   [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Cat",   [0.90,0.00,0.00,0.05,0.25,0.40,0.90,0.10,0.00,0.95,0.60,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Car",   [0.00,0.90,0.20,0.00,0.45,0.70,0.00,0.55,0.00,0.00,0.80,0.10,0.00,0.00,0.90,0.00]),
-        RawConcept::new("Train", [0.00,0.90,0.20,0.00,1.00,0.65,0.00,0.55,0.00,0.00,0.70,0.10,0.00,0.00,0.90,0.00]),
+        RawConcept::new(
+            "Dog",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Cat",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.25, 0.40, 0.90, 0.10, 0.00, 0.95, 0.60, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Car",
+            [
+                0.00, 0.90, 0.20, 0.00, 0.45, 0.70, 0.00, 0.55, 0.00, 0.00, 0.80, 0.10, 0.00, 0.00,
+                0.90, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Train",
+            [
+                0.00, 0.90, 0.20, 0.00, 1.00, 0.65, 0.00, 0.55, 0.00, 0.00, 0.70, 0.10, 0.00, 0.00,
+                0.90, 0.00,
+            ],
+        ),
     ])
 }
 
 /// Outlier dataset: 3 animals + 1 tech intruder
 pub fn build_r5_outlier_dataset() -> DiscoveryEngine {
     DiscoveryEngine::new(vec![
-        RawConcept::new("Dog",      [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Cat",      [0.90,0.00,0.00,0.05,0.25,0.40,0.90,0.10,0.00,0.95,0.60,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Tiger",    [0.90,0.00,0.00,0.15,0.70,0.80,0.05,0.10,0.00,0.95,0.75,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Database", [0.00,0.00,0.90,0.00,0.10,0.00,0.00,0.85,0.60,0.00,0.00,0.95,0.00,0.00,0.40,0.00]),
+        RawConcept::new(
+            "Dog",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Cat",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.25, 0.40, 0.90, 0.10, 0.00, 0.95, 0.60, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Tiger",
+            [
+                0.90, 0.00, 0.00, 0.15, 0.70, 0.80, 0.05, 0.10, 0.00, 0.95, 0.75, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Database",
+            [
+                0.00, 0.00, 0.90, 0.00, 0.10, 0.00, 0.00, 0.85, 0.60, 0.00, 0.00, 0.95, 0.00, 0.00,
+                0.40, 0.00,
+            ],
+        ),
     ])
 }
 
 /// Semantic chain dataset
 pub fn build_r5_transition_dataset() -> DiscoveryEngine {
     DiscoveryEngine::new(vec![
-        RawConcept::new("Rain",      [0.00,0.00,0.00,0.90,0.30,0.30,0.00,0.05,0.10,0.00,0.70,0.00,0.90,0.70,0.00,0.00]),
-        RawConcept::new("WetGround", [0.00,0.00,0.00,0.60,0.20,0.00,0.00,0.05,0.20,0.00,0.00,0.00,0.80,0.30,0.00,0.00]),
-        RawConcept::new("Slippery",  [0.00,0.00,0.00,0.50,0.15,0.00,0.00,0.05,0.40,0.00,0.10,0.00,0.70,0.20,0.00,0.00]),
-        RawConcept::new("Caution",   [0.00,0.00,0.00,0.30,0.00,0.00,0.00,0.10,0.70,0.00,0.05,0.00,0.30,0.10,0.00,0.00]),
+        RawConcept::new(
+            "Rain",
+            [
+                0.00, 0.00, 0.00, 0.90, 0.30, 0.30, 0.00, 0.05, 0.10, 0.00, 0.70, 0.00, 0.90, 0.70,
+                0.00, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "WetGround",
+            [
+                0.00, 0.00, 0.00, 0.60, 0.20, 0.00, 0.00, 0.05, 0.20, 0.00, 0.00, 0.00, 0.80, 0.30,
+                0.00, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Slippery",
+            [
+                0.00, 0.00, 0.00, 0.50, 0.15, 0.00, 0.00, 0.05, 0.40, 0.00, 0.10, 0.00, 0.70, 0.20,
+                0.00, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Caution",
+            [
+                0.00, 0.00, 0.00, 0.30, 0.00, 0.00, 0.00, 0.10, 0.70, 0.00, 0.05, 0.00, 0.30, 0.10,
+                0.00, 0.00,
+            ],
+        ),
         // Incoherent path reference (not in chain, just for comparison)
-        RawConcept::new("Database",  [0.00,0.00,0.90,0.00,0.10,0.00,0.00,0.85,0.60,0.00,0.00,0.95,0.00,0.00,0.40,0.00]),
-        RawConcept::new("Banana",    [0.00,0.00,0.00,0.40,0.15,0.00,0.00,0.05,0.00,0.95,0.00,0.00,0.20,0.00,0.00,0.90]),
+        RawConcept::new(
+            "Database",
+            [
+                0.00, 0.00, 0.90, 0.00, 0.10, 0.00, 0.00, 0.85, 0.60, 0.00, 0.00, 0.95, 0.00, 0.00,
+                0.40, 0.00,
+            ],
+        ),
+        RawConcept::new(
+            "Banana",
+            [
+                0.00, 0.00, 0.00, 0.40, 0.15, 0.00, 0.00, 0.05, 0.00, 0.95, 0.00, 0.00, 0.20, 0.00,
+                0.00, 0.90,
+            ],
+        ),
     ])
 }
 
 /// Cross-language dataset: Dog in 5 languages + unrelated anchor
 pub fn build_r5_crosslang_dataset() -> DiscoveryEngine {
     DiscoveryEngine::new(vec![
-        RawConcept::new("Dog",      [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("犬",       [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Hund",     [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Perro",    [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Chien",    [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Database", [0.00,0.00,0.90,0.00,0.10,0.00,0.00,0.85,0.60,0.00,0.00,0.95,0.00,0.00,0.40,0.00]),
+        RawConcept::new(
+            "Dog",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "犬",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Hund",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Perro",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Chien",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Database",
+            [
+                0.00, 0.00, 0.90, 0.00, 0.10, 0.00, 0.00, 0.85, 0.60, 0.00, 0.00, 0.95, 0.00, 0.00,
+                0.40, 0.00,
+            ],
+        ),
     ])
 }
 
 /// Symbol dataset: Dog + Japanese + emoji + unrelated
 pub fn build_r5_symbol_dataset() -> DiscoveryEngine {
     DiscoveryEngine::new(vec![
-        RawConcept::new("Dog",      [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("犬",       [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("🐕",       [0.90,0.00,0.00,0.05,0.35,0.55,0.90,0.10,0.00,0.95,0.70,0.00,0.00,0.00,0.00,0.90]),
-        RawConcept::new("Database", [0.00,0.00,0.90,0.00,0.10,0.00,0.00,0.85,0.60,0.00,0.00,0.95,0.00,0.00,0.40,0.00]),
+        RawConcept::new(
+            "Dog",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "犬",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "🐕",
+            [
+                0.90, 0.00, 0.00, 0.05, 0.35, 0.55, 0.90, 0.10, 0.00, 0.95, 0.70, 0.00, 0.00, 0.00,
+                0.00, 0.90,
+            ],
+        ),
+        RawConcept::new(
+            "Database",
+            [
+                0.00, 0.00, 0.90, 0.00, 0.10, 0.00, 0.00, 0.85, 0.60, 0.00, 0.00, 0.95, 0.00, 0.00,
+                0.40, 0.00,
+            ],
+        ),
     ])
 }

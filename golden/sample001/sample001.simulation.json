@@ -1,0 +1,42 @@
+{
+  "confidence": 0.84,
+  "cost": 2.0,
+  "final_state": "Result.state.result",
+  "goal_reached": true,
+  "path_signature": "Value.return",
+  "schema_version": "semantic-simulation/0.2",
+  "selected_branch": "Value.return",
+  "selected_branches": [
+    "Value.return"
+  ],
+  "step_count": 2,
+  "success": true,
+  "trace": [
+    {
+      "event": "start",
+      "state": "SampleStart",
+      "step": 0
+    },
+    {
+      "branch": "Value.return",
+      "event": "branch_selection",
+      "event_type": "BranchSelection",
+      "state": "Value.return",
+      "step": 1,
+      "transition": "Value.return"
+    },
+    {
+      "event": "transition",
+      "state": "Value.return",
+      "step": 1,
+      "transition": "Value.return"
+    },
+    {
+      "event": "transition",
+      "state": "Result.state.result",
+      "step": 2,
+      "transition": "Result-1-result"
+    }
+  ],
+  "violations": []
+}

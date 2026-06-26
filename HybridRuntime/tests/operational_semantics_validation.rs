@@ -137,10 +137,7 @@ fn os_08_commits_form_a_complete_chain_and_rollback_is_a_new_delta() {
         .prepare("tx-1", "plan-1", transition("t1", "A", "B"), state("B"))
         .unwrap();
     runtime
-        .validate(
-            first_candidate.candidate_id(),
-            ValidationChecks::accepted(),
-        )
+        .validate(first_candidate.candidate_id(), ValidationChecks::accepted())
         .unwrap();
     let first = runtime.commit(first_candidate.candidate_id(), 1).unwrap();
 
