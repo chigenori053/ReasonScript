@@ -71,6 +71,7 @@ from .nodes import (
     StateDeclarationNode,
     StructDeclarationNode,
     StructLiteralNode,
+    StructPatternNode,
     TransitionNode,
     TupleLiteralNode,
     UnaryExpressionNode,
@@ -79,6 +80,9 @@ from .nodes import (
     WildcardPatternNode,
     to_json_value,
 )
+from .pattern_decision import PatternDecisionBuilder, pattern_decision_to_json
+from .pattern_evaluator import PatternEvaluator, RuntimeEnumValue, RuntimeStructValue
+from .semantic_patterns import StructPatternSemanticError, resolve_struct_pattern
 from .validation import SurfaceValidationError, validate
 from .namespace import resolve_program
 
@@ -366,8 +370,25 @@ def _project_calculations(
                 next_sources: list[str] = []
                 for source in current_sources:
                     for return_path in return_paths:
+                        pattern_decisions = _pattern_decisions_for_return_path(
+                            return_path,
+                            evaluation_context,
+                            module,
+                        )
                         transition_index += 1
                         target = _function_return_target(function_name, return_path["label"])
+                        effect = {
+                            "function": f"{namespace}.{function_name}",
+                            "node_type": "FunctionIRNode",
+                            "return_path": return_path["label"],
+                            "return": to_json_value(return_path["expression"]),
+                            "return_value": _ir_value(return_path["expression"]),
+                            "branch_conditions": return_path.get("branch_conditions", []),
+                            "match_conditions": return_path.get("match_conditions", []),
+                            "evaluation_context": evaluation_context,
+                        }
+                        if pattern_decisions:
+                            effect["pattern_decisions"] = pattern_decisions
                         declarations.append(
                             semantic.TransitionNode(
                                 f"{namespace}-function-{transition_index}",
@@ -375,16 +396,7 @@ def _project_calculations(
                                 source,
                                 "FunctionReturnTransition",
                                 target,
-                                effect={
-                                    "function": f"{namespace}.{function_name}",
-                                    "node_type": "FunctionIRNode",
-                                    "return_path": return_path["label"],
-                                    "return": to_json_value(return_path["expression"]),
-                                    "return_value": _ir_value(return_path["expression"]),
-                                    "branch_conditions": return_path.get("branch_conditions", []),
-                                    "match_conditions": return_path.get("match_conditions", []),
-                                    "evaluation_context": evaluation_context,
-                                },
+                                effect=effect,
                             )
                         )
                         next_sources.append(target)
@@ -984,6 +996,8 @@ def _match_pattern_label(
         return "true" if value else "false"
     if _is_enum_value_pattern(value):
         return f"{value['enum_name']}.{value['value_name']}"
+    if isinstance(value, dict) and value.get("node_type") == "StructPatternNode":
+        return _struct_pattern_signature(value)
     return str(value).replace("-", "neg_").replace(".", "_")
 
 
@@ -1016,7 +1030,129 @@ def _match_pattern_value(
             "enum_name": value.enum_name,
             "value_name": value.value_name,
         }
+    if isinstance(value, StructPatternNode):
+        return to_json_value(value)
     return to_json_value(pattern)
+
+
+def _struct_pattern_signature(pattern: dict[str, Any]) -> str:
+    type_name = str(pattern.get("type_name", "Struct"))
+    field_labels: list[str] = []
+    for field in pattern.get("fields") or []:
+        label = _struct_field_pattern_label(field.get("pattern"))
+        if label is not None:
+            field_labels.append(label)
+    return ".".join([type_name, *field_labels]) if field_labels else type_name
+
+
+def _struct_field_pattern_label(pattern: Any) -> str | None:
+    if not isinstance(pattern, dict):
+        return None
+    node_type = pattern.get("node_type")
+    if node_type == "QualifiedPatternNode":
+        return f"{pattern.get('namespace')}.{pattern.get('identifier')}"
+    if node_type == "EnumValuePatternNode":
+        return f"{pattern.get('enum_name')}.{pattern.get('value_name')}"
+    if node_type == "LiteralPatternNode":
+        literal = pattern.get("value")
+        if isinstance(literal, dict):
+            return str(literal.get("value"))
+        return str(literal)
+    if node_type == "WildcardPatternNode":
+        return "wildcard"
+    return None
+
+
+def _pattern_decisions_for_return_path(
+    return_path: dict[str, Any],
+    context: dict[str, Any],
+    module: ModuleNode,
+) -> list[dict[str, Any]]:
+    decisions: list[dict[str, Any]] = []
+    symbols = _module_symbols(module)
+    for condition in return_path.get("match_conditions", []):
+        pattern = condition.get("pattern")
+        if not (
+            isinstance(pattern, dict)
+            and pattern.get("node_type") == "StructPatternNode"
+        ):
+            continue
+        value = context.get(condition.get("value"))
+        runtime_value = _runtime_struct_value(value)
+        if runtime_value is None:
+            continue
+        try:
+            semantic_pattern = resolve_struct_pattern(
+                StructPatternNode(
+                    str(pattern["type_name"]),
+                    tuple(
+                        _struct_pattern_field_from_json(field)
+                        for field in pattern.get("fields", [])
+                    ),
+                ),
+                symbols,
+            )
+        except StructPatternSemanticError:
+            continue
+        match_result = PatternEvaluator().evaluate(semantic_pattern, runtime_value)
+        decision = PatternDecisionBuilder().build(
+            match_result,
+            matched_pattern=semantic_pattern.struct_symbol,
+            branch_id=_pattern_branch_id(condition.get("target")),
+            source_span=semantic_pattern.source_span,
+        )
+        decisions.append(pattern_decision_to_json(decision))
+    return decisions
+
+
+def _runtime_struct_value(value: Any) -> RuntimeStructValue | None:
+    if not isinstance(value, dict):
+        return None
+    type_name = value.get("struct_type") or value.get("type_name")
+    fields = value.get("fields")
+    if not isinstance(type_name, str) or not isinstance(fields, dict):
+        return None
+    return RuntimeStructValue.from_mapping(
+        type_name,
+        {name: _runtime_pattern_value(item) for name, item in fields.items()},
+    )
+
+
+def _runtime_pattern_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        enum = value.get("enum") or value.get("enum_name")
+        variant = (
+            value.get("variant")
+            or value.get("variant_name")
+            or value.get("value_name")
+        )
+        if isinstance(enum, str) and isinstance(variant, str):
+            return RuntimeEnumValue(enum, variant)
+        runtime_struct = _runtime_struct_value(value)
+        if runtime_struct is not None:
+            return runtime_struct
+    return value
+
+
+def _struct_pattern_field_from_json(value: dict[str, Any]) -> Any:
+    from .nodes import StructFieldPatternNode, pattern_from_json
+
+    return StructFieldPatternNode(
+        str(value["field_name"]),
+        pattern_from_json(
+            {"node_type": "PatternNode", "pattern": value["pattern"]}
+        ).pattern,
+    )
+
+
+def _module_symbols(module: ModuleNode) -> dict[str, Any]:
+    return {node.name: node for node in module.body if hasattr(node, "name")}
+
+
+def _pattern_branch_id(target: Any) -> str | None:
+    if not isinstance(target, str):
+        return None
+    return target.removeprefix("match.")
 
 
 def _pattern_decision_value(
@@ -1217,6 +1353,14 @@ def _literal_value(expression: Any) -> Any:
         return {
             "enum": enum_value["enum_name"],
             "variant": enum_value["variant_name"],
+        }
+    if isinstance(value, StructLiteralNode):
+        return {
+            "struct_type": value.type_name,
+            "fields": {
+                field.field_name: _literal_value(field.expression)
+                for field in value.fields
+            },
         }
     return to_json_value(expression)
 

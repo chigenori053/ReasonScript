@@ -187,6 +187,15 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
                         "event": "match_evaluation",
                         **match_event,
                     })
+                for pattern_decision in branch_event.pop("pattern_decisions", []):
+                    trace.append({
+                        "step": len(applied),
+                        "state": t["target"],
+                        "transition": t["transition_id"],
+                        "event": "pattern_decision",
+                        "event_type": "PatternDecision",
+                        **pattern_decision,
+                    })
                 trace.append({
                     "step": len(applied),
                     "state": t["target"],
@@ -256,6 +265,9 @@ def _branch_transition_matches(transition: dict[str, Any]) -> bool:
         if actual is None or actual != expected:
             return False
     match_conditions = effect.get("match_conditions") or []
+    pattern_decisions = effect.get("pattern_decisions") or []
+    if pattern_decisions and not all(decision.get("matched") for decision in pattern_decisions):
+        return False
     for index, condition in enumerate(match_conditions):
         value = _match_value(condition, context)
         pattern = condition.get("pattern")
@@ -377,11 +389,17 @@ def _match_pattern_matches(value: Any, pattern: Any) -> bool:
             enum_value.get("enum") == pattern.get("enum_name")
             and enum_value.get("variant") == pattern.get("value_name")
         )
+    if _is_struct_pattern(pattern):
+        return _struct_pattern_matches(value, pattern)
     return value == pattern
 
 
 def _is_enum_pattern(pattern: Any) -> bool:
     return isinstance(pattern, dict) and pattern.get("node_type") == "EnumValuePatternNode"
+
+
+def _is_struct_pattern(pattern: Any) -> bool:
+    return isinstance(pattern, dict) and pattern.get("node_type") == "StructPatternNode"
 
 
 def _is_catch_all_pattern(pattern: Any) -> bool:
@@ -400,10 +418,60 @@ def _enum_match_value(value: Any) -> dict[str, str] | None:
     return None
 
 
+def _struct_pattern_matches(value: Any, pattern: dict[str, Any]) -> bool:
+    if not isinstance(value, dict):
+        return False
+    if (
+        value.get("struct_type") != pattern.get("type_name")
+        and value.get("type_name") != pattern.get("type_name")
+    ):
+        return False
+    fields = value.get("fields")
+    if not isinstance(fields, dict):
+        return False
+    for field in pattern.get("fields") or []:
+        field_name = field.get("field_name")
+        if field_name not in fields:
+            return False
+        if not _struct_field_pattern_matches(fields[field_name], field.get("pattern")):
+            return False
+    return True
+
+
+def _struct_field_pattern_matches(value: Any, pattern: Any) -> bool:
+    if not isinstance(pattern, dict):
+        return value == pattern
+    node_type = pattern.get("node_type")
+    if node_type == "WildcardPatternNode":
+        return True
+    if node_type == "DefaultPatternNode":
+        return False
+    if node_type == "QualifiedPatternNode":
+        enum_value = _enum_match_value(value)
+        return enum_value == {
+            "enum": pattern.get("namespace"),
+            "variant": pattern.get("identifier"),
+        }
+    if node_type == "EnumValuePatternNode":
+        enum_value = _enum_match_value(value)
+        return enum_value == {
+            "enum": pattern.get("enum_name"),
+            "variant": pattern.get("value_name"),
+        }
+    if node_type == "LiteralPatternNode":
+        literal = pattern.get("value")
+        if isinstance(literal, dict) and "value" in literal:
+            return value == literal["value"]
+        return value == literal
+    return value == pattern
+
+
 def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
-    conditions = (transition.get("effect") or {}).get("branch_conditions") or []
-    match_conditions = (transition.get("effect") or {}).get("match_conditions") or []
-    context = (transition.get("effect") or {}).get("evaluation_context") or {}
+    effect = transition.get("effect") or {}
+    conditions = effect.get("branch_conditions") or []
+    match_conditions = effect.get("match_conditions") or []
+    pattern_decisions = effect.get("pattern_decisions") or []
+    context = effect.get("evaluation_context") or {}
     evaluated = [
         {
             "condition": condition.get("condition"),
@@ -439,6 +507,9 @@ def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
             "value": match_events[-1]["value"],
             "matched_case": match_events[-1]["selected_case"],
         }
+    if pattern_decisions:
+        result["pattern_decisions"] = pattern_decisions
+        result["pattern_evidence"] = _pattern_decision_evidence(pattern_decisions[-1])
     return result
 
 
@@ -594,6 +665,7 @@ def extract_knowledge(
             comparison_evidence = _path_comparison_evidence(new_path)
             match_evidence = _path_match_evidence(new_path)
             enum_match_evidence = _path_enum_match_evidence(new_path)
+            pattern_evidence = _path_pattern_evidence(new_path)
             identity = (new_path[0]["source"], relation, target, path_signature)
             if identity in seen_knowledge:
                 continue
@@ -618,6 +690,11 @@ def extract_knowledge(
                 unit["match_evidence"] = match_evidence
             if enum_match_evidence is not None:
                 unit["enum_match_evidence"] = enum_match_evidence
+            if pattern_evidence is not None:
+                unit["pattern"] = pattern_evidence["pattern"]
+                unit["matched_pattern"] = pattern_evidence["matched_pattern"]
+                unit["evaluation_trace"] = pattern_evidence["evaluation_trace"]
+                unit["pattern_evidence"] = pattern_evidence
             knowledge_units.append(unit)
 
             if target not in visited_states and len(new_path) < 8:
@@ -703,6 +780,29 @@ def _path_enum_match_evidence(path: list[dict[str, Any]]) -> dict[str, str] | No
             if enum_value is not None:
                 return enum_value
     return None
+
+
+def _path_pattern_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for transition in reversed(path):
+        if transition.get("relation") != "FunctionReturnTransition":
+            continue
+        effect = transition.get("effect") or {}
+        for decision in reversed(effect.get("pattern_decisions") or []):
+            if not decision.get("matched"):
+                continue
+            return _pattern_decision_evidence(decision)
+    return None
+
+
+def _pattern_decision_evidence(decision: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "pattern": decision.get("pattern_kind"),
+        "matched_pattern": decision.get("matched_pattern"),
+        "branch_id": decision.get("branch_id"),
+        "matched_fields": decision.get("matched_fields", []),
+        "evaluation_trace": decision.get("evaluation_trace", []),
+        "confidence": decision.get("confidence"),
+    }
 
 
 def _match_case_evidence(pattern: Any) -> Any:

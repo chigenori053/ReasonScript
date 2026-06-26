@@ -136,6 +136,12 @@ from .pattern_evaluator import (
     pattern_match_result_from_json,
     pattern_match_result_to_json,
 )
+from .pattern_decision import (
+    PatternDecisionBuilder,
+    PatternDecisionIR,
+    pattern_decision_from_json,
+    pattern_decision_to_json,
+)
 from .semantic_patterns import (
     SemanticDefaultPattern,
     SemanticLiteralPattern,
@@ -224,6 +230,8 @@ __all__ = [
     "ParenthesizedExpressionNode",
     "PatternNode",
     "PatternEvaluator",
+    "PatternDecisionBuilder",
+    "PatternDecisionIR",
     "PatternMatchResult",
     "PlanStepNode",
     "ProgramNode",
@@ -283,6 +291,8 @@ __all__ = [
     "expression_from_json",
     "from_json_value",
     "parse",
+    "pattern_decision_from_json",
+    "pattern_decision_to_json",
     "parse_expression",
     "parse_pattern",
     "pattern_from_json",
