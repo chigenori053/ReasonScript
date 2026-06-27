@@ -54,7 +54,7 @@ mod tests {
         let state = ProjectState {
             schema_version: "project-state/0.1".to_string(),
             compiler_version: "0.1.0".to_string(),
-            workspace: WorkspaceState {
+            workspace: ProjectWorkspaceMeta {
                 root_uri: None,
                 project_name: Some("test".to_string()),
             },
@@ -92,7 +92,7 @@ mod tests {
         let state = ProjectState {
             schema_version: "project-state/0.1".to_string(),
             compiler_version: "0.1.0".to_string(),
-            workspace: WorkspaceState { root_uri: None, project_name: None },
+            workspace: ProjectWorkspaceMeta { root_uri: None, project_name: None },
             source_files: vec![],
             surface_ast: None,
             semantic_ast: None,

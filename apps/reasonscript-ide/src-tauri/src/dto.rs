@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+// ---------------------------------------------------------------------------
+// Source location
+// ---------------------------------------------------------------------------
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceSpan {
     pub uri: String,
@@ -10,6 +14,10 @@ pub struct SourceSpan {
     pub start_offset: Option<u32>,
     pub end_offset: Option<u32>,
 }
+
+// ---------------------------------------------------------------------------
+// Diagnostics
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -59,8 +67,13 @@ pub struct PlatformDiagnostic {
     pub metadata: serde_json::Value,
 }
 
+// ---------------------------------------------------------------------------
+// ProjectState
+// ---------------------------------------------------------------------------
+
+/// Lightweight workspace reference embedded in ProjectState.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkspaceState {
+pub struct ProjectWorkspaceMeta {
     pub root_uri: Option<String>,
     pub project_name: Option<String>,
 }
@@ -82,7 +95,7 @@ pub struct ProjectStateMetadata {
 pub struct ProjectState {
     pub schema_version: String,
     pub compiler_version: String,
-    pub workspace: WorkspaceState,
+    pub workspace: ProjectWorkspaceMeta,
     pub source_files: Vec<SourceFileState>,
     pub surface_ast: Option<serde_json::Value>,
     pub semantic_ast: Option<serde_json::Value>,
@@ -98,6 +111,56 @@ pub struct ProjectState {
     pub generated_at: String,
 }
 
+// ---------------------------------------------------------------------------
+// Workspace / File Tree
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileNodeKind {
+    File,
+    Directory,
+    Symlink,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileNode {
+    pub name: String,
+    pub path: String,
+    pub relative_path: String,
+    pub kind: FileNodeKind,
+    pub extension: Option<String>,
+    pub children: Vec<FileNode>,
+    pub is_ignored: bool,
+    pub metadata: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkspaceScanStatus {
+    Complete,
+    Partial,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceState {
+    pub schema_version: String,
+    pub root_path: String,
+    pub root_name: String,
+    pub files: Vec<FileNode>,
+    pub selected_path: Option<String>,
+    pub active_file_path: Option<String>,
+    pub ignored_patterns: Vec<String>,
+    pub scan_status: WorkspaceScanStatus,
+    pub metadata: serde_json::Value,
+}
+
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
+
 #[derive(Debug, thiserror::Error)]
 pub enum IdeError {
     #[error("Compiler error: {0}")]
@@ -110,6 +173,8 @@ pub enum IdeError {
     Pipeline(String),
     #[error("Internal error: {0}")]
     Internal(String),
+    #[error("Workspace error: {0}")]
+    Workspace(String),
 }
 
 impl Serialize for IdeError {

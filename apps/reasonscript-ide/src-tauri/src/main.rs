@@ -4,6 +4,7 @@
 mod commands;
 mod compiler_bridge;
 mod dto;
+mod workspace;
 #[cfg(test)]
 mod dto_tests;
 
@@ -18,6 +19,10 @@ fn main() {
             commands::save_file,
             commands::list_project_files,
             commands::export_project_state,
+            commands::open_workspace,
+            commands::list_workspace_files,
+            commands::refresh_workspace,
+            commands::select_workspace_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

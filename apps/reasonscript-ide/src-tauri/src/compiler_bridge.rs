@@ -3,7 +3,7 @@ use std::process::Command;
 
 use crate::dto::{
     DiagnosticPhase, DiagnosticSeverity, IdeError, PlatformDiagnostic, ProjectState,
-    ProjectStateMetadata, SourceFileState, WorkspaceState,
+    ProjectStateMetadata, ProjectWorkspaceMeta, SourceFileState,
 };
 
 const MANIFEST_DIR: &str = env!("CARGO_MANIFEST_DIR");
@@ -170,7 +170,7 @@ fn project_state_with_diagnostics(
     ProjectState {
         schema_version: "project-state/0.1".to_string(),
         compiler_version: "0.1.0".to_string(),
-        workspace: WorkspaceState {
+        workspace: ProjectWorkspaceMeta {
             root_uri: repo_root.map(|p| p.to_string_lossy().to_string()),
             project_name: Some("playground".to_string()),
         },
@@ -381,7 +381,7 @@ pub fn build_project_state_from_source(
         return Ok(ProjectState {
             schema_version: "project-state/0.1".to_string(),
             compiler_version: "0.1.0".to_string(),
-            workspace: WorkspaceState {
+            workspace: ProjectWorkspaceMeta {
                 root_uri: Some(repo_root.to_string_lossy().to_string()),
                 project_name: Some("playground".to_string()),
             },
@@ -422,7 +422,7 @@ pub fn build_project_state_from_source(
     Ok(ProjectState {
         schema_version: "project-state/0.1".to_string(),
         compiler_version: "0.1.0".to_string(),
-        workspace: WorkspaceState {
+        workspace: ProjectWorkspaceMeta {
             root_uri: Some(repo_root.to_string_lossy().to_string()),
             project_name: Some("playground".to_string()),
         },

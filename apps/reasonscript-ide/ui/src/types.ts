@@ -31,9 +31,40 @@ export interface PlatformDiagnostic {
   metadata: unknown;
 }
 
-export interface WorkspaceState {
+export interface ProjectWorkspaceMeta {
   root_uri?: string;
   project_name?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Workspace / File Tree
+// ---------------------------------------------------------------------------
+
+export type FileNodeKind = "file" | "directory" | "symlink" | "unknown";
+
+export interface FileNode {
+  name: string;
+  path: string;
+  relative_path: string;
+  kind: FileNodeKind;
+  extension?: string | null;
+  children: FileNode[];
+  is_ignored: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export type WorkspaceScanStatus = "complete" | "partial" | "failed";
+
+export interface WorkspaceState {
+  schema_version: string;
+  root_path: string;
+  root_name: string;
+  files: FileNode[];
+  selected_path?: string | null;
+  active_file_path?: string | null;
+  ignored_patterns: string[];
+  scan_status: WorkspaceScanStatus;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SourceFileState {
@@ -118,7 +149,7 @@ export interface ExecutionPlan {
 export interface ProjectState {
   schema_version: string;
   compiler_version: string;
-  workspace: WorkspaceState;
+  workspace: ProjectWorkspaceMeta;
   source_files: SourceFileState[];
   surface_ast: unknown;
   semantic_ast: unknown;

@@ -9,7 +9,9 @@ import ValidationView from "./views/ValidationView";
 import ReasonIRView from "./views/ReasonIRView";
 import ExecutionPlanView from "./views/ExecutionPlanView";
 import DependencyGraphView from "./views/DependencyGraphView";
+import WorkspaceExplorerView from "./views/WorkspaceExplorerView";
 import { useProjectStore } from "./state/projectStore";
+import { useWorkspaceStore } from "./state/workspaceStore";
 import { buildProjectState, exportProjectState } from "./bridge";
 import { revealSourceSpan, revealSymbolFallback } from "./editor/sourceNavigation";
 import type { ArtifactSelection } from "./types";
@@ -31,6 +33,7 @@ export default function App() {
   const [compilerMode] = useState("normal");
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const store = useProjectStore();
+  const wsStore = useWorkspaceStore();
 
   const handleEditorMount = useCallback((ed: editor.IStandaloneCodeEditor) => {
     editorRef.current = ed;
@@ -222,6 +225,15 @@ export default function App() {
       )}
 
       <div className="ide-body">
+        <WorkspaceExplorerView
+          workspace={wsStore.workspace}
+          selectedPath={wsStore.selectedPath}
+          expandedPaths={wsStore.expandedPaths}
+          onSetWorkspace={wsStore.setWorkspace}
+          onSelectPath={wsStore.setSelectedPath}
+          onToggleExpanded={wsStore.toggleExpanded}
+          onClearWorkspace={wsStore.clearWorkspace}
+        />
         <div className="ide-editor-pane">
           <Editor
             height="100%"

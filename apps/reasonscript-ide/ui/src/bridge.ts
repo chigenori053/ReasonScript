@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ProjectState } from "./types";
+import type { FileNode, ProjectState, WorkspaceState } from "./types";
 
 export async function buildProjectState(
   source: string,
@@ -30,4 +30,26 @@ export async function listProjectFiles(root: string): Promise<string[]> {
 
 export async function exportProjectState(state: ProjectState, path: string): Promise<void> {
   return await invoke<void>("export_project_state", { state, path });
+}
+
+export async function openWorkspace(path: string): Promise<WorkspaceState> {
+  return await invoke<WorkspaceState>("open_workspace", { path });
+}
+
+export async function listWorkspaceFiles(rootPath: string): Promise<FileNode[]> {
+  return await invoke<FileNode[]>("list_workspace_files", { rootPath });
+}
+
+export async function refreshWorkspace(rootPath: string): Promise<WorkspaceState> {
+  return await invoke<WorkspaceState>("refresh_workspace", { rootPath });
+}
+
+export async function selectWorkspaceFile(
+  rootPath: string,
+  relativePath: string
+): Promise<FileNode> {
+  return await invoke<FileNode>("select_workspace_file", {
+    rootPath,
+    relativePath,
+  });
 }
