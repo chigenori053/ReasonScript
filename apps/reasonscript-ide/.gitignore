@@ -1,0 +1,11 @@
+# UI
+ui/node_modules/
+ui/dist/
+ui/.vite/
+
+# Rust
+src-tauri/target/
+src-tauri/gen/
+
+# macOS
+.DS_Store
