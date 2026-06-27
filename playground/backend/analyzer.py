@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import datetime
 from collections import deque
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -643,7 +643,7 @@ def _analyze_quality(ir: dict[str, Any], simulation: dict[str, Any]) -> dict[str
 
     return {
         "schema_version": "rust-compat/0.1",
-        "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(UTC).isoformat(),
         "compiler_version": "ReasonScript v0.1 Alpha",
         "metrics": metrics,
         "overall_pct": overall,

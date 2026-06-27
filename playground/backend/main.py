@@ -5,7 +5,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -147,7 +147,7 @@ def _validation_report(ok: bool, errors: list[dict[str, Any]] | None = None) -> 
     return {
         "schema_version": "validation-report/0.3",
         "ok": ok,
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(UTC).isoformat(),
         "errors": errors,
         "tree": _validation_node("Validation", ok, [
             _validation_node("Parser", parser_ok, details={"phase": "Parse"}),
@@ -233,7 +233,7 @@ def _artifact_response(artifacts: dict[str, Any], ok: bool = True, errors: list[
 
 def _safe_artifact_dir(base_dir: Path, requested: str | None = None) -> Path:
     base_dir.mkdir(parents=True, exist_ok=True)
-    name = requested or datetime.utcnow().strftime("sample_%Y%m%d_%H%M%S")
+    name = requested or datetime.now(UTC).strftime("sample_%Y%m%d_%H%M%S")
     name = Path(name).name
     return base_dir / name
 
@@ -247,7 +247,7 @@ def _write_artifacts(directory: Path, artifacts: dict[str, Any]) -> None:
         )
     manifest = {
         "schema_version": "reasonscript-playground-artifacts/0.3",
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.now(UTC).isoformat(),
         "files": ARTIFACT_FILES,
         "source": artifacts.get("source"),
     }
@@ -546,7 +546,7 @@ def export_endpoint(req: SourceRequest) -> dict[str, Any]:
         return _artifact_response(artifacts, ok=False, errors=errors)
     target = _safe_artifact_dir(EXPORTS_DIR, Path(req.filename).stem)
     if target.exists():
-        target = _safe_artifact_dir(EXPORTS_DIR, f"{Path(req.filename).stem}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}")
+        target = _safe_artifact_dir(EXPORTS_DIR, f"{Path(req.filename).stem}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}")
     _write_artifacts(target, artifacts)
     response = _artifact_response(artifacts)
     response["path"] = str(target)

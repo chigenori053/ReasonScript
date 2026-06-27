@@ -38,7 +38,7 @@ def test_simulation_and_knowledge_interfaces_are_versioned() -> None:
     assert simulation["schema_version"] == "semantic-simulation/0.2"
     assert isinstance(simulation["trace"], list)
     assert knowledge["schema_version"] == "knowledge-emergence/0.2"
-    assert knowledge["generated_at"] == "1970-01-01T00:00:00Z"
+    assert knowledge["generated_at"] == "1970-01-01T00:00:00+00:00"
 
 
 def test_public_interface_serialization_is_deterministic() -> None:

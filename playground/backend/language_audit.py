@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -200,7 +200,7 @@ def run_language_audit() -> dict[str, Any]:
     return {
         "schema_version": "playground-feature-matrix/1.0",
         "specification_id": "playground-integration/1.0",
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(UTC).isoformat(),
         "summary": summary,
         "features": rows,
     }
