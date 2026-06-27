@@ -1,0 +1,17 @@
+module Test {
+    fn Score(value: optional<optional<int>>) -> int {
+        match value {
+            some(x) => {
+                match x {
+                    some(y) => return y
+                    none => return 0
+                }
+            }
+            none => return -1
+        }
+    }
+
+    calculation Result {
+        result = Score(some(some(7)))
+    }
+}

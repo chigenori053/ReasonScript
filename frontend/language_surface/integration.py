@@ -51,6 +51,7 @@ from .nodes import (
     NamedTypeNode,
     NoneLiteralNode,
     ModuleNode,
+    OptionalPatternNode,
     PatternNode,
     ParenthesizedExpressionNode,
     ProgramNode,
@@ -370,9 +371,13 @@ def _project_calculations(
                 next_sources: list[str] = []
                 for source in current_sources:
                     for return_path in return_paths:
-                        pattern_decisions = _pattern_decisions_for_return_path(
+                        return_context = _evaluation_context_for_return_path(
                             return_path,
                             evaluation_context,
+                        )
+                        pattern_decisions = _pattern_decisions_for_return_path(
+                            return_path,
+                            return_context,
                             module,
                         )
                         transition_index += 1
@@ -382,10 +387,13 @@ def _project_calculations(
                             "node_type": "FunctionIRNode",
                             "return_path": return_path["label"],
                             "return": to_json_value(return_path["expression"]),
-                            "return_value": _ir_value(return_path["expression"]),
+                            "return_value": _ir_value_with_context(
+                                return_path["expression"],
+                                return_context,
+                            ),
                             "branch_conditions": return_path.get("branch_conditions", []),
                             "match_conditions": return_path.get("match_conditions", []),
-                            "evaluation_context": evaluation_context,
+                            "evaluation_context": return_context,
                         }
                         if pattern_decisions:
                             effect["pattern_decisions"] = pattern_decisions
@@ -1012,6 +1020,10 @@ def _match_pattern_label(
         return "true" if value else "false"
     if _is_enum_value_pattern(value):
         return f"{value['enum_name']}.{value['value_name']}"
+    if _is_optional_pattern(value):
+        if value["node_type"] == "OptionalSomePatternNode":
+            return "some"
+        return "none"
     if isinstance(value, dict) and value.get("node_type") == "StructPatternNode":
         return _struct_pattern_signature(value)
     return str(value).replace("-", "neg_").replace(".", "_")
@@ -1045,6 +1057,15 @@ def _match_pattern_value(
             "node_type": "EnumValuePatternNode",
             "enum_name": value.enum_name,
             "value_name": value.value_name,
+        }
+    if isinstance(value, OptionalPatternNode):
+        if value.kind == "Some":
+            return {
+                "node_type": "OptionalSomePatternNode",
+                "binding": value.binding,
+            }
+        return {
+            "node_type": "OptionalNonePatternNode",
         }
     if isinstance(value, StructPatternNode):
         return to_json_value(value)
@@ -1270,6 +1291,14 @@ def _is_enum_value_pattern(value: Any) -> bool:
     )
 
 
+def _is_optional_pattern(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and value.get("node_type")
+        in {"OptionalSomePatternNode", "OptionalNonePatternNode"}
+    )
+
+
 def _condition_name(condition: ExpressionNode) -> str | None:
     expression = condition.expression
     if isinstance(expression, IdentifierNode):
@@ -1369,6 +1398,25 @@ def _function_evaluation_context(
     return context
 
 
+def _evaluation_context_for_return_path(
+    return_path: dict[str, Any],
+    context: dict[str, Any],
+) -> dict[str, Any]:
+    result = dict(context)
+    for condition in return_path.get("match_conditions", []):
+        pattern = condition.get("pattern")
+        if not (
+            isinstance(pattern, dict)
+            and pattern.get("node_type") == "OptionalSomePatternNode"
+            and isinstance(pattern.get("binding"), str)
+        ):
+            continue
+        optional_value = result.get(condition.get("value"))
+        if isinstance(optional_value, dict) and optional_value.get("kind") == "some":
+            result[pattern["binding"]] = optional_value.get("value")
+    return result
+
+
 def _literal_value(expression: Any) -> Any:
     value = expression.expression if isinstance(expression, ExpressionNode) else expression
     if isinstance(value, BooleanLiteralNode):
@@ -1391,6 +1439,15 @@ def _literal_value(expression: Any) -> Any:
                 for field in value.fields
             },
         }
+    if isinstance(value, SomeExpressionNode):
+        return {
+            "kind": "some",
+            "value": _literal_value(value.value),
+        }
+    if isinstance(value, NoneLiteralNode):
+        return {
+            "kind": "none",
+        }
     return to_json_value(expression)
 
 
@@ -1400,6 +1457,13 @@ def _ir_value(expression: Any) -> Any:
     if enum_value is not None:
         return enum_value
     return to_json_value(expression)
+
+
+def _ir_value_with_context(expression: Any, context: dict[str, Any]) -> Any:
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    if isinstance(value, IdentifierNode) and value.name in context:
+        return context[value.name]
+    return _ir_value(expression)
 
 
 def _enum_variant_ir(value: Any) -> dict[str, Any] | None:

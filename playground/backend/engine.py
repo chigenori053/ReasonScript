@@ -292,6 +292,7 @@ def _branch_transition_matches(transition: dict[str, Any]) -> bool:
             continue
         if not _match_pattern_matches(value, pattern):
             return False
+        _bind_optional_pattern(value, pattern, context)
     return True
 
 
@@ -399,6 +400,13 @@ def _match_pattern_matches(value: Any, pattern: Any) -> bool:
             enum_value.get("enum") == pattern.get("enum_name")
             and enum_value.get("variant") == pattern.get("value_name")
         )
+    if _is_optional_pattern(pattern):
+        optional_value = _optional_match_value(value)
+        if optional_value is None:
+            return False
+        if pattern.get("node_type") == "OptionalSomePatternNode":
+            return optional_value.get("kind") == "some"
+        return optional_value.get("kind") == "none"
     if _is_struct_pattern(pattern):
         return _struct_pattern_matches(value, pattern)
     return value == pattern
@@ -410,6 +418,14 @@ def _is_enum_pattern(pattern: Any) -> bool:
 
 def _is_struct_pattern(pattern: Any) -> bool:
     return isinstance(pattern, dict) and pattern.get("node_type") == "StructPatternNode"
+
+
+def _is_optional_pattern(pattern: Any) -> bool:
+    return (
+        isinstance(pattern, dict)
+        and pattern.get("node_type")
+        in {"OptionalSomePatternNode", "OptionalNonePatternNode"}
+    )
 
 
 def _is_catch_all_pattern(pattern: Any) -> bool:
@@ -426,6 +442,36 @@ def _enum_match_value(value: Any) -> dict[str, str] | None:
         if isinstance(variant, str):
             return {"enum": value["enum_name"], "variant": variant}
     return None
+
+
+def _optional_match_value(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    if value.get("kind") == "some":
+        return {"kind": "some", "value": value.get("value")}
+    if value.get("kind") == "none":
+        return {"kind": "none"}
+    if value.get("node_type") == "SomeExpressionNode":
+        return {"kind": "some", "value": _expression_value(value.get("value"), {})}
+    if value.get("node_type") == "NoneLiteralNode":
+        return {"kind": "none"}
+    return None
+
+
+def _bind_optional_pattern(
+    value: Any,
+    pattern: Any,
+    context: dict[str, Any],
+) -> None:
+    if not (
+        _is_optional_pattern(pattern)
+        and pattern.get("node_type") == "OptionalSomePatternNode"
+        and isinstance(pattern.get("binding"), str)
+    ):
+        return
+    optional_value = _optional_match_value(value)
+    if optional_value is not None and optional_value.get("kind") == "some":
+        context[pattern["binding"]] = optional_value.get("value")
 
 
 def _struct_pattern_matches(value: Any, pattern: dict[str, Any]) -> bool:
@@ -556,6 +602,17 @@ def _match_evaluation_event(
             "result": _match_pattern_matches(value, pattern),
             "value": value,
             "selected_case": _enum_pattern_signature(pattern),
+            "selected_branch": condition.get("target"),
+        }
+    if _is_optional_pattern(pattern):
+        optional_value = _optional_match_value(value) or {}
+        kind = str(optional_value.get("kind") or "").lower()
+        return {
+            "event_type": "OptionalPatternEvaluation",
+            "kind": kind or None,
+            "result": _match_pattern_matches(value, pattern),
+            "value": value,
+            "selected_case": _optional_pattern_signature(pattern),
             "selected_branch": condition.get("target"),
         }
     return {
@@ -692,6 +749,7 @@ def extract_knowledge(
             comparison_evidence = _path_comparison_evidence(new_path)
             match_evidence = _path_match_evidence(new_path)
             enum_match_evidence = _path_enum_match_evidence(new_path)
+            optional_match_evidence = _path_optional_match_evidence(new_path)
             pattern_evidence = _path_pattern_evidence(new_path)
             identity = (new_path[0]["source"], relation, target, path_signature)
             if identity in seen_knowledge:
@@ -717,6 +775,8 @@ def extract_knowledge(
                 unit["match_evidence"] = match_evidence
             if enum_match_evidence is not None:
                 unit["enum_match_evidence"] = enum_match_evidence
+            if optional_match_evidence is not None:
+                unit["optional_match_evidence"] = optional_match_evidence
             if pattern_evidence is not None:
                 unit["pattern"] = pattern_evidence["pattern"]
                 unit["matched_pattern"] = pattern_evidence["matched_pattern"]
@@ -786,6 +846,8 @@ def _branch_id(evidence_path: list[str]) -> str | None:
         match_id = branch.split(".match.", 1)[1]
         if "." in match_id:
             return match_id
+        if match_id in {"some", "none"}:
+            return match_id
         return f"case_{match_id}"
     return branch.rsplit(".", 1)[-1]
 
@@ -840,6 +902,25 @@ def _path_enum_match_evidence(path: list[dict[str, Any]]) -> dict[str, str] | li
     return None
 
 
+def _path_optional_match_evidence(path: list[dict[str, Any]]) -> dict[str, str] | list[dict[str, str]] | None:
+    evidence: list[dict[str, str]] = []
+    for transition in reversed(path):
+        if transition.get("relation") != "FunctionReturnTransition":
+            continue
+        effect = transition.get("effect") or {}
+        context = effect.get("evaluation_context") or {}
+        for condition in effect.get("match_conditions") or []:
+            pattern = condition.get("pattern")
+            if not _is_optional_pattern(pattern):
+                continue
+            optional_value = _optional_match_value(_match_value(condition, context))
+            if optional_value is not None and isinstance(optional_value.get("kind"), str):
+                evidence.append({"kind": optional_value["kind"]})
+        if evidence:
+            return evidence if len(evidence) > 1 else evidence[0]
+    return None
+
+
 def _path_pattern_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | None:
     for transition in reversed(path):
         if transition.get("relation") != "FunctionReturnTransition":
@@ -866,8 +947,16 @@ def _pattern_decision_evidence(decision: dict[str, Any]) -> dict[str, Any]:
 def _match_case_evidence(pattern: Any) -> Any:
     if _is_enum_pattern(pattern):
         return _enum_pattern_signature(pattern)
+    if _is_optional_pattern(pattern):
+        return _optional_pattern_signature(pattern)
     return pattern
 
 
 def _enum_pattern_signature(pattern: dict[str, Any]) -> str:
     return f"{pattern.get('enum_name')}.{pattern.get('value_name')}"
+
+
+def _optional_pattern_signature(pattern: dict[str, Any]) -> str:
+    if pattern.get("node_type") == "OptionalSomePatternNode":
+        return "some"
+    return "none"

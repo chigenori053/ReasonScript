@@ -1,0 +1,32 @@
+{
+  "spec": "optional-pattern-matching/1.0",
+  "phase": "MSI-005",
+  "cases": [
+    {
+      "id": "OPM-001",
+      "fixture": "tests/opm_001.rsn",
+      "expected": "Score.match.some"
+    },
+    {
+      "id": "OPM-002",
+      "fixture": "tests/opm_002.rsn",
+      "expected": "Score.match.none"
+    },
+    {
+      "id": "OPM-003",
+      "assertion": "Knowledge branch_id is some and optional_match_evidence.kind is some"
+    },
+    {
+      "id": "OPM-004",
+      "assertion": "Knowledge branch_id is none and optional_match_evidence.kind is none"
+    },
+    {
+      "id": "OPM-005",
+      "assertion": "Simulation emits OptionalPatternEvaluation before BranchSelection"
+    },
+    {
+      "id": "OPM-006",
+      "assertion": "Repeated execution produces identical path signatures and knowledge"
+    }
+  ]
+}

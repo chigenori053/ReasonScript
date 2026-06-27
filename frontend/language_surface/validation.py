@@ -967,7 +967,8 @@ def _validate_calculation_statements(
                 statement.expression.expression, symbols, local_bindings
             )
             if statement.type_annotation is None and _contains_uncontextual_none_literal(
-                statement.expression.expression
+                statement.expression.expression,
+                symbols,
             ):
                 raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             if statement.type_annotation is not None:
@@ -1019,7 +1020,7 @@ def _validate_calculation_statements(
         elif isinstance(statement, IndexAssignmentStatementNode):
             _validate_index_assignment(statement, symbols, local_bindings)
         elif isinstance(statement, ExpressionStatementNode):
-            if _contains_uncontextual_none_literal(statement.expression.expression):
+            if _contains_uncontextual_none_literal(statement.expression.expression, symbols):
                 raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
@@ -1033,7 +1034,8 @@ def _validate_calculation_statements(
                 statement.expression, symbols, local_bindings
             )
             if return_type is None and _contains_uncontextual_none_literal(
-                statement.expression.expression
+                statement.expression.expression,
+                symbols,
             ):
                 raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             if return_type is not None:
@@ -1220,7 +1222,8 @@ def _validate_function_statements(
                 statement.expression.expression, symbols, local_bindings
             )
             if statement.type_annotation is None and _contains_uncontextual_none_literal(
-                statement.expression.expression
+                statement.expression.expression,
+                symbols,
             ):
                 raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             if statement.type_annotation is not None:
@@ -1263,7 +1266,7 @@ def _validate_function_statements(
         elif isinstance(statement, IndexAssignmentStatementNode):
             _validate_index_assignment(statement, symbols, local_bindings)
         elif isinstance(statement, ExpressionStatementNode):
-            if _contains_uncontextual_none_literal(statement.expression.expression):
+            if _contains_uncontextual_none_literal(statement.expression.expression, symbols):
                 raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             _validate_calculation_expression(
                 statement.expression, symbols, local_bindings
@@ -1277,7 +1280,8 @@ def _validate_function_statements(
                 statement.expression, symbols, local_bindings
             )
             if return_type is None and _contains_uncontextual_none_literal(
-                statement.expression.expression
+                statement.expression.expression,
+                symbols,
             ):
                 raise SurfaceValidationError("OV-1 OptionalTypeRequired")
             if return_type is not None:
@@ -2071,18 +2075,41 @@ def _contains_none_literal(value: Any) -> bool:
     return False
 
 
-def _contains_uncontextual_none_literal(value: Any) -> bool:
+def _contains_uncontextual_none_literal(
+    value: Any,
+    symbols: dict[str, Any] | None = None,
+) -> bool:
     if isinstance(value, NoneLiteralNode):
         return True
+    if (
+        symbols is not None
+        and isinstance(value, CallExpressionNode)
+        and isinstance(value.callee, IdentifierNode)
+    ):
+        function = symbols.get(value.callee.name)
+        if isinstance(function, FunctionDeclarationNode):
+            for argument, parameter in zip(value.arguments, function.parameters):
+                expected_type = _function_parameter_type(parameter)
+                argument_value = (
+                    argument.expression if isinstance(argument, ExpressionNode) else argument
+                )
+                if isinstance(argument_value, NoneLiteralNode) and isinstance(
+                    expected_type,
+                    OptionalTypeNode,
+                ):
+                    continue
+                if _contains_uncontextual_none_literal(argument_value, symbols):
+                    return True
+            return False
     if isinstance(value, StructLiteralNode):
         return False
     if is_dataclass(value) and not isinstance(value, type):
         return any(
-            _contains_uncontextual_none_literal(getattr(value, field.name))
+            _contains_uncontextual_none_literal(getattr(value, field.name), symbols)
             for field in fields(value)
         )
     if isinstance(value, (tuple, list)):
-        return any(_contains_uncontextual_none_literal(item) for item in value)
+        return any(_contains_uncontextual_none_literal(item, symbols) for item in value)
     return False
 
 
@@ -2483,6 +2510,11 @@ def _validate_match_patterns(
                 resolve_struct_pattern(pattern, symbols, _CURRENT_NAMESPACE)
             except StructPatternSemanticError as error:
                 raise SurfaceValidationError(str(error)) from error
+            continue
+        if isinstance(pattern, OptionalPatternNode):
+            if not isinstance(match_type, OptionalTypeNode):
+                code = "OPM-002" if pattern.kind == "Some" else "OPM-003"
+                raise SurfaceValidationError(f"{code} optional pattern requires optional match value")
             continue
 
 
