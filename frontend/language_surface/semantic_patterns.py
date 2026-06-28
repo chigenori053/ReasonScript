@@ -12,6 +12,7 @@ from .nodes import (
     DefaultPatternNode,
     EnumDeclarationNode,
     FloatLiteralNode,
+    IdentifierPatternNode,
     IntegerLiteralNode,
     LiteralPatternNode,
     NamedTypeNode,
@@ -23,6 +24,7 @@ from .nodes import (
     QualifiedPatternNode,
     StringLiteralNode,
     StructDeclarationNode,
+    StructBindingPatternNode,
     StructPatternNode,
     TypeNode,
     WildcardPatternNode,
@@ -56,6 +58,12 @@ class SemanticDefaultPattern:
 
 
 @dataclass(frozen=True)
+class SemanticBindingPattern:
+    field_symbol: str
+    binding: str
+
+
+@dataclass(frozen=True)
 class SemanticStructFieldPattern:
     field_symbol: str
     field_type: str
@@ -74,6 +82,7 @@ SemanticPattern: TypeAlias = (
     | SemanticLiteralPattern
     | SemanticWildcardPattern
     | SemanticDefaultPattern
+    | SemanticBindingPattern
     | SemanticStructPattern
 )
 
@@ -110,6 +119,7 @@ def resolve_struct_pattern(
     resolved_fields: list[SemanticStructFieldPattern] = []
     seen_source: set[str] = set()
     seen_semantic: set[str] = set()
+    seen_bindings: set[str] = set()
 
     for field in pattern.fields:
         if field.field_name in seen_source:
@@ -128,6 +138,10 @@ def resolve_struct_pattern(
             namespace,
             require_complete=require_complete,
         )
+        for binding in _binding_names(semantic_pattern):
+            if binding in seen_bindings:
+                raise StructPatternSemanticError("SPM-005 duplicate binding name")
+            seen_bindings.add(binding)
         resolved_fields.append(
             SemanticStructFieldPattern(
                 declaration_field.name,
@@ -212,6 +226,8 @@ def _semantic_node(value: Mapping[str, Any]) -> Any:
         return SemanticWildcardPattern()
     if node_type == "SemanticDefaultPattern":
         return SemanticDefaultPattern()
+    if node_type == "SemanticBindingPattern":
+        return SemanticBindingPattern(value["field_symbol"], value["binding"])
     raise ValueError(f"unknown semantic pattern node_type: {node_type}")
 
 
@@ -272,6 +288,10 @@ def _resolve_terminal_pattern(
         if not _type_matches(field_type, literal_type):
             raise StructPatternSemanticError("SP-104 field type mismatch")
         return SemanticLiteralPattern(_literal_value(pattern.value), _type_symbol(literal_type))
+    if isinstance(pattern, StructBindingPatternNode):
+        return SemanticBindingPattern(pattern.field, pattern.binding)
+    if isinstance(pattern, IdentifierPatternNode):
+        return SemanticBindingPattern(pattern.name, pattern.name)
     if isinstance(pattern, WildcardPatternNode):
         return SemanticWildcardPattern()
     if isinstance(pattern, DefaultPatternNode):
@@ -325,3 +345,14 @@ def _type_symbol(value: TypeNode) -> str:
     if isinstance(value, PrimitiveTypeNode):
         return value.kind.value
     return type(value).__name__
+
+
+def _binding_names(pattern: SemanticPattern) -> tuple[str, ...]:
+    if isinstance(pattern, SemanticBindingPattern):
+        return (pattern.binding,)
+    if isinstance(pattern, SemanticStructPattern):
+        names: list[str] = []
+        for field in pattern.fields:
+            names.extend(_binding_names(field.pattern))
+        return tuple(names)
+    return ()

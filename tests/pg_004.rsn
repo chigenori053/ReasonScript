@@ -1,0 +1,16 @@
+module Test {
+    struct Point {
+        x: int
+    }
+
+    fn Score(point: Point) -> int {
+        match point {
+            Point { } when false => return 1
+            Point { } => return 0
+        }
+    }
+
+    calculation Result {
+        result = Score(Point { x: 1 })
+    }
+}

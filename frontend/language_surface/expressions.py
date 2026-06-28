@@ -37,6 +37,7 @@ from .nodes import (
     QualifiedIdentifierNode,
     StringLiteralNode,
     SomeExpressionNode,
+    StructBindingPatternNode,
     StructFieldPatternNode,
     StructLiteralExpressionNode,
     StructLiteralFieldNode,
@@ -206,6 +207,14 @@ class _StructPatternFrameParser:
                 raise ExpressionSyntaxError("SP-001 duplicate struct field")
             seen.add(field_name)
             self._skip_whitespace()
+            if self.at_end() or self.source[self.index] != ":":
+                fields.append(
+                    StructFieldPatternNode(
+                        field_name,
+                        StructBindingPatternNode(field_name, field_name),
+                    )
+                )
+                continue
             self._consume(":", "SP-002 NP-002 invalid struct pattern syntax")
             field_pattern = self._field_pattern()
             fields.append(StructFieldPatternNode(field_name, field_pattern))
@@ -290,6 +299,8 @@ def _next_struct_field_boundary(source: str, index: int) -> int:
             depth -= 1
             cursor += 1
             continue
+        if depth == 0 and char == ",":
+            return cursor
         if depth == 0 and _field_start_at(source, cursor):
             return cursor
         cursor += 1

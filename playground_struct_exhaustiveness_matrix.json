@@ -1,0 +1,13 @@
+{
+  "specification_id": "struct-exhaustiveness/1.0",
+  "phase": "MSI-006A",
+  "tests": [
+    {"id": "SEX-001", "fixture": "tests/sex_001.rsn", "coverage": "literal-only struct match is non-exhaustive"},
+    {"id": "SEX-002", "fixture": "tests/sex_002.rsn", "coverage": "binding-only pattern is exhaustive"},
+    {"id": "SEX-003", "fixture": "tests/sex_003.rsn", "coverage": "empty struct pattern is exhaustive"},
+    {"id": "SEX-004", "fixture": "tests/sex_004.rsn", "coverage": "default branch is exhaustive"},
+    {"id": "SEX-005", "fixture": "tests/sex_005.rsn", "coverage": "nested empty pattern is exhaustive"},
+    {"id": "SEX-006", "fixture": "tests/sex_006.rsn", "coverage": "nested literal-only pattern is non-exhaustive"},
+    {"id": "SEX-007", "fixture": "tests/sex_007.rsn", "coverage": "coverage metadata is deterministic"}
+  ]
+}

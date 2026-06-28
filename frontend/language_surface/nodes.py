@@ -370,6 +370,12 @@ class OptionalPatternNode:
 
 
 @dataclass(frozen=True)
+class StructBindingPatternNode:
+    field: str
+    binding: str
+
+
+@dataclass(frozen=True)
 class StructFieldPatternNode:
     field_name: str
     pattern: "Pattern"
@@ -389,6 +395,7 @@ Pattern: TypeAlias = (
     | LiteralPatternNode
     | EnumValuePatternNode
     | OptionalPatternNode
+    | StructBindingPatternNode
     | StructPatternNode
 )
 
@@ -638,6 +645,7 @@ class IfStatementNode:
 class MatchArmNode:
     pattern: PatternNode
     body: tuple["StatementNode", ...]
+    guard: ExpressionNode | None = None
 
 
 @dataclass(frozen=True)
@@ -776,6 +784,7 @@ _NODE_TYPES = {
         IdentifierNode,
         IdentifierPatternNode,
         QualifiedPatternNode,
+        StructBindingPatternNode,
         StructFieldPatternNode,
         StructPatternNode,
         IfStatementNode,
@@ -1100,6 +1109,8 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return EnumValuePatternNode(value["enum_name"], value["value_name"])
     if node_type == "OptionalPatternNode":
         return OptionalPatternNode(value["kind"], value.get("binding"))
+    if node_type == "StructBindingPatternNode":
+        return StructBindingPatternNode(value["field"], value["binding"])
     if node_type == "StructFieldPatternNode":
         return StructFieldPatternNode(
             value["field_name"], _from_json_node(value["pattern"])
@@ -1280,6 +1291,7 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return MatchArmNode(
             _from_json_node(value["pattern"]),
             tuple(_from_json_node(item) for item in value["body"]),
+            _from_json_node(value["guard"]) if value.get("guard") else None,
         )
     if node_type in {"MatchNode", "MatchStatementNode"}:
         return MatchStatementNode(

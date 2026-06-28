@@ -462,6 +462,7 @@
         {"$ref": "#/$defs/literal_pattern"},
         {"$ref": "#/$defs/enum_value_pattern"},
         {"$ref": "#/$defs/optional_pattern"},
+        {"$ref": "#/$defs/struct_binding_pattern"},
         {"$ref": "#/$defs/struct_pattern"}
       ]
     },
@@ -540,6 +541,16 @@
           ]
         },
         "node_type": {"const": "OptionalPatternNode"}
+      }
+    },
+    "struct_binding_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "binding", "node_type"],
+      "properties": {
+        "field": {"$ref": "#/$defs/identifier"},
+        "binding": {"$ref": "#/$defs/identifier"},
+        "node_type": {"const": "StructBindingPatternNode"}
       }
     },
     "struct_pattern": {
@@ -1038,12 +1049,18 @@
     "match_arm": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["pattern", "body", "node_type"],
+      "required": ["pattern", "body", "guard", "node_type"],
       "properties": {
         "pattern": {"$ref": "#/$defs/pattern"},
         "body": {
           "type": "array",
           "items": {"$ref": "#/$defs/statement"}
+        },
+        "guard": {
+          "oneOf": [
+            {"$ref": "#/$defs/expression"},
+            {"type": "null"}
+          ]
         },
         "node_type": {"const": "MatchArmNode"}
       }

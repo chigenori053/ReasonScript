@@ -1,0 +1,14 @@
+{
+  "specification_id": "pattern-guard/1.0",
+  "phase": "MSI-007",
+  "tests": [
+    {"id": "PG-001", "fixture": "tests/pg_001.rsn", "coverage": "struct guard"},
+    {"id": "PG-002", "fixture": "tests/pg_002.rsn", "coverage": "undefined guard identifier"},
+    {"id": "PG-003", "fixture": "tests/pg_003.rsn", "coverage": "non-bool guard"},
+    {"id": "PG-004", "fixture": "tests/pg_004.rsn", "coverage": "guard false continues matching"},
+    {"id": "PG-005", "fixture": "tests/pg_005.rsn", "coverage": "nested struct guard"},
+    {"id": "PG-006", "fixture": "tests/pg_006.rsn", "coverage": "optional guard"},
+    {"id": "PG-007", "fixture": "tests/pg_007.rsn", "coverage": "enum guard"},
+    {"id": "PG-008", "fixture": "tests/pg_008.rsn", "coverage": "literal guard and deterministic path"}
+  ]
+}

@@ -332,7 +332,7 @@ def test_sr_009_recursive_json_round_trip_and_schema():
     assert semantic_pattern_from_json(value) == semantic
 
 
-def test_sr_010_nested_pattern_does_not_emit_pattern_decision_ir_yet():
+def test_sr_010_nested_pattern_emits_canonical_pattern_decision_ir():
     ir = compile_program(
         parse(
             """
@@ -367,6 +367,8 @@ def test_sr_010_nested_pattern_does_not_emit_pattern_decision_ir_yet():
     nested_transition = next(
         item
         for item in ir["transitions"]
-        if item["transition_id"] == "Check.match.Person"
+        if item["transition_id"] == "Check.match.Person.profile|Profile.Status.Active"
     )
-    assert "pattern_decisions" not in nested_transition["effect"]
+    assert nested_transition["effect"]["pattern_decisions"][0]["branch_id"] == (
+        "Person.profile|Profile.Status.Active"
+    )

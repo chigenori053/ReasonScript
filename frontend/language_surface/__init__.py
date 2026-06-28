@@ -102,6 +102,7 @@ from .nodes import (
     StateDeclarationNode,
     StateKind,
     StateTypeNode,
+    StructBindingPatternNode,
     StructDeclarationNode,
     StructFieldPatternNode,
     StructFieldNode,
@@ -143,6 +144,7 @@ from .pattern_decision import (
     pattern_decision_to_json,
 )
 from .semantic_patterns import (
+    SemanticBindingPattern,
     SemanticDefaultPattern,
     SemanticLiteralPattern,
     SemanticQualifiedPattern,
@@ -255,6 +257,7 @@ __all__ = [
     "RuntimeStructValue",
     "SetLiteralNode",
     "SetTypeNode",
+    "SemanticBindingPattern",
     "SemanticDefaultPattern",
     "SemanticLiteralPattern",
     "SemanticQualifiedPattern",
@@ -266,6 +269,7 @@ __all__ = [
     "StateDeclarationNode",
     "StateKind",
     "StateTypeNode",
+    "StructBindingPatternNode",
     "StructDeclarationNode",
     "StructFieldPatternNode",
     "StructFieldNode",

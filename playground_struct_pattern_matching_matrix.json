@@ -1,0 +1,14 @@
+{
+  "specification_id": "struct-pattern-matching/1.0",
+  "phase": "MSI-006",
+  "tests": [
+    {"id": "SPM-001", "fixture": "tests/spm_001.rsn", "coverage": "literal field match"},
+    {"id": "SPM-002", "fixture": "tests/spm_002.rsn", "coverage": "binding extraction"},
+    {"id": "SPM-003", "fixture": "tests/spm_003.rsn", "coverage": "mixed literal and binding"},
+    {"id": "SPM-004", "fixture": "tests/spm_004.rsn", "coverage": "unknown field diagnostic"},
+    {"id": "SPM-005", "fixture": "tests/spm_005.rsn", "coverage": "duplicate field diagnostic"},
+    {"id": "SPM-006", "fixture": "tests/spm_006.rsn", "coverage": "nested struct match"},
+    {"id": "SPM-007", "fixture": "tests/spm_007.rsn", "coverage": "canonical execution path"},
+    {"id": "SPM-008", "fixture": "tests/spm_008.rsn", "coverage": "knowledge struct evidence"}
+  ]
+}

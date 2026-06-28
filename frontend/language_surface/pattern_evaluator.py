@@ -7,6 +7,7 @@ from enum import Enum
 from typing import Any, Mapping
 
 from .semantic_patterns import (
+    SemanticBindingPattern,
     SemanticDefaultPattern,
     SemanticLiteralPattern,
     SemanticPattern,
@@ -59,6 +60,7 @@ class PatternMatchResult:
     failure_reason: str | None = None
     evaluation_trace: tuple[str, ...] = ()
     children: tuple["PatternMatchResult", ...] = ()
+    bindings: dict[str, Any] | None = None
 
 
 class PatternEvaluator:
@@ -84,6 +86,8 @@ class PatternEvaluator:
             return self.evaluate_wildcard(pattern, value)
         if isinstance(pattern, SemanticDefaultPattern):
             return self.evaluate_default(pattern, value)
+        if isinstance(pattern, SemanticBindingPattern):
+            return self.evaluate_binding(pattern, value)
         return PatternMatchResult(
             False,
             (),
@@ -121,6 +125,7 @@ class PatternEvaluator:
 
         matched_fields: list[str] = []
         children: list[PatternMatchResult] = []
+        bindings: dict[str, Any] = {}
         for field in pattern.fields:
             trace.append(field.field_symbol)
             runtime_value = value.field(field.field_symbol)
@@ -136,6 +141,8 @@ class PatternEvaluator:
                 )
             child = self.evaluate_pattern(field.pattern, runtime_value)
             children.append(child)
+            if child.bindings:
+                bindings.update(child.bindings)
             trace.extend(child.evaluation_trace)
             if not child.matched:
                 return PatternMatchResult(
@@ -156,6 +163,7 @@ class PatternEvaluator:
             None,
             tuple(trace),
             tuple(children),
+            bindings or None,
         )
 
     def evaluate_literal(
@@ -223,6 +231,21 @@ class PatternEvaluator:
             (_value_label(value), "NotMatched"),
         )
 
+    def evaluate_binding(
+        self,
+        pattern: SemanticBindingPattern,
+        value: Any,
+    ) -> PatternMatchResult:
+        return PatternMatchResult(
+            True,
+            (),
+            None,
+            None,
+            (_value_label(value), "Matched"),
+            (),
+            {pattern.binding: value},
+        )
+
 
 def pattern_match_result_to_json(value: Any) -> Any:
     if isinstance(value, Enum):
@@ -231,6 +254,7 @@ def pattern_match_result_to_json(value: Any) -> Any:
         result = {
             field.name: pattern_match_result_to_json(getattr(value, field.name))
             for field in fields(value)
+            if not (isinstance(value, PatternMatchResult) and field.name == "bindings")
         }
         if isinstance(value, PatternMatchResult):
             result["matched_fields"] = list(value.matched_fields)
@@ -238,6 +262,8 @@ def pattern_match_result_to_json(value: Any) -> Any:
             result["children"] = [
                 pattern_match_result_to_json(item) for item in value.children
             ]
+            if value.bindings:
+                result["bindings"] = pattern_match_result_to_json(value.bindings)
         result["node_type"] = type(value).__name__
         return result
     if isinstance(value, Mapping):
@@ -260,6 +286,7 @@ def pattern_match_result_from_json(value: Mapping[str, Any]) -> PatternMatchResu
             pattern_match_result_from_json(item)
             for item in value.get("children", ())
         ),
+        dict(value["bindings"]) if value.get("bindings") else None,
     )
 
 

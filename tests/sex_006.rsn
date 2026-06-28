@@ -1,0 +1,16 @@
+module Test {
+    struct Position {
+        x: int
+        y: int
+    }
+
+    struct Person {
+        position: Position
+    }
+
+    fn Score(person: Person) -> int {
+        match person {
+            Person { position: Position { x: 0 } } => return 1
+        }
+    }
+}

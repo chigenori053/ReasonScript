@@ -68,6 +68,7 @@ from .nodes import (
     RuntimeNamespaceNode,
     SetLiteralNode,
     SomeExpressionNode,
+    StructBindingPatternNode,
     StringLiteralNode,
     StateDeclarationNode,
     StructDeclarationNode,
@@ -765,7 +766,14 @@ def _function_return_paths(
                     for arm in statement.arms:
                         label = _match_case_label(arm.pattern, enum)
                         branch_prefix = (*prefix, label)
-                        match_condition = _match_condition(statement, arm, label, enum)
+                        if arm.guard is not None:
+                            branch_prefix = (*branch_prefix, f"match.{_guard_label(arm.guard)}")
+                        match_condition = _match_condition(
+                            statement,
+                            arm,
+                            _return_path_label(branch_prefix, 1),
+                            enum,
+                        )
                         if walk(
                             arm.body,
                             [branch_prefix],
@@ -837,10 +845,7 @@ def _function_control_flow_ir(
                                 "pattern": _match_pattern_value(arm.pattern, enum),
                                 "target": _function_return_target(
                                     function.name,
-                                    _return_path_label(
-                                        (*prefix, _match_case_label(arm.pattern, enum)),
-                                        1,
-                                    ),
+                                    _return_path_label(_match_arm_prefix(prefix, arm, enum), 1),
                                 ),
                             }
                             for arm in statement.arms
@@ -859,10 +864,7 @@ def _function_control_flow_ir(
                                 "pattern": _pattern_decision_value(arm.pattern, enum),
                                 "target_transition": _function_return_target(
                                     function.name,
-                                    _return_path_label(
-                                        (*prefix, _match_case_label(arm.pattern, enum)),
-                                        1,
-                                    ),
+                                    _return_path_label(_match_arm_prefix(prefix, arm, enum), 1),
                                 ),
                             }
                             for index, arm in enumerate(statement.arms)
@@ -871,8 +873,10 @@ def _function_control_flow_ir(
                     }
                 )
                 for arm in statement.arms:
-                    branch_prefix = (*prefix, _match_case_label(arm.pattern, enum))
+                    branch_prefix = _match_arm_prefix(prefix, arm, enum)
                     label = _return_path_label(branch_prefix, 1)
+                    if arm.guard is not None:
+                        nodes.append(_guard_expression_ir(arm.guard))
                     nodes.append(
                         {
                             "node_type": "MatchSelectionIRNode",
@@ -880,11 +884,16 @@ def _function_control_flow_ir(
                             "pattern": _match_pattern_value(arm.pattern, enum),
                             "target": _function_return_target(function.name, label),
                             "canonical_path": _canonical_match_path(branch_prefix),
+                            **(
+                                {"guard": _guard_expression_ir(arm.guard)}
+                                if arm.guard is not None
+                                else {}
+                            ),
                         }
                     )
                     add_branch_nodes(
                         arm.body,
-                        (*prefix, _match_case_label(arm.pattern, enum)),
+                        branch_prefix,
                     )
                 continue
             if not isinstance(statement, IfStatementNode):
@@ -980,6 +989,17 @@ def _branch_condition(condition: ExpressionNode, expected_value: bool) -> dict[s
     return result
 
 
+def _match_arm_prefix(
+    prefix: tuple[str, ...],
+    arm: Any,
+    enum: EnumDeclarationNode | None,
+) -> tuple[str, ...]:
+    result = (*prefix, _match_case_label(arm.pattern, enum))
+    if getattr(arm, "guard", None) is not None:
+        result = (*result, f"match.{_guard_label(arm.guard)}")
+    return result
+
+
 def _match_condition(
     statement: MatchStatementNode,
     arm: Any,
@@ -992,7 +1012,30 @@ def _match_condition(
         "expression": to_json_value(statement.expression),
         "pattern": _match_pattern_value(arm.pattern, enum),
         "target": label,
+        **(
+            {"guard": _guard_expression_ir(arm.guard)}
+            if arm.guard is not None
+            else {}
+        ),
     }
+
+
+def _guard_label(expression: ExpressionNode) -> str:
+    name = _condition_name(expression) or _condition_literal_name(expression)
+    return f"guard.{name}"
+
+
+def _guard_expression_ir(expression: ExpressionNode) -> dict[str, Any]:
+    result = {
+        "node_type": "GuardExpressionIRNode",
+        "expression": _expression_text(expression),
+        "expression_ast": to_json_value(expression),
+        "result_type": "Bool",
+    }
+    comparison = _comparison_ir(expression)
+    if comparison is not None:
+        result["comparison"] = comparison
+    return result
 
 
 def _match_value_name(expression: ExpressionNode) -> str:
@@ -1076,16 +1119,26 @@ def _struct_pattern_signature(pattern: dict[str, Any]) -> str:
     type_name = str(pattern.get("type_name", "Struct"))
     field_labels: list[str] = []
     for field in pattern.get("fields") or []:
-        label = _struct_field_pattern_label(field.get("pattern"))
+        label = _struct_field_pattern_label(field)
         if label is not None:
             field_labels.append(label)
-    return ".".join([type_name, *field_labels]) if field_labels else type_name
+    return f"{type_name}.{('_'.join(field_labels))}" if field_labels else type_name
 
 
-def _struct_field_pattern_label(pattern: Any) -> str | None:
+def _struct_field_pattern_label(field: Any) -> str | None:
+    if not isinstance(field, dict):
+        return None
+    field_name = str(field.get("field_name") or "")
+    pattern = field.get("pattern")
     if not isinstance(pattern, dict):
         return None
     node_type = pattern.get("node_type")
+    if node_type == "StructPatternNode":
+        return f"{field_name}|{_struct_pattern_signature(pattern)}"
+    if node_type == "StructBindingPatternNode":
+        return f"bind{pattern.get('binding')}"
+    if node_type == "IdentifierPatternNode":
+        return f"bind{pattern.get('name')}"
     if node_type == "QualifiedPatternNode":
         return f"{pattern.get('namespace')}.{pattern.get('identifier')}"
     if node_type == "EnumValuePatternNode":
@@ -1093,10 +1146,10 @@ def _struct_field_pattern_label(pattern: Any) -> str | None:
     if node_type == "LiteralPatternNode":
         literal = pattern.get("value")
         if isinstance(literal, dict):
-            return str(literal.get("value"))
-        return str(literal)
+            return f"{field_name}{literal.get('value')}"
+        return f"{field_name}{literal}"
     if node_type == "WildcardPatternNode":
-        return "wildcard"
+        return f"{field_name}wildcard"
     return None
 
 
@@ -1113,8 +1166,6 @@ def _pattern_decisions_for_return_path(
             isinstance(pattern, dict)
             and pattern.get("node_type") == "StructPatternNode"
         ):
-            continue
-        if _struct_pattern_has_nested_field(pattern):
             continue
         value = context.get(condition.get("value"))
         runtime_value = _runtime_struct_value(value)
@@ -1227,9 +1278,11 @@ def _match_coverage(
 ) -> dict[str, Any] | None:
     enum = _match_enum_declaration(statement, function, module)
     if enum is None:
-        return None
+        return _struct_match_coverage(statement, function, module)
     explicit: list[str] = []
     for arm in statement.arms:
+        if arm.guard is not None:
+            continue
         pattern = arm.pattern.pattern
         if isinstance(pattern, EnumValuePatternNode) and pattern.enum_name == enum.name:
             explicit.append(f"{pattern.enum_name}.{pattern.value_name}")
@@ -1237,7 +1290,11 @@ def _match_coverage(
             explicit.append(f"{pattern.namespace}.{pattern.identifier}")
     default_present = any(
         _pattern_key in {"default", "wildcard"}
-        for _pattern_key in (_match_pattern_kind(arm.pattern) for arm in statement.arms)
+        for _pattern_key in (
+            _match_pattern_kind(arm.pattern)
+            for arm in statement.arms
+            if arm.guard is None
+        )
     )
     all_variants = [f"{enum.name}.{value.name}" for value in enum.values]
     covered = all_variants if default_present else [item for item in all_variants if item in explicit]
@@ -1247,6 +1304,46 @@ def _match_coverage(
         "default_present": default_present,
         "covered_variants": covered,
         "missing_variants": [item for item in all_variants if item not in covered],
+    }
+
+
+def _struct_match_coverage(
+    statement: MatchStatementNode,
+    function: FunctionDeclarationNode,
+    module: ModuleNode,
+) -> dict[str, Any] | None:
+    struct = _match_struct_declaration(statement, function, module)
+    if struct is None:
+        return None
+    default_present = any(
+        _pattern_key in {"default", "wildcard"}
+        for _pattern_key in (
+            _match_pattern_kind(arm.pattern)
+            for arm in statement.arms
+            if arm.guard is None
+        )
+    )
+    struct_patterns = [
+        arm.pattern.pattern
+        for arm in statement.arms
+        if arm.guard is None
+        if isinstance(arm.pattern.pattern, StructPatternNode)
+        and arm.pattern.pattern.type_name.split(".")[-1] == struct.name
+    ]
+    binding_pattern_present = any(
+        _struct_pattern_is_binding_only(pattern) for pattern in struct_patterns
+    )
+    empty_pattern_present = any(not pattern.fields for pattern in struct_patterns)
+    exhaustive_pattern_present = any(
+        _struct_pattern_is_exhaustive(pattern) for pattern in struct_patterns
+    )
+    complete = default_present or binding_pattern_present or empty_pattern_present or exhaustive_pattern_present
+    return {
+        "struct_name": struct.name,
+        "binding_pattern_present": binding_pattern_present,
+        "empty_pattern_present": empty_pattern_present,
+        "default_present": default_present,
+        "coverage": "complete" if complete else "partial",
     }
 
 
@@ -1269,6 +1366,48 @@ def _match_enum_declaration(
         if isinstance(node, EnumDeclarationNode) and node.name == parameter_type.name:
             return node
     return None
+
+
+def _match_struct_declaration(
+    statement: MatchStatementNode,
+    function: FunctionDeclarationNode,
+    module: ModuleNode,
+) -> StructDeclarationNode | None:
+    expression = statement.expression.expression
+    if not isinstance(expression, IdentifierNode):
+        return None
+    parameter_type = None
+    for parameter in function.parameters:
+        if _function_parameter_name(parameter) == expression.name:
+            parameter_type = _function_parameter_type(parameter)
+            break
+    if not isinstance(parameter_type, NamedTypeNode):
+        return None
+    for node in module.body:
+        if isinstance(node, StructDeclarationNode) and node.name == parameter_type.name:
+            return node
+    return None
+
+
+def _struct_pattern_is_binding_only(pattern: StructPatternNode) -> bool:
+    return bool(pattern.fields) and all(
+        isinstance(field.pattern, (StructBindingPatternNode, IdentifierPatternNode))
+        for field in pattern.fields
+    )
+
+
+def _struct_pattern_is_exhaustive(pattern: StructPatternNode) -> bool:
+    if not pattern.fields:
+        return True
+    return all(_struct_field_pattern_is_exhaustive(field.pattern) for field in pattern.fields)
+
+
+def _struct_field_pattern_is_exhaustive(pattern: Any) -> bool:
+    if isinstance(pattern, (StructBindingPatternNode, IdentifierPatternNode, WildcardPatternNode)):
+        return True
+    if isinstance(pattern, StructPatternNode):
+        return _struct_pattern_is_exhaustive(pattern)
+    return False
 
 
 def _match_pattern_kind(pattern: PatternNode) -> str:
@@ -1378,6 +1517,25 @@ def _comparison_condition_name(comparison: dict[str, Any]) -> str:
     return f"{left}_{operator}_{right}"
 
 
+def _expression_text(expression: ExpressionNode) -> str:
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    if isinstance(value, IdentifierNode):
+        return value.name
+    if isinstance(value, BooleanLiteralNode):
+        return "true" if value.value else "false"
+    if isinstance(value, (IntegerLiteralNode, FloatLiteralNode)):
+        return str(value.value)
+    if isinstance(value, ComparisonExpressionNode):
+        return (
+            f"{_expression_text(value.left)} "
+            f"{_COMPARISON_OPERATOR_SYMBOLS[value.operator]} "
+            f"{_expression_text(value.right)}"
+        )
+    if isinstance(value, ParenthesizedExpressionNode):
+        return f"({_expression_text(value.expression)})"
+    return str(_ir_value(expression))
+
+
 def _condition_operand_name(value: Any) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
@@ -1407,14 +1565,50 @@ def _evaluation_context_for_return_path(
         pattern = condition.get("pattern")
         if not (
             isinstance(pattern, dict)
-            and pattern.get("node_type") == "OptionalSomePatternNode"
-            and isinstance(pattern.get("binding"), str)
+            and pattern.get("node_type") in {"OptionalSomePatternNode", "StructPatternNode"}
         ):
             continue
-        optional_value = result.get(condition.get("value"))
-        if isinstance(optional_value, dict) and optional_value.get("kind") == "some":
-            result[pattern["binding"]] = optional_value.get("value")
+        if pattern.get("node_type") == "OptionalSomePatternNode":
+            if not isinstance(pattern.get("binding"), str):
+                continue
+            optional_value = result.get(condition.get("value"))
+            if isinstance(optional_value, dict) and optional_value.get("kind") == "some":
+                result[pattern["binding"]] = optional_value.get("value")
+            continue
+        struct_value = result.get(condition.get("value"))
+        result.update(_struct_pattern_bindings(pattern, struct_value))
     return result
+
+
+def _struct_pattern_bindings(pattern: dict[str, Any], value: Any) -> dict[str, Any]:
+    if not isinstance(pattern, dict) or not isinstance(value, dict):
+        return {}
+    if pattern.get("node_type") != "StructPatternNode":
+        return {}
+    fields = value.get("fields")
+    if not isinstance(fields, dict):
+        return {}
+    bindings: dict[str, Any] = {}
+    for field in pattern.get("fields") or []:
+        if not isinstance(field, dict):
+            continue
+        field_name = field.get("field_name")
+        if not isinstance(field_name, str) or field_name not in fields:
+            continue
+        field_pattern = field.get("pattern")
+        if not isinstance(field_pattern, dict):
+            continue
+        if field_pattern.get("node_type") == "StructBindingPatternNode":
+            binding = field_pattern.get("binding")
+            if isinstance(binding, str):
+                bindings[binding] = fields[field_name]
+        elif field_pattern.get("node_type") == "IdentifierPatternNode":
+            binding = field_pattern.get("name")
+            if isinstance(binding, str):
+                bindings[binding] = fields[field_name]
+        elif field_pattern.get("node_type") == "StructPatternNode":
+            bindings.update(_struct_pattern_bindings(field_pattern, fields[field_name]))
+    return bindings
 
 
 def _literal_value(expression: Any) -> Any:
@@ -1463,6 +1657,20 @@ def _ir_value_with_context(expression: Any, context: dict[str, Any]) -> Any:
     value = expression.expression if isinstance(expression, ExpressionNode) else expression
     if isinstance(value, IdentifierNode) and value.name in context:
         return context[value.name]
+    if isinstance(value, BinaryExpressionNode):
+        left = _ir_value_with_context(value.left, context)
+        right = _ir_value_with_context(value.right, context)
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            if value.operator == BinaryOperator.ADD:
+                return left + right
+            if value.operator == BinaryOperator.SUBTRACT:
+                return left - right
+            if value.operator == BinaryOperator.MULTIPLY:
+                return left * right
+            if value.operator == BinaryOperator.DIVIDE and right != 0:
+                return left / right
+            if value.operator == BinaryOperator.MODULO and right != 0:
+                return left % right
     return _ir_value(expression)
 
 

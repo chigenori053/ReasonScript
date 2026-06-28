@@ -1,0 +1,13 @@
+module Test {
+    fn Score(value: optional<int>) -> int {
+        match value {
+            some(x) when x > 100 => return x
+            some(x) => return 0
+            none => return -1
+        }
+    }
+
+    calculation Result {
+        result = Score(some(120))
+    }
+}

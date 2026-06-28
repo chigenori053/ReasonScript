@@ -632,22 +632,42 @@ def _parse_match(cursor: _Cursor, *, context: str) -> MatchStatementNode:
         line = cursor.take()
         if line == "}":
             return MatchStatementNode(_expression(match.group(1)), tuple(arms))
-        line = _collect_struct_pattern_arm(cursor, line)
-        arm = re.fullmatch(r"(.+?)\s*=>\s*(.+)", line)
+        line = _collect_match_arm(cursor, line)
+        guarded_arm = re.fullmatch(r"(.+?)\s+when\s+(.+?)\s*=>\s*(.+)", line)
+        arm = guarded_arm or re.fullmatch(r"(.+?)\s*=>\s*(.+)", line)
         if not arm:
             raise SurfaceSyntaxError(f"invalid match arm: {line}")
+        pattern_source = arm.group(1)
+        guard = _expression(arm.group(2)) if guarded_arm else None
+        body_source = arm.group(3) if guarded_arm else arm.group(2)
         arm_body = (
             tuple(_parse_body(cursor, context=context))
-            if arm.group(2).strip() == "{"
-            else (_parse_simple(arm.group(2).strip(), context=context),)
+            if body_source.strip() == "{"
+            else (_parse_simple(body_source.strip(), context=context),)
         )
         arms.append(
             MatchArmNode(
-                _pattern(arm.group(1)),
+                _pattern(pattern_source),
                 arm_body,
+                guard,
             )
         )
     raise SurfaceSyntaxError("unterminated match block")
+
+
+def _collect_match_arm(cursor: _Cursor, line: str) -> str:
+    collected = _collect_struct_pattern_arm(cursor, line)
+    if "=>" in collected:
+        return collected
+    if cursor.index < len(cursor.lines) and cursor.current().startswith("when "):
+        parts = [collected, cursor.take()]
+        if cursor.index < len(cursor.lines) and cursor.current().startswith("=>"):
+            parts.append(cursor.take())
+            return " ".join(parts)
+        raise SurfaceSyntaxError(f"invalid match arm: {' '.join(parts)}")
+    if cursor.index < len(cursor.lines) and cursor.current().startswith("=>"):
+        return " ".join([collected, cursor.take()])
+    return collected
 
 
 def _collect_struct_pattern_arm(cursor: _Cursor, line: str) -> str:
@@ -674,6 +694,12 @@ def _complete_struct_pattern_arm(cursor: _Cursor, parts: list[str]) -> str:
     collected = " ".join(parts)
     if "=>" in parts[-1]:
         return collected
+    if cursor.index < len(cursor.lines) and cursor.current().startswith("when "):
+        parts.append(cursor.take())
+        if cursor.index < len(cursor.lines) and cursor.current().startswith("=>"):
+            parts.append(cursor.take())
+            return " ".join(parts)
+        raise SurfaceSyntaxError(f"invalid match arm: {' '.join(parts)}")
     if cursor.index < len(cursor.lines) and cursor.current().startswith("=>"):
         parts.append(cursor.take())
         return " ".join(parts)

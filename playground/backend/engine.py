@@ -188,6 +188,15 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
                         "event": "match_evaluation",
                         **match_event,
                     })
+                for guard_event in branch_event.pop("guard_evaluations", []):
+                    guard_event["selected_branch"] = t["transition_id"]
+                    trace.append({
+                        "step": len(applied),
+                        "state": t["target"],
+                        "transition": t["transition_id"],
+                        "event": "guard_evaluation",
+                        **guard_event,
+                    })
                 for pattern_decision in branch_event.pop("pattern_decisions", []):
                     trace.append({
                         "step": len(applied),
@@ -289,10 +298,15 @@ def _branch_transition_matches(transition: dict[str, Any]) -> bool:
             ]
             if any(_match_pattern_matches(value, previous) for previous in previous_patterns):
                 return False
+            if not _guard_matches(condition, context):
+                return False
             continue
         if not _match_pattern_matches(value, pattern):
             return False
         _bind_optional_pattern(value, pattern, context)
+        _bind_struct_pattern(value, pattern, context)
+        if not _guard_matches(condition, context):
+            return False
     return True
 
 
@@ -370,6 +384,11 @@ def _expression_value(expression: Any, context: dict[str, Any]) -> Any:
         return expression.get("value")
     if node_type == "ComparisonExpressionIRNode":
         return _evaluate_comparison(expression, context)
+    if node_type == "GuardExpressionIRNode":
+        comparison = expression.get("comparison")
+        if comparison is not None:
+            return _evaluate_comparison(comparison, context)
+        return _expression_value(expression.get("expression_ast"), context)
     if node_type == "ComparisonExpressionNode":
         return _evaluate_comparison(
             {
@@ -502,6 +521,12 @@ def _struct_field_pattern_matches(value: Any, pattern: Any) -> bool:
         return True
     if node_type == "DefaultPatternNode":
         return False
+    if node_type == "StructBindingPatternNode":
+        return True
+    if node_type == "IdentifierPatternNode":
+        return True
+    if node_type == "StructPatternNode":
+        return _struct_pattern_matches(value, pattern)
     if node_type == "QualifiedPatternNode":
         enum_value = _enum_match_value(value)
         return enum_value == {
@@ -520,6 +545,44 @@ def _struct_field_pattern_matches(value: Any, pattern: Any) -> bool:
             return value == literal["value"]
         return value == literal
     return value == pattern
+
+
+def _guard_matches(condition: dict[str, Any], context: dict[str, Any]) -> bool:
+    guard = condition.get("guard")
+    if guard is None:
+        return True
+    return _expression_value(guard, context) is True
+
+
+def _bind_struct_pattern(
+    value: Any,
+    pattern: Any,
+    context: dict[str, Any],
+) -> None:
+    if not _is_struct_pattern(pattern) or not isinstance(value, dict):
+        return
+    fields = value.get("fields")
+    if not isinstance(fields, dict):
+        return
+    for field in pattern.get("fields") or []:
+        if not isinstance(field, dict):
+            continue
+        field_name = field.get("field_name")
+        if not isinstance(field_name, str) or field_name not in fields:
+            continue
+        field_pattern = field.get("pattern")
+        if not isinstance(field_pattern, dict):
+            continue
+        if field_pattern.get("node_type") == "StructBindingPatternNode":
+            binding = field_pattern.get("binding")
+            if isinstance(binding, str):
+                context[binding] = fields[field_name]
+        elif field_pattern.get("node_type") == "IdentifierPatternNode":
+            binding = field_pattern.get("name")
+            if isinstance(binding, str):
+                context[binding] = fields[field_name]
+        elif field_pattern.get("node_type") == "StructPatternNode":
+            _bind_struct_pattern(fields[field_name], field_pattern, context)
 
 
 def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
@@ -544,6 +607,11 @@ def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
         _match_evaluation_event(condition, context)
         for condition in match_conditions
     ]
+    guard_events = [
+        _guard_evaluation_event(condition, context)
+        for condition in match_conditions
+        if condition.get("guard") is not None
+    ]
     if not evaluated and not match_events:
         return {}
     result = {
@@ -562,6 +630,12 @@ def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
         result["match_evidence"] = {
             "value": match_events[-1]["value"],
             "matched_case": match_events[-1]["selected_case"],
+        }
+    if guard_events:
+        result["guard_evaluations"] = guard_events
+        result["guard_evidence"] = {
+            "expression": guard_events[-1]["expression"],
+            "result": guard_events[-1]["result"],
         }
     if pattern_decisions:
         result["pattern_decisions"] = pattern_decisions
@@ -615,10 +689,33 @@ def _match_evaluation_event(
             "selected_case": _optional_pattern_signature(pattern),
             "selected_branch": condition.get("target"),
         }
+    if _is_struct_pattern(pattern):
+        return {
+            "event_type": "StructPatternEvaluation",
+            "struct": pattern.get("type_name"),
+            "matched_fields": _struct_pattern_matched_fields(pattern),
+            "result": _match_pattern_matches(value, pattern),
+            "value": value,
+            "selected_case": _struct_pattern_signature(pattern),
+            "selected_branch": condition.get("target"),
+        }
     return {
         "event_type": "MatchEvaluation",
         "value": value,
         "selected_case": pattern,
+        "selected_branch": condition.get("target"),
+    }
+
+
+def _guard_evaluation_event(
+    condition: dict[str, Any],
+    context: dict[str, Any],
+) -> dict[str, Any]:
+    guard = condition.get("guard") or {}
+    return {
+        "event_type": "GuardEvaluation",
+        "expression": guard.get("expression"),
+        "result": _expression_value(guard, context),
         "selected_branch": condition.get("target"),
     }
 
@@ -750,6 +847,8 @@ def extract_knowledge(
             match_evidence = _path_match_evidence(new_path)
             enum_match_evidence = _path_enum_match_evidence(new_path)
             optional_match_evidence = _path_optional_match_evidence(new_path)
+            struct_match_evidence = _path_struct_match_evidence(new_path)
+            guard_evidence = _path_guard_evidence(new_path)
             pattern_evidence = _path_pattern_evidence(new_path)
             identity = (new_path[0]["source"], relation, target, path_signature)
             if identity in seen_knowledge:
@@ -777,6 +876,10 @@ def extract_knowledge(
                 unit["enum_match_evidence"] = enum_match_evidence
             if optional_match_evidence is not None:
                 unit["optional_match_evidence"] = optional_match_evidence
+            if struct_match_evidence is not None:
+                unit["struct_match_evidence"] = struct_match_evidence
+            if guard_evidence is not None:
+                unit["guard_evidence"] = guard_evidence
             if pattern_evidence is not None:
                 unit["pattern"] = pattern_evidence["pattern"]
                 unit["matched_pattern"] = pattern_evidence["matched_pattern"]
@@ -921,6 +1024,49 @@ def _path_optional_match_evidence(path: list[dict[str, Any]]) -> dict[str, str] 
     return None
 
 
+def _path_guard_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | list[dict[str, Any]] | None:
+    evidence: list[dict[str, Any]] = []
+    for transition in reversed(path):
+        if transition.get("relation") != "FunctionReturnTransition":
+            continue
+        effect = transition.get("effect") or {}
+        context = effect.get("evaluation_context") or {}
+        for condition in effect.get("match_conditions") or []:
+            guard = condition.get("guard")
+            if guard is None:
+                continue
+            evidence.append(
+                {
+                    "expression": guard.get("expression"),
+                    "result": _expression_value(guard, context),
+                }
+            )
+        if evidence:
+            return evidence if len(evidence) > 1 else evidence[0]
+    return None
+
+
+def _path_struct_match_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | list[dict[str, Any]] | None:
+    evidence: list[dict[str, Any]] = []
+    for transition in reversed(path):
+        if transition.get("relation") != "FunctionReturnTransition":
+            continue
+        effect = transition.get("effect") or {}
+        for condition in effect.get("match_conditions") or []:
+            pattern = condition.get("pattern")
+            if not _is_struct_pattern(pattern):
+                continue
+            evidence.append(
+                {
+                    "struct": pattern.get("type_name"),
+                    "matched_fields": _struct_pattern_matched_fields(pattern),
+                }
+            )
+        if evidence:
+            return evidence if len(evidence) > 1 else evidence[0]
+    return None
+
+
 def _path_pattern_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | None:
     for transition in reversed(path):
         if transition.get("relation") != "FunctionReturnTransition":
@@ -949,6 +1095,8 @@ def _match_case_evidence(pattern: Any) -> Any:
         return _enum_pattern_signature(pattern)
     if _is_optional_pattern(pattern):
         return _optional_pattern_signature(pattern)
+    if _is_struct_pattern(pattern):
+        return _struct_pattern_signature(pattern)
     return pattern
 
 
@@ -960,3 +1108,48 @@ def _optional_pattern_signature(pattern: dict[str, Any]) -> str:
     if pattern.get("node_type") == "OptionalSomePatternNode":
         return "some"
     return "none"
+
+
+def _struct_pattern_signature(pattern: dict[str, Any]) -> str:
+    type_name = str(pattern.get("type_name", "Struct"))
+    labels: list[str] = []
+    for field in pattern.get("fields") or []:
+        label = _struct_field_signature(field)
+        if label is not None:
+            labels.append(label)
+    return f"{type_name}.{('_'.join(labels))}" if labels else type_name
+
+
+def _struct_field_signature(field: Any) -> str | None:
+    if not isinstance(field, dict):
+        return None
+    field_name = str(field.get("field_name") or "")
+    pattern = field.get("pattern")
+    if not isinstance(pattern, dict):
+        return None
+    node_type = pattern.get("node_type")
+    if node_type == "StructPatternNode":
+        return f"{field_name}|{_struct_pattern_signature(pattern)}"
+    if node_type == "StructBindingPatternNode":
+        return f"bind{pattern.get('binding')}"
+    if node_type == "IdentifierPatternNode":
+        return f"bind{pattern.get('name')}"
+    if node_type == "QualifiedPatternNode":
+        return f"{pattern.get('namespace')}.{pattern.get('identifier')}"
+    if node_type == "EnumValuePatternNode":
+        return f"{pattern.get('enum_name')}.{pattern.get('value_name')}"
+    if node_type == "LiteralPatternNode":
+        literal = pattern.get("value")
+        value = literal.get("value") if isinstance(literal, dict) else literal
+        return f"{field_name}{value}"
+    if node_type == "WildcardPatternNode":
+        return f"{field_name}wildcard"
+    return None
+
+
+def _struct_pattern_matched_fields(pattern: dict[str, Any]) -> list[str]:
+    return [
+        field["field_name"]
+        for field in pattern.get("fields") or []
+        if isinstance(field, dict) and isinstance(field.get("field_name"), str)
+    ]
