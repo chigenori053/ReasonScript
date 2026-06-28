@@ -67,7 +67,9 @@ from .nodes import (
     NoneLiteralNode,
     ObjectNode,
     OptionalPatternNode,
+    OptionalValuePatternNode,
     OptionalTypeNode,
+    OrPatternNode,
     NullLiteralNode,
     PackageDeclarationNode,
     ParenthesizedExpressionNode,
@@ -229,6 +231,8 @@ KNOWN_NODE_TYPES = (
     SomeExpressionNode,
     NoneLiteralNode,
     OptionalPatternNode,
+    OptionalValuePatternNode,
+    OrPatternNode,
     StructBindingPatternNode,
     StructFieldPatternNode,
     StructPatternNode,
@@ -501,9 +505,10 @@ def _validate_ast_node(node: Any) -> None:
             raise SurfaceValidationError("MT-002 MatchNode requires at least one arm")
         arm_keys: set[tuple[str, Any]] = set()
         precomputed_keys = [
-            _pattern_key(arm.pattern)
+            key
             for arm in node.arms
             if arm.guard is None
+            for key in _pattern_keys(arm.pattern)
         ]
         if sum(1 for key in precomputed_keys if key[0] == "default") > 1:
             raise SurfaceValidationError("PT-003 MSI-003 multiple default")
@@ -513,18 +518,19 @@ def _validate_ast_node(node: Any) -> None:
             _pattern(arm.pattern)
             if arm.guard is not None:
                 _expression(arm.guard, "PG-001 MatchArmNode.guard")
-            key = _pattern_key(arm.pattern)
+            keys = _pattern_keys(arm.pattern)
             if arm.guard is not None:
                 continue
-            if key[0] == "default":
+            if any(key[0] == "default" for key in keys):
                 if index != len(node.arms) - 1:
                     raise SurfaceValidationError("PT-002 MSI-002 default not last")
-            elif key[0] == "wildcard":
+            elif any(key[0] == "wildcard" for key in keys):
                 if index != len(node.arms) - 1:
                     raise SurfaceValidationError("PT-007 unreachable pattern")
-            elif key in arm_keys:
-                raise SurfaceValidationError("PT-001 MSI-001 duplicate pattern")
-            arm_keys.add(key)
+            for key in keys:
+                if key in arm_keys:
+                    raise SurfaceValidationError("PT-001 MSI-001 duplicate pattern")
+                arm_keys.add(key)
     elif isinstance(node, ConstraintNode):
         _identifier(node.name, "AST-V002 ConstraintNode.name")
         _validate_constraint_expression(node)
@@ -2471,7 +2477,12 @@ def _validate_enum_match_exhaustiveness(
     enum = symbols.get(enum_type.name)
     if not isinstance(enum, EnumDeclarationNode):
         return
-    keys = {_pattern_key(arm.pattern) for arm in node.arms if arm.guard is None}
+    keys = {
+        key
+        for arm in node.arms
+        if arm.guard is None
+        for key in _pattern_keys(arm.pattern)
+    }
     variants = {value.name for value in enum.values}
     for key in keys:
         if key[0] == "enum_value" and key[1] == enum.name and key[2] not in variants:
@@ -2501,39 +2512,53 @@ def _validate_match_patterns(
 ) -> None:
     match_type = _expression_type(node.expression.expression, symbols, bindings)
     for arm in node.arms:
-        pattern = arm.pattern.pattern
-        if isinstance(pattern, LiteralPatternNode):
-            literal_type = _expression_type(pattern.value, symbols, bindings)
-            if (
-                match_type is not _UNKNOWN_TYPE
-                and literal_type is not _UNKNOWN_TYPE
-                and not _types_compatible(match_type, literal_type)
-            ):
-                raise SurfaceValidationError("PT-005 literal type mismatch")
-            continue
-        if isinstance(pattern, IdentifierPatternNode):
-            _validate_identifier_pattern(pattern, match_type, symbols)
-            continue
-        if isinstance(pattern, QualifiedPatternNode):
-            _qualified_pattern_reference(pattern, symbols)
-            continue
-        if isinstance(pattern, EnumValuePatternNode):
-            continue
-        if isinstance(pattern, StructPatternNode):
-            try:
-                semantic = resolve_struct_pattern(pattern, symbols, _CURRENT_NAMESPACE)
-                if not isinstance(match_type, NamedTypeNode):
-                    raise StructPatternSemanticError("SP-104 field type mismatch")
-                if semantic.struct_symbol != match_type.name:
-                    raise StructPatternSemanticError("SP-104 field type mismatch")
-            except StructPatternSemanticError as error:
-                raise SurfaceValidationError(str(error)) from error
-            continue
-        if isinstance(pattern, OptionalPatternNode):
-            if not isinstance(match_type, OptionalTypeNode):
-                code = "OPM-002" if pattern.kind == "Some" else "OPM-003"
-                raise SurfaceValidationError(f"{code} optional pattern requires optional match value")
-            continue
+        for pattern_node in _pattern_alternatives(arm.pattern):
+            _validate_match_pattern(pattern_node.pattern, match_type, symbols, bindings)
+
+
+def _validate_match_pattern(
+    pattern: Any,
+    match_type: Any,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    if isinstance(pattern, LiteralPatternNode):
+        literal_type = _expression_type(pattern.value, symbols, bindings)
+        if (
+            match_type is not _UNKNOWN_TYPE
+            and literal_type is not _UNKNOWN_TYPE
+            and not _types_compatible(match_type, literal_type)
+        ):
+            raise SurfaceValidationError("PT-005 literal type mismatch")
+        return
+    if isinstance(pattern, IdentifierPatternNode):
+        _validate_identifier_pattern(pattern, match_type, symbols)
+        return
+    if isinstance(pattern, QualifiedPatternNode):
+        _qualified_pattern_reference(pattern, symbols)
+        return
+    if isinstance(pattern, EnumValuePatternNode):
+        return
+    if isinstance(pattern, StructPatternNode):
+        try:
+            semantic = resolve_struct_pattern(pattern, symbols, _CURRENT_NAMESPACE)
+            if not isinstance(match_type, NamedTypeNode):
+                raise StructPatternSemanticError("SP-104 field type mismatch")
+            if semantic.struct_symbol != match_type.name:
+                raise StructPatternSemanticError("SP-104 field type mismatch")
+        except StructPatternSemanticError as error:
+            raise SurfaceValidationError(str(error)) from error
+        return
+    if isinstance(pattern, OptionalPatternNode):
+        if not isinstance(match_type, OptionalTypeNode):
+            code = "OPM-002" if pattern.kind == "Some" else "OPM-003"
+            raise SurfaceValidationError(f"{code} optional pattern requires optional match value")
+        return
+    if isinstance(pattern, OptionalValuePatternNode):
+        if not isinstance(match_type, OptionalTypeNode):
+            raise SurfaceValidationError("OPM-002 optional pattern requires optional match value")
+        _validate_match_pattern(pattern.pattern, match_type.inner_type, symbols, bindings)
+        return
 
 
 def _validate_identifier_pattern(
@@ -2595,10 +2620,15 @@ def _validate_optional_match_exhaustiveness(
     optional_type = _expression_type(node.expression.expression, symbols, bindings)
     if not isinstance(optional_type, OptionalTypeNode):
         return
-    keys = {_pattern_key(arm.pattern) for arm in node.arms if arm.guard is None}
+    keys = {
+        key
+        for arm in node.arms
+        if arm.guard is None
+        for key in _pattern_keys(arm.pattern)
+    }
     if _match_has_default(keys):
         return
-    matched = {key[1] for key in keys if key[0] == "optional"}
+    matched = {key[1] for key in keys if key[0] in {"optional", "optional_value"}}
     matched.update(key[1] for key in keys if key[0] == "identifier" and key[1] in {"Some", "None"})
     if {"Some", "None"} - matched:
         raise SurfaceValidationError("OV-5 NonExhaustiveOptionalMatch")
@@ -2612,7 +2642,12 @@ def _validate_bool_match_exhaustiveness(
     match_type = _expression_type(node.expression.expression, symbols, bindings)
     if match_type != PrimitiveTypeNode(PrimitiveKind.BOOL):
         return
-    keys = {_pattern_key(arm.pattern) for arm in node.arms if arm.guard is None}
+    keys = {
+        key
+        for arm in node.arms
+        if arm.guard is None
+        for key in _pattern_keys(arm.pattern)
+    }
     if _match_has_default(keys):
         return
     matched = {key[2] for key in keys if key[0] == "literal" and key[1] == "BooleanLiteralNode"}
@@ -2652,23 +2687,29 @@ def _validate_struct_match_exhaustiveness(
     struct = symbols.get(match_type.name)
     if not isinstance(struct, StructDeclarationNode):
         return
-    keys = {_pattern_key(arm.pattern) for arm in node.arms if arm.guard is None}
+    keys = {
+        key
+        for arm in node.arms
+        if arm.guard is None
+        for key in _pattern_keys(arm.pattern)
+    }
     if _match_has_default(keys):
         return
     for arm in node.arms:
         if arm.guard is not None:
             continue
-        pattern = arm.pattern.pattern
-        if not isinstance(pattern, StructPatternNode):
-            continue
-        try:
-            semantic = resolve_struct_pattern(pattern, symbols, _CURRENT_NAMESPACE)
-        except StructPatternSemanticError as error:
-            raise SurfaceValidationError(str(error)) from error
-        if semantic.struct_symbol != struct.name:
-            continue
-        if _struct_pattern_is_exhaustive(pattern):
-            return
+        for pattern_node in _pattern_alternatives(arm.pattern):
+            pattern = pattern_node.pattern
+            if not isinstance(pattern, StructPatternNode):
+                continue
+            try:
+                semantic = resolve_struct_pattern(pattern, symbols, _CURRENT_NAMESPACE)
+            except StructPatternSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            if semantic.struct_symbol != struct.name:
+                continue
+            if _struct_pattern_is_exhaustive(pattern):
+                return
     raise SurfaceValidationError("TV-8 NonExhaustiveStructMatch")
 
 
@@ -2683,6 +2724,8 @@ def _struct_field_pattern_is_exhaustive(pattern: Any) -> bool:
         return True
     if isinstance(pattern, StructPatternNode):
         return _struct_pattern_is_exhaustive(pattern)
+    if isinstance(pattern, OrPatternNode):
+        return any(_struct_field_pattern_is_exhaustive(item) for item in pattern.alternatives)
     return False
 
 
@@ -2694,6 +2737,17 @@ def _match_arm_bindings(
 ) -> dict[str, _Binding]:
     match_type = _expression_type(node.expression.expression, symbols, bindings)
     pattern_value = pattern.pattern
+    if isinstance(pattern_value, OrPatternNode):
+        alternatives = [
+            _match_arm_bindings(node, PatternNode(alternative), symbols, bindings)
+            for alternative in pattern_value.alternatives
+        ]
+        if not alternatives:
+            return {}
+        names = set(alternatives[0])
+        if any(set(item) != names for item in alternatives[1:]):
+            raise SurfaceValidationError("OP-002 IncompatibleBindingEnvironment")
+        return alternatives[0]
     if (
         isinstance(match_type, OptionalTypeNode)
         and isinstance(pattern_value, OptionalPatternNode)
@@ -2729,7 +2783,31 @@ def _struct_pattern_bindings(
             bindings[field_pattern.name] = _Binding(field_type, mutable=False)
         elif isinstance(field_pattern, StructPatternNode):
             bindings.update(_struct_pattern_bindings(field_pattern, field_type, symbols))
+        elif isinstance(field_pattern, OrPatternNode):
+            alternative_bindings = [
+                _struct_pattern_field_bindings(alternative, field_type, symbols)
+                for alternative in field_pattern.alternatives
+            ]
+            if alternative_bindings:
+                names = set(alternative_bindings[0])
+                if any(set(item) != names for item in alternative_bindings[1:]):
+                    raise SurfaceValidationError("OP-002 IncompatibleBindingEnvironment")
+                bindings.update(alternative_bindings[0])
     return bindings
+
+
+def _struct_pattern_field_bindings(
+    pattern: Any,
+    field_type: Any,
+    symbols: dict[str, Any],
+) -> dict[str, _Binding]:
+    if isinstance(pattern, StructBindingPatternNode):
+        return {pattern.binding: _Binding(field_type, mutable=False)}
+    if isinstance(pattern, IdentifierPatternNode):
+        return {pattern.name: _Binding(field_type, mutable=False)}
+    if isinstance(pattern, StructPatternNode):
+        return _struct_pattern_bindings(pattern, field_type, symbols)
+    return {}
 
 
 def _match_has_default(keys: set[tuple[str, Any]]) -> bool:
@@ -2913,6 +2991,35 @@ def _pattern(value: PatternNode) -> None:
                 raise SurfaceValidationError("OV-6 NonePatternCannotBind")
             return
         raise SurfaceValidationError("OV-6 invalid optional pattern")
+    if isinstance(pattern, OptionalValuePatternNode):
+        if pattern.kind != "Some":
+            raise SurfaceValidationError("OV-6 invalid optional pattern")
+        _pattern(PatternNode(pattern.pattern))
+        return
+    if isinstance(pattern, OrPatternNode):
+        if len(pattern.alternatives) < 2:
+            raise SurfaceValidationError("OP-001 OrPattern requires alternatives")
+        keys: set[tuple[str, Any]] = set()
+        binding_names: tuple[str, ...] | None = None
+        pattern_kind: str | None = None
+        for alternative in pattern.alternatives:
+            alternative_node = PatternNode(alternative)
+            _pattern(alternative_node)
+            key = _pattern_key(alternative_node)
+            if key in keys:
+                raise SurfaceValidationError("OP-004 DuplicateOrPattern")
+            keys.add(key)
+            names = _pattern_binding_names(alternative)
+            if binding_names is None:
+                binding_names = names
+            elif names != binding_names:
+                raise SurfaceValidationError("OP-002 IncompatibleBindingEnvironment")
+            alternative_kind = _or_pattern_kind(alternative)
+            if pattern_kind is None:
+                pattern_kind = alternative_kind
+            elif alternative_kind != pattern_kind:
+                raise SurfaceValidationError("OP-003 incompatible or-pattern alternatives")
+        return
     if isinstance(pattern, StructBindingPatternNode):
         _identifier(pattern.field, "SPM-005 StructBindingPatternNode.field")
         _identifier(pattern.binding, "SPM-005 StructBindingPatternNode.binding")
@@ -2940,10 +3047,72 @@ def _validate_pattern_depth(value: PatternNode, depth: int = 0) -> None:
     if not isinstance(value, PatternNode):
         return
     pattern = value.pattern
-    if not isinstance(pattern, StructPatternNode):
+    if isinstance(pattern, StructPatternNode):
+        for field in pattern.fields:
+            _validate_pattern_depth(PatternNode(field.pattern), depth + 1)
         return
-    for field in pattern.fields:
-        _validate_pattern_depth(PatternNode(field.pattern), depth + 1)
+    if isinstance(pattern, OrPatternNode):
+        for alternative in pattern.alternatives:
+            _validate_pattern_depth(PatternNode(alternative), depth + 1)
+        return
+    if isinstance(pattern, OptionalValuePatternNode):
+        _validate_pattern_depth(PatternNode(pattern.pattern), depth + 1)
+
+
+def _pattern_alternatives(value: PatternNode) -> tuple[PatternNode, ...]:
+    pattern = value.pattern
+    if isinstance(pattern, OrPatternNode):
+        return tuple(PatternNode(alternative) for alternative in pattern.alternatives)
+    return (value,)
+
+
+def _pattern_keys(value: PatternNode) -> tuple[tuple[str, Any], ...]:
+    return tuple(_pattern_key(alternative) for alternative in _pattern_alternatives(value))
+
+
+def _pattern_binding_names(pattern: Any) -> tuple[str, ...]:
+    names: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, OptionalPatternNode) and value.kind == "Some" and value.binding:
+            names.append(value.binding)
+        elif isinstance(value, StructBindingPatternNode):
+            names.append(value.binding)
+        elif isinstance(value, IdentifierPatternNode):
+            names.append(value.name)
+        elif isinstance(value, StructPatternNode):
+            for field in value.fields:
+                collect(field.pattern)
+        elif isinstance(value, OptionalValuePatternNode):
+            collect(value.pattern)
+        elif isinstance(value, OrPatternNode) and value.alternatives:
+            for name in _pattern_binding_names(value.alternatives[0]):
+                names.append(name)
+
+    collect(pattern)
+    return tuple(sorted(names))
+
+
+def _or_pattern_kind(pattern: Any) -> str:
+    if isinstance(pattern, (WildcardPatternNode, DefaultPatternNode)):
+        return "catch_all"
+    if isinstance(pattern, IdentifierPatternNode) and pattern.name == "default":
+        return "catch_all"
+    if isinstance(pattern, (OptionalPatternNode, OptionalValuePatternNode)):
+        return "optional"
+    if isinstance(pattern, (QualifiedPatternNode, EnumValuePatternNode)):
+        return "enum"
+    if isinstance(pattern, LiteralPatternNode):
+        return "literal"
+    if isinstance(pattern, StructPatternNode):
+        return "struct"
+    if isinstance(pattern, StructBindingPatternNode):
+        return "binding"
+    if isinstance(pattern, IdentifierPatternNode):
+        return "identifier"
+    if isinstance(pattern, OrPatternNode) and pattern.alternatives:
+        return _or_pattern_kind(pattern.alternatives[0])
+    return type(pattern).__name__
 
 
 def _pattern_key(value: PatternNode) -> tuple[str, Any]:
@@ -2971,6 +3140,10 @@ def _pattern_key(value: PatternNode) -> tuple[str, Any]:
         )
     if isinstance(pattern, OptionalPatternNode):
         return ("optional", pattern.kind, pattern.binding)
+    if isinstance(pattern, OptionalValuePatternNode):
+        return ("optional_value", pattern.kind, _pattern_key(PatternNode(pattern.pattern)))
+    if isinstance(pattern, OrPatternNode):
+        return ("or", tuple(_pattern_key(PatternNode(item)) for item in pattern.alternatives))
     if isinstance(pattern, StructBindingPatternNode):
         return ("struct_binding", pattern.field, pattern.binding)
     if isinstance(pattern, StructPatternNode):

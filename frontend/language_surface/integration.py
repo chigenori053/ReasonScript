@@ -52,6 +52,8 @@ from .nodes import (
     NoneLiteralNode,
     ModuleNode,
     OptionalPatternNode,
+    OptionalValuePatternNode,
+    OrPatternNode,
     PatternNode,
     ParenthesizedExpressionNode,
     ProgramNode,
@@ -764,25 +766,30 @@ def _function_return_paths(
                     active_match_conditions,
                 ):
                     for arm in statement.arms:
-                        label = _match_case_label(arm.pattern, enum)
-                        branch_prefix = (*prefix, label)
-                        if arm.guard is not None:
-                            branch_prefix = (*branch_prefix, f"match.{_guard_label(arm.guard)}")
-                        match_condition = _match_condition(
-                            statement,
-                            arm,
-                            _return_path_label(branch_prefix, 1),
-                            enum,
-                        )
-                        if walk(
-                            arm.body,
-                            [branch_prefix],
-                            [conditions],
-                            [(*matches, match_condition)],
-                        ):
-                            next_active.append(branch_prefix)
-                            next_conditions.append(conditions)
-                            next_match_conditions.append((*matches, match_condition))
+                        alternatives = _pattern_alternatives(arm.pattern)
+                        for alternative_index, alternative in enumerate(alternatives):
+                            label = _match_case_label(alternative, enum)
+                            branch_prefix = (*prefix, label)
+                            if arm.guard is not None:
+                                branch_prefix = (*branch_prefix, f"match.{_guard_label(arm.guard)}")
+                            match_condition = _match_condition(
+                                statement,
+                                arm,
+                                _return_path_label(branch_prefix, 1),
+                                enum,
+                                selected_pattern=alternative,
+                                alternative_index=alternative_index,
+                                alternative_count=len(alternatives),
+                            )
+                            if walk(
+                                arm.body,
+                                [branch_prefix],
+                                [conditions],
+                                [(*matches, match_condition)],
+                            ):
+                                next_active.append(branch_prefix)
+                                next_conditions.append(conditions)
+                                next_match_conditions.append((*matches, match_condition))
                 active = next_active
                 active_conditions = next_conditions
                 active_match_conditions = next_match_conditions
@@ -842,13 +849,24 @@ def _function_control_flow_ir(
                         "cases": [
                             {
                                 "node_type": "MatchCaseIRNode",
-                                "pattern": _match_pattern_value(arm.pattern, enum),
+                                "pattern": _match_pattern_value(alternative, enum),
                                 "target": _function_return_target(
                                     function.name,
-                                    _return_path_label(_match_arm_prefix(prefix, arm, enum), 1),
+                                    _return_path_label(
+                                        _match_arm_prefix(
+                                            prefix,
+                                            arm,
+                                            enum,
+                                            selected_pattern=alternative,
+                                        ),
+                                        1,
+                                    ),
                                 ),
+                                **_or_pattern_metadata(arm.pattern, alternative_index, len(alternatives), enum),
                             }
                             for arm in statement.arms
+                            for alternatives in (_pattern_alternatives(arm.pattern),)
+                            for alternative_index, alternative in enumerate(alternatives)
                         ],
                         **({"coverage": coverage} if coverage is not None else {}),
                     }
@@ -861,40 +879,59 @@ def _function_control_flow_ir(
                         "arms": [
                             {
                                 "branch_index": index,
-                                "pattern": _pattern_decision_value(arm.pattern, enum),
+                                "pattern": _pattern_decision_value(alternative, enum),
                                 "target_transition": _function_return_target(
                                     function.name,
-                                    _return_path_label(_match_arm_prefix(prefix, arm, enum), 1),
+                                    _return_path_label(
+                                        _match_arm_prefix(
+                                            prefix,
+                                            arm,
+                                            enum,
+                                            selected_pattern=alternative,
+                                        ),
+                                        1,
+                                    ),
                                 ),
+                                **_or_pattern_metadata(arm.pattern, alternative_index, len(alternatives), enum),
                             }
                             for index, arm in enumerate(statement.arms)
+                            for alternatives in (_pattern_alternatives(arm.pattern),)
+                            for alternative_index, alternative in enumerate(alternatives)
                         ],
                         "selected_arm": None,
                     }
                 )
                 for arm in statement.arms:
-                    branch_prefix = _match_arm_prefix(prefix, arm, enum)
-                    label = _return_path_label(branch_prefix, 1)
-                    if arm.guard is not None:
-                        nodes.append(_guard_expression_ir(arm.guard))
-                    nodes.append(
-                        {
-                            "node_type": "MatchSelectionIRNode",
-                            "value": _match_value_name(statement.expression),
-                            "pattern": _match_pattern_value(arm.pattern, enum),
-                            "target": _function_return_target(function.name, label),
-                            "canonical_path": _canonical_match_path(branch_prefix),
-                            **(
-                                {"guard": _guard_expression_ir(arm.guard)}
-                                if arm.guard is not None
-                                else {}
-                            ),
-                        }
-                    )
-                    add_branch_nodes(
-                        arm.body,
-                        branch_prefix,
-                    )
+                    alternatives = _pattern_alternatives(arm.pattern)
+                    for alternative_index, alternative in enumerate(alternatives):
+                        branch_prefix = _match_arm_prefix(
+                            prefix,
+                            arm,
+                            enum,
+                            selected_pattern=alternative,
+                        )
+                        label = _return_path_label(branch_prefix, 1)
+                        if arm.guard is not None:
+                            nodes.append(_guard_expression_ir(arm.guard))
+                        nodes.append(
+                            {
+                                "node_type": "MatchSelectionIRNode",
+                                "value": _match_value_name(statement.expression),
+                                "pattern": _match_pattern_value(alternative, enum),
+                                "target": _function_return_target(function.name, label),
+                                "canonical_path": _canonical_match_path(branch_prefix),
+                                **_or_pattern_metadata(arm.pattern, alternative_index, len(alternatives), enum),
+                                **(
+                                    {"guard": _guard_expression_ir(arm.guard)}
+                                    if arm.guard is not None
+                                    else {}
+                                ),
+                            }
+                        )
+                        add_branch_nodes(
+                            arm.body,
+                            branch_prefix,
+                        )
                 continue
             if not isinstance(statement, IfStatementNode):
                 continue
@@ -993,8 +1030,10 @@ def _match_arm_prefix(
     prefix: tuple[str, ...],
     arm: Any,
     enum: EnumDeclarationNode | None,
+    *,
+    selected_pattern: PatternNode | None = None,
 ) -> tuple[str, ...]:
-    result = (*prefix, _match_case_label(arm.pattern, enum))
+    result = (*prefix, _match_case_label(selected_pattern or arm.pattern, enum))
     if getattr(arm, "guard", None) is not None:
         result = (*result, f"match.{_guard_label(arm.guard)}")
     return result
@@ -1005,13 +1044,19 @@ def _match_condition(
     arm: Any,
     label: str,
     enum: EnumDeclarationNode | None = None,
+    *,
+    selected_pattern: PatternNode | None = None,
+    alternative_index: int = 0,
+    alternative_count: int = 1,
 ) -> dict[str, Any]:
+    pattern = selected_pattern or arm.pattern
     return {
         "node_type": "MatchSelectionIRNode",
         "value": _match_value_name(statement.expression),
         "expression": to_json_value(statement.expression),
-        "pattern": _match_pattern_value(arm.pattern, enum),
+        "pattern": _match_pattern_value(pattern, enum),
         "target": label,
+        **_or_pattern_metadata(arm.pattern, alternative_index, alternative_count, enum),
         **(
             {"guard": _guard_expression_ir(arm.guard)}
             if arm.guard is not None
@@ -1065,6 +1110,14 @@ def _match_pattern_label(
         return f"{value['enum_name']}.{value['value_name']}"
     if _is_optional_pattern(value):
         if value["node_type"] == "OptionalSomePatternNode":
+            if "pattern" in value:
+                inner = value["pattern"]
+                if isinstance(inner, dict):
+                    if _is_enum_value_pattern(inner):
+                        return f"some.{inner['enum_name']}.{inner['value_name']}"
+                    if inner.get("node_type") == "StructPatternNode":
+                        return f"some.{_struct_pattern_signature(inner)}"
+                return f"some.{str(inner).replace('-', 'neg_').replace('.', '_')}"
             return "some"
         return "none"
     if isinstance(value, dict) and value.get("node_type") == "StructPatternNode":
@@ -1110,9 +1163,54 @@ def _match_pattern_value(
         return {
             "node_type": "OptionalNonePatternNode",
         }
+    if isinstance(value, OptionalValuePatternNode):
+        return {
+            "node_type": "OptionalSomePatternNode",
+            "pattern": _match_pattern_value(PatternNode(value.pattern), enum),
+        }
+    if isinstance(value, OrPatternNode):
+        return _or_pattern_ir(value, enum)
     if isinstance(value, StructPatternNode):
         return to_json_value(value)
     return to_json_value(pattern)
+
+
+def _pattern_alternatives(pattern: PatternNode) -> tuple[PatternNode, ...]:
+    value = pattern.pattern
+    if isinstance(value, OrPatternNode):
+        return tuple(PatternNode(alternative) for alternative in value.alternatives)
+    return (pattern,)
+
+
+def _or_pattern_ir(
+    pattern: OrPatternNode,
+    enum: EnumDeclarationNode | None = None,
+) -> dict[str, Any]:
+    return {
+        "node_type": "OrPatternIRNode",
+        "alternatives": [
+            _match_pattern_value(PatternNode(alternative), enum)
+            for alternative in pattern.alternatives
+        ],
+    }
+
+
+def _or_pattern_metadata(
+    source_pattern: PatternNode,
+    alternative_index: int,
+    alternative_count: int,
+    enum: EnumDeclarationNode | None = None,
+) -> dict[str, Any]:
+    value = source_pattern.pattern
+    if not isinstance(value, OrPatternNode):
+        return {}
+    return {
+        "or_pattern": {
+            **_or_pattern_ir(value, enum),
+            "selected_index": alternative_index,
+            "alternative_count": alternative_count,
+        }
+    }
 
 
 def _struct_pattern_signature(pattern: dict[str, Any]) -> str:
@@ -1283,11 +1381,12 @@ def _match_coverage(
     for arm in statement.arms:
         if arm.guard is not None:
             continue
-        pattern = arm.pattern.pattern
-        if isinstance(pattern, EnumValuePatternNode) and pattern.enum_name == enum.name:
-            explicit.append(f"{pattern.enum_name}.{pattern.value_name}")
-        elif isinstance(pattern, QualifiedPatternNode) and pattern.namespace == enum.name:
-            explicit.append(f"{pattern.namespace}.{pattern.identifier}")
+        for pattern_node in _pattern_alternatives(arm.pattern):
+            pattern = pattern_node.pattern
+            if isinstance(pattern, EnumValuePatternNode) and pattern.enum_name == enum.name:
+                explicit.append(f"{pattern.enum_name}.{pattern.value_name}")
+            elif isinstance(pattern, QualifiedPatternNode) and pattern.namespace == enum.name:
+                explicit.append(f"{pattern.namespace}.{pattern.identifier}")
     default_present = any(
         _pattern_key in {"default", "wildcard"}
         for _pattern_key in (
@@ -1324,11 +1423,12 @@ def _struct_match_coverage(
         )
     )
     struct_patterns = [
-        arm.pattern.pattern
+        pattern_node.pattern
         for arm in statement.arms
         if arm.guard is None
-        if isinstance(arm.pattern.pattern, StructPatternNode)
-        and arm.pattern.pattern.type_name.split(".")[-1] == struct.name
+        for pattern_node in _pattern_alternatives(arm.pattern)
+        if isinstance(pattern_node.pattern, StructPatternNode)
+        and pattern_node.pattern.type_name.split(".")[-1] == struct.name
     ]
     binding_pattern_present = any(
         _struct_pattern_is_binding_only(pattern) for pattern in struct_patterns
@@ -1608,6 +1708,24 @@ def _struct_pattern_bindings(pattern: dict[str, Any], value: Any) -> dict[str, A
                 bindings[binding] = fields[field_name]
         elif field_pattern.get("node_type") == "StructPatternNode":
             bindings.update(_struct_pattern_bindings(field_pattern, fields[field_name]))
+        elif field_pattern.get("node_type") == "OrPatternNode":
+            for alternative in field_pattern.get("alternatives") or []:
+                if not isinstance(alternative, dict):
+                    continue
+                if alternative.get("node_type") == "StructPatternNode":
+                    if _struct_pattern_bindings(alternative, fields[field_name]):
+                        bindings.update(_struct_pattern_bindings(alternative, fields[field_name]))
+                        break
+                elif alternative.get("node_type") == "StructBindingPatternNode":
+                    binding = alternative.get("binding")
+                    if isinstance(binding, str):
+                        bindings[binding] = fields[field_name]
+                        break
+                elif alternative.get("node_type") == "IdentifierPatternNode":
+                    binding = alternative.get("name")
+                    if isinstance(binding, str):
+                        bindings[binding] = fields[field_name]
+                        break
     return bindings
 
 

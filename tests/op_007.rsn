@@ -1,0 +1,20 @@
+module Test {
+    enum Color {
+        Red
+        Blue
+        Green
+    }
+
+    fn Score(color: Color, score: int) -> int {
+        match color {
+            Color.Red | Color.Blue when score > 80 => return 10
+            Color.Red => return 5
+            Color.Blue => return 3
+            Color.Green => return 0
+        }
+    }
+
+    calculation Result {
+        result = Score(Color.Blue, 90)
+    }
+}

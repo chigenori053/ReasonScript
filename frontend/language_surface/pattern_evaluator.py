@@ -10,6 +10,7 @@ from .semantic_patterns import (
     SemanticBindingPattern,
     SemanticDefaultPattern,
     SemanticLiteralPattern,
+    SemanticOrPattern,
     SemanticPattern,
     SemanticQualifiedPattern,
     SemanticStructPattern,
@@ -88,6 +89,8 @@ class PatternEvaluator:
             return self.evaluate_default(pattern, value)
         if isinstance(pattern, SemanticBindingPattern):
             return self.evaluate_binding(pattern, value)
+        if isinstance(pattern, SemanticOrPattern):
+            return self.evaluate_or(pattern, value)
         return PatternMatchResult(
             False,
             (),
@@ -244,6 +247,39 @@ class PatternEvaluator:
             (_value_label(value), "Matched"),
             (),
             {pattern.binding: value},
+        )
+
+    def evaluate_or(
+        self,
+        pattern: SemanticOrPattern,
+        value: Any,
+    ) -> PatternMatchResult:
+        children: list[PatternMatchResult] = []
+        trace = ["OrPattern"]
+        for index, alternative in enumerate(pattern.alternatives):
+            child = self.evaluate_pattern(alternative, value)
+            children.append(child)
+            trace.append(f"alternative_{index}")
+            trace.extend(child.evaluation_trace)
+            if child.matched:
+                trace.append("Matched")
+                return PatternMatchResult(
+                    True,
+                    child.matched_fields,
+                    None,
+                    None,
+                    tuple(trace),
+                    tuple(children),
+                    child.bindings,
+                )
+        trace.append("NotMatched")
+        return PatternMatchResult(
+            False,
+            (),
+            None,
+            "OrPatternMismatch",
+            tuple(trace),
+            tuple(children),
         )
 
 

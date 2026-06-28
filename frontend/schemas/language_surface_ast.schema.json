@@ -462,8 +462,10 @@
         {"$ref": "#/$defs/literal_pattern"},
         {"$ref": "#/$defs/enum_value_pattern"},
         {"$ref": "#/$defs/optional_pattern"},
+        {"$ref": "#/$defs/optional_value_pattern"},
         {"$ref": "#/$defs/struct_binding_pattern"},
-        {"$ref": "#/$defs/struct_pattern"}
+        {"$ref": "#/$defs/struct_pattern"},
+        {"$ref": "#/$defs/or_pattern"}
       ]
     },
     "identifier_pattern": {
@@ -543,6 +545,16 @@
         "node_type": {"const": "OptionalPatternNode"}
       }
     },
+    "optional_value_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "pattern", "node_type"],
+      "properties": {
+        "kind": {"const": "Some"},
+        "pattern": {"$ref": "#/$defs/pattern_value"},
+        "node_type": {"const": "OptionalValuePatternNode"}
+      }
+    },
     "struct_binding_pattern": {
       "type": "object",
       "additionalProperties": false,
@@ -577,6 +589,19 @@
           "$ref": "#/$defs/pattern_value"
         },
         "node_type": {"const": "StructFieldPatternNode"}
+      }
+    },
+    "or_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alternatives", "node_type"],
+      "properties": {
+        "alternatives": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"$ref": "#/$defs/pattern_value"}
+        },
+        "node_type": {"const": "OrPatternNode"}
       }
     },
     "program": {

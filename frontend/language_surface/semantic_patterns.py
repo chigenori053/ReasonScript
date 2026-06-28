@@ -17,6 +17,7 @@ from .nodes import (
     LiteralPatternNode,
     NamedTypeNode,
     NullLiteralNode,
+    OrPatternNode,
     Pattern,
     PatternNode,
     PrimitiveKind,
@@ -77,6 +78,11 @@ class SemanticStructPattern:
     source_span: str | None = None
 
 
+@dataclass(frozen=True)
+class SemanticOrPattern:
+    alternatives: tuple["SemanticPattern", ...]
+
+
 SemanticPattern: TypeAlias = (
     SemanticQualifiedPattern
     | SemanticLiteralPattern
@@ -84,6 +90,7 @@ SemanticPattern: TypeAlias = (
     | SemanticDefaultPattern
     | SemanticBindingPattern
     | SemanticStructPattern
+    | SemanticOrPattern
 )
 
 
@@ -212,6 +219,8 @@ def _semantic_node(value: Mapping[str, Any]) -> Any:
             tuple(_semantic_node(item) for item in value["fields"]),
             value.get("source_span"),
         )
+    if node_type == "SemanticOrPattern":
+        return SemanticOrPattern(tuple(_semantic_node(item) for item in value["alternatives"]))
     if node_type == "SemanticStructFieldPattern":
         return SemanticStructFieldPattern(
             value["field_symbol"],
@@ -296,6 +305,18 @@ def _resolve_terminal_pattern(
         return SemanticWildcardPattern()
     if isinstance(pattern, DefaultPatternNode):
         return SemanticDefaultPattern()
+    if isinstance(pattern, OrPatternNode):
+        return SemanticOrPattern(
+            tuple(
+                resolve_pattern(
+                    alternative,
+                    field_type,
+                    symbols,
+                    namespace,
+                )
+                for alternative in pattern.alternatives
+            )
+        )
     raise StructPatternSemanticError("SP-104 field type mismatch")
 
 
@@ -355,4 +376,6 @@ def _binding_names(pattern: SemanticPattern) -> tuple[str, ...]:
         for field in pattern.fields:
             names.extend(_binding_names(field.pattern))
         return tuple(names)
+    if isinstance(pattern, SemanticOrPattern) and pattern.alternatives:
+        return _binding_names(pattern.alternatives[0])
     return ()

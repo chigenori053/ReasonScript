@@ -370,6 +370,12 @@ class OptionalPatternNode:
 
 
 @dataclass(frozen=True)
+class OptionalValuePatternNode:
+    kind: str
+    pattern: "Pattern"
+
+
+@dataclass(frozen=True)
 class StructBindingPatternNode:
     field: str
     binding: str
@@ -387,6 +393,11 @@ class StructPatternNode:
     fields: tuple[StructFieldPatternNode, ...]
 
 
+@dataclass(frozen=True)
+class OrPatternNode:
+    alternatives: tuple["Pattern", ...]
+
+
 Pattern: TypeAlias = (
     IdentifierPatternNode
     | QualifiedPatternNode
@@ -395,8 +406,10 @@ Pattern: TypeAlias = (
     | LiteralPatternNode
     | EnumValuePatternNode
     | OptionalPatternNode
+    | OptionalValuePatternNode
     | StructBindingPatternNode
     | StructPatternNode
+    | OrPatternNode
 )
 
 
@@ -808,7 +821,9 @@ _NODE_TYPES = {
         NoneLiteralNode,
         NullLiteralNode,
         ObjectNode,
+        OptionalValuePatternNode,
         OptionalPatternNode,
+        OrPatternNode,
         OptionalTypeNode,
         ParenthesizedExpressionNode,
         PatternNode,
@@ -1109,6 +1124,10 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return EnumValuePatternNode(value["enum_name"], value["value_name"])
     if node_type == "OptionalPatternNode":
         return OptionalPatternNode(value["kind"], value.get("binding"))
+    if node_type == "OptionalValuePatternNode":
+        return OptionalValuePatternNode(
+            value["kind"], _from_json_node(value["pattern"])
+        )
     if node_type == "StructBindingPatternNode":
         return StructBindingPatternNode(value["field"], value["binding"])
     if node_type == "StructFieldPatternNode":
@@ -1119,6 +1138,10 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return StructPatternNode(
             value["type_name"],
             tuple(_from_json_node(item) for item in value["fields"]),
+        )
+    if node_type == "OrPatternNode":
+        return OrPatternNode(
+            tuple(_from_json_node(item) for item in value["alternatives"])
         )
     if node_type == "ImportNode":
         return ImportNode(

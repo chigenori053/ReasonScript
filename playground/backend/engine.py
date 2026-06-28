@@ -188,6 +188,15 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
                         "event": "match_evaluation",
                         **match_event,
                     })
+                for alternative_event in branch_event.pop("alternative_evaluations", []):
+                    alternative_event["selected_branch"] = t["transition_id"]
+                    trace.append({
+                        "step": len(applied),
+                        "state": t["target"],
+                        "transition": t["transition_id"],
+                        "event": "alternative_pattern_evaluation",
+                        **alternative_event,
+                    })
                 for guard_event in branch_event.pop("guard_evaluations", []):
                     guard_event["selected_branch"] = t["transition_id"]
                     trace.append({
@@ -424,8 +433,18 @@ def _match_pattern_matches(value: Any, pattern: Any) -> bool:
         if optional_value is None:
             return False
         if pattern.get("node_type") == "OptionalSomePatternNode":
-            return optional_value.get("kind") == "some"
+            if optional_value.get("kind") != "some":
+                return False
+            inner_pattern = pattern.get("pattern")
+            if inner_pattern is None:
+                return True
+            return _struct_field_pattern_matches(optional_value.get("value"), inner_pattern)
         return optional_value.get("kind") == "none"
+    if _is_or_pattern(pattern):
+        return any(
+            _match_pattern_matches(value, alternative)
+            for alternative in pattern.get("alternatives") or []
+        )
     if _is_struct_pattern(pattern):
         return _struct_pattern_matches(value, pattern)
     return value == pattern
@@ -445,6 +464,10 @@ def _is_optional_pattern(pattern: Any) -> bool:
         and pattern.get("node_type")
         in {"OptionalSomePatternNode", "OptionalNonePatternNode"}
     )
+
+
+def _is_or_pattern(pattern: Any) -> bool:
+    return isinstance(pattern, dict) and pattern.get("node_type") == "OrPatternIRNode"
 
 
 def _is_catch_all_pattern(pattern: Any) -> bool:
@@ -525,6 +548,11 @@ def _struct_field_pattern_matches(value: Any, pattern: Any) -> bool:
         return True
     if node_type == "IdentifierPatternNode":
         return True
+    if node_type == "OrPatternNode":
+        return any(
+            _struct_field_pattern_matches(value, alternative)
+            for alternative in pattern.get("alternatives") or []
+        )
     if node_type == "StructPatternNode":
         return _struct_pattern_matches(value, pattern)
     if node_type == "QualifiedPatternNode":
@@ -607,6 +635,11 @@ def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
         _match_evaluation_event(condition, context)
         for condition in match_conditions
     ]
+    alternative_events = [
+        event
+        for condition in match_conditions
+        for event in _alternative_pattern_evaluation_events(condition, context)
+    ]
     guard_events = [
         _guard_evaluation_event(condition, context)
         for condition in match_conditions
@@ -630,6 +663,13 @@ def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
         result["match_evidence"] = {
             "value": match_events[-1]["value"],
             "matched_case": match_events[-1]["selected_case"],
+        }
+    if alternative_events:
+        result["alternative_evaluations"] = alternative_events
+        result["or_pattern_evidence"] = {
+            "selected_alternative": alternative_events[-1]["alternative_index"],
+            "selected_case": alternative_events[-1]["selected_case"],
+            "attempted": len(alternative_events),
         }
     if guard_events:
         result["guard_evaluations"] = guard_events
@@ -705,6 +745,37 @@ def _match_evaluation_event(
         "selected_case": pattern,
         "selected_branch": condition.get("target"),
     }
+
+
+def _alternative_pattern_evaluation_events(
+    condition: dict[str, Any],
+    context: dict[str, Any],
+) -> list[dict[str, Any]]:
+    or_pattern = condition.get("or_pattern")
+    if not isinstance(or_pattern, dict):
+        return []
+    alternatives = or_pattern.get("alternatives") or []
+    selected_index = or_pattern.get("selected_index")
+    if not isinstance(selected_index, int):
+        selected_index = len(alternatives) - 1
+    value = _match_value(condition, context)
+    events: list[dict[str, Any]] = []
+    for index, alternative in enumerate(alternatives[: selected_index + 1]):
+        result = _match_pattern_matches(value, alternative)
+        events.append(
+            {
+                "event_type": "AlternativePatternEvaluation",
+                "alternative_index": index,
+                "pattern": alternative,
+                "result": result,
+                "value": value,
+                "selected_case": _match_case_evidence(alternative),
+                "selected_branch": condition.get("target"),
+            }
+        )
+        if result:
+            break
+    return events
 
 
 def _guard_evaluation_event(
@@ -850,6 +921,7 @@ def extract_knowledge(
             struct_match_evidence = _path_struct_match_evidence(new_path)
             guard_evidence = _path_guard_evidence(new_path)
             pattern_evidence = _path_pattern_evidence(new_path)
+            or_pattern_evidence = _path_or_pattern_evidence(new_path)
             identity = (new_path[0]["source"], relation, target, path_signature)
             if identity in seen_knowledge:
                 continue
@@ -885,6 +957,8 @@ def extract_knowledge(
                 unit["matched_pattern"] = pattern_evidence["matched_pattern"]
                 unit["evaluation_trace"] = pattern_evidence["evaluation_trace"]
                 unit["pattern_evidence"] = pattern_evidence
+            if or_pattern_evidence is not None:
+                unit["or_pattern_evidence"] = or_pattern_evidence
             knowledge_units.append(unit)
 
             if target not in visited_states and len(new_path) < 8:
@@ -1067,6 +1141,35 @@ def _path_struct_match_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | 
     return None
 
 
+def _path_or_pattern_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | list[dict[str, Any]] | None:
+    evidence: list[dict[str, Any]] = []
+    for transition in reversed(path):
+        if transition.get("relation") != "FunctionReturnTransition":
+            continue
+        effect = transition.get("effect") or {}
+        for condition in effect.get("match_conditions") or []:
+            or_pattern = condition.get("or_pattern")
+            if not isinstance(or_pattern, dict):
+                continue
+            alternatives = or_pattern.get("alternatives") or []
+            selected_index = or_pattern.get("selected_index")
+            selected_pattern = (
+                alternatives[selected_index]
+                if isinstance(selected_index, int) and 0 <= selected_index < len(alternatives)
+                else condition.get("pattern")
+            )
+            evidence.append(
+                {
+                    "selected_alternative": selected_index,
+                    "selected_case": _match_case_evidence(selected_pattern),
+                    "alternative_count": or_pattern.get("alternative_count", len(alternatives)),
+                }
+            )
+        if evidence:
+            return evidence if len(evidence) > 1 else evidence[0]
+    return None
+
+
 def _path_pattern_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | None:
     for transition in reversed(path):
         if transition.get("relation") != "FunctionReturnTransition":
@@ -1097,6 +1200,11 @@ def _match_case_evidence(pattern: Any) -> Any:
         return _optional_pattern_signature(pattern)
     if _is_struct_pattern(pattern):
         return _struct_pattern_signature(pattern)
+    if _is_or_pattern(pattern):
+        return [
+            _match_case_evidence(alternative)
+            for alternative in pattern.get("alternatives") or []
+        ]
     return pattern
 
 

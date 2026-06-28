@@ -1,0 +1,54 @@
+{
+  "specification": "or-pattern/1.0",
+  "status": "Draft",
+  "coverage": [
+    {
+      "id": "OP-001",
+      "feature": "Enum OR patterns",
+      "expected": "selected alternative branch",
+      "status": "PASS"
+    },
+    {
+      "id": "OP-002",
+      "feature": "Literal OR patterns",
+      "expected": "selected alternative branch",
+      "status": "PASS"
+    },
+    {
+      "id": "OP-003",
+      "feature": "Struct OR patterns",
+      "expected": "selected alternative branch",
+      "status": "PASS"
+    },
+    {
+      "id": "OP-004",
+      "feature": "Optional OR patterns",
+      "expected": "none | some(value)",
+      "status": "PASS"
+    },
+    {
+      "id": "OP-005",
+      "feature": "Duplicate alternatives",
+      "expected": "OP-004",
+      "status": "PASS"
+    },
+    {
+      "id": "OP-006",
+      "feature": "Binding environment mismatch",
+      "expected": "OP-002",
+      "status": "PASS"
+    },
+    {
+      "id": "OP-007",
+      "feature": "Guard integration",
+      "expected": "guard after selected alternative",
+      "status": "PASS"
+    },
+    {
+      "id": "OP-008",
+      "feature": "Deterministic metadata",
+      "expected": "stable repeated compilation",
+      "status": "PASS"
+    }
+  ]
+}

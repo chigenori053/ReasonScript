@@ -152,7 +152,7 @@ def tokenize(source: str) -> tuple[SurfaceToken, ...]:
             index += 1
             column += 1
             continue
-        if char in "=+-*/%><!":
+        if char in "=+-*/%><!|":
             tokens.append(
                 SurfaceToken(SurfaceTokenType.OPERATOR, char, line, column)
             )

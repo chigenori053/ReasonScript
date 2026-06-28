@@ -30,7 +30,9 @@ from .nodes import (
     MemberAccessNode,
     NoneLiteralNode,
     NullLiteralNode,
+    OptionalValuePatternNode,
     OptionalPatternNode,
+    OrPatternNode,
     ParenthesizedExpressionNode,
     PatternNode,
     QualifiedPatternNode,
@@ -118,8 +120,13 @@ def parse_pattern(source: str, depth: int = 0) -> PatternNode:
         raise ExpressionSyntaxError("PT-V001 pattern is required")
     if " if " in text:
         raise ExpressionSyntaxError("PT-201 guard patterns are not supported in LSI-200")
-    if "|" in text:
-        raise ExpressionSyntaxError("PT-202 OR patterns are not supported in LSI-200")
+    alternatives = _split_or_pattern(text)
+    if len(alternatives) > 1:
+        return PatternNode(
+            OrPatternNode(
+                tuple(parse_pattern(alternative, depth + 1).pattern for alternative in alternatives)
+            )
+        )
     if ".." in text:
         raise ExpressionSyntaxError("PT-203 range patterns are not supported in LSI-200")
     if text.startswith("(") and text.endswith(")") and "," in text:
@@ -135,6 +142,12 @@ def parse_pattern(source: str, depth: int = 0) -> PatternNode:
         return PatternNode(DefaultPatternNode())
     if text == "none":
         return PatternNode(OptionalPatternNode("None"))
+    some_value_match = re.fullmatch(r"some\s*\(\s*(.+)\s*\)", text)
+    if some_value_match:
+        inner = some_value_match.group(1).strip()
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", inner):
+            return PatternNode(OptionalPatternNode("Some", inner))
+        return PatternNode(OptionalValuePatternNode("Some", parse_pattern(inner, depth + 1).pattern))
     some_match = re.fullmatch(r"some\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", text)
     if some_match:
         return PatternNode(OptionalPatternNode("Some", some_match.group(1)))
@@ -167,6 +180,54 @@ def _parse_struct_pattern(source: str, depth: int) -> PatternNode:
     if not parser.at_end():
         raise ExpressionSyntaxError("SP-002 NP-002 unexpected token after struct pattern")
     return PatternNode(pattern)
+
+
+def _split_or_pattern(source: str) -> list[str]:
+    parts: list[str] = []
+    start = 0
+    brace_depth = 0
+    paren_depth = 0
+    in_string: str | None = None
+    escaped = False
+    for index, char in enumerate(source):
+        if in_string is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == in_string:
+                in_string = None
+            continue
+        if char in {'"', "'"}:
+            in_string = char
+            continue
+        if char == "{":
+            brace_depth += 1
+            continue
+        if char == "}":
+            brace_depth -= 1
+            continue
+        if char == "(":
+            paren_depth += 1
+            continue
+        if char == ")":
+            paren_depth -= 1
+            continue
+        if char == "|" and brace_depth == 0 and paren_depth == 0:
+            part = source[start:index].strip()
+            if not part:
+                raise ExpressionSyntaxError("OP-001 OrPattern requires alternatives")
+            parts.append(part)
+            start = index + 1
+    if not parts:
+        return [source.strip()]
+    tail = source[start:].strip()
+    if not tail:
+        raise ExpressionSyntaxError("OP-001 OrPattern requires alternatives")
+    parts.append(tail)
+    if len(parts) < 2:
+        raise ExpressionSyntaxError("OP-001 OrPattern requires alternatives")
+    return parts
 
 
 def _skip_pattern_separators(source: str, index: int) -> int:

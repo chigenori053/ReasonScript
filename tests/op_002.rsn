@@ -1,0 +1,12 @@
+module Test {
+    fn Score(value: int) -> int {
+        match value {
+            1 | 2 | 3 => return 10
+            default => return 0
+        }
+    }
+
+    calculation Result {
+        result = Score(2)
+    }
+}
