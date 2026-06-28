@@ -101,6 +101,31 @@ class SurfaceSyntaxError(ValueError):
     pass
 
 
+class SurfaceReservedConstructError(SurfaceSyntaxError):
+    code = "LL-002-RESERVED-TOP-LEVEL-CONSTRUCT"
+    layer = "L1"
+    severity = "error"
+
+    def __init__(self, construct: str) -> None:
+        self.construct = construct
+        super().__init__(_reserved_construct_message(construct))
+
+
+_RESERVED_TOP_LEVEL_CONSTRUCTS = {
+    "world": "WorldModel syntax",
+    "system": "multi-model orchestration",
+    "component": "UI / SDK structural composition",
+}
+
+
+def _reserved_construct_message(construct: str) -> str:
+    purpose = _RESERVED_TOP_LEVEL_CONSTRUCTS[construct]
+    return (
+        f"{construct} is reserved for future {purpose} "
+        "and is not active in v0.6-D."
+    )
+
+
 @dataclass
 class _Cursor:
     lines: list[str]
@@ -131,6 +156,7 @@ def parse(source: str) -> ProgramNode:
                 raise SurfaceSyntaxError("PV-3 PackageMustAppearFirst")
             package = _parse_package(cursor)
             continue
+        _reject_reserved_top_level_construct(cursor.current())
         modules.append(_parse_module(cursor))
     program = ProgramNode(tuple(modules), package)
     try:
@@ -146,6 +172,15 @@ def _parse_package(cursor: _Cursor) -> PackageDeclarationNode:
     if not match:
         raise SurfaceSyntaxError("PV-1 invalid package declaration")
     return PackageDeclarationNode(match.group(1))
+
+
+def _reject_reserved_top_level_construct(line: str) -> None:
+    match = re.fullmatch(
+        r"(?:(?:pub)\s+)?(world|system|component)\b.*",
+        line,
+    )
+    if match:
+        raise SurfaceReservedConstructError(match.group(1))
 
 
 def _logical_lines(source: str) -> list[str]:

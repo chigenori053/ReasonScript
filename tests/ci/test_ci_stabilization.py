@@ -44,3 +44,6 @@ def test_v0_6_language_layer_validation_scope_is_in_standard_test_platform():
     assert (ROOT / "tests/compatibility/test_projection_core_non_regression.py").exists()
     assert (ROOT / "tests/playground/test_projection_summary_v0_6.py").exists()
     assert (ROOT / "tests/playground/test_diagnostics_view_v0_6.py").exists()
+    assert (ROOT / "tests/compatibility/test_top_level_construct_policy_v0_6.py").exists()
+    assert (ROOT / "tests/playground/test_top_level_construct_projection_v0_6.py").exists()
+    assert (ROOT / "tests/playground/test_reserved_construct_diagnostics_v0_6.py").exists()

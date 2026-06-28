@@ -1,5 +1,32 @@
 # Changelog
 
+## ReasonScript Language Layer v0.6-D - 2026-06-29
+
+### Added
+
+- Added Human Surface top-level construct policy.
+- Defined `model` as active preferred syntax.
+- Defined `module` as active compatibility syntax.
+- Reserved `world` for WorldModel / simulation-domain syntax.
+- Reserved `system` for multi-model orchestration syntax.
+- Reserved `component` for UI / SDK structural composition syntax.
+- Added reserved top-level construct diagnostic policy.
+
+### Fixed
+
+- Clarified that reserved top-level constructs must not silently parse as `model` or `module`.
+- Clarified that `source_kind` remains L1/L7 metadata unless a future specification defines distinct core semantics.
+- Preserved module/model L3-L6 equivalence guarantees from v0.6-B.
+
+### Validation
+
+- model active preferred syntax policy verified.
+- module active compatibility syntax policy verified.
+- reserved construct diagnostics verified.
+- module/model core non-regression verified.
+- top-level construct projection policy verified.
+- Playground frontend build verified.
+
 ## ReasonScript Language Layer v0.6-C - 2026-06-29
 
 ### Added

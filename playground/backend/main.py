@@ -56,7 +56,11 @@ except ModuleNotFoundError:  # pragma: no cover - exercised in minimal test envs
             self.path = path
 
 from frontend.ast import to_json_value as semantic_to_json_value
-from frontend.language_surface.parser import parse, SurfaceSyntaxError
+from frontend.language_surface.parser import (
+    SurfaceReservedConstructError,
+    SurfaceSyntaxError,
+    parse,
+)
 from frontend.language_surface.integration import compile_program, project_program
 from frontend.language_surface.nodes import to_json_value as surface_to_json_value
 from frontend.language_surface.validation import SurfaceValidationError
@@ -170,6 +174,19 @@ def _make_error(phase: str, message: str) -> dict[str, Any]:
     return {"phase": phase, "message": message, "line": line}
 
 
+def _make_exception_error(phase: str, error: Exception) -> dict[str, Any]:
+    if isinstance(error, SurfaceReservedConstructError):
+        return {
+            "phase": phase,
+            "code": error.code,
+            "layer": error.layer,
+            "severity": error.severity,
+            "message": str(error),
+            "line": None,
+        }
+    return _make_error(phase, str(error))
+
+
 def _validation_node(name: str, ok: bool, children: list[dict[str, Any]] | None = None, details: Any = None) -> dict[str, Any]:
     return {
         "name": name,
@@ -228,6 +245,11 @@ def _projection_entry(surface_module: dict[str, Any], reason_ir: dict[str, Any])
     equivalent_to = "module" if is_model else "model"
     syntax_status = "preferred" if is_model else "compatibility"
     construct_type = "Reasoning Model" if is_model else "Compatibility Namespace Syntax"
+    core_semantics = (
+        "canonical ReasonScript reasoning model"
+        if is_model
+        else "identical to model for v0.6-D"
+    )
     return {
         "projection_version": "reasonscript-projection/0.6-C",
         "source_kind": source_kind,
@@ -237,7 +259,7 @@ def _projection_entry(surface_module: dict[str, Any], reason_ir: dict[str, Any])
             "kind": "ReasonGraph",
             "namespace": namespace,
         },
-        "core_semantics": f"identical to {equivalent_to} for v0.6-C",
+        "core_semantics": core_semantics,
         "normalization_display": (
             f"{source_kind} {surface_module.get('name')} "
             f"{'is treated as a ReasonScript reasoning model' if is_model else 'is accepted as compatibility syntax'} "
@@ -282,11 +304,14 @@ def _projection_diagnostics(projection_summary: dict[str, Any]) -> list[dict[str
 def _run_pipeline_artifacts(req: SourceRequest) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     try:
         program = parse(req.source)
+    except SurfaceReservedConstructError as e:
+        errors = [_make_exception_error("Parse", e)]
+        return _failed_artifacts(req, {}, errors), errors
     except SurfaceSyntaxError as e:
-        errors = [_make_error("Parse", str(e))]
+        errors = [_make_exception_error("Parse", e)]
         return _failed_artifacts(req, {}, errors), errors
     except Exception as e:
-        errors = [_make_error("Parse", str(e))]
+        errors = [_make_exception_error("Parse", e)]
         return _failed_artifacts(req, {}, errors), errors
 
     ast_dict = surface_to_json_value(program)
@@ -506,11 +531,17 @@ def validate(req: SourceRequest) -> ValidateResponse:
     # Parse
     try:
         program = parse(req.source)
+    except SurfaceReservedConstructError as e:
+        return ValidateResponse(
+            ok=False,
+            phase="Parse",
+            errors=[_make_exception_error("Parse", e)],
+        )
     except SurfaceSyntaxError as e:
         return ValidateResponse(
             ok=False,
             phase="Parse",
-            errors=[_make_error("Parse", str(e))],
+            errors=[_make_exception_error("Parse", e)],
         )
     except Exception as e:
         return ValidateResponse(
@@ -547,11 +578,17 @@ def compile_endpoint(req: SourceRequest) -> CompileResponse:
     # Parse
     try:
         program = parse(req.source)
+    except SurfaceReservedConstructError as e:
+        return CompileResponse(
+            ok=False,
+            phase="Parse",
+            errors=[_make_exception_error("Parse", e)],
+        )
     except SurfaceSyntaxError as e:
         return CompileResponse(
             ok=False,
             phase="Parse",
-            errors=[_make_error("Parse", str(e))],
+            errors=[_make_exception_error("Parse", e)],
         )
     except Exception as e:
         return CompileResponse(
@@ -587,8 +624,10 @@ def _compile_ir(req: SourceRequest) -> tuple[list[Any], dict[str, Any], list[dic
     """Parse + compile; returns (reason_irs, ast_dict, errors). errors=[] means success."""
     try:
         program = parse(req.source)
+    except SurfaceReservedConstructError as e:
+        return [], {}, [_make_exception_error("Parse", e)]
     except SurfaceSyntaxError as e:
-        return [], {}, [_make_error("Parse", str(e))]
+        return [], {}, [_make_exception_error("Parse", e)]
     except Exception as e:
         return [], {}, [_make_error("Parse", str(e))]
 
