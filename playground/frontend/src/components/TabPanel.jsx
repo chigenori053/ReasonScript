@@ -22,10 +22,14 @@ import DeterminismPanel from './DeterminismPanel.jsx'
 import ComplexityPanel from './ComplexityPanel.jsx'
 import QualityDashboard from './QualityDashboard.jsx'
 import LanguageAuditPanel from './LanguageAuditPanel.jsx'
+import ProjectionSummaryPanel from './ProjectionSummaryPanel.jsx'
+import DiagnosticsPanel from './DiagnosticsPanel.jsx'
 import './TabPanel.css'
 
 const TABS = [
   // v0.3 tabs
+  { id: 'summary',        label: 'Summary',     icon: 'SUM',   group: 'core' },
+  { id: 'diagnostics',    label: 'Diagnostics', icon: 'DIA',   group: 'core' },
   { id: 'ast',            label: 'AST',         icon: 'AST',   group: 'core' },
   { id: 'semantic_ast',   label: 'Semantic AST', icon: 'SEM',  group: 'core' },
   { id: 'reason_ir',      label: 'Reason IR',   icon: 'IR',    group: 'core' },
@@ -64,6 +68,8 @@ function getDataForTab(results, tabId) {
   if (!results) return null
   switch (tabId) {
     case 'ast':            return results.ast ?? null
+    case 'summary':        return results.projection_summary ?? results.artifacts?.projection_summary ?? null
+    case 'diagnostics':    return results.diagnostics ?? results.artifacts?.diagnostics ?? null
     case 'semantic_ast':   return results.semantic_ast ?? results.artifacts?.semantic_ast ?? null
     case 'reason_ir':      { const irs = results.reason_irs; return irs?.length ? (irs.length === 1 ? irs[0] : irs) : null }
     case 'execution_plan': return results.execution_plan ?? null
@@ -95,6 +101,8 @@ function getDataForTab(results, tabId) {
 
 function TabContent({ tabId, data, controls }) {
   switch (tabId) {
+    case 'summary':         return <ProjectionSummaryPanel data={data} />
+    case 'diagnostics':     return <DiagnosticsPanel data={data} />
     case 'execution_plan':  return <ExecutionPlanPanel data={data} />
     case 'simulation':      return <SimulationPanel data={data} />
     case 'knowledge':       return <KnowledgePanel data={data} />
@@ -129,6 +137,8 @@ function TabContent({ tabId, data, controls }) {
 
 const EMPTY_HINTS = {
   ast:            'Validate または Run を実行すると AST が表示されます',
+  summary:        'Run を実行すると Summary が表示されます',
+  diagnostics:    'Run または Import を実行すると Diagnostics が表示されます',
   semantic_ast:   'Run を実行すると Semantic AST が表示されます',
   reason_ir:      'Run を実行すると Reason IR が表示されます',
   execution_plan: 'Run を実行すると ExecutionPlan が表示されます',

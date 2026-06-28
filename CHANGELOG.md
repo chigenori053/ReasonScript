@@ -1,5 +1,53 @@
 # Changelog
 
+## ReasonScript Language Layer v0.6-C - 2026-06-29
+
+### Added
+
+- Added L7 Developer Projection support for `source_kind`.
+- Added Playground Summary View presentation for `model` and `module`.
+- Displayed `model` as preferred Human Surface syntax.
+- Displayed `module` as compatibility syntax.
+- Displayed normalized ReasonGraph target for top-level constructs.
+- Added Diagnostics View support for `diagnostics.json`.
+
+### Fixed
+
+- Clarified that source spelling differences are projection metadata, not Reason IR semantics.
+- Prevented Developer Projection from implying different core semantics for `module` and `model`.
+
+### Validation
+
+- Source kind projection verified.
+- model preferred syntax projection verified.
+- module compatibility syntax projection verified.
+- Diagnostics artifact consumption verified.
+- L3-L6 non-regression verified.
+- Playground frontend build verified.
+
+## ReasonScript Language Layer v0.6-B - 2026-06-28
+
+### Added
+
+- Accepted `model Example { ... }` as a top-level Human Surface alias.
+- Added `source_kind` to Surface AST to preserve original top-level spelling.
+- Added module/model equivalence validation across Reason IR, ExecutionPlan,
+  Simulation, and Knowledge.
+- Added `diagnostics.json` to Playground pipeline artifact export.
+
+### Fixed
+
+- Clarified that Human Surface spelling must not affect Reason IR semantics.
+- Strengthened CI/CD coverage for Language Layer artifact consistency.
+
+### Validation
+
+- Surface AST source_kind distinction verified.
+- Reason IR equivalence verified.
+- ExecutionPlan equivalence verified.
+- Simulation and Knowledge equivalence verified.
+- Playground artifact contract verified.
+
 ## reasonscript-language-surface/0.5 - 2026-06-28
 
 ReasonScript Language Surface v0.5 feature freeze.

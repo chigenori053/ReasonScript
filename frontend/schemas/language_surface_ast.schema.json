@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reasonscript.org/schema/language-surface-ast/0.1",
-  "title": "ReasonScript Language Surface AST 0.1",
+  "$id": "https://reasonscript.org/schema/language-surface-ast/0.6",
+  "title": "ReasonScript Language Surface AST 0.6",
   "$ref": "#/$defs/program",
   "$defs": {
     "identifier": {
@@ -658,7 +658,7 @@
     "module": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "visibility", "body", "node_type"],
+      "required": ["name", "visibility", "body", "source_kind", "node_type"],
       "properties": {
         "name": {"$ref": "#/$defs/identifier"},
         "visibility": {"enum": ["Public", "Private"]},
@@ -666,6 +666,7 @@
           "type": "array",
           "items": {"$ref": "#/$defs/ast_node"}
         },
+        "source_kind": {"enum": ["module", "model"]},
         "node_type": {"const": "ModuleNode"}
       }
     },

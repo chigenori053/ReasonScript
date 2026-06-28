@@ -40,6 +40,8 @@ export default function App() {
     execution_plan: data.execution_plan,
     simulation: data.simulation,
     knowledge: data.knowledge,
+    diagnostics: data.diagnostics ?? [],
+    projection_summary: data.projection_summary ?? null,
     validation: data.validation,
     source: { filename: 'playground.rsn', text: source },
   }), [source])
@@ -120,6 +122,8 @@ export default function App() {
           execution_plan: data.execution_plan,
           simulation: data.simulation,
           knowledge: data.knowledge,
+          diagnostics: data.diagnostics ?? [],
+          projection_summary: data.projection_summary,
           validation: data.validation,
           artifacts,
         }))
@@ -128,7 +132,7 @@ export default function App() {
         const kCount = data.knowledge?.knowledge_count ?? 0
         const simOk = data.simulation?.success ? '✓' : '✗'
         addLog('success', `Pipeline 完了 — IR ${irCount} module, Sim ${simOk}, Knowledge ${kCount} units`)
-        setActiveView('execution_plan')
+        setActiveView('summary')
       } else {
         setResults(prev => ({ ...(prev || {}), compile_error: data }))
         setStatus('error')

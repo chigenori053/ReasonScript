@@ -77,6 +77,8 @@ ARTIFACT_FILES = {
     "execution_plan": "execution_plan.json",
     "simulation": "simulation.json",
     "knowledge": "knowledge.json",
+    "diagnostics": "diagnostics.json",
+    "projection_summary": "projection_summary.json",
     "validation": "validation.json",
 }
 
@@ -125,7 +127,10 @@ class PipelineResponse(BaseModel):
     execution_plan: dict[str, Any] | None = None
     simulation: dict[str, Any] | None = None
     knowledge: dict[str, Any] | None = None
+    diagnostics: list[dict[str, Any]] = []
+    projection_summary: dict[str, Any] | None = None
     validation: dict[str, Any] | None = None
+    artifacts: dict[str, Any] | None = None
 
 
 class Example(BaseModel):
@@ -196,6 +201,84 @@ def _validation_report(ok: bool, errors: list[dict[str, Any]] | None = None) -> 
     }
 
 
+def _module_items(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, dict) and isinstance(value.get("modules"), list):
+        return [item for item in value["modules"] if isinstance(item, dict)]
+    if isinstance(value, dict) and value:
+        return [value]
+    return []
+
+
+def _reason_ir_namespace(reason_ir: dict[str, Any]) -> str | None:
+    metadata = reason_ir.get("metadata")
+    if isinstance(metadata, dict) and metadata.get("namespace") is not None:
+        return str(metadata["namespace"])
+    initial_state = reason_ir.get("initial_state")
+    if isinstance(initial_state, dict):
+        data = initial_state.get("data")
+        if isinstance(data, dict) and data.get("namespace") is not None:
+            return str(data["namespace"])
+    return None
+
+
+def _projection_entry(surface_module: dict[str, Any], reason_ir: dict[str, Any]) -> dict[str, Any]:
+    source_kind = surface_module.get("source_kind", "module")
+    namespace = _reason_ir_namespace(reason_ir) or surface_module.get("name")
+    is_model = source_kind == "model"
+    equivalent_to = "module" if is_model else "model"
+    syntax_status = "preferred" if is_model else "compatibility"
+    construct_type = "Reasoning Model" if is_model else "Compatibility Namespace Syntax"
+    return {
+        "projection_version": "reasonscript-projection/0.6-C",
+        "source_kind": source_kind,
+        "syntax_status": syntax_status,
+        "construct_type": construct_type,
+        "normalized_core": {
+            "kind": "ReasonGraph",
+            "namespace": namespace,
+        },
+        "core_semantics": f"identical to {equivalent_to} for v0.6-C",
+        "normalization_display": (
+            f"{source_kind} {surface_module.get('name')} "
+            f"{'is treated as a ReasonScript reasoning model' if is_model else 'is accepted as compatibility syntax'} "
+            f"and normalized to ReasonGraph(namespace=\"{namespace}\")."
+        ),
+        "semantic_equivalence": {
+            "equivalent_to": [equivalent_to],
+            "core_layers_affected": False,
+        },
+    }
+
+
+def _projection_summary(ast_dict: dict[str, Any], reason_ir: Any) -> dict[str, Any]:
+    surface_modules = _module_items(ast_dict)
+    reason_irs = _module_items(reason_ir)
+    entries = [
+        _projection_entry(surface_module, ir)
+        for surface_module, ir in zip(surface_modules, reason_irs)
+    ]
+    if len(entries) == 1:
+        return entries[0]
+    return {
+        "projection_version": "reasonscript-projection/0.6-C",
+        "modules": entries,
+    }
+
+
+def _projection_diagnostics(projection_summary: dict[str, Any]) -> list[dict[str, Any]]:
+    entries = projection_summary.get("modules") if isinstance(projection_summary.get("modules"), list) else [projection_summary]
+    diagnostics: list[dict[str, Any]] = []
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("source_kind") == "module":
+            diagnostics.append({
+                "severity": "info",
+                "layer": "L7",
+                "code": "LL-001C-MODULE-COMPAT-INFO",
+                "message": "module is supported as compatibility syntax. model is the preferred syntax for reasoning model definitions.",
+            })
+    return diagnostics
+
+
 def _run_pipeline_artifacts(req: SourceRequest) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     try:
         program = parse(req.source)
@@ -223,14 +306,19 @@ def _run_pipeline_artifacts(req: SourceRequest) -> tuple[dict[str, Any], list[di
     sims = [simulate(ir) for ir in reason_irs]
     knowledges = [extract_knowledge(ir, sim) for ir, sim in zip(reason_irs, sims)]
     validation = _validation_report(True)
+    reason_ir = reason_irs[0] if len(reason_irs) == 1 else {"modules": reason_irs}
+    projection_summary = _projection_summary(ast_dict, reason_ir)
+    diagnostics = _projection_diagnostics(projection_summary)
 
     return {
         "ast": ast_dict,
         "semantic_ast": semantic_ast[0] if len(semantic_ast) == 1 else {"modules": semantic_ast},
-        "reason_ir": reason_irs[0] if len(reason_irs) == 1 else {"modules": reason_irs},
+        "reason_ir": reason_ir,
         "execution_plan": plans[0] if len(plans) == 1 else {"modules": plans},
         "simulation": sims[0] if len(sims) == 1 else {"modules": sims},
         "knowledge": knowledges[0] if len(knowledges) == 1 else {"modules": knowledges},
+        "diagnostics": diagnostics,
+        "projection_summary": projection_summary,
         "validation": validation,
         "source": {"filename": req.filename, "text": req.source},
     }, []
@@ -245,6 +333,8 @@ def _failed_artifacts(req: SourceRequest, ast_dict: dict[str, Any], errors: list
         "execution_plan": None,
         "simulation": None,
         "knowledge": None,
+        "diagnostics": errors,
+        "projection_summary": None,
         "validation": validation,
         "source": {"filename": req.filename, "text": req.source},
     }
@@ -262,6 +352,8 @@ def _artifact_response(artifacts: dict[str, Any], ok: bool = True, errors: list[
         "execution_plan": artifacts.get("execution_plan"),
         "simulation": artifacts.get("simulation"),
         "knowledge": artifacts.get("knowledge"),
+        "diagnostics": artifacts.get("diagnostics"),
+        "projection_summary": artifacts.get("projection_summary"),
         "validation": artifacts.get("validation"),
         "artifacts": artifacts,
     }
@@ -557,7 +649,9 @@ def pipeline_endpoint(req: SourceRequest) -> PipelineResponse:
             errors=errors,
             ast=artifacts.get("ast"),
             semantic_ast=artifacts.get("semantic_ast"),
+            diagnostics=artifacts.get("diagnostics") or [],
             validation=artifacts.get("validation"),
+            artifacts=artifacts,
         )
     reason_ir = artifacts.get("reason_ir")
     reason_irs = reason_ir.get("modules", []) if isinstance(reason_ir, dict) and "modules" in reason_ir else [reason_ir]
@@ -570,7 +664,10 @@ def pipeline_endpoint(req: SourceRequest) -> PipelineResponse:
         execution_plan=artifacts.get("execution_plan"),
         simulation=artifacts.get("simulation"),
         knowledge=artifacts.get("knowledge"),
+        diagnostics=artifacts.get("diagnostics") or [],
+        projection_summary=artifacts.get("projection_summary"),
         validation=artifacts.get("validation"),
+        artifacts=artifacts,
     )
 
 

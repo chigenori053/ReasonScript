@@ -162,14 +162,14 @@ def _logical_lines(source: str) -> list[str]:
 
 def _parse_module(cursor: _Cursor) -> ModuleNode:
     match = re.fullmatch(
-        r"(?:(pub)\s+)?module\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{",
+        r"(?:(pub)\s+)?(module|model)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{",
         cursor.take(),
     )
     if not match:
-        raise SurfaceSyntaxError("expected module declaration")
+        raise SurfaceSyntaxError("expected module or model declaration")
     visibility = Visibility.PUBLIC if match.group(1) else Visibility.PRIVATE
     body = _parse_body(cursor, context="module")
-    return ModuleNode(match.group(2), visibility, tuple(body))
+    return ModuleNode(match.group(3), visibility, tuple(body), match.group(2))
 
 
 def _parse_body(cursor: _Cursor, *, context: str) -> list:

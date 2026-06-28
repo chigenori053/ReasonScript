@@ -27,3 +27,20 @@ def test_workflows_use_test_platform_entrypoint():
     assert "scripts/test_platform.py test" in _workflow("test.yml")
     assert "scripts/test_platform.py regression" in _workflow("test.yml")
     assert "scripts/test_platform.py release-check --quick" in _workflow("release.yml")
+
+
+def test_v0_6_language_layer_validation_scope_is_in_standard_test_platform():
+    test_platform = (ROOT / "scripts" / "test_platform.py").read_text()
+
+    for required_path in [
+        "tests/compatibility",
+        "language_surface_ast_mapping_tests",
+        "tests/playground",
+    ]:
+        assert required_path in test_platform
+
+    assert (ROOT / "tests/compatibility/test_module_model_equivalence.py").exists()
+    assert (ROOT / "tests/playground/test_artifact_contract_v0_6.py").exists()
+    assert (ROOT / "tests/compatibility/test_projection_core_non_regression.py").exists()
+    assert (ROOT / "tests/playground/test_projection_summary_v0_6.py").exists()
+    assert (ROOT / "tests/playground/test_diagnostics_view_v0_6.py").exists()

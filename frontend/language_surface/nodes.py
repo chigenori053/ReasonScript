@@ -758,6 +758,7 @@ class ModuleNode:
     name: str
     visibility: Visibility
     body: tuple[AstNode, ...]
+    source_kind: str = "module"
 
 
 @dataclass(frozen=True)
@@ -990,6 +991,7 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
             value["name"],
             Visibility(value["visibility"]),
             tuple(_from_json_node(item) for item in value["body"]),
+            value.get("source_kind", "module"),
         )
     if node_type == "ExpressionNode":
         return ExpressionNode(_from_json_node(value["expression"]))

@@ -1,0 +1,62 @@
+.diagnostics-panel {
+  padding: 14px;
+}
+
+.diagnostics-empty {
+  padding: 18px;
+  color: var(--text-1);
+}
+
+.diagnostics-layer {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(22, 27, 34, 0.45);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.diagnostics-layer-title {
+  padding: 10px 12px;
+  color: var(--text-0);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.diagnostic-row {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.diagnostic-row:last-child {
+  border-bottom: 0;
+}
+
+.diagnostic-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  color: var(--text-1);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.diagnostic-meta code {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  text-transform: none;
+}
+
+.diagnostic-message {
+  color: var(--text-0);
+  line-height: 1.5;
+}
+
+.diagnostic-row.info .diagnostic-meta span {
+  color: var(--accent);
+}
+
+.diagnostic-row.error .diagnostic-meta span {
+  color: var(--red);
+}

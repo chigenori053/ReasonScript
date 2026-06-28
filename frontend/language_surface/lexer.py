@@ -30,6 +30,7 @@ KEYWORDS = {
     "loop",
     "map",
     "match",
+    "model",
     "module",
     "object",
     "none",

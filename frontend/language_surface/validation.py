@@ -300,6 +300,8 @@ def validate(program: ProgramNode) -> None:
         module_names.add(module.name)
         if not isinstance(module.visibility, Visibility):
             raise SurfaceValidationError("AST-V001 invalid module visibility")
+        if module.source_kind not in {"module", "model"}:
+            raise SurfaceValidationError("AST-V001 invalid module source_kind")
         _validate_module(module)
     _CURRENT_NAMESPACE = None
 
