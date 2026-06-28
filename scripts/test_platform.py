@@ -9,6 +9,7 @@ Rust, Python, and frontend test suites.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -69,6 +70,16 @@ RUST_CRATES = [
     "RuntimeComplex",
     "Test",
     "TestPlayground",
+    "apps/reasonscript-ide/src-tauri",
+]
+
+RUST_TEST_CRATES = [
+    "apps/reasonscript-ide/src-tauri",
+]
+
+NPM_PROJECTS = [
+    "playground/frontend",
+    "apps/reasonscript-ide/ui",
 ]
 
 
@@ -117,7 +128,8 @@ def _steps_for(target: str, *, quick: bool, passthrough: list[str]) -> list[Step
         return _build_steps()
     if target == "test":
         return (
-            _pytest_steps("unit", passthrough)
+            _rust_test_steps()
+            + _pytest_steps("unit", passthrough)
             + _pytest_steps("integration", passthrough)
             + _pytest_steps("golden", passthrough)
             + _pytest_steps("compatibility", passthrough)
@@ -140,6 +152,15 @@ def _pytest_steps(group: str, passthrough: list[str]) -> list[Step]:
         Step(f"pytest:{group}:{path}", [sys.executable, "-m", "pytest", path, *passthrough])
         for path in paths
     ]
+
+
+def _rust_test_steps() -> list[Step]:
+    steps: list[Step] = []
+    if _has("cargo"):
+        for crate in RUST_TEST_CRATES:
+            if (ROOT / crate / "Cargo.toml").exists():
+                steps.append(Step(f"cargo:test:{crate}", ["cargo", "test"], ROOT / crate))
+    return steps
 
 
 def _fmt_steps(*, check_only: bool = False) -> list[Step]:
@@ -184,9 +205,29 @@ def _lint_steps() -> list[Step]:
         steps.append(Step("ruff", ["ruff", "check", "."]))
     if _has("mypy"):
         steps.append(Step("mypy", ["mypy", "frontend", "toolchain", "sdk"], optional=True))
-    package_json = ROOT / "playground/frontend/package.json"
-    if package_json.exists() and _has("npm"):
-        steps.append(Step("playground:lint", ["npm", "run", "lint", "--", "--max-warnings=0"], package_json.parent, optional=True))
+    if _has("npm"):
+        for project in NPM_PROJECTS:
+            package_json = ROOT / project / "package.json"
+            if not package_json.exists():
+                continue
+            if _has_npm_script(package_json, "lint"):
+                steps.extend(_npm_install_steps(project))
+                steps.append(
+                    Step(
+                        f"npm:lint:{project}",
+                        ["npm", "run", "lint", "--", "--max-warnings=0"],
+                        package_json.parent,
+                    )
+                )
+            elif _has_npm_script(package_json, "build") and project == "apps/reasonscript-ide/ui":
+                steps.extend(_npm_install_steps(project))
+                steps.append(
+                    Step(
+                        f"npm:typecheck:{project}",
+                        ["npm", "run", "build"],
+                        package_json.parent,
+                    )
+                )
     return steps
 
 
@@ -196,9 +237,18 @@ def _build_steps() -> list[Step]:
         for crate in RUST_CRATES:
             if (ROOT / crate / "Cargo.toml").exists():
                 steps.append(Step(f"cargo:build:{crate}", ["cargo", "build"], ROOT / crate))
-    package_json = ROOT / "playground/frontend/package.json"
-    if package_json.exists() and _has("npm"):
-        steps.append(Step("playground:build", ["npm", "run", "build"], package_json.parent, optional=True))
+    if _has("npm"):
+        for project in NPM_PROJECTS:
+            package_json = ROOT / project / "package.json"
+            if package_json.exists() and _has_npm_script(package_json, "build"):
+                steps.extend(_npm_install_steps(project))
+                steps.append(
+                    Step(
+                        f"npm:build:{project}",
+                        ["npm", "run", "build"],
+                        package_json.parent,
+                    )
+                )
     return steps
 
 
@@ -221,6 +271,20 @@ def _run_steps(steps: list[Step]) -> int:
 
 def _has(executable: str) -> bool:
     return shutil.which(executable) is not None
+
+
+def _has_npm_script(package_json: Path, script: str) -> bool:
+    with package_json.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    scripts = data.get("scripts", {})
+    return isinstance(scripts, dict) and script in scripts
+
+
+def _npm_install_steps(project: str) -> list[Step]:
+    project_dir = ROOT / project
+    if (project_dir / "package-lock.json").exists():
+        return [Step(f"npm:ci:{project}", ["npm", "ci"], project_dir)]
+    return [Step(f"npm:install:{project}", ["npm", "install"], project_dir)]
 
 
 if __name__ == "__main__":

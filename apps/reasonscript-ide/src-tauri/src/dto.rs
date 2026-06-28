@@ -163,6 +163,7 @@ pub struct WorkspaceState {
 
 #[derive(Debug, thiserror::Error)]
 pub enum IdeError {
+    #[allow(dead_code)]
     #[error("Compiler error: {0}")]
     Compiler(String),
     #[error("IO error: {0}")]

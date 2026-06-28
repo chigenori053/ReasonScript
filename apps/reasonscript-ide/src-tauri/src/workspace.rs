@@ -197,7 +197,14 @@ pub fn open_workspace_path(path: String) -> Result<WorkspaceState, IdeError> {
 
     let mut file_count = 0usize;
     let mut truncated = false;
-    let files = scan_dir(&root, &root, 0, &mut file_count, &ignored_names, &mut truncated);
+    let files = scan_dir(
+        &root,
+        &root,
+        0,
+        &mut file_count,
+        &ignored_names,
+        &mut truncated,
+    );
 
     let (scan_status, metadata) = if truncated {
         (
@@ -233,7 +240,14 @@ pub fn list_files_in_workspace(root_path: String) -> Result<Vec<FileNode>, IdeEr
     let ignored_names = default_ignored_names();
     let mut file_count = 0usize;
     let mut truncated = false;
-    let files = scan_dir(&root, &root, 0, &mut file_count, &ignored_names, &mut truncated);
+    let files = scan_dir(
+        &root,
+        &root,
+        0,
+        &mut file_count,
+        &ignored_names,
+        &mut truncated,
+    );
     Ok(files)
 }
 
@@ -241,9 +255,8 @@ pub fn list_files_in_workspace(root_path: String) -> Result<Vec<FileNode>, IdeEr
 pub fn resolve_workspace_file(root_path: &str, relative_path: &str) -> Result<PathBuf, IdeError> {
     let root = std::fs::canonicalize(Path::new(root_path))?;
     let joined = root.join(relative_path);
-    let target = std::fs::canonicalize(&joined).map_err(|_| {
-        IdeError::Workspace(format!("File not found: {}", relative_path))
-    })?;
+    let target = std::fs::canonicalize(&joined)
+        .map_err(|_| IdeError::Workspace(format!("File not found: {}", relative_path)))?;
 
     if !target.starts_with(&root) {
         return Err(IdeError::Internal(
@@ -312,7 +325,10 @@ mod tests {
         let git = find_node(&ws.files, ".git");
         assert!(git.is_some(), ".git should appear but be marked ignored");
         assert!(git.unwrap().is_ignored);
-        assert!(git.unwrap().children.is_empty(), ".git children not scanned");
+        assert!(
+            git.unwrap().children.is_empty(),
+            ".git children not scanned"
+        );
 
         let nm = find_node(&ws.files, "node_modules");
         assert!(nm.is_some());
@@ -338,10 +354,7 @@ mod tests {
     #[test]
     fn path_escape_is_rejected() {
         let dir = TempDir::new().unwrap();
-        let result = resolve_workspace_file(
-            &dir.path().to_string_lossy(),
-            "../../etc/passwd",
-        );
+        let result = resolve_workspace_file(&dir.path().to_string_lossy(), "../../etc/passwd");
         assert!(result.is_err());
     }
 
@@ -379,10 +392,10 @@ mod tests {
         assert!(json.contains("reasonscript-workspace/0.1"));
         assert!(json.contains("\"scan_status\":\"complete\""));
     }
-}
 
-impl FileNode {
-    pub fn kind_is_dir(&self) -> bool {
-        matches!(self.kind, FileNodeKind::Directory)
+    impl FileNode {
+        fn kind_is_dir(&self) -> bool {
+            matches!(self.kind, FileNodeKind::Directory)
+        }
     }
 }
