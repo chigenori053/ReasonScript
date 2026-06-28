@@ -460,6 +460,7 @@
         {"$ref": "#/$defs/wildcard_pattern"},
         {"$ref": "#/$defs/default_pattern"},
         {"$ref": "#/$defs/literal_pattern"},
+        {"$ref": "#/$defs/range_pattern"},
         {"$ref": "#/$defs/enum_value_pattern"},
         {"$ref": "#/$defs/optional_pattern"},
         {"$ref": "#/$defs/optional_value_pattern"},
@@ -528,6 +529,28 @@
         "enum_name": {"$ref": "#/$defs/identifier"},
         "value_name": {"$ref": "#/$defs/identifier"},
         "node_type": {"const": "EnumValuePatternNode"}
+      }
+    },
+    "range_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lower", "upper", "lower_inclusive", "upper_inclusive", "node_type"],
+      "properties": {
+        "lower": {
+          "oneOf": [
+            {"$ref": "#/$defs/integer_literal"},
+            {"$ref": "#/$defs/float_literal"}
+          ]
+        },
+        "upper": {
+          "oneOf": [
+            {"$ref": "#/$defs/integer_literal"},
+            {"$ref": "#/$defs/float_literal"}
+          ]
+        },
+        "lower_inclusive": {"type": "boolean"},
+        "upper_inclusive": {"type": "boolean"},
+        "node_type": {"const": "RangePatternNode"}
       }
     },
     "optional_pattern": {

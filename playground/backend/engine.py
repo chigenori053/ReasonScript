@@ -85,6 +85,8 @@ def build_execution_plan(ir: dict[str, Any]) -> dict[str, Any]:
     ]
     selected_return = _selected_return_transition_id(found_path)
     selected_branches = _selected_branches_for_transition(selected_return)
+    selected_or_pattern = _or_pattern_metadata_for_path(found_path)
+    pattern_identity = _pattern_identity_for_path(found_path, selected_return)
 
     # Build alternative paths (up to 3 shortest)
     alt_candidates = sorted(
@@ -99,7 +101,7 @@ def build_execution_plan(ir: dict[str, Any]) -> dict[str, Any]:
         for p in alt_candidates
     ]
 
-    return {
+    result = {
         "schema_version": "execution-plan/0.1",
         "goal": goal_target,
         "reachable": reachable,
@@ -113,6 +115,11 @@ def build_execution_plan(ir: dict[str, Any]) -> dict[str, Any]:
         "evidence_refs": [],
         "planner_version": "playground-planner/0.2",
     }
+    if selected_or_pattern is not None:
+        result.update(selected_or_pattern)
+    if pattern_identity is not None:
+        result["pattern_identity"] = pattern_identity
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -255,8 +262,18 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
         ),
         None,
     )
+    selected_transition = next(
+        (
+            transition
+            for transition in ir_norm.get("transitions", [])
+            if transition.get("transition_id") == selected_return
+        ),
+        None,
+    )
+    selected_or_pattern = _or_pattern_metadata_for_transition(selected_transition)
+    pattern_identity = _pattern_identity_for_transition(selected_transition, selected_return)
 
-    return {
+    result = {
         "schema_version": "semantic-simulation/0.2",
         "success": success,
         "goal_reached": goal_reached,
@@ -270,6 +287,11 @@ def simulate(ir: dict[str, Any]) -> dict[str, Any]:
         "violations": violations,
         "trace": trace,
     }
+    if selected_or_pattern is not None:
+        result.update(selected_or_pattern)
+    if pattern_identity is not None:
+        result["pattern_identity"] = pattern_identity
+    return result
 
 
 def _constraint_passes(expression: str, data: Any) -> bool:
@@ -440,6 +462,8 @@ def _match_pattern_matches(value: Any, pattern: Any) -> bool:
                 return True
             return _struct_field_pattern_matches(optional_value.get("value"), inner_pattern)
         return optional_value.get("kind") == "none"
+    if _is_range_pattern(pattern):
+        return _range_pattern_matches(value, pattern)
     if _is_or_pattern(pattern):
         return any(
             _match_pattern_matches(value, alternative)
@@ -464,6 +488,10 @@ def _is_optional_pattern(pattern: Any) -> bool:
         and pattern.get("node_type")
         in {"OptionalSomePatternNode", "OptionalNonePatternNode"}
     )
+
+
+def _is_range_pattern(pattern: Any) -> bool:
+    return isinstance(pattern, dict) and pattern.get("node_type") == "RangePatternIRNode"
 
 
 def _is_or_pattern(pattern: Any) -> bool:
@@ -548,6 +576,8 @@ def _struct_field_pattern_matches(value: Any, pattern: Any) -> bool:
         return True
     if node_type == "IdentifierPatternNode":
         return True
+    if node_type == "RangePatternIRNode":
+        return _range_pattern_matches(value, pattern)
     if node_type == "OrPatternNode":
         return any(
             _struct_field_pattern_matches(value, alternative)
@@ -573,6 +603,18 @@ def _struct_field_pattern_matches(value: Any, pattern: Any) -> bool:
             return value == literal["value"]
         return value == literal
     return value == pattern
+
+
+def _range_pattern_matches(value: Any, pattern: dict[str, Any]) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    lower = pattern.get("lower")
+    upper = pattern.get("upper")
+    if not isinstance(lower, (int, float)) or not isinstance(upper, (int, float)):
+        return False
+    lower_ok = value >= lower if pattern.get("lower_inclusive", True) else value > lower
+    upper_ok = value <= upper if pattern.get("upper_inclusive", True) else value < upper
+    return lower_ok and upper_ok
 
 
 def _guard_matches(condition: dict[str, Any], context: dict[str, Any]) -> bool:
@@ -665,10 +707,14 @@ def _branch_selection_event(transition: dict[str, Any]) -> dict[str, Any]:
             "matched_case": match_events[-1]["selected_case"],
         }
     if alternative_events:
+        selected_pattern = alternative_events[-1].get("selected_pattern")
         result["alternative_evaluations"] = alternative_events
         result["or_pattern_evidence"] = {
             "selected_alternative": alternative_events[-1]["alternative_index"],
             "selected_case": alternative_events[-1]["selected_case"],
+            "selected_index": alternative_events[-1]["alternative_index"],
+            "selected_pattern": selected_pattern or alternative_events[-1]["selected_case"],
+            "alternative_count": alternative_events[-1].get("alternative_count"),
             "attempted": len(alternative_events),
         }
     if guard_events:
@@ -688,13 +734,18 @@ def _branch_selection_events(transition: dict[str, Any]) -> list[dict[str, Any]]
     branches = _selected_branches_for_transition(transition_id)
     if not branches:
         return []
+    pattern_identity = _pattern_identity_for_transition(transition, transition_id)
     if len(branches) == 1:
-        return [{"branch": branches[0]}]
+        result = {"branch": branches[0]}
+        if pattern_identity is not None:
+            result["pattern_identity"] = pattern_identity
+        return [result]
     return [
         {
             "branch": branch,
             "depth": index,
             "path_signature": transition_id,
+            **({"pattern_identity": pattern_identity} if pattern_identity is not None else {}),
         }
         for index, branch in enumerate(branches)
     ]
@@ -739,6 +790,19 @@ def _match_evaluation_event(
             "selected_case": _struct_pattern_signature(pattern),
             "selected_branch": condition.get("target"),
         }
+    if _is_range_pattern(pattern):
+        return {
+            "event_type": "RangeEvaluation",
+            "value": value,
+            "lower": pattern.get("lower"),
+            "upper": pattern.get("upper"),
+            "lower_inclusive": pattern.get("lower_inclusive", True),
+            "upper_inclusive": pattern.get("upper_inclusive", True),
+            "matched": _match_pattern_matches(value, pattern),
+            "result": _match_pattern_matches(value, pattern),
+            "selected_case": _range_pattern_signature(pattern),
+            "selected_branch": condition.get("target"),
+        }
     return {
         "event_type": "MatchEvaluation",
         "value": value,
@@ -758,18 +822,29 @@ def _alternative_pattern_evaluation_events(
     selected_index = or_pattern.get("selected_index")
     if not isinstance(selected_index, int):
         selected_index = len(alternatives) - 1
+    selected_pattern = or_pattern.get("selected_pattern")
+    alternative_count = or_pattern.get("alternative_count", len(alternatives))
     value = _match_value(condition, context)
     events: list[dict[str, Any]] = []
     for index, alternative in enumerate(alternatives[: selected_index + 1]):
         result = _match_pattern_matches(value, alternative)
+        canonical_pattern = (
+            selected_pattern
+            if result and isinstance(selected_pattern, str)
+            else _match_case_evidence(alternative)
+        )
         events.append(
             {
                 "event_type": "AlternativePatternEvaluation",
+                "alternative": index,
                 "alternative_index": index,
                 "pattern": alternative,
+                "matched": result,
                 "result": result,
                 "value": value,
                 "selected_case": _match_case_evidence(alternative),
+                "selected_pattern": canonical_pattern,
+                "alternative_count": alternative_count,
                 "selected_branch": condition.get("target"),
             }
         )
@@ -919,9 +994,11 @@ def extract_knowledge(
             enum_match_evidence = _path_enum_match_evidence(new_path)
             optional_match_evidence = _path_optional_match_evidence(new_path)
             struct_match_evidence = _path_struct_match_evidence(new_path)
+            range_evidence = _path_range_evidence(new_path)
             guard_evidence = _path_guard_evidence(new_path)
             pattern_evidence = _path_pattern_evidence(new_path)
             or_pattern_evidence = _path_or_pattern_evidence(new_path)
+            pattern_identity = _pattern_identity_for_path(new_path, path_signature)
             identity = (new_path[0]["source"], relation, target, path_signature)
             if identity in seen_knowledge:
                 continue
@@ -935,6 +1012,7 @@ def extract_knowledge(
                 "evidence_path": evidence_path,
                 "path_signature": path_signature,
                 "branch_id": _branch_id(evidence_path),
+                **({"pattern_identity": pattern_identity} if pattern_identity is not None else {}),
                 "confidence": confidence,
                 "path_length": len(new_path),
                 "evidence": evidence,
@@ -950,6 +1028,8 @@ def extract_knowledge(
                 unit["optional_match_evidence"] = optional_match_evidence
             if struct_match_evidence is not None:
                 unit["struct_match_evidence"] = struct_match_evidence
+            if range_evidence is not None:
+                unit["range_evidence"] = range_evidence
             if guard_evidence is not None:
                 unit["guard_evidence"] = guard_evidence
             if pattern_evidence is not None:
@@ -986,6 +1066,125 @@ def _selected_return_transition_id(path: list[dict[str, Any]]) -> str | None:
         if transition.get("relation") == "FunctionReturnTransition":
             return transition.get("transition_id")
     return None
+
+
+def _or_pattern_metadata_for_path(path: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for transition in reversed(path):
+        metadata = _or_pattern_metadata_for_transition(transition)
+        if metadata is not None:
+            return metadata
+    return None
+
+
+def _or_pattern_metadata_for_transition(transition: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(transition, dict):
+        return None
+    effect = transition.get("effect") or {}
+    for condition in reversed(effect.get("match_conditions") or []):
+        or_pattern = condition.get("or_pattern")
+        if not isinstance(or_pattern, dict):
+            continue
+        alternatives = or_pattern.get("alternatives") or []
+        selected_index = or_pattern.get("selected_index")
+        selected_pattern = or_pattern.get("selected_pattern")
+        if not isinstance(selected_index, int):
+            selected_index = len(alternatives) - 1
+        if not isinstance(selected_pattern, str):
+            selected_alternative = (
+                alternatives[selected_index]
+                if 0 <= selected_index < len(alternatives)
+                else condition.get("pattern")
+            )
+            selected_pattern = _match_case_evidence(selected_alternative)
+        return {
+            "selected_index": selected_index,
+            "selected_pattern": selected_pattern,
+            "alternative_count": or_pattern.get("alternative_count", len(alternatives)),
+        }
+    return None
+
+
+def _pattern_identity_for_path(
+    path: list[dict[str, Any]],
+    canonical_path: str | None = None,
+) -> dict[str, str] | None:
+    for transition in reversed(path):
+        metadata = _pattern_identity_for_transition(transition, canonical_path)
+        if metadata is not None:
+            return metadata
+    return _pattern_identity_from_path(canonical_path)
+
+
+def _pattern_identity_for_transition(
+    transition: dict[str, Any] | None,
+    canonical_path: str | None = None,
+) -> dict[str, str] | None:
+    if not isinstance(transition, dict):
+        return _pattern_identity_from_path(canonical_path)
+    effect = transition.get("effect") or {}
+    fallback_path = canonical_path or transition.get("transition_id")
+    for condition in reversed(effect.get("match_conditions") or []):
+        identity = condition.get("pattern_identity")
+        if isinstance(identity, dict):
+            pattern_id = identity.get("pattern_id") or fallback_path
+            canonical = identity.get("canonical_path") or pattern_id
+            pattern_type = identity.get("pattern_type") or _pattern_type_from_path(canonical)
+            if isinstance(pattern_id, str) and isinstance(canonical, str):
+                return {
+                    "pattern_id": pattern_id,
+                    "pattern_type": str(pattern_type),
+                    "canonical_path": canonical,
+                }
+        pattern = condition.get("pattern")
+        if isinstance(fallback_path, str):
+            return {
+                "pattern_id": fallback_path,
+                "pattern_type": _pattern_type_from_condition(pattern, fallback_path),
+                "canonical_path": fallback_path,
+            }
+    return _pattern_identity_from_path(fallback_path)
+
+
+def _pattern_identity_from_path(canonical_path: str | None) -> dict[str, str] | None:
+    if not isinstance(canonical_path, str) or ".match." not in canonical_path:
+        return None
+    return {
+        "pattern_id": canonical_path,
+        "pattern_type": _pattern_type_from_path(canonical_path),
+        "canonical_path": canonical_path,
+    }
+
+
+def _pattern_type_from_condition(pattern: Any, canonical_path: str) -> str:
+    if "|guard." in canonical_path:
+        return "Guard"
+    if "|" in canonical_path:
+        return "NestedStruct"
+    if _is_enum_pattern(pattern):
+        return "Enum"
+    if _is_optional_pattern(pattern):
+        return "Optional"
+    if _is_range_pattern(pattern):
+        return "Range"
+    if _is_struct_pattern(pattern):
+        return "Struct"
+    return "Literal"
+
+
+def _pattern_type_from_path(canonical_path: str) -> str:
+    branch = canonical_path.split(".match.", 1)[1] if ".match." in canonical_path else canonical_path
+    if "|guard." in branch:
+        return "Guard"
+    if "|" in branch:
+        return "NestedStruct"
+    if branch in {"some", "none"} or branch.startswith("some."):
+        return "Optional"
+    if branch.startswith("range."):
+        return "Range"
+    if "." in branch and not branch.split(".", 1)[0].isdigit():
+        leading = branch.split(".", 1)[0]
+        return "Struct" if leading and leading[0].isupper() and "_" in branch else "Enum"
+    return "Literal"
 
 
 def _selected_branches_for_transition(transition_id: str | None) -> list[str]:
@@ -1098,6 +1297,33 @@ def _path_optional_match_evidence(path: list[dict[str, Any]]) -> dict[str, str] 
     return None
 
 
+def _path_range_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | list[dict[str, Any]] | None:
+    evidence: list[dict[str, Any]] = []
+    for transition in reversed(path):
+        if transition.get("relation") != "FunctionReturnTransition":
+            continue
+        effect = transition.get("effect") or {}
+        context = effect.get("evaluation_context") or {}
+        for condition in effect.get("match_conditions") or []:
+            pattern = condition.get("pattern")
+            if not _is_range_pattern(pattern):
+                continue
+            value = _match_value(condition, context)
+            evidence.append(
+                {
+                    "value": value,
+                    "lower": pattern.get("lower"),
+                    "upper": pattern.get("upper"),
+                    "lower_inclusive": pattern.get("lower_inclusive", True),
+                    "upper_inclusive": pattern.get("upper_inclusive", True),
+                    "matched": _match_pattern_matches(value, pattern),
+                }
+            )
+        if evidence:
+            return evidence if len(evidence) > 1 else evidence[0]
+    return None
+
+
 def _path_guard_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | list[dict[str, Any]] | None:
     evidence: list[dict[str, Any]] = []
     for transition in reversed(path):
@@ -1158,10 +1384,13 @@ def _path_or_pattern_evidence(path: list[dict[str, Any]]) -> dict[str, Any] | li
                 if isinstance(selected_index, int) and 0 <= selected_index < len(alternatives)
                 else condition.get("pattern")
             )
+            canonical_pattern = or_pattern.get("selected_pattern") or _match_case_evidence(selected_pattern)
             evidence.append(
                 {
                     "selected_alternative": selected_index,
                     "selected_case": _match_case_evidence(selected_pattern),
+                    "selected_index": selected_index,
+                    "selected_pattern": canonical_pattern,
                     "alternative_count": or_pattern.get("alternative_count", len(alternatives)),
                 }
             )
@@ -1200,6 +1429,8 @@ def _match_case_evidence(pattern: Any) -> Any:
         return _optional_pattern_signature(pattern)
     if _is_struct_pattern(pattern):
         return _struct_pattern_signature(pattern)
+    if _is_range_pattern(pattern):
+        return _range_pattern_signature(pattern)
     if _is_or_pattern(pattern):
         return [
             _match_case_evidence(alternative)
@@ -1216,6 +1447,20 @@ def _optional_pattern_signature(pattern: dict[str, Any]) -> str:
     if pattern.get("node_type") == "OptionalSomePatternNode":
         return "some"
     return "none"
+
+
+def _range_pattern_signature(pattern: dict[str, Any]) -> str:
+    lower = _range_bound_signature(pattern.get("lower"))
+    upper = _range_bound_signature(pattern.get("upper"))
+    separator = "_" if pattern.get("upper_inclusive", True) else "_lt_"
+    return f"range.{lower}{separator}{upper}"
+
+
+def _range_bound_signature(value: Any) -> str:
+    text = str(value)
+    if text.endswith(".0"):
+        text = text[:-2]
+    return text.replace("-", "neg_").replace(".", "_")
 
 
 def _struct_pattern_signature(pattern: dict[str, Any]) -> str:

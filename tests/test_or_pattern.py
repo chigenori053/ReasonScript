@@ -26,10 +26,15 @@ def test_op_001_enum_or_selects_matching_alternative():
     result = _pipeline("op_001.rsn")
 
     assert result["plan"]["selected_branch"] == "Score.match.Color.Blue"
+    assert result["plan"]["selected_index"] == 1
+    assert result["plan"]["selected_pattern"] == "Color.Blue"
+    assert result["plan"]["alternative_count"] == 2
     assert result["simulation"]["path_signature"] == "Score.match.Color.Blue"
     assert result["knowledge"]["knowledge"][0]["or_pattern_evidence"] == {
         "selected_alternative": 1,
         "selected_case": "Color.Blue",
+        "selected_index": 1,
+        "selected_pattern": "Color.Blue",
         "alternative_count": 2,
     }
 
@@ -38,18 +43,22 @@ def test_op_002_literal_or_selects_matching_alternative():
     result = _pipeline("op_002.rsn")
 
     assert result["plan"]["selected_branch"] == "Score.match.2"
+    assert result["plan"]["selected_pattern"] == "2"
     alternative_events = [
         event
         for event in result["simulation"]["trace"]
         if event.get("event_type") == "AlternativePatternEvaluation"
     ]
     assert [event["result"] for event in alternative_events] == [False, True]
+    assert [event["matched"] for event in alternative_events] == [False, True]
+    assert [event["alternative"] for event in alternative_events] == [0, 1]
 
 
 def test_op_003_struct_or_selects_matching_alternative():
     result = _pipeline("op_003.rsn")
 
     assert result["plan"]["selected_branch"] == "Score.match.Point.y0"
+    assert result["plan"]["selected_pattern"] == "Point.y0"
     assert result["knowledge"]["knowledge"][0]["match_evidence"]["matched_case"] == "Point.y0"
 
 
@@ -58,6 +67,7 @@ def test_op_004_optional_or_supports_some_value_pattern():
 
     assert result["plan"]["selected_branch"] == "Score.match.some.0"
     assert result["knowledge"]["knowledge"][0]["or_pattern_evidence"]["selected_alternative"] == 1
+    assert result["knowledge"]["knowledge"][0]["or_pattern_evidence"]["selected_pattern"] == "some.0"
 
 
 def test_op_005_duplicate_alternative_is_rejected():
@@ -74,6 +84,7 @@ def test_op_007_guard_runs_after_selected_alternative():
     result = _pipeline("op_007.rsn")
 
     assert result["plan"]["selected_branch"] == "Score.match.Color.Blue|guard.score_gt_80"
+    assert result["simulation"]["selected_pattern"] == "Color.Blue"
     guard_event = next(
         event
         for event in result["simulation"]["trace"]
@@ -93,4 +104,9 @@ def test_op_008_or_pattern_metadata_is_deterministic():
     assert json.dumps(first["knowledge"], sort_keys=True) == json.dumps(
         second["knowledge"],
         sort_keys=True,
+    )
+    assert (
+        first["plan"]["selected_pattern"]
+        == first["simulation"]["selected_pattern"]
+        == first["knowledge"]["knowledge"][0]["or_pattern_evidence"]["selected_pattern"]
     )

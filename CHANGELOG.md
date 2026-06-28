@@ -1,5 +1,33 @@
 # Changelog
 
+## reasonscript-language-surface/0.5 - 2026-06-28
+
+ReasonScript Language Surface v0.5 feature freeze.
+
+### Frozen Surface
+
+- Module system, declarations, type system, expressions, and statements
+- Literal, enum, optional, struct, nested struct, guard, OR, and range patterns
+- Source -> Surface AST -> Semantic AST -> Reason IR -> ExecutionPlan ->
+  Simulation -> Knowledge pipeline
+- Pattern Identity, canonical path generation, and branch evidence propagation
+
+### Fixed Interfaces
+
+- `reasonscript-language-surface/0.5`
+- `parser/0.5`
+- `reasonscript-ast/0.5`
+- `reason-ir/0.5`
+- `execution-plan/0.5`
+
+### Compatibility Policy
+
+- `0.5.x` releases may include bug fixes, diagnostics, compiler optimizations,
+  and performance improvements.
+- Syntax, semantic meaning, IR schema, canonical path generation, and Pattern
+  Identity are frozen for the v0.5 line.
+- New language features are deferred to v0.6.
+
 ## reasonscript-semantic-language/0.2 - 2026-06-15
 
 ReasonScript Semantic Language v0.2 Core freeze.

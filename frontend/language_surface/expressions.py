@@ -37,6 +37,7 @@ from .nodes import (
     PatternNode,
     QualifiedPatternNode,
     QualifiedIdentifierNode,
+    RangePatternNode,
     StringLiteralNode,
     SomeExpressionNode,
     StructBindingPatternNode,
@@ -127,8 +128,11 @@ def parse_pattern(source: str, depth: int = 0) -> PatternNode:
                 tuple(parse_pattern(alternative, depth + 1).pattern for alternative in alternatives)
             )
         )
+    range_pattern = _parse_range_pattern(text)
+    if range_pattern is not None:
+        return PatternNode(range_pattern)
     if ".." in text:
-        raise ExpressionSyntaxError("PT-203 range patterns are not supported in LSI-200")
+        raise ExpressionSyntaxError("RP-001 invalid range pattern")
     if text.startswith("(") and text.endswith(")") and "," in text:
         raise ExpressionSyntaxError("PT-204 destructuring patterns are not supported in LSI-200")
     if "{" in text or "}" in text:
@@ -180,6 +184,36 @@ def _parse_struct_pattern(source: str, depth: int) -> PatternNode:
     if not parser.at_end():
         raise ExpressionSyntaxError("SP-002 NP-002 unexpected token after struct pattern")
     return PatternNode(pattern)
+
+
+def _parse_range_pattern(source: str) -> RangePatternNode | None:
+    match = re.fullmatch(
+        r"([+-]?\d+(?:\.\d+)?)\s*(\.\.<|\.\.)\s*([+-]?\d+(?:\.\d+)?)",
+        source,
+    )
+    if not match:
+        return None
+    lower_text, operator, upper_text = match.groups()
+    lower = _range_literal(lower_text)
+    upper = _range_literal(upper_text)
+    if type(lower) is not type(upper):
+        raise ExpressionSyntaxError("RP-001 range endpoints must have identical numeric types")
+    if lower.value > upper.value:
+        raise ExpressionSyntaxError("RP-003 InvalidRange")
+    if lower.value == upper.value and operator == "..<":
+        raise ExpressionSyntaxError("RP-003 InvalidRange")
+    return RangePatternNode(
+        lower,
+        upper,
+        lower_inclusive=True,
+        upper_inclusive=operator == "..",
+    )
+
+
+def _range_literal(source: str) -> IntegerLiteralNode | FloatLiteralNode:
+    if "." in source:
+        return FloatLiteralNode(float(source))
+    return IntegerLiteralNode(int(source))
 
 
 def _split_or_pattern(source: str) -> list[str]:

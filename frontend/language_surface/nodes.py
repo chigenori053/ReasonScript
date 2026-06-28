@@ -358,6 +358,14 @@ class LiteralPatternNode:
 
 
 @dataclass(frozen=True)
+class RangePatternNode:
+    lower: IntegerLiteralNode | FloatLiteralNode
+    upper: IntegerLiteralNode | FloatLiteralNode
+    lower_inclusive: bool = True
+    upper_inclusive: bool = True
+
+
+@dataclass(frozen=True)
 class EnumValuePatternNode:
     enum_name: str
     value_name: str
@@ -404,6 +412,7 @@ Pattern: TypeAlias = (
     | WildcardPatternNode
     | DefaultPatternNode
     | LiteralPatternNode
+    | RangePatternNode
     | EnumValuePatternNode
     | OptionalPatternNode
     | OptionalValuePatternNode
@@ -808,6 +817,7 @@ _NODE_TYPES = {
         IntegerLiteralNode,
         LetStatementNode,
         LiteralPatternNode,
+        RangePatternNode,
         LogicalExpressionNode,
         LoopStatementNode,
         MapEntryNode,
@@ -1120,6 +1130,13 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return WildcardPatternNode()
     if node_type == "LiteralPatternNode":
         return LiteralPatternNode(_from_json_node(value["value"]))
+    if node_type == "RangePatternNode":
+        return RangePatternNode(
+            _from_json_node(value["lower"]),
+            _from_json_node(value["upper"]),
+            bool(value.get("lower_inclusive", True)),
+            bool(value.get("upper_inclusive", True)),
+        )
     if node_type == "EnumValuePatternNode":
         return EnumValuePatternNode(value["enum_name"], value["value_name"])
     if node_type == "OptionalPatternNode":

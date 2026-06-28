@@ -1,5 +1,5 @@
 {
-  "specification": "or-pattern/1.0",
+  "specification": "or-pattern/1.1",
   "status": "Draft",
   "coverage": [
     {
@@ -46,8 +46,14 @@
     },
     {
       "id": "OP-008",
+      "feature": "selected_pattern metadata",
+      "expected": "preserved through ExecutionPlan, Simulation, and Knowledge",
+      "status": "PASS"
+    },
+    {
+      "id": "OP-AUDIT-001",
       "feature": "Deterministic metadata",
-      "expected": "stable repeated compilation",
+      "expected": "stable repeated compilation with selected_pattern",
       "status": "PASS"
     }
   ]

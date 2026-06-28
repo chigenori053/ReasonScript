@@ -59,6 +59,7 @@ from .nodes import (
     ProgramNode,
     QualifiedPatternNode,
     QualifiedIdentifierNode,
+    RangePatternNode,
     ReasonGraphDeclarationNode,
     ReachStatementNode,
     RelationNode,
@@ -776,6 +777,7 @@ def _function_return_paths(
                                 statement,
                                 arm,
                                 _return_path_label(branch_prefix, 1),
+                                function.name,
                                 enum,
                                 selected_pattern=alternative,
                                 alternative_index=alternative_index,
@@ -911,6 +913,12 @@ def _function_control_flow_ir(
                             selected_pattern=alternative,
                         )
                         label = _return_path_label(branch_prefix, 1)
+                        pattern_identity = _pattern_identity(
+                            _function_return_target(function.name, label),
+                            alternative,
+                            guarded=arm.guard is not None,
+                            nested=len(_canonical_match_path(branch_prefix)) > 1,
+                        )
                         if arm.guard is not None:
                             nodes.append(_guard_expression_ir(arm.guard))
                         nodes.append(
@@ -920,6 +928,7 @@ def _function_control_flow_ir(
                                 "pattern": _match_pattern_value(alternative, enum),
                                 "target": _function_return_target(function.name, label),
                                 "canonical_path": _canonical_match_path(branch_prefix),
+                                "pattern_identity": pattern_identity,
                                 **_or_pattern_metadata(arm.pattern, alternative_index, len(alternatives), enum),
                                 **(
                                     {"guard": _guard_expression_ir(arm.guard)}
@@ -1043,6 +1052,7 @@ def _match_condition(
     statement: MatchStatementNode,
     arm: Any,
     label: str,
+    function_name: str,
     enum: EnumDeclarationNode | None = None,
     *,
     selected_pattern: PatternNode | None = None,
@@ -1050,12 +1060,19 @@ def _match_condition(
     alternative_count: int = 1,
 ) -> dict[str, Any]:
     pattern = selected_pattern or arm.pattern
+    pattern_id = _function_return_target(function_name, label)
     return {
         "node_type": "MatchSelectionIRNode",
         "value": _match_value_name(statement.expression),
         "expression": to_json_value(statement.expression),
         "pattern": _match_pattern_value(pattern, enum),
         "target": label,
+        "pattern_identity": _pattern_identity(
+            pattern_id,
+            pattern,
+            guarded=arm.guard is not None,
+            nested="|" in pattern_id and "|guard." not in pattern_id,
+        ),
         **_or_pattern_metadata(arm.pattern, alternative_index, alternative_count, enum),
         **(
             {"guard": _guard_expression_ir(arm.guard)}
@@ -1122,7 +1139,64 @@ def _match_pattern_label(
         return "none"
     if isinstance(value, dict) and value.get("node_type") == "StructPatternNode":
         return _struct_pattern_signature(value)
+    if isinstance(value, dict) and value.get("node_type") == "RangePatternIRNode":
+        return _range_pattern_label(value)
     return str(value).replace("-", "neg_").replace(".", "_")
+
+
+def _pattern_identity(
+    pattern_id: str,
+    pattern: PatternNode,
+    *,
+    guarded: bool = False,
+    nested: bool = False,
+) -> dict[str, str]:
+    return {
+        "pattern_id": pattern_id,
+        "pattern_type": _pattern_identity_type(pattern, guarded=guarded, nested=nested),
+        "canonical_path": pattern_id,
+    }
+
+
+def _pattern_identity_type(
+    pattern: PatternNode,
+    *,
+    guarded: bool = False,
+    nested: bool = False,
+) -> str:
+    if guarded:
+        return "Guard"
+    if nested:
+        return "NestedStruct"
+    value = pattern.pattern
+    if isinstance(value, LiteralPatternNode):
+        return "Literal"
+    if isinstance(value, RangePatternNode):
+        return "Range"
+    if isinstance(value, (QualifiedPatternNode, EnumValuePatternNode)):
+        return "Enum"
+    if isinstance(value, (OptionalPatternNode, OptionalValuePatternNode)):
+        return "Optional"
+    if isinstance(value, StructPatternNode):
+        return "NestedStruct" if _struct_pattern_contains_nested_struct(value) else "Struct"
+    if isinstance(value, OrPatternNode):
+        return "OrAlternative"
+    return "Literal"
+
+
+def _struct_pattern_contains_nested_struct(pattern: StructPatternNode) -> bool:
+    for field in pattern.fields:
+        field_pattern = field.pattern
+        if isinstance(field_pattern, StructPatternNode):
+            return True
+        if isinstance(field_pattern, OrPatternNode):
+            if any(
+                isinstance(alternative, StructPatternNode)
+                and _struct_pattern_contains_nested_struct(alternative)
+                for alternative in field_pattern.alternatives
+            ):
+                return True
+    return False
 
 
 def _match_pattern_value(
@@ -1142,6 +1216,14 @@ def _match_pattern_value(
             return literal.value
         if isinstance(literal, StringLiteralNode):
             return literal.value
+    if isinstance(value, RangePatternNode):
+        return {
+            "node_type": "RangePatternIRNode",
+            "lower": value.lower.value,
+            "upper": value.upper.value,
+            "lower_inclusive": value.lower_inclusive,
+            "upper_inclusive": value.upper_inclusive,
+        }
     if isinstance(value, QualifiedPatternNode):
         return {
             "node_type": "EnumValuePatternNode",
@@ -1208,6 +1290,10 @@ def _or_pattern_metadata(
         "or_pattern": {
             **_or_pattern_ir(value, enum),
             "selected_index": alternative_index,
+            "selected_pattern": _match_pattern_label(
+                PatternNode(value.alternatives[alternative_index]),
+                enum,
+            ),
             "alternative_count": alternative_count,
         }
     }
@@ -1221,6 +1307,20 @@ def _struct_pattern_signature(pattern: dict[str, Any]) -> str:
         if label is not None:
             field_labels.append(label)
     return f"{type_name}.{('_'.join(field_labels))}" if field_labels else type_name
+
+
+def _range_pattern_label(pattern: dict[str, Any]) -> str:
+    lower = _range_bound_label(pattern.get("lower"))
+    upper = _range_bound_label(pattern.get("upper"))
+    separator = "_" if pattern.get("upper_inclusive", True) else "_lt_"
+    return f"range.{lower}{separator}{upper}"
+
+
+def _range_bound_label(value: Any) -> str:
+    text = str(value)
+    if text.endswith(".0"):
+        text = text[:-2]
+    return text.replace("-", "neg_").replace(".", "_")
 
 
 def _struct_field_pattern_label(field: Any) -> str | None:

@@ -1,0 +1,27 @@
+module Test {
+    enum Color {
+        Red
+        Blue
+    }
+
+    enum Shape {
+        Circle
+        Square
+    }
+
+    fn Score(color: Color, shape: Shape) -> int {
+        match color {
+            Color.Red => {
+                match shape {
+                    Shape.Circle => return 10
+                    Shape.Square => return 20
+                }
+            }
+            Color.Blue => return 0
+        }
+    }
+
+    calculation Result {
+        result = Score(Color.Red, Shape.Circle)
+    }
+}

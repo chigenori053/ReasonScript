@@ -80,6 +80,7 @@ from .nodes import (
     ProgramNode,
     QualifiedPatternNode,
     QualifiedIdentifierNode,
+    RangePatternNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
     ReasonGraphTransitionNode,
@@ -242,6 +243,7 @@ KNOWN_NODE_TYPES = (
     WildcardPatternNode,
     DefaultPatternNode,
     LiteralPatternNode,
+    RangePatternNode,
     PrimitiveTypeNode,
     StateTypeNode,
 )
@@ -2531,6 +2533,23 @@ def _validate_match_pattern(
         ):
             raise SurfaceValidationError("PT-005 literal type mismatch")
         return
+    if isinstance(pattern, RangePatternNode):
+        range_type = _expression_type(pattern.lower, symbols, bindings)
+        if type(pattern.lower) is not type(pattern.upper):
+            raise SurfaceValidationError("RP-001 range endpoints must have identical numeric types")
+        if not isinstance(pattern.lower, (IntegerLiteralNode, FloatLiteralNode)):
+            raise SurfaceValidationError("RP-002 only int and float range patterns are supported")
+        if (
+            match_type is not _UNKNOWN_TYPE
+            and range_type is not _UNKNOWN_TYPE
+            and not _types_compatible(match_type, range_type)
+        ):
+            raise SurfaceValidationError("RP-001 range endpoints must match input type")
+        if pattern.lower.value > pattern.upper.value:
+            raise SurfaceValidationError("RP-003 InvalidRange")
+        if pattern.lower.value == pattern.upper.value and not pattern.upper_inclusive:
+            raise SurfaceValidationError("RP-003 InvalidRange")
+        return
     if isinstance(pattern, IdentifierPatternNode):
         _validate_identifier_pattern(pattern, match_type, symbols)
         return
@@ -2976,6 +2995,16 @@ def _pattern(value: PatternNode) -> None:
             raise SurfaceValidationError("PT-V003 invalid literal pattern")
         _expression_value(pattern.value)
         return
+    if isinstance(pattern, RangePatternNode):
+        if type(pattern.lower) is not type(pattern.upper):
+            raise SurfaceValidationError("RP-001 range endpoints must have identical numeric types")
+        if not isinstance(pattern.lower, (IntegerLiteralNode, FloatLiteralNode)):
+            raise SurfaceValidationError("RP-002 only int and float range patterns are supported")
+        if pattern.lower.value > pattern.upper.value:
+            raise SurfaceValidationError("RP-003 InvalidRange")
+        if pattern.lower.value == pattern.upper.value and not pattern.upper_inclusive:
+            raise SurfaceValidationError("RP-003 InvalidRange")
+        return
     if isinstance(pattern, EnumValuePatternNode):
         _identifier(pattern.enum_name, "TV-7 EnumValuePatternNode.enum_name")
         _identifier(pattern.value_name, "TV-7 EnumValuePatternNode.value_name")
@@ -3104,6 +3133,8 @@ def _or_pattern_kind(pattern: Any) -> str:
         return "enum"
     if isinstance(pattern, LiteralPatternNode):
         return "literal"
+    if isinstance(pattern, RangePatternNode):
+        return "range"
     if isinstance(pattern, StructPatternNode):
         return "struct"
     if isinstance(pattern, StructBindingPatternNode):
@@ -3137,6 +3168,15 @@ def _pattern_key(value: PatternNode) -> tuple[str, Any]:
             "literal",
             type(literal).__name__,
             getattr(literal, "value", None),
+        )
+    if isinstance(pattern, RangePatternNode):
+        return (
+            "range",
+            type(pattern.lower).__name__,
+            pattern.lower.value,
+            pattern.upper.value,
+            pattern.lower_inclusive,
+            pattern.upper_inclusive,
         )
     if isinstance(pattern, OptionalPatternNode):
         return ("optional", pattern.kind, pattern.binding)

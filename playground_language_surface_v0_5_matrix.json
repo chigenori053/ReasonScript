@@ -1,0 +1,53 @@
+{
+  "specification": "reasonscript-language-surface/0.5",
+  "phase": "LS-RELEASE-001",
+  "status": "Draft",
+  "feature_freeze": {
+    "syntax": "frozen",
+    "semantic_lowering": "frozen",
+    "public_interfaces": "frozen",
+    "canonical_paths": "frozen",
+    "pattern_identity": "frozen"
+  },
+  "interfaces": [
+    "reasonscript-language-surface/0.5",
+    "parser/0.5",
+    "reasonscript-ast/0.5",
+    "reason-ir/0.5",
+    "execution-plan/0.5"
+  ],
+  "coverage": [
+    {"id": "LS05-001", "feature": "Module system", "status": "PASS"},
+    {"id": "LS05-002", "feature": "Declarations", "status": "PASS"},
+    {"id": "LS05-003", "feature": "Type system", "status": "PASS"},
+    {"id": "LS05-004", "feature": "Expressions", "status": "PASS"},
+    {"id": "LS05-005", "feature": "Statements", "status": "PASS"},
+    {"id": "LS05-006", "feature": "Literal Pattern", "status": "PASS"},
+    {"id": "LS05-007", "feature": "Enum Pattern", "status": "PASS"},
+    {"id": "LS05-008", "feature": "Optional Pattern", "status": "PASS"},
+    {"id": "LS05-009", "feature": "Struct Pattern", "status": "PASS"},
+    {"id": "LS05-010", "feature": "Nested Struct Pattern", "status": "PASS"},
+    {"id": "LS05-011", "feature": "Pattern Guard", "status": "PASS"},
+    {"id": "LS05-012", "feature": "OR Pattern", "status": "PASS"},
+    {"id": "LS05-013", "feature": "Range Pattern", "status": "PASS"},
+    {"id": "LS05-014", "feature": "Pattern Identity", "status": "PASS"},
+    {"id": "LS05-015", "feature": "ExecutionPlan consistency", "status": "PASS"},
+    {"id": "LS05-016", "feature": "Simulation consistency", "status": "PASS"},
+    {"id": "LS05-017", "feature": "Knowledge consistency", "status": "PASS"},
+    {"id": "LS05-018", "feature": "Compatibility suite", "status": "PASS"}
+  ],
+  "deferred_to_v0_6": [
+    "Pattern Alias",
+    "Tuple Pattern",
+    "Array Pattern",
+    "Map Pattern",
+    "Rest Pattern",
+    "Generic Pattern",
+    "Generic Types",
+    "Trait Constraints",
+    "Advanced Type Inference",
+    "Lambda",
+    "Closure",
+    "Async"
+  ]
+}

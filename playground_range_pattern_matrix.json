@@ -1,0 +1,54 @@
+{
+  "specification": "range-pattern/1.0",
+  "status": "Draft",
+  "coverage": [
+    {
+      "id": "RP-001",
+      "feature": "Inclusive Int Range",
+      "expected": "selected range branch",
+      "status": "PASS"
+    },
+    {
+      "id": "RP-002",
+      "feature": "Half-open Range",
+      "expected": "upper bound excluded",
+      "status": "PASS"
+    },
+    {
+      "id": "RP-003",
+      "feature": "Float Range",
+      "expected": "selected range branch",
+      "status": "PASS"
+    },
+    {
+      "id": "RP-004",
+      "feature": "Invalid Range",
+      "expected": "RP-003",
+      "status": "PASS"
+    },
+    {
+      "id": "RP-005",
+      "feature": "Range Guard",
+      "expected": "guard after range evaluation",
+      "status": "PASS"
+    },
+    {
+      "id": "RP-006",
+      "feature": "OR Range",
+      "expected": "selected alternative only",
+      "status": "PASS"
+    },
+    {
+      "id": "RP-007",
+      "feature": "Pattern Identity and Knowledge",
+      "expected": "identity and range_evidence preserved",
+      "status": "PASS"
+    },
+    {
+      "id": "RP-008",
+      "feature": "Deterministic Metadata",
+      "expected": "stable repeated compilation",
+      "status": "PASS"
+    }
+  ]
+}
