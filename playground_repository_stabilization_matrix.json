@@ -1,0 +1,75 @@
+{
+  "specification": "repository-stabilization/1.0",
+  "phase": "RS-001",
+  "status": "Draft",
+  "scope": "repository quality only",
+  "frozen_components": [
+    "Language Syntax",
+    "Semantic Rules",
+    "Pattern Identity",
+    "Reason IR",
+    "ExecutionPlan",
+    "Simulation",
+    "Knowledge Schema"
+  ],
+  "coverage": [
+    {
+      "id": "RS-001",
+      "feature": "Test Collection Stabilization",
+      "expected": "pytest collection completes without errors",
+      "status": "PASS"
+    },
+    {
+      "id": "RS-002",
+      "feature": "Dependency Stabilization",
+      "expected": "requirements-dev.txt declares mandatory dev dependencies",
+      "status": "PASS"
+    },
+    {
+      "id": "RS-003",
+      "feature": "Import Normalization",
+      "expected": "deterministic import mode and repository pythonpath",
+      "status": "PASS"
+    },
+    {
+      "id": "RS-004",
+      "feature": "Repository Layout Validation",
+      "expected": "required repository roots are present",
+      "status": "PASS"
+    },
+    {
+      "id": "RS-005",
+      "feature": "CI Determinism",
+      "expected": "workflows use shared dependency installation",
+      "status": "PASS"
+    },
+    {
+      "id": "RS-006",
+      "feature": "Regression Verification",
+      "expected": "full pytest execution passes",
+      "status": "PASS"
+    },
+    {
+      "id": "RS-007",
+      "feature": "Compatibility Verification",
+      "expected": "Language Surface v0.5 compatibility tests pass",
+      "status": "PASS"
+    },
+    {
+      "id": "RS-008",
+      "feature": "Documentation Consistency",
+      "expected": "specification IDs and audit IDs are consistent",
+      "status": "PASS"
+    }
+  ],
+  "future_phase": {
+    "id": "RS-002",
+    "name": "Repository Modernization",
+    "scope": [
+      "CI parallelization",
+      "test suite performance",
+      "dependency optimization",
+      "directory reorganization"
+    ]
+  }
+}

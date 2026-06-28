@@ -1,0 +1,8 @@
+pytest
+jsonschema
+pydantic
+fastapi
+uvicorn
+ruff
+black
+mypy

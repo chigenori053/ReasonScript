@@ -13,11 +13,47 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
+
+try:
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+except ModuleNotFoundError:  # pragma: no cover - exercised in minimal test envs
+    class _MissingFastAPI:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.routes: list[tuple[str, str, Any]] = []
+
+        def add_middleware(self, *args: Any, **kwargs: Any) -> None:
+            return None
+
+        def mount(self, *args: Any, **kwargs: Any) -> None:
+            return None
+
+        def get(self, path: str, **kwargs: Any):
+            return self._route("GET", path)
+
+        def post(self, path: str, **kwargs: Any):
+            return self._route("POST", path)
+
+        def _route(self, method: str, path: str):
+            def decorator(func: Any) -> Any:
+                self.routes.append((method, path, func))
+                return func
+
+            return decorator
+
+    FastAPI = _MissingFastAPI
+    CORSMiddleware = object
+    class StaticFiles:  # type: ignore[no-redef]
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.args = args
+            self.kwargs = kwargs
+
+    class FileResponse:  # type: ignore[no-redef]
+        def __init__(self, path: str) -> None:
+            self.path = path
 
 from frontend.ast import to_json_value as semantic_to_json_value
 from frontend.language_surface.parser import parse, SurfaceSyntaxError

@@ -17,5 +17,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: python3 -m pip install --upgrade pip pytest jsonschema
+      - run: python3 -m pip install --upgrade pip
+      - run: python3 -m pip install -r requirements-dev.txt
       - run: python3 scripts/test_platform.py build --quick

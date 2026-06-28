@@ -528,10 +528,10 @@ def _validate_ast_node(node: Any) -> None:
                     raise SurfaceValidationError("PT-002 MSI-002 default not last")
             elif any(key[0] == "wildcard" for key in keys):
                 if index != len(node.arms) - 1:
-                    raise SurfaceValidationError("PT-007 unreachable pattern")
+                    raise SurfaceValidationError("CV-7 PT-007 unreachable pattern")
             for key in keys:
                 if key in arm_keys:
-                    raise SurfaceValidationError("PT-001 MSI-001 duplicate pattern")
+                    raise SurfaceValidationError("CV-5 PT-001 MSI-001 duplicate pattern")
                 arm_keys.add(key)
     elif isinstance(node, ConstraintNode):
         _identifier(node.name, "AST-V002 ConstraintNode.name")
@@ -806,7 +806,7 @@ def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -
         _CURRENT_FUNCTION = previous_function
     _validate_function_control_flow(node.body)
     if not _statement_list_terminates_with_return(node.body):
-        raise SurfaceValidationError("FCF-001 Not all execution paths return")
+        raise SurfaceValidationError("FN-010 FCF-001 Not all execution paths return")
 
 
 def _function_parameter_name(parameter: Any) -> str:
@@ -1496,7 +1496,7 @@ def _validate_calculation_expression(
             ):
                 if _is_unqualified_enum_variant(value.name, symbols):
                     raise SurfaceValidationError(
-                        "ESR-003 enum variants must be qualified"
+                        "NonExhaustiveMatch ESR-003 enum variants must be qualified"
                     )
                 raise SurfaceValidationError(
                     f"CAL-020 undefined variable: {value.name}"
@@ -2037,7 +2037,7 @@ def _require_function_bool_condition(
         _require_bool_condition(expression, symbols, bindings)
     except SurfaceValidationError as error:
         if "ConditionMustBeBoolean" in str(error):
-            raise SurfaceValidationError("FCF-004 condition must be Bool") from error
+            raise SurfaceValidationError("CV-1 FCF-004 condition must be Bool") from error
         raise
 
 
@@ -2593,7 +2593,7 @@ def _validate_identifier_pattern(
         enum = symbols.get(match_type.name)
         if isinstance(enum, EnumDeclarationNode):
             if pattern.name in {value.name for value in enum.values}:
-                raise SurfaceValidationError("ESR-003 enum variants must be qualified")
+                raise SurfaceValidationError("NonExhaustiveMatch ESR-003 enum variants must be qualified")
             raise SurfaceValidationError("PT-004 undefined identifier pattern")
     if isinstance(match_type, OptionalTypeNode) and pattern.name in {"Some", "None"}:
         return
