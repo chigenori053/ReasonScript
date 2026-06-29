@@ -9,8 +9,8 @@ def test_repository_stabilization_deliverables_exist():
     deliverables = [
         "docs/specs/repository_stabilization_v1.md",
         "requirements-dev.txt",
-        "playground_repository_stabilization_audit.md",
-        "playground_repository_stabilization_matrix.json",
+        "docs/reports/playground/playground_repository_stabilization_audit.md",
+        "playground/audits/playground_repository_stabilization_matrix.json",
         "tests/repository",
         "tests/ci",
         ".github/workflows",
@@ -40,7 +40,7 @@ def test_dev_dependencies_are_explicitly_managed():
 
 
 def test_repository_stabilization_matrix_is_consistent():
-    matrix = json.loads((ROOT / "playground_repository_stabilization_matrix.json").read_text())
+    matrix = json.loads((ROOT / "playground/audits/playground_repository_stabilization_matrix.json").read_text())
 
     assert matrix["specification"] == "repository-stabilization/1.0"
     assert matrix["phase"] == "RS-001"
@@ -60,7 +60,7 @@ def test_repository_stabilization_matrix_is_consistent():
 def test_frozen_language_surface_artifacts_remain_present():
     required = [
         "docs/specs/reasonscript_language_surface_v0_5.md",
-        "playground_language_surface_v0_5_matrix.json",
+        "playground/audits/playground_language_surface_v0_5_matrix.json",
         "tests/compatibility/test_language_surface_v0_5.py",
     ]
 

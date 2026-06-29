@@ -209,11 +209,15 @@ def run_language_audit() -> dict[str, Any]:
 def write_language_audit_reports(root: Path) -> dict[str, str]:
     matrix = run_language_audit()
     missing = [row for row in matrix["features"] if row["status"] != "CONNECTED"]
+    audit_dir = root / "playground" / "audits"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    report_dir = root / "docs" / "reports" / "playground"
+    report_dir.mkdir(parents=True, exist_ok=True)
     files = {
-        "matrix": root / "playground_feature_matrix.json",
-        "audit": root / "playground_language_audit.md",
-        "missing": root / "playground_missing_features.md",
-        "integration": root / "playground_integration_report.md",
+        "matrix": audit_dir / "playground_feature_matrix.json",
+        "audit": report_dir / "playground_language_audit.md",
+        "missing": report_dir / "playground_missing_features.md",
+        "integration": report_dir / "playground_integration_report.md",
     }
     files["matrix"].write_text(json.dumps(matrix, indent=2, ensure_ascii=False), encoding="utf-8")
     files["audit"].write_text(_audit_markdown(matrix), encoding="utf-8")

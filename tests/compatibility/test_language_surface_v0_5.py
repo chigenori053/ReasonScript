@@ -24,14 +24,14 @@ def test_language_surface_v0_5_deliverables_exist_and_matrix_passes():
     deliverables = [
         "docs/specs/reasonscript_language_surface_v0_5.md",
         "CHANGELOG.md",
-        "RELEASE_NOTES_v0_5.md",
-        "playground_language_surface_v0_5_audit.md",
-        "playground_language_surface_v0_5_matrix.json",
+        "release/RELEASE_NOTES_v0_5.md",
+        "docs/reports/playground/playground_language_surface_v0_5_audit.md",
+        "playground/audits/playground_language_surface_v0_5_matrix.json",
     ]
     for relative in deliverables:
         assert (ROOT / relative).exists(), relative
 
-    matrix = json.loads((ROOT / "playground_language_surface_v0_5_matrix.json").read_text())
+    matrix = json.loads((ROOT / "playground/audits/playground_language_surface_v0_5_matrix.json").read_text())
     assert matrix["specification"] == "reasonscript-language-surface/0.5"
     assert matrix["feature_freeze"] == {
         "syntax": "frozen",
