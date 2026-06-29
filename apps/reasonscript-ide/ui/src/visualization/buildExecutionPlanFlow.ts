@@ -14,7 +14,7 @@ function inferOperationType(source: string, target: string, transitionId?: strin
 
 export function buildExecutionPlanFlow(raw: unknown): ExecutionPlanViewModel {
   if (raw == null) return {
-    status: "not_available",
+    status: "unavailable",
     steps: [],
     selectedBranches: [],
     alternativePaths: [],

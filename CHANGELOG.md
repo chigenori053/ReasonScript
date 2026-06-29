@@ -1,5 +1,147 @@
 # Changelog
 
+## ReasonScript IDE Phase 2 - Playground-first IDE Runtime Integration - 2026-06-29
+
+### Status
+
+VALIDATED
+
+### Summary
+
+ReasonScript IDE Phase 2 has been completed as the official
+Playground-first Runtime Integration layer.
+
+The Playground IDE now treats `POST /api/analyze` as the primary contract
+endpoint for Source -> Surface AST -> Semantic AST -> Reason IR ->
+ExecutionPlan -> Simulation -> Knowledge -> Diagnostics inspection.
+
+The analyze response now returns a deterministic payload containing pipeline
+status, runtime artifacts, structured view data, diagnostics, and compiler
+mode.
+
+### Added
+
+- Added stabilized `/api/analyze` response contract.
+- Added fixed pipeline stage ids:
+  - `source`
+  - `surface_ast`
+  - `semantic_ast`
+  - `reason_ir`
+  - `execution_plan`
+  - `simulation`
+  - `knowledge`
+  - `diagnostics`
+- Added fixed stage status values:
+  - `success`
+  - `warning`
+  - `error`
+  - `skipped`
+  - `unavailable`
+- Added artifact state handling.
+- Added diagnostics-to-pipeline stage mapping.
+- Added Pipeline Overview tab to the Playground frontend.
+- Added shared analyze result state for runtime artifact display.
+- Added structured display integration for ExecutionPlan, Simulation,
+  Knowledge, Diagnostics, and Runtime IO.
+- Added Desktop-compatible ViewModel status updates.
+- Added Phase 2 development documentation.
+- Added `/api/analyze` contract test.
+
+### Fixed
+
+- Stabilized missing artifact handling.
+- Ensured missing artifacts render as empty, skipped, or unavailable states.
+- Prevented missing artifacts from crashing the IDE.
+- Normalized diagnostic severity to `error`, `warning`, or `info`.
+- Classified unknown diagnostics under the `diagnostics` stage.
+
+### Analyze API Contract
+
+`POST /api/analyze` accepts:
+
+```json
+{
+  "source": "module Test { calculation Value { result = 42 } }",
+  "compiler_mode": "default"
+}
+```
+
+The response contains:
+
+```json
+{
+  "ok": true,
+  "compiler_mode": "default",
+  "pipeline": {
+    "stages": []
+  },
+  "artifacts": {},
+  "views": {},
+  "diagnostics": []
+}
+```
+
+Required pipeline stages:
+
+- `source`
+- `surface_ast`
+- `semantic_ast`
+- `reason_ir`
+- `execution_plan`
+- `simulation`
+- `knowledge`
+- `diagnostics`
+
+Required artifact names:
+
+- `ast.json`
+- `semantic_ast.json`
+- `reason_ir.json`
+- `execution_plan.json`
+- `simulation.json`
+- `knowledge.json`
+- `diagnostics.json`
+- `validation.json`
+
+Every diagnostic returned by `/api/analyze` includes `code`, `message`,
+`severity`, `stage`, and `source_range`. Unknown diagnostics are classified
+under the `diagnostics` stage.
+
+### Validation
+
+- `python3 scripts/dev.py test smoke`
+- `python3 scripts/dev.py test backend`
+- `python3 scripts/dev.py test ide`
+- `npm run build` in `playground/frontend`
+- `npm run build` in `apps/reasonscript-ide/ui`
+
+All validation commands passed.
+
+### Compatibility
+
+- Parser behavior is unchanged.
+- Runtime behavior is unchanged.
+- Reason IR semantics are unchanged.
+- ExecutionPlan semantics are unchanged.
+- Simulation semantics are unchanged.
+- Knowledge semantics are unchanged.
+- Phase 2 only stabilizes Playground IDE runtime integration.
+
+### Positioning
+
+```text
+Phase 1:
+  Development Environment
+  Status: VALIDATED
+
+Phase 2:
+  Playground-first IDE Runtime Integration
+  Status: VALIDATED
+
+Next:
+  Phase 3 candidate selection
+```
+
 ## ReasonScript Language Layer v0.6-D - 2026-06-29
 
 ### Added

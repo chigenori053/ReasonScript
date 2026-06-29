@@ -86,6 +86,45 @@ ARTIFACT_FILES = {
     "validation": "validation.json",
 }
 
+PIPELINE_STAGES = [
+    {"id": "source", "name": "Source", "artifact": None, "artifact_file": None},
+    {"id": "surface_ast", "name": "Surface AST", "artifact": "ast", "artifact_file": "ast.json"},
+    {"id": "semantic_ast", "name": "Semantic AST", "artifact": "semantic_ast", "artifact_file": "semantic_ast.json"},
+    {"id": "reason_ir", "name": "Reason IR", "artifact": "reason_ir", "artifact_file": "reason_ir.json"},
+    {"id": "execution_plan", "name": "ExecutionPlan", "artifact": "execution_plan", "artifact_file": "execution_plan.json"},
+    {"id": "simulation", "name": "Simulation", "artifact": "simulation", "artifact_file": "simulation.json"},
+    {"id": "knowledge", "name": "Knowledge", "artifact": "knowledge", "artifact_file": "knowledge.json"},
+    {"id": "diagnostics", "name": "Diagnostics", "artifact": "diagnostics", "artifact_file": "diagnostics.json"},
+]
+
+STAGE_ORDER = [stage["id"] for stage in PIPELINE_STAGES]
+
+PHASE_TO_STAGE = {
+    "lexer": "surface_ast",
+    "parse": "surface_ast",
+    "parser": "surface_ast",
+    "validation": "semantic_ast",
+    "semantic": "semantic_ast",
+    "typecheck": "semantic_ast",
+    "type": "semantic_ast",
+    "compile": "semantic_ast",
+    "lowering": "reason_ir",
+    "ir": "reason_ir",
+    "reason_ir": "reason_ir",
+    "execution_plan": "execution_plan",
+    "planning": "execution_plan",
+    "runtime": "simulation",
+    "simulation": "simulation",
+    "knowledge": "knowledge",
+    "analyzer": "diagnostics",
+    "toolchain": "diagnostics",
+    "environment": "diagnostics",
+    "api": "diagnostics",
+    "diagnostics": "diagnostics",
+}
+
+KNOWN_SEVERITIES = {"error", "warning", "info"}
+
 app = FastAPI(title="ReasonScript Playground")
 
 app.add_middleware(
@@ -185,6 +224,317 @@ def _make_exception_error(phase: str, error: Exception) -> dict[str, Any]:
             "line": None,
         }
     return _make_error(phase, str(error))
+
+
+def _stage_for_diagnostic(diagnostic: dict[str, Any]) -> str:
+    stage = diagnostic.get("stage")
+    if isinstance(stage, str) and stage in STAGE_ORDER:
+        return stage
+
+    message = str(diagnostic.get("message", "")).lower()
+    code = str(diagnostic.get("code", "")).upper()
+    if code.startswith(("NS-", "TYPE-")) or "namespace" in message or "undefined" in message or "duplicate" in message:
+        return "semantic_ast"
+    if code.startswith("CAL-") and ("dependency" in message or "unreachable" in message):
+        return "execution_plan"
+    if code.startswith("CAL-"):
+        return "semantic_ast"
+
+    phase = diagnostic.get("phase") or diagnostic.get("source") or diagnostic.get("layer")
+    if isinstance(phase, str):
+        normalized = phase.strip().lower().replace(" ", "_").replace("-", "_")
+        if normalized in PHASE_TO_STAGE:
+            return PHASE_TO_STAGE[normalized]
+
+    if "syntax" in message or "parse" in message:
+        return "surface_ast"
+    if "execution" in message or "planning" in message or "unreachable" in message:
+        return "execution_plan"
+    if "simulation" in message or "runtime" in message:
+        return "simulation"
+    if "knowledge" in message or "evidence" in message:
+        return "knowledge"
+    return "diagnostics"
+
+
+def _normalize_severity(value: Any) -> str:
+    severity = str(value or "error").lower()
+    if severity == "hint":
+        return "info"
+    if severity not in KNOWN_SEVERITIES:
+        return "error"
+    return severity
+
+
+def _normalize_diagnostic(diagnostic: dict[str, Any]) -> dict[str, Any]:
+    message = str(diagnostic.get("message", "Unknown diagnostic"))
+    stage = _stage_for_diagnostic(diagnostic)
+    normalized = dict(diagnostic)
+    normalized["code"] = normalized.get("code") or _diagnostic_code_from_message(message) or "RSN-DIAGNOSTIC"
+    normalized["message"] = message
+    normalized["severity"] = _normalize_severity(normalized.get("severity"))
+    normalized["stage"] = stage
+    normalized["source_range"] = normalized.get("source_range", normalized.get("span"))
+    return normalized
+
+
+def _diagnostic_code_from_message(message: str) -> str | None:
+    import re
+    match = re.search(r"\b[A-Z]{2,}-\d+[A-Z]?\b", message)
+    return match.group(0) if match else None
+
+
+def _normalize_diagnostics(diagnostics: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    return [_normalize_diagnostic(d) for d in diagnostics or []]
+
+
+def _is_artifact_available(value: Any) -> bool:
+    if value is None:
+        return False
+    if value == []:
+        return False
+    if value == {}:
+        return False
+    return True
+
+
+def _artifact_states(artifacts: dict[str, Any], pipeline: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
+    stage_map = {stage["artifact"]: stage for stage in PIPELINE_STAGES if stage["artifact"]}
+    states: dict[str, dict[str, Any]] = {}
+    stage_statuses = {
+        stage["id"]: stage.get("status")
+        for stage in (pipeline or {}).get("stages", [])
+        if isinstance(stage, dict)
+    }
+    for key, filename in ARTIFACT_FILES.items():
+        stage = stage_map.get(key)
+        stage_status = stage_statuses.get(stage["id"]) if stage else None
+        value = artifacts.get(key)
+        if _is_artifact_available(value):
+            state = "available"
+        elif stage_status == "skipped":
+            state = "skipped"
+        else:
+            state = "missing"
+        states[key] = {
+            "artifact": key,
+            "file": filename,
+            "state": state,
+            "stage": stage["id"] if stage else None,
+            "version": value.get("schema_version") if isinstance(value, dict) else None,
+        }
+    return states
+
+
+def _build_pipeline(
+    artifacts: dict[str, Any],
+    diagnostics: list[dict[str, Any]],
+    ok: bool,
+) -> dict[str, Any]:
+    by_stage: dict[str, list[dict[str, Any]]] = {stage_id: [] for stage_id in STAGE_ORDER}
+    for diagnostic in diagnostics:
+        by_stage.setdefault(diagnostic.get("stage", "diagnostics"), []).append(diagnostic)
+
+    first_error_index: int | None = None
+    for idx, stage_id in enumerate(STAGE_ORDER):
+        if any(d.get("severity") == "error" for d in by_stage.get(stage_id, [])):
+            first_error_index = idx
+            break
+
+    stages: list[dict[str, Any]] = []
+    for idx, stage in enumerate(PIPELINE_STAGES):
+        stage_id = stage["id"]
+        stage_diags = by_stage.get(stage_id, [])
+        artifact_key = stage["artifact"]
+        artifact_available = stage_id == "source" or _is_artifact_available(artifacts.get(artifact_key)) if artifact_key else True
+
+        if stage_id == "diagnostics":
+            if any(d["severity"] == "error" for d in diagnostics):
+                status = "error"
+            elif any(d["severity"] == "warning" for d in diagnostics):
+                status = "warning"
+            else:
+                status = "success"
+            stages.append({
+                "id": stage_id,
+                "name": stage["name"],
+                "status": status,
+                "artifact": stage["artifact_file"],
+                "diagnostic_count": len(diagnostics),
+                "diagnostics": [d["code"] for d in diagnostics],
+            })
+            continue
+
+        if any(d["severity"] == "error" for d in stage_diags):
+            status = "error"
+        elif first_error_index is not None and idx > first_error_index:
+            status = "skipped"
+        elif stage_diags:
+            status = "warning" if any(d["severity"] == "warning" for d in stage_diags) else "success"
+        elif artifact_available:
+            status = "success"
+        else:
+            status = "skipped" if first_error_index is not None and idx > first_error_index else "unavailable"
+
+        stages.append({
+            "id": stage_id,
+            "name": stage["name"],
+            "status": status,
+            "artifact": stage["artifact_file"],
+            "diagnostic_count": len(stage_diags),
+            "diagnostics": [d["code"] for d in stage_diags],
+        })
+
+    return {
+        "schema_version": "reasonscript-pipeline/phase-2",
+        "ok": ok,
+        "stages": stages,
+    }
+
+
+def _source_declarations(ast_dict: Any) -> list[dict[str, Any]]:
+    modules = _module_items(ast_dict)
+    entries: list[dict[str, Any]] = []
+    for module in modules:
+        declarations: list[dict[str, Any]] = []
+        for node in module.get("body", []):
+            if not isinstance(node, dict):
+                continue
+            node_type = str(node.get("node_type", "Unknown"))
+            declarations.append({
+                "kind": node_type.removesuffix("Node").replace("Declaration", "").lower(),
+                "name": node.get("name") or node.get("source") or node.get("goal") or node.get("constraint") or node_type,
+                "node_type": node_type,
+            })
+        entries.append({
+            "construct": module.get("source_kind", "module"),
+            "name": module.get("name", "<anonymous>"),
+            "declarations": declarations,
+        })
+    return entries
+
+
+def _build_runtime_operations(artifacts: dict[str, Any]) -> dict[str, Any]:
+    reason_ir = artifacts.get("reason_ir")
+    operations: list[dict[str, Any]] = []
+    if isinstance(reason_ir, dict) and "modules" in reason_ir:
+        for module in reason_ir.get("modules", []):
+            if isinstance(module, dict):
+                operations.extend(module.get("metadata", {}).get("runtime_operations", []))
+    elif isinstance(reason_ir, dict):
+        operations.extend(reason_ir.get("metadata", {}).get("runtime_operations", []))
+
+    by_kind: dict[str, list[dict[str, Any]]] = {}
+    for index, op in enumerate(operations):
+        if not isinstance(op, dict):
+            continue
+        kind = str(op.get("kind") or op.get("operation") or "unknown")
+        normalized = {"index": index, **op, "kind": kind}
+        by_kind.setdefault(kind, []).append(normalized)
+
+    return {
+        "count": len(operations),
+        "operations": operations,
+        "kinds": sorted(by_kind),
+        "by_kind": by_kind,
+    }
+
+
+def _build_views(artifacts: dict[str, Any], pipeline: dict[str, Any], diagnostics: list[dict[str, Any]]) -> dict[str, Any]:
+    execution_plan = artifacts.get("execution_plan") if isinstance(artifacts.get("execution_plan"), dict) else {}
+    simulation = artifacts.get("simulation") if isinstance(artifacts.get("simulation"), dict) else {}
+    knowledge = artifacts.get("knowledge") if isinstance(artifacts.get("knowledge"), dict) else {}
+    runtime_operations = _build_runtime_operations(artifacts)
+    output_events = [
+        op for op in runtime_operations["operations"]
+        if isinstance(op, dict) and str(op.get("kind") or op.get("operation")) == "print"
+    ]
+    return {
+        "pipeline": pipeline,
+        "source_model": {
+            "entries": _source_declarations(artifacts.get("ast")),
+            "raw_artifact": "ast.json",
+        },
+        "execution_plan": {
+            "goal": execution_plan.get("goal"),
+            "distance": execution_plan.get("distance"),
+            "reachable": execution_plan.get("reachable"),
+            "steps": execution_plan.get("selected_steps", []),
+            "selected_branch": execution_plan.get("selected_branch"),
+            "selected_branches": execution_plan.get("selected_branches", []),
+            "alternative_paths": execution_plan.get("alternative_paths", []),
+            "unreachable_reason": execution_plan.get("unreachable_reason"),
+            "raw_artifact": "execution_plan.json",
+        },
+        "simulation": {
+            "success": simulation.get("success"),
+            "goal_reached": simulation.get("goal_reached"),
+            "trace": simulation.get("trace", []),
+            "final_state": simulation.get("final_state"),
+            "raw_artifact": "simulation.json",
+        },
+        "knowledge": {
+            "knowledge_count": knowledge.get("knowledge_count", 0),
+            "items": knowledge.get("knowledge", []),
+            "raw_artifact": "knowledge.json",
+        },
+        "runtime_operations": runtime_operations,
+        "output": {
+            "events": output_events,
+            "count": len(output_events),
+        },
+        "diagnostics": {
+            "items": diagnostics,
+            "by_stage": {
+                stage_id: [d for d in diagnostics if d["stage"] == stage_id]
+                for stage_id in STAGE_ORDER
+            },
+        },
+    }
+
+
+def _phase2_response(
+    req: SourceRequest,
+    artifacts: dict[str, Any],
+    errors: list[dict[str, Any]],
+    analysis: Any | None = None,
+) -> dict[str, Any]:
+    raw_diagnostics = list(artifacts.get("diagnostics") or [])
+    if errors and raw_diagnostics != errors:
+        raw_diagnostics.extend(errors)
+    diagnostics = _normalize_diagnostics(raw_diagnostics)
+    ok = not any(d["severity"] == "error" for d in diagnostics) and not errors
+    pipeline = _build_pipeline(artifacts, diagnostics, ok)
+    artifact_states = _artifact_states(artifacts, pipeline)
+    artifacts_with_states = dict(artifacts)
+    artifacts_with_states["_states"] = artifact_states
+    views = _build_views(artifacts, pipeline, diagnostics)
+
+    reason_ir = artifacts.get("reason_ir")
+    reason_irs = reason_ir.get("modules", []) if isinstance(reason_ir, dict) and "modules" in reason_ir else ([reason_ir] if reason_ir else [])
+
+    response = {
+        "ok": ok,
+        "phase": errors[0].get("phase") if errors else None,
+        "compiler_mode": req.compiler_mode,
+        "pipeline": pipeline,
+        "artifacts": artifacts_with_states,
+        "views": views,
+        "diagnostics": diagnostics,
+        "errors": diagnostics if not ok else [],
+        "ast": artifacts.get("ast"),
+        "semantic_ast": artifacts.get("semantic_ast"),
+        "reason_irs": reason_irs,
+        "execution_plan": artifacts.get("execution_plan"),
+        "simulation": artifacts.get("simulation"),
+        "knowledge": artifacts.get("knowledge"),
+        "projection_summary": artifacts.get("projection_summary"),
+        "validation": artifacts.get("validation"),
+        "runtime_operations": views["runtime_operations"],
+    }
+    if analysis is not None:
+        response["analysis"] = analysis
+    return response
 
 
 def _validation_node(name: str, ok: bool, children: list[dict[str, Any]] | None = None, details: Any = None) -> dict[str, Any]:
@@ -366,22 +716,15 @@ def _failed_artifacts(req: SourceRequest, ast_dict: dict[str, Any], errors: list
 
 
 def _artifact_response(artifacts: dict[str, Any], ok: bool = True, errors: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    reason_ir = artifacts.get("reason_ir")
-    reason_irs = reason_ir.get("modules", []) if isinstance(reason_ir, dict) and "modules" in reason_ir else ([reason_ir] if reason_ir else [])
-    return {
-        "ok": ok,
-        "errors": errors or [],
-        "ast": artifacts.get("ast"),
-        "semantic_ast": artifacts.get("semantic_ast"),
-        "reason_irs": reason_irs,
-        "execution_plan": artifacts.get("execution_plan"),
-        "simulation": artifacts.get("simulation"),
-        "knowledge": artifacts.get("knowledge"),
-        "diagnostics": artifacts.get("diagnostics"),
-        "projection_summary": artifacts.get("projection_summary"),
-        "validation": artifacts.get("validation"),
-        "artifacts": artifacts,
-    }
+    source = artifacts.get("source") if isinstance(artifacts.get("source"), dict) else {}
+    req = SourceRequest(
+        source=str(source.get("text", "")),
+        filename=str(source.get("filename", "playground.rsn")),
+    )
+    response = _phase2_response(req, artifacts, errors or [])
+    if not ok:
+        response["ok"] = False
+    return response
 
 
 def _safe_artifact_dir(base_dir: Path, requested: str | None = None) -> Path:
@@ -766,33 +1109,22 @@ def run_all_endpoint() -> dict[str, Any]:
 
 @app.post("/api/analyze")
 def analyze_endpoint(req: SourceRequest) -> dict[str, Any]:
-    """Run full pipeline + produce v0.5 analysis artifacts."""
-    reason_irs, ast_dict, errors = _compile_ir(req)
+    """Run full Phase 2 pipeline and return stable IDE runtime artifacts."""
+    artifacts, errors = _run_pipeline_artifacts(req)
     if errors:
-        return {"ok": False, "errors": errors, "ast": ast_dict}
+        return _phase2_response(req, artifacts, errors)
 
+    reason_ir = artifacts.get("reason_ir")
+    reason_irs = reason_ir.get("modules", []) if isinstance(reason_ir, dict) and "modules" in reason_ir else ([reason_ir] if reason_ir else [])
     analyses = []
     for ir in reason_irs:
+        if not isinstance(ir, dict):
+            continue
         sim = simulate(ir)
         analyses.append(analyze_ir(ir, sim, compiler_mode=req.compiler_mode))
 
     analysis = analyses[0] if len(analyses) == 1 else {"modules": analyses}
-
-    # Also run full pipeline for output events
-    artifacts, _ = _run_pipeline_artifacts(req)
-    reason_ir = artifacts.get("reason_ir") or {}
-    runtime_ops = []
-    if isinstance(reason_ir, dict):
-        runtime_ops = reason_ir.get("metadata", {}).get("runtime_operations", [])
-
-    return {
-        "ok": True,
-        "ast": ast_dict,
-        "semantic_ast": artifacts.get("semantic_ast"),
-        "analysis": analysis,
-        "runtime_operations": runtime_ops,
-        "compiler_mode": req.compiler_mode,
-    }
+    return _phase2_response(req, artifacts, [], analysis=analysis)
 
 
 @app.get("/api/language-audit")

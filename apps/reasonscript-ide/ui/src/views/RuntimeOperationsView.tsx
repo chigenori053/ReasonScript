@@ -20,7 +20,7 @@ export default function RuntimeOperationsView({ simulationVm }: Props) {
     (s) => s.eventType === "runtime_output" || s.eventType === "runtime_input"
   );
 
-  if (simulationVm.status === "not_available") {
+  if (simulationVm.status === "unavailable") {
     return (
       <div style={{ padding: "12px 16px", color: "#6b7280", fontSize: 13 }}>
         Runtime Operations — not available (run simulation first)

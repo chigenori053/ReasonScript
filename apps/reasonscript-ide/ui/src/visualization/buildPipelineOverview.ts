@@ -9,12 +9,27 @@ import type {
 } from "./viewModels";
 import type { PlatformDiagnostic, ProjectState } from "../types";
 
+const STAGE_ARTIFACTS: Record<string, string | null> = {
+  source: null,
+  surface_ast: "ast.json",
+  semantic_ast: "semantic_ast.json",
+  reason_ir: "reason_ir.json",
+  execution_plan: "execution_plan.json",
+  simulation: "simulation.json",
+  knowledge: "knowledge.json",
+  diagnostics: "diagnostics.json",
+};
+
+function diagnosticCount(diagnostics: PlatformDiagnostic[], phases: string[]): number {
+  return diagnostics.filter((d) => phases.includes(d.phase)).length;
+}
+
 function stageStatus(
   data: unknown,
   diagnostics: PlatformDiagnostic[],
   phases: string[]
 ): PipelineStageStatus {
-  if (data == null) return "not_available";
+  if (data == null) return "unavailable";
   const stageDiags = diagnostics.filter((d) => phases.includes(d.phase));
   if (stageDiags.some((d) => d.severity === "error")) return "error";
   if (stageDiags.some((d) => d.severity === "warning")) return "warning";
@@ -58,8 +73,11 @@ export function buildPipelineOverview(
       "Execution Plan", "Simulation", "Knowledge", "Diagnostics",
     ].map((label) => ({
       id: label.toLowerCase().replace(/ /g, "_"),
+      name: label,
       label,
-      status: "not_available",
+      status: "unavailable",
+      artifact: STAGE_ARTIFACTS[label.toLowerCase().replace(/ /g, "_")] ?? null,
+      diagnostic_count: 0,
       summary: "—",
     }));
     return {
@@ -85,38 +103,53 @@ export function buildPipelineOverview(
   const stages: PipelineStageViewModel[] = [
     {
       id: "source",
+      name: "Source",
       label: "Source",
-      status: ps.source_files?.length ? "success" : "not_available",
+      status: ps.source_files?.length ? "success" : "unavailable",
+      artifact: null,
+      diagnostic_count: 0,
       summary: `${ps.source_files?.length ?? 0} file(s)`,
     },
     {
       id: "surface_ast",
+      name: "Surface AST",
       label: "Surface AST",
       status: stageStatus(ast, diags, ["parse"]),
+      artifact: "ast.json",
+      diagnostic_count: diagnosticCount(diags, ["parse"]),
       summary: ast ? `${countModules(ast)} construct(s)` : "—",
     },
     {
       id: "semantic_ast",
+      name: "Semantic AST",
       label: "Semantic AST",
       status: stageStatus(ps.semantic_ast, diags, ["semantic", "typecheck"]),
+      artifact: "semantic_ast.json",
+      diagnostic_count: diagnosticCount(diags, ["semantic", "typecheck"]),
       summary: ps.semantic_ast ? "parsed" : "—",
     },
     {
       id: "reason_ir",
+      name: "Reason IR",
       label: "Reason IR",
       status: stageStatus(ir, diags, ["lowering", "ir"]),
+      artifact: "reason_ir.json",
+      diagnostic_count: diagnosticCount(diags, ["lowering", "ir"]),
       summary: ir
         ? `${Array.isArray(ir.transitions) ? (ir.transitions as unknown[]).length : 0} transition(s)`
         : "—",
     },
     {
       id: "execution_plan",
+      name: "ExecutionPlan",
       label: "Execution Plan",
       status: ep == null
-        ? "not_available"
+        ? "unavailable"
         : ep.reachable === false
         ? "error"
         : stageStatus(ep, diags, ["execution_plan"]),
+      artifact: "execution_plan.json",
+      diagnostic_count: diagnosticCount(diags, ["execution_plan"]),
       summary: ep
         ? ep.reachable
           ? `distance ${ep.distance}`
@@ -125,12 +158,15 @@ export function buildPipelineOverview(
     },
     {
       id: "simulation",
+      name: "Simulation",
       label: "Simulation",
       status: sim == null
-        ? "not_available"
+        ? "unavailable"
         : sim.success === false
         ? "error"
         : stageStatus(sim, diags, ["simulation", "runtime"]),
+      artifact: "simulation.json",
+      diagnostic_count: diagnosticCount(diags, ["simulation", "runtime"]),
       summary: sim
         ? sim.success
           ? `${sim.step_count ?? 0} step(s)`
@@ -139,20 +175,26 @@ export function buildPipelineOverview(
     },
     {
       id: "knowledge",
+      name: "Knowledge",
       label: "Knowledge",
       status: stageStatus(knowledge, diags, ["knowledge"]),
+      artifact: "knowledge.json",
+      diagnostic_count: diagnosticCount(diags, ["knowledge"]),
       summary: knowledge
         ? `${knowledge.knowledge_count ?? 0} item(s)`
         : "—",
     },
     {
       id: "diagnostics",
+      name: "Diagnostics",
       label: "Diagnostics",
       status: diags.length === 0
         ? "success"
         : hasErrors
         ? "error"
         : "warning",
+      artifact: "diagnostics.json",
+      diagnostic_count: diags.length,
       summary: `${diags.length} diagnostic(s)`,
       count: diags.length,
     },

@@ -6,7 +6,7 @@ import type { KnowledgeViewModel, KnowledgeEvidenceViewModel } from "./viewModel
 
 export function buildKnowledgeEvidence(raw: unknown): KnowledgeViewModel {
   if (raw == null) {
-    return { status: "not_available", knowledgeCount: 0, evidenceCount: 0, items: [] };
+    return { status: "unavailable", knowledgeCount: 0, evidenceCount: 0, items: [] };
   }
 
   const k = raw as Record<string, unknown>;

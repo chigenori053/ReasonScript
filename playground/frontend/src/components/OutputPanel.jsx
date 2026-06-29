@@ -2,7 +2,9 @@ import JsonViewer from './JsonViewer.jsx'
 
 export default function OutputPanel({ data }) {
   if (!data) return null
-  const { events = [], event_count = 0, has_output } = data
+  const { events = [] } = data
+  const event_count = data.event_count ?? data.count ?? events.length
+  const has_output = data.has_output ?? event_count > 0
 
   return (
     <div style={{ padding: '16px', fontFamily: 'monospace' }}>
@@ -23,7 +25,7 @@ export default function OutputPanel({ data }) {
             padding: '12px 16px',
           }}>
             <div style={{ color: '#e5e7eb', fontSize: '16px', marginBottom: '8px' }}>
-              {ev.rendered_value}
+              {ev.rendered_value ?? ev.argument ?? ev.target ?? ev.value ?? ev.kind ?? ev.operation}
             </div>
             <details style={{ cursor: 'pointer' }}>
               <summary style={{ color: '#6b7280', fontSize: '11px', userSelect: 'none' }}>
@@ -31,9 +33,10 @@ export default function OutputPanel({ data }) {
               </summary>
               <div style={{ marginTop: '8px' }}>
                 <JsonViewer data={{
-                  output_id: ev.output_id,
+                  output_id: ev.output_id ?? ev.id,
                   projection: ev.projection,
-                  rendered_value: ev.rendered_value,
+                  rendered_value: ev.rendered_value ?? ev.argument ?? ev.target ?? ev.value,
+                  operation_id: ev.operation_id,
                 }} />
               </div>
             </details>

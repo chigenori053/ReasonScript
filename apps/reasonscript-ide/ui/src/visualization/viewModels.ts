@@ -12,12 +12,15 @@ export type PipelineStageStatus =
   | "warning"
   | "error"
   | "skipped"
-  | "not_available";
+  | "unavailable";
 
 export interface PipelineStageViewModel {
   id: string;
+  name?: string;
   label: string;
   status: PipelineStageStatus;
+  artifact?: string | null;
+  diagnostic_count?: number;
   summary: string;
   count?: number;
 }
@@ -90,7 +93,7 @@ export interface ExecutionPlanStepViewModel {
 }
 
 export interface ExecutionPlanViewModel {
-  status: "success" | "failed" | "not_available";
+  status: "success" | "failed" | "unavailable";
   goalTarget?: string;
   distance?: number;
   reachable?: boolean;
@@ -131,7 +134,7 @@ export interface SimulationTraceStepViewModel {
 }
 
 export interface SimulationTraceViewModel {
-  status: "success" | "failed" | "not_available";
+  status: "success" | "failed" | "unavailable";
   goalReached: boolean;
   finalState?: string;
   stepCount: number;
@@ -160,7 +163,7 @@ export interface KnowledgeEvidenceViewModel {
 }
 
 export interface KnowledgeViewModel {
-  status: "success" | "empty" | "not_available";
+  status: "success" | "empty" | "unavailable";
   knowledgeCount: number;
   evidenceCount: number;
   items: KnowledgeEvidenceViewModel[];
@@ -194,6 +197,6 @@ export interface RuntimeOperationViewModel {
   sourceConstruct?: string;
   inputState?: string;
   outputState?: string;
-  status: "success" | "error" | "not_available";
+  status: "success" | "error" | "unavailable";
   emittedEvent?: string;
 }

@@ -13,7 +13,7 @@ const STATUS_ICON: Record<PipelineStageStatus, string> = {
   warning: "⚠",
   error: "✕",
   skipped: "–",
-  not_available: "·",
+  unavailable: "·",
 };
 
 const STATUS_COLOR: Record<PipelineStageStatus, string> = {
@@ -21,7 +21,7 @@ const STATUS_COLOR: Record<PipelineStageStatus, string> = {
   warning: "#fbbf24",
   error: "#f87171",
   skipped: "#6b7280",
-  not_available: "#374151",
+  unavailable: "#374151",
 };
 
 const STAGE_TO_ARTIFACT_KIND: Record<string, ArtifactKind | null> = {

@@ -106,7 +106,7 @@ export default function SimulationTraceView({
 }: Props) {
   const [tab, setTab] = useState<"trace" | "raw">("trace");
 
-  if (vm.status === "not_available") {
+  if (vm.status === "unavailable") {
     return (
       <div style={{ padding: "12px 16px", color: "#6b7280", fontSize: 13 }}>
         Simulation — not available

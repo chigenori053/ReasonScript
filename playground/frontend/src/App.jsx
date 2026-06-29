@@ -116,6 +116,8 @@ export default function App() {
         setCurrentArtifacts(artifacts)
         setResults(prev => ({
           ...(prev || {}),
+          pipeline: data.pipeline,
+          views: data.views,
           ast: data.ast,
           semantic_ast: data.semantic_ast,
           reason_irs: data.reason_irs,
@@ -132,7 +134,7 @@ export default function App() {
         const kCount = data.knowledge?.knowledge_count ?? 0
         const simOk = data.simulation?.success ? '✓' : '✗'
         addLog('success', `Pipeline 完了 — IR ${irCount} module, Sim ${simOk}, Knowledge ${kCount} units`)
-        setActiveView('summary')
+        setActiveView('pipeline')
       } else {
         setResults(prev => ({ ...(prev || {}), compile_error: data }))
         setStatus('error')
@@ -274,14 +276,47 @@ export default function App() {
       })
       const data = await res.json()
       if (data.ok) {
-        setResults(prev => ({ ...(prev || {}), analysis: data.analysis, ast: data.ast ?? prev?.ast }))
+        setCurrentArtifacts(data.artifacts)
+        setResults(prev => ({
+          ...(prev || {}),
+          pipeline: data.pipeline,
+          views: data.views,
+          analysis: data.analysis,
+          ast: data.ast ?? prev?.ast,
+          semantic_ast: data.semantic_ast,
+          reason_irs: data.reason_irs,
+          execution_plan: data.execution_plan,
+          simulation: data.simulation,
+          knowledge: data.knowledge,
+          diagnostics: data.diagnostics ?? [],
+          projection_summary: data.projection_summary,
+          validation: data.validation,
+          artifacts: data.artifacts,
+        }))
         setStatus('ok')
         const q = data.analysis?.quality?.overall_pct ?? '—'
         addLog('success', `Analyze 完了 — Quality Score: ${q}%`)
-        setActiveView('quality')
+        setActiveView('pipeline')
       } else {
+        setCurrentArtifacts(data.artifacts ?? null)
+        setResults(prev => ({
+          ...(prev || {}),
+          pipeline: data.pipeline,
+          views: data.views,
+          ast: data.ast ?? prev?.ast,
+          semantic_ast: data.semantic_ast,
+          reason_irs: data.reason_irs,
+          execution_plan: data.execution_plan,
+          simulation: data.simulation,
+          knowledge: data.knowledge,
+          diagnostics: data.diagnostics ?? data.errors ?? [],
+          projection_summary: data.projection_summary,
+          validation: data.validation,
+          artifacts: data.artifacts,
+        }))
         setStatus('error')
-        ;(data.errors ?? []).forEach(e => addLog('error', `[${e.phase}] ${e.message}`))
+        ;(data.diagnostics ?? data.errors ?? []).forEach(e => addLog('error', `[${e.stage ?? e.phase}] ${e.message}`))
+        setActiveView('pipeline')
       }
     } catch (e) {
       setStatus('error')

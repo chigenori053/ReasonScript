@@ -23,6 +23,8 @@ export interface PlatformDiagnostic {
   code?: string;
   severity: DiagnosticSeverity;
   message: string;
+  stage?: string;
+  source_range?: SourceSpan | null;
   span?: SourceSpan;
   source?: string;
   phase: DiagnosticPhase;

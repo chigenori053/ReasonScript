@@ -10,6 +10,7 @@ const LAYER_LABELS = {
 }
 
 function layerLabel(diagnostic) {
+  if (diagnostic.stage) return diagnostic.stage
   const layer = diagnostic.layer
   if (layer && LAYER_LABELS[layer]) return LAYER_LABELS[layer]
   if (layer) return layer
@@ -37,7 +38,7 @@ export default function DiagnosticsPanel({ data }) {
             <div className={`diagnostic-row ${diagnostic.severity ?? 'error'}`} key={`${diagnostic.code ?? diagnostic.phase ?? label}-${index}`}>
               <div className="diagnostic-meta">
                 <span>{diagnostic.severity ?? 'error'}</span>
-                {(diagnostic.code || diagnostic.phase) && <code>{diagnostic.code ?? diagnostic.phase}</code>}
+                {(diagnostic.code || diagnostic.stage || diagnostic.phase) && <code>{diagnostic.code ?? diagnostic.stage ?? diagnostic.phase}</code>}
               </div>
               <div className="diagnostic-message">
                 {diagnostic.line ? `Line ${diagnostic.line}: ` : ''}{diagnostic.message}

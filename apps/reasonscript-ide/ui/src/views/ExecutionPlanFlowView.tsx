@@ -77,7 +77,7 @@ export default function ExecutionPlanFlowView({
 }: Props) {
   const [tab, setTab] = useState<"flow" | "raw">("flow");
 
-  if (vm.status === "not_available") {
+  if (vm.status === "unavailable") {
     return (
       <div style={{ padding: "12px 16px", color: "#6b7280", fontSize: 13 }}>
         Execution Plan — not available

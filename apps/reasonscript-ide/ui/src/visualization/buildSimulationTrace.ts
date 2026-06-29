@@ -35,7 +35,7 @@ function normalizeEventType(raw: Record<string, unknown>): SimulationEventType {
 export function buildSimulationTrace(raw: unknown): SimulationTraceViewModel {
   if (raw == null) {
     return {
-      status: "not_available",
+      status: "unavailable",
       goalReached: false,
       stepCount: 0,
       steps: [],

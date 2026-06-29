@@ -24,10 +24,12 @@ import QualityDashboard from './QualityDashboard.jsx'
 import LanguageAuditPanel from './LanguageAuditPanel.jsx'
 import ProjectionSummaryPanel from './ProjectionSummaryPanel.jsx'
 import DiagnosticsPanel from './DiagnosticsPanel.jsx'
+import PipelineOverviewPanel from './PipelineOverviewPanel.jsx'
 import './TabPanel.css'
 
 const TABS = [
   // v0.3 tabs
+  { id: 'pipeline',       label: 'Pipeline',    icon: 'PIPE',  group: 'core' },
   { id: 'summary',        label: 'Summary',     icon: 'SUM',   group: 'core' },
   { id: 'diagnostics',    label: 'Diagnostics', icon: 'DIA',   group: 'core' },
   { id: 'ast',            label: 'AST',         icon: 'AST',   group: 'core' },
@@ -67,6 +69,7 @@ function getAnalysis(results, key) {
 function getDataForTab(results, tabId) {
   if (!results) return null
   switch (tabId) {
+    case 'pipeline':       return results.pipeline ?? null
     case 'ast':            return results.ast ?? null
     case 'summary':        return results.projection_summary ?? results.artifacts?.projection_summary ?? null
     case 'diagnostics':    return results.diagnostics ?? results.artifacts?.diagnostics ?? null
@@ -76,9 +79,9 @@ function getDataForTab(results, tabId) {
     case 'simulation':     return results.simulation ?? null
     case 'knowledge':      return results.knowledge ?? null
     case 'validation':     return results.validation ?? results.validate?.validation ?? results.validate ?? null
-    case 'output':         return getAnalysis(results, 'output')
+    case 'output':         return getAnalysis(results, 'output') ?? results.views?.output ?? null
     case 'dep_graph':      return getAnalysis(results, 'dependency_graph')
-    case 'runtime_ops':    return getAnalysis(results, 'runtime_operations')
+    case 'runtime_ops':    return getAnalysis(results, 'runtime_operations') ?? results.views?.runtime_operations ?? null
     case 'input_state':    return getAnalysis(results, 'input_states')
     case 'calculation':    return getAnalysis(results, 'calculations')
     case 'cycle':          return getAnalysis(results, 'cycle_validation')
@@ -101,6 +104,7 @@ function getDataForTab(results, tabId) {
 
 function TabContent({ tabId, data, controls }) {
   switch (tabId) {
+    case 'pipeline':        return <PipelineOverviewPanel data={data} />
     case 'summary':         return <ProjectionSummaryPanel data={data} />
     case 'diagnostics':     return <DiagnosticsPanel data={data} />
     case 'execution_plan':  return <ExecutionPlanPanel data={data} />
@@ -136,6 +140,7 @@ function TabContent({ tabId, data, controls }) {
 }
 
 const EMPTY_HINTS = {
+  pipeline:       'Run または Analyze を実行すると Pipeline Overview が表示されます',
   ast:            'Validate または Run を実行すると AST が表示されます',
   summary:        'Run を実行すると Summary が表示されます',
   diagnostics:    'Run または Import を実行すると Diagnostics が表示されます',
