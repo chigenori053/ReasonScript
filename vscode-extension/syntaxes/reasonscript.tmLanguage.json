@@ -27,6 +27,9 @@
       "include": "#types"
     },
     {
+      "include": "#literals"
+    },
+    {
       "include": "#keywords"
     }
   ],
@@ -70,8 +73,22 @@
     "keywords": {
       "patterns": [
         {
+          "comment": "Reserved top-level constructs — not active in v0.6-D (LL-002)",
+          "name": "keyword.other.reserved.reasonscript",
+          "match": "\\b(world|system|component)\\b"
+        },
+        {
+          "comment": "Active keywords — top-level: model preferred, module compatible (v0.6-B/C/D)",
           "name": "keyword.control.reasonscript",
-          "match": "\\b(package|module|import|export|pub|struct|enum|const|fn|goal|state|constraint|transition|reason_graph|execution_plan|calculation|let|return|requires|reach|if|else|match|loop)\\b"
+          "match": "\\b(model|module|package|import|export|pub|struct|enum|const|fn|goal|state|constraint|transition|relation|reason_graph|execution_plan|calculation|let|return|requires|reach|if|elif|else|match|when|for|while|loop|break|continue|input|print|search|simulate|predict|plan)\\b"
+        }
+      ]
+    },
+    "literals": {
+      "patterns": [
+        {
+          "name": "constant.language.reasonscript",
+          "match": "\\b(true|false|some|none)\\b"
         }
       ]
     },

@@ -1,50 +1,68 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import Editor from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
+import type * as Monaco from "monaco-editor";
 import Toolbar from "./components/Toolbar";
 import TabPanel from "./components/TabPanel";
-import DiagnosticsView from "./views/DiagnosticsView";
 import JsonArtifactView from "./views/JsonArtifactView";
 import ValidationView from "./views/ValidationView";
 import ReasonIRView from "./views/ReasonIRView";
-import ExecutionPlanView from "./views/ExecutionPlanView";
 import DependencyGraphView from "./views/DependencyGraphView";
 import WorkspaceExplorerView from "./views/WorkspaceExplorerView";
+// Phase IDE-1
+import ModelProjectionView from "./views/ModelProjectionView";
+// Phase IDE-2
+import PipelineOverviewView from "./views/PipelineOverviewView";
+import SourceModelView from "./views/SourceModelView";
+import ExecutionPlanFlowView from "./views/ExecutionPlanFlowView";
+import SimulationTraceView from "./views/SimulationTraceView";
+import KnowledgeEvidenceView from "./views/KnowledgeEvidenceView";
+import RuntimeOperationsView from "./views/RuntimeOperationsView";
+import DiagnosticsView from "./views/DiagnosticsView";
+import { registerReasonScriptLanguage, REASONSCRIPT_LANGUAGE_ID } from "./language/registerReasonScriptLanguage";
+// Visualization adapters
+import { buildPipelineOverview } from "./visualization/buildPipelineOverview";
+import { buildSourceModel } from "./visualization/buildSourceModel";
+import { buildExecutionPlanFlow } from "./visualization/buildExecutionPlanFlow";
+import { buildSimulationTrace } from "./visualization/buildSimulationTrace";
+import { buildKnowledgeEvidence } from "./visualization/buildKnowledgeEvidence";
 import { useProjectStore } from "./state/projectStore";
 import { useWorkspaceStore } from "./state/workspaceStore";
 import { buildProjectState, exportProjectState } from "./bridge";
 import { revealSourceSpan, revealSymbolFallback } from "./editor/sourceNavigation";
-import type { ArtifactSelection } from "./types";
+import type { ArtifactSelection, ArtifactKind } from "./types";
 import "./App.css";
 
+// v0.6-C: model is the preferred top-level construct for new code
 const DEFAULT_SOURCE = `// ReasonScript IDE
-module HelloWorld {
-  object Start
-  object Goal
-  transition Move {
-    Start -> Goal
+model HelloWorld {
+  calculation Answer {
+    result = 42
   }
-  goal Reach
 }
 `;
 
 export default function App() {
   const [source, setSource] = useState(DEFAULT_SOURCE);
   const [compilerMode] = useState("normal");
+  const [activeTab, setActiveTab] = useState("overview");
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const store = useProjectStore();
   const wsStore = useWorkspaceStore();
+
+  const handleEditorBeforeMount = useCallback((monaco: typeof Monaco) => {
+    registerReasonScriptLanguage(monaco);
+  }, []);
 
   const handleEditorMount = useCallback((ed: editor.IStandaloneCodeEditor) => {
     editorRef.current = ed;
   }, []);
 
-  // When selectedArtifact changes, navigate to source
+  // Source navigation on artifact selection
   useEffect(() => {
     const sel = store.selectedArtifact;
     const ed = editorRef.current;
     if (!sel || !ed) return;
-
     if (sel.span && sel.navigation_mode !== "none") {
       revealSourceSpan(ed, sel.span);
     } else if (
@@ -58,13 +76,10 @@ export default function App() {
   const runBuild = useCallback(async () => {
     store.setBuildStatus("building");
     store.setLastError(null);
-    console.log("[app] build start", { sourceLength: source.length });
     try {
       const state = await buildProjectState(source, "file:///main.rsn");
-      console.log("[app] build result", state);
       store.setProjectState(state);
     } catch (e) {
-      console.error("[app] build failed (fatal)", e);
       const message = e instanceof Error ? (e.stack ?? e.message) : String(e);
       store.setBuildStatus("error");
       store.setLastError(message);
@@ -75,13 +90,8 @@ export default function App() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
-      if (meta && e.key === "b") {
-        e.preventDefault();
-        runBuild();
-      } else if (meta && e.key === "Enter") {
-        e.preventDefault();
-        runBuild();
-      }
+      if (meta && e.key === "b") { e.preventDefault(); runBuild(); }
+      else if (meta && e.key === "Enter") { e.preventDefault(); runBuild(); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -93,19 +103,53 @@ export default function App() {
   }, [store.projectState]);
 
   const handleSelectArtifact = useCallback(
-    (sel: ArtifactSelection | null) => {
-      store.setSelectedArtifact(sel);
-    },
+    (sel: ArtifactSelection | null) => { store.setSelectedArtifact(sel); },
     [store]
   );
+
+  // Navigate to a tab from Pipeline Overview
+  const handlePipelineNavigate = useCallback((_kind: ArtifactKind | null, stageId: string) => {
+    const stageToTab: Record<string, string> = {
+      source: "source_model",
+      surface_ast: "source_model",
+      semantic_ast: "ast",
+      reason_ir: "reason_ir",
+      execution_plan: "execution_plan",
+      simulation: "simulation",
+      knowledge: "knowledge",
+      diagnostics: "diagnostics",
+    };
+    const target = stageToTab[stageId];
+    if (target) setActiveTab(target);
+  }, []);
 
   const ps = store.projectState;
   const sel = store.selectedArtifact;
 
+  // Build view models (memoized)
+  const pipelineVm = useMemo(() => buildPipelineOverview(ps), [ps]);
+  const sourceModelVm = useMemo(() => buildSourceModel(ps?.surface_ast), [ps?.surface_ast]);
+  const executionPlanVm = useMemo(() => buildExecutionPlanFlow(ps?.execution_plan), [ps?.execution_plan]);
+  const simulationVm = useMemo(() => buildSimulationTrace(ps?.simulation), [ps?.simulation]);
+  const knowledgeVm = useMemo(() => buildKnowledgeEvidence(ps?.knowledge), [ps?.knowledge]);
+
+  const diagCount = store.diagnostics.length;
+
   const rightTabs = [
+    // ── Phase IDE-2 primary views ──────────────────────────────────
+    {
+      id: "overview",
+      label: "Overview",
+      content: (
+        <PipelineOverviewView
+          vm={pipelineVm}
+          onNavigate={handlePipelineNavigate}
+        />
+      ),
+    },
     {
       id: "diagnostics",
-      label: `Diagnostics${store.diagnostics.length > 0 ? ` (${store.diagnostics.length})` : ""}`,
+      label: diagCount > 0 ? `Diagnostics (${diagCount})` : "Diagnostics",
       content: (
         <DiagnosticsView
           diagnostics={store.diagnostics}
@@ -115,23 +159,64 @@ export default function App() {
       ),
     },
     {
-      id: "reason_ir",
-      label: "Reason IR",
+      id: "execution_plan",
+      label: "Execution Plan",
       content: (
-        <ReasonIRView
-          data={ps?.reason_ir}
+        <ExecutionPlanFlowView
+          vm={executionPlanVm}
+          rawData={ps?.execution_plan}
           selectedArtifact={sel}
           onSelectArtifact={handleSelectArtifact}
         />
       ),
     },
     {
-      id: "execution_plan",
-      label: "Execution Plan",
+      id: "simulation",
+      label: "Simulation",
       content: (
-        <ExecutionPlanView
-          data={ps?.execution_plan}
-          reasonIr={ps?.reason_ir}
+        <SimulationTraceView
+          vm={simulationVm}
+          rawData={ps?.simulation}
+          selectedArtifact={sel}
+          onSelectArtifact={handleSelectArtifact}
+        />
+      ),
+    },
+    {
+      id: "knowledge",
+      label: "Knowledge",
+      content: (
+        <KnowledgeEvidenceView
+          vm={knowledgeVm}
+          rawData={ps?.knowledge}
+          selectedArtifact={sel}
+          onSelectArtifact={handleSelectArtifact}
+        />
+      ),
+    },
+    {
+      id: "source_model",
+      label: "Source Model",
+      content: <SourceModelView vm={sourceModelVm} />,
+    },
+    {
+      id: "runtime_ops",
+      label: "Runtime Ops",
+      content: <RuntimeOperationsView simulationVm={simulationVm} />,
+    },
+    // ── Phase IDE-1 views ──────────────────────────────────────────
+    {
+      id: "projection",
+      label: "Projection",
+      content: <ModelProjectionView source={source} />,
+    },
+    // ── Existing structural views ──────────────────────────────────
+    {
+      id: "reason_ir",
+      label: "Reason IR",
+      content: (
+        <ReasonIRView
+          data={ps?.reason_ir}
           selectedArtifact={sel}
           onSelectArtifact={handleSelectArtifact}
         />
@@ -150,26 +235,6 @@ export default function App() {
       ),
     },
     {
-      id: "ast",
-      label: "Surface AST",
-      content: <JsonArtifactView data={ps?.surface_ast} label="Surface AST" />,
-    },
-    {
-      id: "semantic_ast",
-      label: "Semantic AST",
-      content: <JsonArtifactView data={ps?.semantic_ast} label="Semantic AST" />,
-    },
-    {
-      id: "simulation",
-      label: "Simulation",
-      content: <JsonArtifactView data={ps?.simulation} label="Simulation" />,
-    },
-    {
-      id: "knowledge",
-      label: "Knowledge",
-      content: <JsonArtifactView data={ps?.knowledge} label="Knowledge" />,
-    },
-    {
       id: "dependency",
       label: "Dependency",
       content: (
@@ -179,6 +244,17 @@ export default function App() {
           onSelectArtifact={handleSelectArtifact}
         />
       ),
+    },
+    // ── Raw JSON fallbacks ─────────────────────────────────────────
+    {
+      id: "ast",
+      label: "Surface AST",
+      content: <JsonArtifactView data={ps?.surface_ast} label="Surface AST" />,
+    },
+    {
+      id: "semantic_ast",
+      label: "Semantic AST",
+      content: <JsonArtifactView data={ps?.semantic_ast} label="Semantic AST" />,
     },
   ];
 
@@ -237,9 +313,11 @@ export default function App() {
         <div className="ide-editor-pane">
           <Editor
             height="100%"
-            defaultLanguage="plaintext"
+            defaultLanguage={REASONSCRIPT_LANGUAGE_ID}
+            language={REASONSCRIPT_LANGUAGE_ID}
             value={source}
             onChange={(v) => setSource(v ?? "")}
+            beforeMount={handleEditorBeforeMount}
             onMount={handleEditorMount}
             theme="vs-dark"
             options={{
@@ -254,7 +332,7 @@ export default function App() {
         </div>
 
         <div className="ide-right-pane">
-          <TabPanel tabs={rightTabs} defaultTab="diagnostics" />
+          <TabPanel tabs={rightTabs} defaultTab={activeTab} />
         </div>
       </div>
 

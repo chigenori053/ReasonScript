@@ -25,25 +25,56 @@ from .model import (
 
 
 KEYWORD_COMPLETIONS = (
-    "package",
+    # Top-level constructs — model preferred (v0.6-C), module compatible (v0.6-B)
+    "model",
     "module",
-    "import",
-    "export",
+    # Declarations
+    "pub",
+    "fn",
     "struct",
     "enum",
-    "const",
-    "fn",
+    "calculation",
     "goal",
     "state",
     "constraint",
     "transition",
+    "relation",
+    # Module system
+    "package",
+    "import",
+    "export",
+    "const",
+    "let",
     "reason_graph",
     "execution_plan",
-    "calculation",
-    "let",
+    # Control flow
+    "if",
+    "elif",
+    "else",
+    "match",
+    "when",
+    "for",
+    "while",
+    "loop",
+    "break",
+    "continue",
     "return",
+    # Runtime operations
+    "input",
+    "print",
+    "search",
+    "simulate",
+    "predict",
+    "plan",
+    # Literal keywords
+    "true",
+    "false",
+    "some",
+    "none",
+    # Legacy
     "requires",
     "reach",
+    # world / system / component are reserved — must NOT appear here (v0.6-D §6.3)
 )
 RUNTIME_APIS = ("runtime.search", "runtime.plan", "runtime.predict", "runtime.simulate")
 WORLD_TYPES = (
@@ -91,7 +122,11 @@ BUILTIN_SYMBOLS = tuple(
 
 
 DECLARATION_PATTERNS: tuple[tuple[str, str], ...] = (
+    # Top-level constructs: Model (preferred) then Module (compatible) — v0.6-B/C/D
+    # world / system / component are reserved and must NOT be scanned (v0.6-D §7.3)
+    ("Model", r"(?:(?:pub|export)\s+)?model\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{"),
     ("Module", r"(?:(?:pub|export)\s+)?module\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{"),
+    # Inner declarations
     ("Function", r"(?:(?:pub|export)\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\("),
     ("Struct", r"(?:(?:pub|export)\s+)?struct\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{"),
     ("Enum", r"(?:(?:pub|export)\s+)?enum\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{"),
@@ -101,10 +136,6 @@ DECLARATION_PATTERNS: tuple[tuple[str, str], ...] = (
     ("Constraint", r"constraint\s+([A-Za-z_][A-Za-z0-9_]*)\b"),
     ("ReasonGraph", r"reason_graph\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{"),
     ("ExecutionPlan", r"execution_plan\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{"),
-    ("World", r"world\s+([A-Za-z_][A-Za-z0-9_]*)\b"),
-    ("Scene", r"scene\s+([A-Za-z_][A-Za-z0-9_]*)\b"),
-    ("Entity", r"entity\s+([A-Za-z_][A-Za-z0-9_]*)\b"),
-    ("Object", r"object\s+([A-Za-z_][A-Za-z0-9_]*)\b"),
 )
 
 
@@ -128,6 +159,12 @@ def _word_at(text: str, position_line: int, character: int) -> _Token | None:
 
 
 def _module_for_line(text: str, line_number: int) -> str:
+    """Return the top-level scope name that contains the given line.
+
+    Recognises both ``model`` (preferred, v0.6-B) and ``module`` (compatible).
+    Short-term name kept for backwards compatibility; rename to
+    ``_top_level_scope_for_line`` is recommended per IDE spec §8.2.
+    """
     package = ""
     current = "main"
     for index, line in enumerate(text.splitlines()):
@@ -136,12 +173,13 @@ def _module_for_line(text: str, line_number: int) -> str:
         package_match = re.match(r"\s*package\s+([A-Za-z_][A-Za-z0-9_.]*)", line)
         if package_match:
             package = package_match.group(1)
-        module_match = re.match(
-            r"\s*(?:(?:pub|export)\s+)?module\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{",
+        # v0.6-B: both model (preferred) and module (compatible) define top-level scope
+        top_level_match = re.match(
+            r"\s*(?:(?:pub|export)\s+)?(?:model|module)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{",
             line,
         )
-        if module_match:
-            current = module_match.group(1)
+        if top_level_match:
+            current = top_level_match.group(1)
     return f"{package}.{current}" if package else current
 
 
@@ -155,9 +193,12 @@ def _scan_symbols(uri: str, text: str) -> tuple[Symbol, ...]:
         if package_match:
             package = package_match.group(1)
             continue
-        module_match = re.match(DECLARATION_PATTERNS[0][1], line.strip())
-        if module_match:
-            current_module = module_match.group(1)
+        # Check model (index 0) then module (index 1) for top-level scope tracking
+        for top_idx in range(2):
+            top_match = re.match(DECLARATION_PATTERNS[top_idx][1], line.strip())
+            if top_match:
+                current_module = top_match.group(1)
+                break
         module = f"{package}.{current_module}" if package else current_module
         for kind, pattern in DECLARATION_PATTERNS:
             match = re.search(pattern, line)
@@ -170,7 +211,7 @@ def _scan_symbols(uri: str, text: str) -> tuple[Symbol, ...]:
                 Symbol(
                     name=name,
                     kind=kind,
-                    module=module if kind != "Module" else (f"{package}.{name}" if package else name),
+                    module=module if kind not in {"Model", "Module"} else (f"{package}.{name}" if package else name),
                     visibility=visibility,
                     location=Location(uri, range_for(line_number, start, name)),
                     detail=f"{kind} {module}::{name}",
