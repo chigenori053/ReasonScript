@@ -1,10 +1,104 @@
 # Changelog
 
+## ReasonScript IDE Phase 3.5 - Standard IDE Layout Simplification - 2026-07-01
+
+### Status
+
+VALIDATED
+
+### Summary
+
+ReasonScript IDE Phase 3.5 has been completed as the Standard IDE Layout
+Simplification phase.
+
+This phase reorganizes the Playground-first IDE into a simpler Android
+Studio-style layout with five major regions: Top Bar, Left Project Pane, Center
+Editor, Right Inspector, and Bottom Tool Window.
+
+The overloaded right-pane tab structure has been reduced to five primary tabs:
+Overview, Plan, Simulation, Knowledge, and Artifacts. Operational feedback has
+been moved into a Bottom Tool Window with Problems, Output, Logs, and Tests
+tabs.
+
+### Added
+
+- Added Standard IDE Layout v0.2 implementation.
+- Added Top Bar with Project, File, Mode, Validate, Run, Analyze, Audit, and
+  Status.
+- Added simplified Right Inspector tabs:
+  - Overview
+  - Plan
+  - Simulation
+  - Knowledge
+  - Artifacts
+- Added Bottom Tool Window tabs:
+  - Problems
+  - Output
+  - Logs
+  - Tests
+- Added `StandardLayoutViews.tsx`.
+- Added Phase 3.5 layout contract tests.
+- Added Phase 3.5 development documentation:
+  - `standard_ide_layout.md`
+  - bottom tool window contract
+  - cross-platform UI readiness
+  - layout migration map
+
+### Changed
+
+- Consolidated Pipeline and Summary into Overview.
+- Moved detailed diagnostics to Bottom Problems.
+- Moved runtime output to Bottom Output.
+- Moved AST, Semantic AST, Reason IR, Validation, and Raw JSON into Artifacts.
+- Moved ExecutionPlan into Plan.
+- Moved Simulation, Runtime, Input, and Trace information into Simulation.
+- Moved Knowledge and evidence information into Knowledge.
+- Reclassified Diff, Regression, Baseline, and related outputs toward Bottom
+  Tests or future Audit sections.
+- Preserved existing functionality through relocation, grouping, and collapsible
+  detail sections.
+
+### Cross-platform Readiness
+
+- The five-region layout is compatible with browser and future desktop shell
+  embedding.
+- UI logic does not depend on OS-specific path separators.
+- `relative_path` values are treated as slash-normalized display paths.
+- Keyboard shortcuts remain command-oriented for future desktop menu bindings.
+- Right Inspector and Bottom Tool Window are compatible with future resizable
+  panes.
+- Native menus, native file dialogs, packaging, and installers remain outside
+  Phase 3.5.
+
+### Validation
+
+- `python3 scripts/dev.py test ide`
+  - 104 passed
+- `python3 -m pytest tests/ide/test_standard_layout_contract.py -v --tb=short`
+  - 4 passed
+- `npm run build` in `apps/reasonscript-ide/ui`
+  - passed
+
+### Compatibility
+
+- Parser behavior is unchanged.
+- Runtime behavior is unchanged.
+- Reason IR semantics are unchanged.
+- ExecutionPlan semantics are unchanged.
+- Simulation semantics are unchanged.
+- Knowledge semantics are unchanged.
+- `/api/analyze` contract is unchanged.
+- Workspace list/read/save contracts are unchanged.
+- Phase 3 workspace editing behavior is unchanged.
+- Phase 3.5 changes are UI layout and information architecture changes only.
+
+---
+
 ## ReasonScript IDE Phase 3 - Local Workspace Editing Foundation - 2026-07-01
 
 ### Status
 
-DRAFT FOR ADOPTION
+VALIDATED
 
 ### Summary
 

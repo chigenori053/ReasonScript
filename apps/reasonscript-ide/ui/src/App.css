@@ -24,8 +24,17 @@ html, body, #root {
   overflow: hidden;
 }
 
+.ide-main-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .ide-editor-pane {
   flex: 1;
+  min-height: 240px;
   min-width: 0;
   border-right: 1px solid #1f2937;
 }
@@ -85,4 +94,121 @@ html, body, #root {
   background: transparent;
   border-color: #374151;
   color: #9ca3af;
+}
+
+.ide-bottom-tool-window {
+  height: 220px;
+  min-height: 140px;
+  border-top: 1px solid #1f2937;
+  border-right: 1px solid #1f2937;
+  background: #0f172a;
+  flex-shrink: 0;
+}
+
+.ide-overview {
+  height: 100%;
+  overflow: auto;
+  background: #0f172a;
+}
+
+.ide-result-card {
+  padding: 12px 16px;
+  border-bottom: 1px solid #1f2937;
+}
+
+.ide-overview-section {
+  border-bottom: 1px solid #1f2937;
+}
+
+.ide-section-title {
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.ide-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.ide-summary-metric {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid #1f2937;
+  border-radius: 6px;
+  background: #111827;
+}
+
+.ide-summary-metric span {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.ide-summary-metric strong {
+  color: #e5e7eb;
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ide-muted-note,
+.ide-warning-note {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.ide-muted-note {
+  color: #6b7280;
+}
+
+.ide-warning-note {
+  color: #fbbf24;
+}
+
+.ide-artifact-state {
+  height: 100%;
+  overflow: auto;
+  padding: 12px 16px;
+}
+
+.ide-artifact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid #111827;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.ide-artifact-row strong {
+  color: #d1d5db;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ide-tool-empty {
+  height: 100%;
+  overflow: auto;
+  padding: 12px 16px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.ide-tool-empty pre {
+  color: #d1d5db;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

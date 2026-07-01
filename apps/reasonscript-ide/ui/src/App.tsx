@@ -4,21 +4,16 @@ import type { editor } from "monaco-editor";
 import type * as Monaco from "monaco-editor";
 import Toolbar from "./components/Toolbar";
 import TabPanel from "./components/TabPanel";
-import JsonArtifactView from "./views/JsonArtifactView";
-import ValidationView from "./views/ValidationView";
-import ReasonIRView from "./views/ReasonIRView";
-import DependencyGraphView from "./views/DependencyGraphView";
 import WorkspaceExplorerView from "./views/WorkspaceExplorerView";
-// Phase IDE-1
-import ModelProjectionView from "./views/ModelProjectionView";
 // Phase IDE-2
-import PipelineOverviewView from "./views/PipelineOverviewView";
-import SourceModelView from "./views/SourceModelView";
 import ExecutionPlanFlowView from "./views/ExecutionPlanFlowView";
 import SimulationTraceView from "./views/SimulationTraceView";
 import KnowledgeEvidenceView from "./views/KnowledgeEvidenceView";
-import RuntimeOperationsView from "./views/RuntimeOperationsView";
-import DiagnosticsView from "./views/DiagnosticsView";
+import {
+  ArtifactsInspectorView,
+  BottomToolWindow,
+  StandardOverviewView,
+} from "./views/StandardLayoutViews";
 import { registerReasonScriptLanguage, REASONSCRIPT_LANGUAGE_ID } from "./language/registerReasonScriptLanguage";
 // Visualization adapters
 import { buildPipelineOverview } from "./visualization/buildPipelineOverview";
@@ -45,7 +40,7 @@ model HelloWorld {
 export default function App() {
   const [source, setSource] = useState(DEFAULT_SOURCE);
   const [compilerMode] = useState("normal");
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeInspectorTab, setActiveInspectorTab] = useState("overview");
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const store = useProjectStore();
   const wsStore = useWorkspaceStore();
@@ -110,17 +105,17 @@ export default function App() {
   // Navigate to a tab from Pipeline Overview
   const handlePipelineNavigate = useCallback((_kind: ArtifactKind | null, stageId: string) => {
     const stageToTab: Record<string, string> = {
-      source: "source_model",
-      surface_ast: "source_model",
-      semantic_ast: "ast",
-      reason_ir: "reason_ir",
-      execution_plan: "execution_plan",
+      source: "artifacts",
+      surface_ast: "artifacts",
+      semantic_ast: "artifacts",
+      reason_ir: "artifacts",
+      execution_plan: "plan",
       simulation: "simulation",
       knowledge: "knowledge",
-      diagnostics: "diagnostics",
+      diagnostics: "overview",
     };
     const target = stageToTab[stageId];
-    if (target) setActiveTab(target);
+    if (target) setActiveInspectorTab(target);
   }, []);
 
   const ps = store.projectState;
@@ -133,34 +128,25 @@ export default function App() {
   const simulationVm = useMemo(() => buildSimulationTrace(ps?.simulation), [ps?.simulation]);
   const knowledgeVm = useMemo(() => buildKnowledgeEvidence(ps?.knowledge), [ps?.knowledge]);
 
-  const diagCount = store.diagnostics.length;
-
-  const rightTabs = [
-    // ── Phase IDE-2 primary views ──────────────────────────────────
+  const rightInspectorTabs = [
     {
       id: "overview",
       label: "Overview",
       content: (
-        <PipelineOverviewView
-          vm={pipelineVm}
-          onNavigate={handlePipelineNavigate}
+        <StandardOverviewView
+          projectState={ps}
+          source={source}
+          compilerMode={compilerMode}
+          buildStatus={store.buildStatus}
+          pipelineVm={pipelineVm}
+          knowledgeVm={knowledgeVm}
+          onNavigate={(stageId) => handlePipelineNavigate(null, stageId)}
         />
       ),
     },
     {
-      id: "diagnostics",
-      label: diagCount > 0 ? `Diagnostics (${diagCount})` : "Diagnostics",
-      content: (
-        <DiagnosticsView
-          diagnostics={store.diagnostics}
-          selectedArtifact={sel}
-          onSelectArtifact={handleSelectArtifact}
-        />
-      ),
-    },
-    {
-      id: "execution_plan",
-      label: "Execution Plan",
+      id: "plan",
+      label: "Plan",
       content: (
         <ExecutionPlanFlowView
           vm={executionPlanVm}
@@ -195,66 +181,16 @@ export default function App() {
       ),
     },
     {
-      id: "source_model",
-      label: "Source Model",
-      content: <SourceModelView vm={sourceModelVm} />,
-    },
-    {
-      id: "runtime_ops",
-      label: "Runtime Ops",
-      content: <RuntimeOperationsView simulationVm={simulationVm} />,
-    },
-    // ── Phase IDE-1 views ──────────────────────────────────────────
-    {
-      id: "projection",
-      label: "Projection",
-      content: <ModelProjectionView source={source} />,
-    },
-    // ── Existing structural views ──────────────────────────────────
-    {
-      id: "reason_ir",
-      label: "Reason IR",
+      id: "artifacts",
+      label: "Artifacts",
       content: (
-        <ReasonIRView
-          data={ps?.reason_ir}
+        <ArtifactsInspectorView
+          projectState={ps}
+          sourceModelVm={sourceModelVm}
           selectedArtifact={sel}
           onSelectArtifact={handleSelectArtifact}
         />
       ),
-    },
-    {
-      id: "validation",
-      label: "Validation",
-      content: (
-        <ValidationView
-          data={ps?.validation}
-          diagnostics={store.diagnostics}
-          selectedArtifact={sel}
-          onSelectArtifact={handleSelectArtifact}
-        />
-      ),
-    },
-    {
-      id: "dependency",
-      label: "Dependency",
-      content: (
-        <DependencyGraphView
-          data={(ps?.analyzer as Record<string, unknown> | null)?.dependency_graph ?? null}
-          selectedArtifact={sel}
-          onSelectArtifact={handleSelectArtifact}
-        />
-      ),
-    },
-    // ── Raw JSON fallbacks ─────────────────────────────────────────
-    {
-      id: "ast",
-      label: "Surface AST",
-      content: <JsonArtifactView data={ps?.surface_ast} label="Surface AST" />,
-    },
-    {
-      id: "semantic_ast",
-      label: "Semantic AST",
-      content: <JsonArtifactView data={ps?.semantic_ast} label="Semantic AST" />,
     },
   ];
 
@@ -263,9 +199,13 @@ export default function App() {
       <Toolbar
         buildStatus={store.buildStatus}
         compilerMode={compilerMode}
-        onBuild={runBuild}
+        projectName={wsStore.workspace?.root_name ?? ps?.workspace?.project_name ?? "ReasonScript"}
+        selectedFile={wsStore.selectedPath ?? ps?.metadata?.source_filename ?? "temporary source"}
+        dirty={source !== (ps?.source_files?.[0]?.text ?? source)}
         onRun={runBuild}
         onAnalyze={runBuild}
+        onValidate={runBuild}
+        onAudit={runBuild}
         onExport={handleExport}
         onCompilerModeChange={() => {}}
       />
@@ -310,29 +250,43 @@ export default function App() {
           onToggleExpanded={wsStore.toggleExpanded}
           onClearWorkspace={wsStore.clearWorkspace}
         />
-        <div className="ide-editor-pane">
-          <Editor
-            height="100%"
-            defaultLanguage={REASONSCRIPT_LANGUAGE_ID}
-            language={REASONSCRIPT_LANGUAGE_ID}
-            value={source}
-            onChange={(v) => setSource(v ?? "")}
-            beforeMount={handleEditorBeforeMount}
-            onMount={handleEditorMount}
-            theme="vs-dark"
-            options={{
-              fontSize: 14,
-              minimap: { enabled: false },
-              lineNumbers: "on",
-              wordWrap: "on",
-              scrollBeyondLastLine: false,
-              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-            }}
+        <div className="ide-main-pane">
+          <div className="ide-editor-pane">
+            <Editor
+              height="100%"
+              defaultLanguage={REASONSCRIPT_LANGUAGE_ID}
+              language={REASONSCRIPT_LANGUAGE_ID}
+              value={source}
+              onChange={(v) => setSource(v ?? "")}
+              beforeMount={handleEditorBeforeMount}
+              onMount={handleEditorMount}
+              theme="vs-dark"
+              options={{
+                fontSize: 14,
+                minimap: { enabled: false },
+                lineNumbers: "on",
+                wordWrap: "on",
+                scrollBeyondLastLine: false,
+                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              }}
+            />
+          </div>
+          <BottomToolWindow
+            diagnostics={store.diagnostics}
+            simulationVm={simulationVm}
+            projectState={ps}
+            lastError={store.lastError}
+            selectedArtifact={sel}
+            onSelectArtifact={handleSelectArtifact}
           />
         </div>
 
         <div className="ide-right-pane">
-          <TabPanel tabs={rightTabs} defaultTab={activeTab} />
+          <TabPanel
+            tabs={rightInspectorTabs}
+            activeTab={activeInspectorTab}
+            onActiveTabChange={setActiveInspectorTab}
+          />
         </div>
       </div>
 

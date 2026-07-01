@@ -3,9 +3,13 @@ import type { BuildStatus } from "../state/projectStore";
 interface Props {
   buildStatus: BuildStatus;
   compilerMode: string;
-  onBuild: () => void;
+  projectName: string;
+  selectedFile: string;
+  dirty: boolean;
   onRun: () => void;
   onAnalyze: () => void;
+  onValidate: () => void;
+  onAudit: () => void;
   onExport: () => void;
   onCompilerModeChange: (mode: string) => void;
 }
@@ -27,9 +31,13 @@ const statusColor: Record<BuildStatus, string> = {
 export default function Toolbar({
   buildStatus,
   compilerMode,
-  onBuild,
+  projectName,
+  selectedFile,
+  dirty,
   onRun,
   onAnalyze,
+  onValidate,
+  onAudit,
   onExport,
   onCompilerModeChange,
 }: Props) {
@@ -47,17 +55,27 @@ export default function Toolbar({
       }}
     >
       <span style={{ color: "#9ca3af", fontSize: 13, fontWeight: 700, marginRight: 8 }}>
-        ReasonScript IDE
+        RS
+      </span>
+      <span style={{ color: "#d1d5db", fontSize: 12, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {projectName}
+      </span>
+      <span style={{ color: "#6b7280", fontSize: 12 }}>/</span>
+      <span style={{ color: dirty ? "#fbbf24" : "#9ca3af", fontSize: 12, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {selectedFile}{dirty ? " *" : ""}
       </span>
 
-      <button className="toolbar-btn" onClick={onBuild} title="⌘B">
-        Build
+      <button className="toolbar-btn" onClick={onValidate} title="Validate">
+        Validate
       </button>
       <button className="toolbar-btn" onClick={onRun} title="⌘↵">
         Run
       </button>
       <button className="toolbar-btn" onClick={onAnalyze} title="⌘⇧A">
         Analyze
+      </button>
+      <button className="toolbar-btn secondary" onClick={onAudit}>
+        Audit
       </button>
       <button className="toolbar-btn secondary" onClick={onExport}>
         Export
