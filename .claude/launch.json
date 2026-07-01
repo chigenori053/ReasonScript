@@ -8,6 +8,13 @@
       "cwd": "/Users/chigenori/development/ReasonScript/playground/frontend",
       "port": 5174,
       "autoPort": true
+    },
+    {
+      "name": "ReasonScript Playground Backend",
+      "runtimeExecutable": "/Users/chigenori/development/ReasonScript/playground/.venv/bin/uvicorn",
+      "runtimeArgs": ["playground.backend.main:app", "--host", "0.0.0.0", "--port", "8000"],
+      "cwd": "/Users/chigenori/development/ReasonScript",
+      "port": 8000
     }
   ]
 }

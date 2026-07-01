@@ -68,6 +68,8 @@ from frontend.language_surface.namespace import NamespaceResolutionError
 from playground.backend.engine import build_execution_plan, simulate, extract_knowledge
 from playground.backend.analyzer import analyze_ir
 from playground.backend.language_audit import run_language_audit, write_language_audit_reports
+from playground.backend import workspace as workspace_module
+from playground.backend.workspace import WorkspacePathError
 
 EXAMPLES_DIR = REPO_ROOT / "TestPlayground" / "examples"
 REGRESSION_EXAMPLES_DIR = REPO_ROOT / "examples"
@@ -143,6 +145,7 @@ class SourceRequest(BaseModel):
     source: str
     filename: str = "playground.rsn"
     compiler_mode: str = "normal"  # normal | strict | rust_compatible
+    source_context: dict[str, Any] | None = None  # Phase 3: workspace file binding, optional
 
 
 class ValidateResponse(BaseModel):
@@ -190,6 +193,22 @@ class ArtifactPathRequest(BaseModel):
 class DiffRequest(BaseModel):
     a: dict[str, Any] | str
     b: dict[str, Any] | str
+
+
+class WorkspaceListRequest(BaseModel):
+    workspace_root: str
+
+
+class WorkspaceReadRequest(BaseModel):
+    workspace_root: str
+    relative_path: str
+
+
+class WorkspaceSaveRequest(BaseModel):
+    workspace_root: str
+    relative_path: str
+    content: str
+    expected_version: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -504,6 +523,16 @@ def _phase2_response(
         raw_diagnostics.extend(errors)
     diagnostics = _normalize_diagnostics(raw_diagnostics)
     ok = not any(d["severity"] == "error" for d in diagnostics) and not errors
+
+    source_context_response: dict[str, Any] | None = None
+    relative_path = (req.source_context or {}).get("relative_path") if req.source_context else None
+    if isinstance(relative_path, str) and relative_path:
+        for diagnostic in diagnostics:
+            diagnostic["relative_path"] = relative_path
+        source_context_response = {
+            **req.source_context,
+            "artifact_id": workspace_module.artifact_identity(relative_path),
+        }
     pipeline = _build_pipeline(artifacts, diagnostics, ok)
     artifact_states = _artifact_states(artifacts, pipeline)
     artifacts_with_states = dict(artifacts)
@@ -534,6 +563,8 @@ def _phase2_response(
     }
     if analysis is not None:
         response["analysis"] = analysis
+    if source_context_response is not None:
+        response["source_context"] = source_context_response
     return response
 
 
@@ -1124,7 +1155,25 @@ def analyze_endpoint(req: SourceRequest) -> dict[str, Any]:
         analyses.append(analyze_ir(ir, sim, compiler_mode=req.compiler_mode))
 
     analysis = analyses[0] if len(analyses) == 1 else {"modules": analyses}
-    return _phase2_response(req, artifacts, [], analysis=analysis)
+    response = _phase2_response(req, artifacts, [], analysis=analysis)
+    _persist_per_file_artifacts(req, artifacts)
+    return response
+
+
+def _persist_per_file_artifacts(req: SourceRequest, artifacts: dict[str, Any]) -> None:
+    """Best-effort per-file artifact persistence (PFA-001/003/004). Never raises."""
+    context = req.source_context or {}
+    workspace_root = context.get("workspace_root")
+    relative_path = context.get("relative_path")
+    if not workspace_root or not relative_path:
+        return
+    try:
+        root = workspace_module.resolve_workspace_root(str(workspace_root))
+        artifact_id = workspace_module.artifact_identity(str(relative_path))
+        target = root / ".reasonscript" / "artifacts" / artifact_id
+        _write_artifacts(target, artifacts)
+    except Exception:
+        return
 
 
 @app.get("/api/language-audit")
@@ -1159,6 +1208,42 @@ def baseline_endpoint(req: SourceRequest) -> dict[str, Any]:
     response = _artifact_response(baseline_artifacts)
     response["path"] = str(target)
     return response
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Local Workspace Editing Foundation
+# ---------------------------------------------------------------------------
+# See docs/development/file_operation_contract.md. `refresh_workspace` reuses
+# `/api/workspace/list`; `select_workspace_file` has no backend counterpart
+# since file selection is pure frontend state (the backend is stateless
+# per-request).
+
+@app.post("/api/workspace/list")
+def workspace_list_endpoint(req: WorkspaceListRequest) -> dict[str, Any]:
+    try:
+        root = workspace_module.resolve_workspace_root(req.workspace_root)
+    except WorkspacePathError as exc:
+        return {"ok": False, "error": {"code": exc.code, "message": exc.message}}
+    files, scan_status = workspace_module.scan_workspace(root)
+    return {"ok": True, "root": str(root), "files": files, "scan_status": scan_status}
+
+
+@app.post("/api/workspace/read")
+def workspace_read_endpoint(req: WorkspaceReadRequest) -> dict[str, Any]:
+    try:
+        root = workspace_module.resolve_workspace_root(req.workspace_root)
+    except WorkspacePathError as exc:
+        return {"ok": False, "relative_path": req.relative_path, "error": {"code": exc.code, "message": exc.message}}
+    return workspace_module.read_workspace_file(root, req.relative_path)
+
+
+@app.post("/api/workspace/save")
+def workspace_save_endpoint(req: WorkspaceSaveRequest) -> dict[str, Any]:
+    try:
+        root = workspace_module.resolve_workspace_root(req.workspace_root)
+    except WorkspacePathError as exc:
+        return {"ok": False, "relative_path": req.relative_path, "error": {"code": exc.code, "message": exc.message}}
+    return workspace_module.save_workspace_file(root, req.relative_path, req.content, req.expected_version)
 
 
 # ---------------------------------------------------------------------------

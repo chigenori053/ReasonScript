@@ -15,7 +15,7 @@
 .editor-pane {
   display: flex;
   flex-direction: column;
-  width: 50%;
+  flex: 1 1 0;
   border-right: 1px solid var(--border);
   min-width: 0;
 }
@@ -44,3 +44,51 @@
   flex: 1;
   overflow: hidden;
 }
+
+.editor-pane-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.editor-filename {
+  font-family: var(--font-mono);
+  color: var(--text-0);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-dirty-dot {
+  color: var(--yellow);
+  font-size: 10px;
+}
+
+.editor-badge {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-3);
+  color: var(--text-1);
+  text-transform: uppercase;
+}
+
+.editor-badge-warn {
+  background: #3a2a10;
+  color: var(--yellow);
+}
+
+.editor-header-spacer {
+  flex: 1;
+}
+
+.editor-save-btn {
+  background: var(--accent-dim);
+  color: #fff;
+  font-size: 11px;
+  padding: 3px 10px;
+}
+.editor-save-btn:hover:not(:disabled) { background: #388bfd; }

@@ -3,6 +3,7 @@ import Editor from '@monaco-editor/react'
 import Toolbar from './components/Toolbar.jsx'
 import TabPanel from './components/TabPanel.jsx'
 import Console from './components/Console.jsx'
+import WorkspaceExplorer from './components/WorkspaceExplorer.jsx'
 import './App.css'
 
 const DEFAULT_SOURCE = `// ReasonScript Playground
@@ -32,6 +33,21 @@ export default function App() {
   const [importPath, setImportPath] = useState('')
   const [baselinePath, setBaselinePath] = useState('')
   const [compilerMode, setCompilerMode] = useState('normal') // normal | strict | rust_compatible
+
+  // --- Phase 3: workspace file editing state ---
+  const [workspaceRoot, setWorkspaceRoot] = useState(null)
+  const [workspaceFiles, setWorkspaceFiles] = useState([])
+  const [workspaceScanStatus, setWorkspaceScanStatus] = useState(null)
+  const [workspaceError, setWorkspaceError] = useState(null)
+  const [workspaceLoading, setWorkspaceLoading] = useState(false)
+  const [selectedFile, setSelectedFile] = useState(null)
+  // selectedFile: { relativePath, content, savedContent, version, readOnly, missing }
+  const [analyzeResultsByFile, setAnalyzeResultsByFile] = useState({})
+  // analyzeResultsByFile: { [relativePath]: { result, analyzedContent } }
+
+  const selectedDirty = !!selectedFile && selectedFile.content !== selectedFile.savedContent
+  const selectedCache = selectedFile ? analyzeResultsByFile[selectedFile.relativePath] : null
+  const selectedStale = !!(selectedFile && selectedCache && selectedCache.analyzedContent !== selectedFile.content)
 
   const artifactsFromPipeline = useCallback((data) => ({
     ast: data.ast,
@@ -268,61 +284,188 @@ export default function App() {
   const handleAnalyze = useCallback(async () => {
     setStatus('running')
     addLog('info', `Analyze 開始 (mode: ${compilerMode})...`)
+    const analyzedSource = selectedFile ? selectedFile.content : source
+    const sourceContext = selectedFile
+      ? { workspace_root: workspaceRoot, relative_path: selectedFile.relativePath, dirty: selectedDirty }
+      : undefined
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source, filename: 'playground.rsn', compiler_mode: compilerMode }),
+        body: JSON.stringify({
+          source: analyzedSource,
+          filename: selectedFile ? selectedFile.relativePath : 'playground.rsn',
+          compiler_mode: compilerMode,
+          ...(sourceContext ? { source_context: sourceContext } : {}),
+        }),
       })
       const data = await res.json()
-      if (data.ok) {
-        setCurrentArtifacts(data.artifacts)
-        setResults(prev => ({
-          ...(prev || {}),
-          pipeline: data.pipeline,
-          views: data.views,
-          analysis: data.analysis,
-          ast: data.ast ?? prev?.ast,
-          semantic_ast: data.semantic_ast,
-          reason_irs: data.reason_irs,
-          execution_plan: data.execution_plan,
-          simulation: data.simulation,
-          knowledge: data.knowledge,
-          diagnostics: data.diagnostics ?? [],
-          projection_summary: data.projection_summary,
-          validation: data.validation,
-          artifacts: data.artifacts,
+      const nextResults = {
+        pipeline: data.pipeline,
+        views: data.views,
+        analysis: data.analysis,
+        ast: data.ast,
+        semantic_ast: data.semantic_ast,
+        reason_irs: data.reason_irs,
+        execution_plan: data.execution_plan,
+        simulation: data.simulation,
+        knowledge: data.knowledge,
+        diagnostics: data.diagnostics ?? data.errors ?? [],
+        projection_summary: data.projection_summary,
+        validation: data.validation,
+        artifacts: data.artifacts,
+        source_context: data.source_context,
+      }
+      setCurrentArtifacts(data.artifacts ?? null)
+      setResults(prev => ({ ...(prev || {}), ...nextResults, ast: data.ast ?? prev?.ast }))
+      if (selectedFile) {
+        setAnalyzeResultsByFile(prev => ({
+          ...prev,
+          [selectedFile.relativePath]: { result: nextResults, analyzedContent: analyzedSource },
         }))
+      }
+      if (data.ok) {
         setStatus('ok')
         const q = data.analysis?.quality?.overall_pct ?? '—'
         addLog('success', `Analyze 完了 — Quality Score: ${q}%`)
-        setActiveView('pipeline')
       } else {
-        setCurrentArtifacts(data.artifacts ?? null)
-        setResults(prev => ({
-          ...(prev || {}),
-          pipeline: data.pipeline,
-          views: data.views,
-          ast: data.ast ?? prev?.ast,
-          semantic_ast: data.semantic_ast,
-          reason_irs: data.reason_irs,
-          execution_plan: data.execution_plan,
-          simulation: data.simulation,
-          knowledge: data.knowledge,
-          diagnostics: data.diagnostics ?? data.errors ?? [],
-          projection_summary: data.projection_summary,
-          validation: data.validation,
-          artifacts: data.artifacts,
-        }))
         setStatus('error')
         ;(data.diagnostics ?? data.errors ?? []).forEach(e => addLog('error', `[${e.stage ?? e.phase}] ${e.message}`))
-        setActiveView('pipeline')
       }
+      setActiveView('pipeline')
     } catch (e) {
       setStatus('error')
       addLog('error', `Analyze error: ${e.message}`)
     }
-  }, [source, compilerMode, addLog])
+  }, [source, compilerMode, addLog, selectedFile, workspaceRoot, selectedDirty])
+
+  const handleOpenWorkspace = useCallback(async (rootPath) => {
+    setWorkspaceLoading(true)
+    setWorkspaceError(null)
+    addLog('info', `Workspace を開いています: ${rootPath}`)
+    try {
+      const res = await fetch('/api/workspace/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_root: rootPath }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setWorkspaceRoot(data.root)
+        setWorkspaceFiles(data.files)
+        setWorkspaceScanStatus(data.scan_status)
+        setSelectedFile(null)
+        addLog('success', `Workspace を開きました: ${data.root}`)
+      } else {
+        setWorkspaceError(data.error?.message || 'workspace を開けませんでした')
+        addLog('error', `Workspace error: ${data.error?.message}`)
+      }
+    } catch (e) {
+      setWorkspaceError(e.message)
+      addLog('error', `Workspace error: ${e.message}`)
+    } finally {
+      setWorkspaceLoading(false)
+    }
+  }, [addLog])
+
+  const handleRefreshWorkspace = useCallback(async () => {
+    if (!workspaceRoot) return
+    setWorkspaceLoading(true)
+    try {
+      const res = await fetch('/api/workspace/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_root: workspaceRoot }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setWorkspaceFiles(data.files)
+        setWorkspaceScanStatus(data.scan_status)
+        if (selectedFile) {
+          const stillExists = (nodes) => nodes.some(n =>
+            n.relative_path === selectedFile.relativePath || (n.children && stillExists(n.children))
+          )
+          if (!stillExists(data.files)) {
+            setSelectedFile(prev => (prev ? { ...prev, missing: true } : prev))
+          }
+        }
+      }
+    } catch (e) {
+      addLog('error', `Refresh error: ${e.message}`)
+    } finally {
+      setWorkspaceLoading(false)
+    }
+  }, [workspaceRoot, selectedFile, addLog])
+
+  const handleSelectFile = useCallback(async (relativePath) => {
+    if (selectedDirty) {
+      const proceed = window.confirm(
+        `未保存の変更があります (${selectedFile.relativePath})。破棄して切り替えますか?`
+      )
+      if (!proceed) return
+    }
+    addLog('info', `ファイルを開いています: ${relativePath}`)
+    try {
+      const res = await fetch('/api/workspace/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_root: workspaceRoot, relative_path: relativePath }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setSelectedFile({
+          relativePath: data.relative_path,
+          content: data.content,
+          savedContent: data.content,
+          version: data.version,
+          readOnly: data.read_only,
+          missing: false,
+        })
+        const cached = analyzeResultsByFile[relativePath]
+        setResults(cached ? cached.result : null)
+        setStatus('idle')
+        addLog('success', `ファイルを開きました: ${relativePath}`)
+      } else {
+        addLog('error', `ファイルを読み込めません: ${data.error?.message}`)
+      }
+    } catch (e) {
+      addLog('error', `File read error: ${e.message}`)
+    }
+  }, [workspaceRoot, selectedDirty, selectedFile, analyzeResultsByFile, addLog])
+
+  const handleSaveFile = useCallback(async () => {
+    if (!selectedFile) return
+    addLog('info', `保存しています: ${selectedFile.relativePath}`)
+    try {
+      const res = await fetch('/api/workspace/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspace_root: workspaceRoot,
+          relative_path: selectedFile.relativePath,
+          content: selectedFile.content,
+          expected_version: selectedFile.version,
+        }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setSelectedFile(prev => (prev ? { ...prev, savedContent: prev.content, version: data.version } : prev))
+        addLog('success', `保存しました: ${selectedFile.relativePath}`)
+      } else {
+        addLog('error', `Save error: [${data.error?.code}] ${data.error?.message}`)
+      }
+    } catch (e) {
+      addLog('error', `Save error: ${e.message}`)
+    }
+  }, [selectedFile, workspaceRoot, addLog])
+
+  const handleEditorChange = useCallback((value) => {
+    if (selectedFile) {
+      setSelectedFile(prev => (prev ? { ...prev, content: value ?? '' } : prev))
+    } else {
+      setSource(value ?? '')
+    }
+  }, [selectedFile])
 
   const handleAudit = useCallback(async () => {
     setStatus('running')
@@ -360,6 +503,7 @@ export default function App() {
   const handleLoadExample = useCallback((id) => {
     const ex = examples.find(e => e.id === id)
     if (!ex) return
+    setSelectedFile(null)
     setSource(ex.source)
     setResults(null)
     setStatus('idle')
@@ -381,13 +525,45 @@ export default function App() {
         onCompilerModeChange={setCompilerMode}
       />
       <div className="main-pane">
+        <WorkspaceExplorer
+          root={workspaceRoot}
+          files={workspaceFiles}
+          scanStatus={workspaceScanStatus}
+          selectedPath={selectedFile?.relativePath ?? null}
+          missingSelected={!!selectedFile?.missing}
+          loading={workspaceLoading}
+          error={workspaceError}
+          onOpenWorkspace={handleOpenWorkspace}
+          onRefresh={handleRefreshWorkspace}
+          onSelectFile={handleSelectFile}
+        />
         <div className="editor-pane">
-          <div className="pane-header">Editor — playground.rsn</div>
+          <div className="pane-header editor-pane-header">
+            {selectedFile ? (
+              <>
+                <span className="editor-filename">{selectedFile.relativePath}</span>
+                {selectedDirty && <span className="editor-dirty-dot" title="unsaved changes">●</span>}
+                {selectedFile.readOnly && <span className="editor-badge">read-only</span>}
+                {selectedFile.missing && <span className="editor-badge editor-badge-warn">missing</span>}
+                {selectedStale && <span className="editor-badge editor-badge-warn">stale analysis</span>}
+                <span className="editor-header-spacer" />
+                <button
+                  className="editor-save-btn"
+                  onClick={handleSaveFile}
+                  disabled={!selectedDirty || selectedFile.readOnly || selectedFile.missing}
+                >
+                  Save
+                </button>
+              </>
+            ) : (
+              'Editor — playground.rsn (temporary)'
+            )}
+          </div>
           <div className="editor-wrap">
             <Editor
               defaultLanguage="plaintext"
-              value={source}
-              onChange={v => setSource(v ?? '')}
+              value={selectedFile ? selectedFile.content : source}
+              onChange={handleEditorChange}
               theme="vs-dark"
               options={{
                 fontSize: 13,
@@ -398,6 +574,7 @@ export default function App() {
                 wordWrap: 'off',
                 padding: { top: 12 },
                 renderLineHighlight: 'line',
+                readOnly: !!(selectedFile?.readOnly || selectedFile?.missing),
               }}
             />
           </div>

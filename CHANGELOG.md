@@ -1,5 +1,160 @@
 # Changelog
 
+## ReasonScript IDE Phase 3 - Local Workspace Editing Foundation - 2026-07-01
+
+### Status
+
+DRAFT FOR ADOPTION
+
+### Summary
+
+ReasonScript IDE Phase 3 defines the Local Workspace Editing Foundation.
+
+This phase extends the Playground-first IDE from temporary source editing
+to workspace file-based development. It introduces selected file state,
+editor binding, dirty state tracking, save workflow, analyze-current-file
+workflow, per-file diagnostics, and per-file artifact identity. Runtime and
+compiler semantics are unchanged — Phase 3 only changes how source text
+reaches `/api/analyze`.
+
+### Scope
+
+- Workspace file selection
+- Source editor binding
+- File read / save
+- Dirty state tracking
+- Analyze selected file
+- Per-file analyze result binding
+- Per-file diagnostics
+- Per-file artifact identity
+- Missing file handling
+- Path traversal protection
+- Workspace editing documentation
+- Workspace editing contract tests
+
+### Non-Goals
+
+- Desktop IDE full implementation
+- Terminal emulator
+- Full LSP integration
+- Multi-file semantic linking
+- Package manager
+- Git integration
+- Advanced runtime replay
+- Cloud workspace
+
+### Added
+
+- Added `playground/backend/workspace.py`: workspace scan, read, save, and
+  path-safety helpers.
+- Added `POST /api/workspace/list` (also serves workspace refresh).
+- Added `POST /api/workspace/read`.
+- Added `POST /api/workspace/save`.
+- Added optional `source_context` field to the `/api/analyze` request
+  (`workspace_root`, `relative_path`, `dirty`) — omitting it preserves the
+  exact Phase 2 behavior.
+- Added `source_context` (with a deterministic `artifact_id`) to the
+  `/api/analyze` response when a workspace file was analyzed.
+- Added `relative_path` stamping on diagnostics when `source_context` is
+  present.
+- Added best-effort per-file artifact persistence under
+  `<workspace_root>/.reasonscript/artifacts/<artifact_id>/`, reusing the
+  existing Phase 2 artifact file names.
+- Added `WorkspaceExplorer` sidebar to the Playground frontend: open a
+  workspace root, browse the file tree, select a `.rsn`/`.reason` file.
+- Added file-aware Source Editor: selected-file header (filename, dirty
+  indicator, read-only/missing/stale badges), Save action, and a
+  file-bound Analyze action.
+- Added per-file analyze result cache in the frontend so switching files
+  restores that file's last analyze result.
+- Added Phase 3 development documentation:
+  `workspace_editing_foundation.md`, `file_operation_contract.md`,
+  `editor_state_contract.md`, `per_file_artifact_contract.md`,
+  `per_file_diagnostics_contract.md`.
+- Added workspace contract tests under `tests/ide/`.
+
+### Required File Operations
+
+- `list_workspace_files` — `POST /api/workspace/list`
+- `read_workspace_file` — `POST /api/workspace/read`
+- `save_workspace_file` — `POST /api/workspace/save`
+- `refresh_workspace` — re-invoke `POST /api/workspace/list`
+- `select_workspace_file` — frontend-only state; no backend endpoint (the
+  backend is stateless per-request)
+
+### Source File Extensions
+
+- `.rsn` as preferred ReasonScript source extension
+- `.reason` as optional compatibility extension
+
+### Analyze Request Extension
+
+`POST /api/analyze` may include optional `source_context`:
+
+```json
+{
+  "source": "model Test {}",
+  "compiler_mode": "default",
+  "source_context": {
+    "workspace_root": "/path/to/project",
+    "relative_path": "examples/test.rsn",
+    "dirty": false
+  }
+}
+```
+
+### Artifact Identity
+
+Per-file artifacts use a deterministic source-path hash:
+
+```
+.reasonscript/artifacts/<artifact_id>/
+```
+
+where `artifact_id = sha256(relative_path)[:16]`. Required artifact names
+remain unchanged: `ast.json`, `semantic_ast.json`, `reason_ir.json`,
+`execution_plan.json`, `simulation.json`, `knowledge.json`,
+`diagnostics.json`, `validation.json`.
+
+### Acceptance Criteria
+
+- Workspace file tree can select ReasonScript source files.
+- Selected file content loads into Source Editor.
+- Dirty state is tracked.
+- Selected file can be saved.
+- Path traversal is rejected.
+- Selected file can be analyzed through `/api/analyze`.
+- Analyze result is bound to selected file.
+- Runtime panels display selected file analyze result.
+- Diagnostics are associated with selected file.
+- Missing selected file does not crash the IDE.
+- Artifact identity is deterministic per file.
+- Temporary source analyze mode remains supported.
+
+### Validation
+
+```
+python3 scripts/dev.py test ide
+python3 scripts/dev.py test backend
+python3 scripts/dev.py test smoke
+npm run build (playground/frontend)
+```
+
+### Compatibility
+
+- Parser behavior is unchanged.
+- Runtime behavior is unchanged.
+- Reason IR semantics are unchanged.
+- ExecutionPlan semantics are unchanged.
+- Simulation semantics are unchanged.
+- Knowledge semantics are unchanged.
+- `/api/analyze` remains backward compatible with the Phase 2 request
+  shape.
+- `source_context` is optional.
+- Temporary source analyze mode remains supported.
+
+---
+
 ## ReasonScript IDE Phase 2 - Playground-first IDE Runtime Integration - 2026-06-29
 
 ### Status
