@@ -1,5 +1,197 @@
 # Changelog
 
+## ReasonScript IDE Phase 4-D - Cross-platform Policy, Tests, and Docs - 2026-07-01
+
+### Status
+
+VALIDATED
+
+### Summary
+
+ReasonScript IDE Phase 4-D has been completed as the Cross-platform Policy,
+Tests, and Docs phase.
+
+This phase consolidates the Phase 4 cross-platform adapter foundation. It fixes
+the browser-first policy, desktop stub policy, final `PlatformAdapter` contract,
+path policy, workspace/artifact adapter policy, command/shortcut policy,
+settings persistence policy, notification policy, and desktop shell deferred
+policy.
+
+Phase 4-D is a stabilization phase. Parser behavior, runtime behavior,
+Reason IR semantics, `/api/analyze`, and `/api/workspace/*` contracts remain
+unchanged.
+
+### Added
+
+- Added Phase 4-D policy documentation:
+  - `phase4_cross_platform_foundation.md`
+  - `browser_desktop_boundary.md`
+  - `platform_adapter_final_contract.md`
+  - `phase4_policy_index.md`
+  - `desktop_shell_deferred_policy.md`
+- Added Phase 4 final policy index.
+- Added Desktop Shell deferred policy.
+- Added Phase 4-D integration tests:
+  - platform foundation contract
+  - no direct platform leakage
+  - browser / desktop boundary
+  - required policy docs
+
+### Changed
+
+- Clarified that `BrowserPlatformAdapter` is the official Phase 4 runtime
+  target.
+- Clarified that `DesktopPlatformAdapter` is only a future replacement point.
+- Updated `DesktopPlatformAdapter` capability flags so native dialogs, native
+  menus, local filesystem shell integration, and local process execution are not
+  exposed in Phase 4-D.
+- Clarified that desktop workspace and artifact operations return
+  `PlatformErrorKind=unsupported` until a desktop shell provides real
+  implementations.
+- Updated existing platform adapter contract documentation.
+- Updated changelog for Phase 4-D.
+
+### Fixed
+
+- Fixed Phase 4 policy boundary across:
+  - `PlatformAdapter`
+  - `WorkspaceAdapter`
+  - `ArtifactAdapter`
+  - `CommandAdapter`
+  - `SettingsAdapter`
+  - `NotificationAdapter`
+- Fixed `NormalizedRelativePath` as the UI file identity policy.
+- Fixed analyze-result backed `ArtifactAdapter` as the Phase 4 artifact policy.
+- Fixed command-oriented shortcuts as the Phase 4 shortcut policy.
+- Fixed Desktop Shell as deferred beyond Phase 4.
+
+### Compatibility
+
+- Existing Playground-first behavior is preserved.
+- Phase 3 workspace editing behavior is preserved.
+- Phase 3.5 standard layout behavior is preserved.
+- Phase 4-A/B/C adapter behavior is preserved.
+- `/api/analyze` contract is unchanged.
+- `/api/workspace/list` contract is unchanged.
+- `/api/workspace/read` contract is unchanged.
+- `/api/workspace/save` contract is unchanged.
+- Runtime semantics are unchanged.
+- Parser behavior is unchanged.
+- Desktop shell remains deferred.
+
+### Validation
+
+- `python3 -m pytest tests/ide/test_phase4_*.py -v --tb=short`
+  - 23 passed
+- `python3 -m pytest tests/ide -v --tb=short`
+  - 141 passed
+- `npm run build`
+  - passed
+- `python3 scripts/dev.py test ide`
+  - 161 passed
+- `python3 scripts/dev.py test smoke`
+  - passed
+- `python3 scripts/dev.py test backend`
+  - 33 passed
+- `git diff --check`
+  - passed
+
+---
+
+## ReasonScript IDE Phase 4 - Cross-platform UI / Platform Adapter Foundation - 2026-07-01
+
+### Status
+
+VALIDATED
+
+### Summary
+
+ReasonScript IDE Phase 4 has been completed as the Cross-platform UI /
+Platform Adapter Foundation.
+
+This phase prepares the Playground-first IDE for future macOS, Windows, and
+Linux desktop shell support by separating UI behavior from browser, desktop,
+and OS-specific concerns.
+
+Phase 4 does not implement the desktop shell. It establishes the adapter
+architecture required for future desktop integration.
+
+### Included Sub-phases
+
+- Phase 4-A: Platform Adapter Core
+- Phase 4-B: Workspace & Artifact Adapter Migration
+- Phase 4-C: Command / Settings / Notification Adapter
+- Phase 4-D: Cross-platform Policy, Tests, and Docs
+
+### Added
+
+- Added `PlatformAdapter`.
+- Added `BrowserPlatformAdapter`.
+- Added `DesktopPlatformAdapter` stub.
+- Added `WorkspaceAdapter` operational boundary.
+- Added `ArtifactAdapter` operational boundary.
+- Added `CommandAdapter` and `CommandRegistry`.
+- Added `SettingsAdapter` persistence.
+- Added `NotificationAdapter`.
+- Added `PlatformError` model.
+- Added `NormalizedRelativePath` validation.
+- Added command-oriented shortcut policy.
+- Added browser / desktop boundary documentation.
+- Added Desktop Shell deferred policy.
+- Added Phase 4 integration tests.
+
+### Final Architecture
+
+```txt
+UI Components
+  -> CommandRegistry / UI State
+  -> PlatformAdapter
+      -> WorkspaceAdapter
+      -> ArtifactAdapter
+      -> CommandAdapter
+      -> SettingsAdapter
+      -> NotificationAdapter
+  -> BrowserPlatformAdapter or future DesktopPlatformAdapter
+```
+
+### Final Policy
+
+- `BrowserPlatformAdapter` is the official Phase 4 runtime target.
+- `DesktopPlatformAdapter` is a future replacement point only.
+- Desktop Shell implementation is deferred.
+- UI file identity uses `NormalizedRelativePath`.
+- Workspace operations go through `PlatformAdapter.workspace`.
+- Artifact operations go through `PlatformAdapter.artifacts`.
+- IDE actions are command-oriented through `IdeCommand`.
+- Settings persist through `SettingsAdapter`.
+- User-visible messages go through `NotificationAdapter`.
+- Unsupported desktop operations return `PlatformErrorKind=unsupported`.
+
+### Compatibility
+
+- Existing Playground-first workflow is preserved.
+- Existing workspace editing behavior is preserved.
+- Existing standard IDE layout behavior is preserved.
+- `/api/analyze` contract is unchanged.
+- `/api/workspace/list` contract is unchanged.
+- `/api/workspace/read` contract is unchanged.
+- `/api/workspace/save` contract is unchanged.
+- Runtime semantics are unchanged.
+- Parser behavior is unchanged.
+- Desktop shell remains deferred.
+
+### Validation
+
+- Phase 4-D focused tests passed.
+- Full `tests/ide` passed.
+- UI build passed.
+- Official IDE tests passed.
+- Smoke tests passed.
+- Backend tests passed.
+- `git diff --check` passed.
+
+---
+
 ## ReasonScript IDE Phase 4-C - Command / Settings / Notification Adapter - 2026-07-01
 
 ### Status

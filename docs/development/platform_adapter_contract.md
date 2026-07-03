@@ -13,7 +13,7 @@ export interface PlatformAdapter {
 }
 ```
 
-`PlatformEnvironment` exposes stable capability flags for browser and desktop implementations. Browser defaults disable local filesystem, native dialogs, native menus, and process execution. The desktop adapter is a stub with local filesystem and native UI capabilities marked as available, but unsupported operations still return an explicit `unsupported` error until a shell implementation exists.
+`PlatformEnvironment` exposes stable capability flags for browser and desktop implementations. Browser defaults disable local filesystem, native dialogs, native menus, and process execution. The Phase 4-D desktop adapter remains a stub and uses conservative capability flags until a shell implementation exists. Unsupported operations still return an explicit `unsupported` error.
 
 Sub-adapter contracts:
 
@@ -31,4 +31,4 @@ The active adapter is resolved with:
 getPlatformAdapter()
 ```
 
-Phase 4-A defaults to the browser adapter. Tauri or native desktop detection is deferred.
+Phase 4-D defaults to the browser adapter. Tauri or native desktop detection is deferred.

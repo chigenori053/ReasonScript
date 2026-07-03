@@ -38,8 +38,8 @@ def test_browser_and_desktop_environment_contracts_are_explicit():
     assert "supportsLocalFilesystem: false" in browser
     assert "supportsNativeDialogs: false" in browser
     assert 'kind: "desktop"' in desktop
-    assert "supportsLocalFilesystem: true" in desktop
-    assert "supportsNativeDialogs: true" in desktop
+    assert "supportsLocalFilesystem: false" in desktop
+    assert "supportsNativeDialogs: false" in desktop
 
 
 def test_unsupported_operations_return_unsupported_platform_error():

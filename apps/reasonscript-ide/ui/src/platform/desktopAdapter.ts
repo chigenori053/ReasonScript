@@ -12,9 +12,9 @@ export function createDesktopPlatformAdapter(): PlatformAdapter {
     environment: {
       kind: "desktop",
       os: "unknown",
-      supportsLocalFilesystem: true,
-      supportsNativeDialogs: true,
-      supportsNativeMenu: true,
+      supportsLocalFilesystem: false,
+      supportsNativeDialogs: false,
+      supportsNativeMenu: false,
       supportsProcessExecution: false,
     },
     workspace: createUnsupportedWorkspaceAdapter(),
