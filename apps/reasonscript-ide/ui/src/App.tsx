@@ -26,8 +26,15 @@ import { useWorkspaceStore } from "./state/workspaceStore";
 import { buildProjectState, exportProjectState } from "./bridge";
 import { revealSourceSpan, revealSymbolFallback } from "./editor/sourceNavigation";
 import type { ArtifactSelection, ArtifactKind, FileNode, WorkspaceScanStatus, WorkspaceState } from "./types";
-import { getPlatformAdapter, setAnalyzeArtifactSource, validateNormalizedRelativePath } from "./platform";
-import type { WorkspaceFileNode } from "./platform";
+import {
+  createCommandRegistry,
+  createCommandResult,
+  getPlatformAdapter,
+  notifyPlatformError,
+  setAnalyzeArtifactSource,
+  validateNormalizedRelativePath,
+} from "./platform";
+import type { IdeCommand, WorkspaceFileNode } from "./platform";
 import "./App.css";
 
 // v0.6-C: model is the preferred top-level construct for new code
@@ -84,12 +91,18 @@ export default function App() {
   const [savedSource, setSavedSource] = useState(DEFAULT_SOURCE);
   const [selectedVersion, setSelectedVersion] = useState<string | undefined>(undefined);
   const [selectedReadOnly, setSelectedReadOnly] = useState(false);
-  const [compilerMode] = useState("normal");
+  const [compilerMode, setCompilerMode] = useState("normal");
   const [activeInspectorTab, setActiveInspectorTab] = useState("overview");
+  const [activeBottomTab, setActiveBottomTab] = useState("problems");
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const store = useProjectStore();
   const wsStore = useWorkspaceStore();
   const platform = useMemo(() => getPlatformAdapter(), []);
+  const commandRegistry = useMemo(() => createCommandRegistry(), []);
+
+  useEffect(() => {
+    platform.commands = commandRegistry;
+  }, [commandRegistry, platform]);
 
   const handleEditorBeforeMount = useCallback((monaco: typeof Monaco) => {
     registerReasonScriptLanguage(monaco);
@@ -114,6 +127,64 @@ export default function App() {
     }
   }, [store.selectedArtifact]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restoreSettings() {
+      const [storedMode, storedInspectorTab, storedBottomTab] = await Promise.all([
+        platform.settings.get<string>("compilerMode"),
+        platform.settings.get<string>("rightInspector.activeTab"),
+        platform.settings.get<string>("bottomToolWindow.activeTab"),
+      ]);
+
+      if (cancelled) return;
+      if (storedMode) setCompilerMode(storedMode);
+      if (storedInspectorTab) setActiveInspectorTab(storedInspectorTab);
+      if (storedBottomTab) setActiveBottomTab(storedBottomTab);
+    }
+
+    restoreSettings().catch((cause) => {
+      platform.notifications.warning("Settings could not be restored.", {
+        operation: "settings.restore",
+        details: cause instanceof Error ? cause.message : String(cause),
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [platform]);
+
+  const setInspectorTab = useCallback((tabId: string) => {
+    setActiveInspectorTab(tabId);
+    platform.settings.set("rightInspector.activeTab", tabId).catch((cause) => {
+      platform.notifications.warning("Right inspector tab setting could not be saved.", {
+        operation: "settings.set",
+        details: cause instanceof Error ? cause.message : String(cause),
+      });
+    });
+  }, [platform]);
+
+  const setBottomToolTab = useCallback((tabId: string) => {
+    setActiveBottomTab(tabId);
+    platform.settings.set("bottomToolWindow.activeTab", tabId).catch((cause) => {
+      platform.notifications.warning("Bottom tool tab setting could not be saved.", {
+        operation: "settings.set",
+        details: cause instanceof Error ? cause.message : String(cause),
+      });
+    });
+  }, [platform]);
+
+  const setCompilerModeSetting = useCallback((mode: string) => {
+    setCompilerMode(mode);
+    platform.settings.set("compilerMode", mode).catch((cause) => {
+      platform.notifications.warning("Compiler mode setting could not be saved.", {
+        operation: "settings.set",
+        details: cause instanceof Error ? cause.message : String(cause),
+      });
+    });
+  }, [platform]);
+
   const runBuild = useCallback(async () => {
     store.setBuildStatus("building");
     store.setLastError(null);
@@ -124,6 +195,7 @@ export default function App() {
         if (!pathResult.ok) {
           store.setBuildStatus("error");
           store.setLastError(pathResult.error.message);
+          notifyPlatformError(platform.notifications, pathResult.error);
           return;
         }
         sourceContext = {
@@ -144,12 +216,19 @@ export default function App() {
       const message = e instanceof Error ? (e.stack ?? e.message) : String(e);
       store.setBuildStatus("error");
       store.setLastError(message);
+      platform.notifications.error("Analyze failed.", {
+        operation: "analyzeFile",
+        details: message,
+      });
     }
-  }, [savedSource, source, store, wsStore.selectedPath, wsStore.workspace]);
+  }, [platform.notifications, savedSource, source, store, wsStore.selectedPath, wsStore.workspace]);
 
   const handleOpenWorkspace = useCallback(async (rootPath: string) => {
     const result = await platform.workspace.listWorkspace({ workspaceRoot: rootPath });
-    if (!result.ok) throw new Error(result.error.message);
+    if (!result.ok) {
+      notifyPlatformError(platform.notifications, result.error);
+      throw new Error(result.error.message);
+    }
     wsStore.setWorkspace(workspaceFromAdapterResult(result.root, result.files, result.scanStatus));
     wsStore.setSelectedPath(null);
     wsStore.setActiveFilePath(null);
@@ -158,7 +237,10 @@ export default function App() {
   const handleRefreshWorkspace = useCallback(async () => {
     if (!wsStore.workspace) return;
     const result = await platform.workspace.listWorkspace({ workspaceRoot: wsStore.workspace.root_path });
-    if (!result.ok) throw new Error(result.error.message);
+    if (!result.ok) {
+      notifyPlatformError(platform.notifications, result.error);
+      throw new Error(result.error.message);
+    }
     wsStore.setWorkspace(workspaceFromAdapterResult(result.root, result.files, result.scanStatus));
   }, [platform, wsStore]);
 
@@ -172,6 +254,7 @@ export default function App() {
     const pathResult = validateNormalizedRelativePath(relativePath);
     if (!pathResult.ok) {
       store.setLastError(pathResult.error.message);
+      notifyPlatformError(platform.notifications, pathResult.error);
       return;
     }
 
@@ -181,6 +264,7 @@ export default function App() {
     });
     if (!result.ok) {
       store.setLastError(result.error.message);
+      notifyPlatformError(platform.notifications, result.error);
       return;
     }
 
@@ -198,11 +282,13 @@ export default function App() {
     if (!wsStore.workspace || !wsStore.selectedPath) return;
     if (selectedReadOnly) {
       store.setLastError("Selected file is read-only.");
+      platform.notifications.warning("Selected file is read-only.", { operation: "saveFile" });
       return;
     }
     const pathResult = validateNormalizedRelativePath(wsStore.selectedPath);
     if (!pathResult.ok) {
       store.setLastError(pathResult.error.message);
+      notifyPlatformError(platform.notifications, pathResult.error);
       return;
     }
     const result = await platform.workspace.saveFile({
@@ -213,24 +299,112 @@ export default function App() {
     });
     if (!result.ok) {
       store.setLastError(result.error.message);
+      notifyPlatformError(platform.notifications, result.error);
       return;
     }
     setSelectedVersion(result.version);
     setSavedSource(source);
     store.setLastError(null);
+    platform.notifications.info("File saved.", {
+      operation: "saveFile",
+      details: pathResult.relativePath,
+    });
   }, [platform, selectedReadOnly, selectedVersion, source, store, wsStore.selectedPath, wsStore.workspace]);
+
+  useEffect(() => {
+    commandRegistry.register("saveFile", async (request) => {
+      await saveCurrentFile();
+      return createCommandResult(request, "Save complete.");
+    });
+    commandRegistry.register("analyzeFile", async (request) => {
+      await runBuild();
+      return createCommandResult(request, "Analyze complete.");
+    });
+    commandRegistry.register("runCurrentFile", async (request) => {
+      await runBuild();
+      return createCommandResult(request, "Run complete.");
+    });
+    commandRegistry.register("validateWorkspace", async (request) => {
+      await runBuild();
+      return createCommandResult(request, "Validate complete.");
+    });
+    commandRegistry.register("auditProject", async (request) => {
+      await runBuild();
+      return createCommandResult(request, "Audit complete.");
+    });
+    commandRegistry.register("showOverview", async (request) => {
+      setInspectorTab("overview");
+      return createCommandResult(request);
+    });
+    commandRegistry.register("showPlan", async (request) => {
+      setInspectorTab("plan");
+      return createCommandResult(request);
+    });
+    commandRegistry.register("showSimulation", async (request) => {
+      setInspectorTab("simulation");
+      return createCommandResult(request);
+    });
+    commandRegistry.register("showKnowledge", async (request) => {
+      setInspectorTab("knowledge");
+      return createCommandResult(request);
+    });
+    commandRegistry.register("showArtifacts", async (request) => {
+      setInspectorTab("artifacts");
+      return createCommandResult(request);
+    });
+    commandRegistry.register("showProblems", async (request) => {
+      setBottomToolTab("problems");
+      return createCommandResult(request);
+    });
+    commandRegistry.register("showOutput", async (request) => {
+      setBottomToolTab("output");
+      return createCommandResult(request);
+    });
+    commandRegistry.register("showLogs", async (request) => {
+      setBottomToolTab("logs");
+      return createCommandResult(request);
+    });
+    commandRegistry.register("showTests", async (request) => {
+      setBottomToolTab("tests");
+      return createCommandResult(request);
+    });
+    commandRegistry.register("clearOutput", async (request) => {
+      store.setLastError(null);
+      return createCommandResult(request, "Output cleared.");
+    });
+    commandRegistry.register("clearNotifications", async (request) => createCommandResult(request));
+  }, [
+    commandRegistry,
+    runBuild,
+    saveCurrentFile,
+    setBottomToolTab,
+    setInspectorTab,
+    store,
+  ]);
+
+  const executeCommand = useCallback(
+    async (command: IdeCommand, source: "top_bar" | "shortcut" | "menu" | "panel" | "system" = "panel") => {
+      const result = await commandRegistry.execute({ command, source });
+      if (!result.ok && result.error) {
+        notifyPlatformError(platform.notifications, result.error);
+      }
+      return result;
+    },
+    [commandRegistry, platform.notifications]
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
-      if (meta && e.key === "b") { e.preventDefault(); runBuild(); }
-      else if (meta && e.key === "Enter") { e.preventDefault(); runBuild(); }
-      else if (meta && e.key.toLowerCase() === "s") { e.preventDefault(); saveCurrentFile(); }
+      if (meta && e.key === "b") { e.preventDefault(); executeCommand("analyzeFile", "shortcut"); }
+      else if (meta && e.key === "Enter") { e.preventDefault(); executeCommand("analyzeFile", "shortcut"); }
+      else if (meta && e.key.toLowerCase() === "s") { e.preventDefault(); executeCommand("saveFile", "shortcut"); }
+      else if (meta && e.shiftKey && e.key.toLowerCase() === "m") { e.preventDefault(); executeCommand("showProblems", "shortcut"); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [runBuild, saveCurrentFile]);
+  }, [executeCommand]);
 
   const handleExport = useCallback(async () => {
     if (!store.projectState) return;
@@ -255,8 +429,8 @@ export default function App() {
       diagnostics: "overview",
     };
     const target = stageToTab[stageId];
-    if (target) setActiveInspectorTab(target);
-  }, []);
+    if (target) setInspectorTab(target);
+  }, [setInspectorTab]);
 
   const ps = store.projectState;
   const sel = store.selectedArtifact;
@@ -342,12 +516,13 @@ export default function App() {
         projectName={wsStore.workspace?.root_name ?? ps?.workspace?.project_name ?? "ReasonScript"}
         selectedFile={wsStore.selectedPath ?? ps?.metadata?.source_filename ?? "temporary source"}
         dirty={wsStore.selectedPath ? source !== savedSource : source !== (ps?.source_files?.[0]?.text ?? source)}
-        onRun={runBuild}
-        onAnalyze={runBuild}
-        onValidate={runBuild}
-        onAudit={runBuild}
+        onSave={() => executeCommand("saveFile", "top_bar")}
+        onRun={() => executeCommand("runCurrentFile", "top_bar")}
+        onAnalyze={() => executeCommand("analyzeFile", "top_bar")}
+        onValidate={() => executeCommand("validateWorkspace", "top_bar")}
+        onAudit={() => executeCommand("auditProject", "top_bar")}
         onExport={handleExport}
-        onCompilerModeChange={() => {}}
+        onCompilerModeChange={setCompilerModeSetting}
       />
 
       {sel && (
@@ -419,6 +594,8 @@ export default function App() {
             lastError={store.lastError}
             selectedArtifact={sel}
             onSelectArtifact={handleSelectArtifact}
+            activeTab={activeBottomTab}
+            onActiveTabChange={setBottomToolTab}
           />
         </div>
 
@@ -426,7 +603,7 @@ export default function App() {
           <TabPanel
             tabs={rightInspectorTabs}
             activeTab={activeInspectorTab}
-            onActiveTabChange={setActiveInspectorTab}
+            onActiveTabChange={setInspectorTab}
           />
         </div>
       </div>

@@ -133,17 +133,53 @@ export type ReadArtifactResult = PlatformResult<{
 
 export type IdeCommand =
   | "openWorkspace"
+  | "refreshWorkspace"
   | "saveFile"
   | "analyzeFile"
-  | "validateWorkspace"
   | "runCurrentFile"
+  | "validateWorkspace"
+  | "auditProject"
+  | "showOverview"
+  | "showPlan"
+  | "showSimulation"
+  | "showKnowledge"
+  | "showArtifacts"
   | "showProblems"
-  | "showOutput";
+  | "showOutput"
+  | "showLogs"
+  | "showTests"
+  | "clearOutput"
+  | "clearNotifications";
 
-export type CommandResult = PlatformResult<{
+export interface CommandRequest {
   command: IdeCommand;
   payload?: unknown;
-}>;
+  source?: "top_bar" | "shortcut" | "menu" | "panel" | "system";
+}
+
+export interface CommandResult {
+  ok: boolean;
+  command: IdeCommand;
+  message?: string;
+  error?: PlatformError;
+}
+
+export type IdeSettingKey =
+  | "compilerMode"
+  | "rightInspector.activeTab"
+  | "bottomToolWindow.activeTab"
+  | "bottomToolWindow.visible"
+  | "layout.leftPaneWidth"
+  | "layout.rightPaneWidth"
+  | "layout.bottomPaneHeight"
+  | "workspace.lastRoot";
+
+export interface NotificationOptions {
+  title?: string;
+  operation?: string;
+  details?: string;
+  durationMs?: number;
+}
 
 export interface WorkspaceAdapter {
   listWorkspace(request: ListWorkspaceRequest): Promise<ListWorkspaceResult>;
@@ -157,18 +193,19 @@ export interface ArtifactAdapter {
 }
 
 export interface CommandAdapter {
-  execute(command: IdeCommand, payload?: unknown): Promise<CommandResult>;
+  execute(request: CommandRequest): Promise<CommandResult>;
 }
 
 export interface SettingsAdapter {
   get<T>(key: string): Promise<T | null>;
   set<T>(key: string, value: T): Promise<void>;
+  remove?(key: string): Promise<void>;
 }
 
 export interface NotificationAdapter {
-  info(message: string): void;
-  warning(message: string): void;
-  error(message: string): void;
+  info(message: string, options?: NotificationOptions): void;
+  warning(message: string, options?: NotificationOptions): void;
+  error(message: string, options?: NotificationOptions): void;
 }
 
 export interface PlatformAdapter {

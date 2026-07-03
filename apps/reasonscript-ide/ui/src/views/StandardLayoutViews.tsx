@@ -270,6 +270,8 @@ interface BottomToolWindowProps extends SelectionProps {
   simulationVm: SimulationTraceViewModel;
   projectState: ProjectState | null;
   lastError: string | null;
+  activeTab?: string;
+  onActiveTabChange?: (tabId: string) => void;
 }
 
 export function BottomToolWindow({
@@ -279,6 +281,8 @@ export function BottomToolWindow({
   lastError,
   selectedArtifact,
   onSelectArtifact,
+  activeTab,
+  onActiveTabChange,
 }: BottomToolWindowProps) {
   const tabs = [
     {
@@ -325,7 +329,12 @@ export function BottomToolWindow({
 
   return (
     <div className="ide-bottom-tool-window">
-      <TabPanel tabs={tabs} defaultTab="problems" />
+      <TabPanel
+        tabs={tabs}
+        defaultTab="problems"
+        activeTab={activeTab}
+        onActiveTabChange={onActiveTabChange}
+      />
     </div>
   );
 }

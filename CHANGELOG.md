@@ -1,5 +1,126 @@
 # Changelog
 
+## ReasonScript IDE Phase 4-C - Command / Settings / Notification Adapter - 2026-07-01
+
+### Status
+
+VALIDATED
+
+### Summary
+
+ReasonScript IDE Phase 4-C has been completed as the Command / Settings /
+Notification Adapter phase.
+
+This phase adds a command-oriented action boundary for IDE operations,
+introduces persistent browser settings through `SettingsAdapter`, and routes
+user-visible messages through `NotificationAdapter`.
+
+Top Bar actions, panel switching, and keyboard shortcut readiness now share the
+same `IdeCommand` surface. This prepares the Playground-first IDE for future
+desktop menu and OS-specific shortcut integration.
+
+### Added
+
+- Added expanded `IdeCommand` surface:
+  - `openWorkspace`
+  - `refreshWorkspace`
+  - `saveFile`
+  - `analyzeFile`
+  - `runCurrentFile`
+  - `validateWorkspace`
+  - `auditProject`
+  - `showOverview`
+  - `showPlan`
+  - `showSimulation`
+  - `showKnowledge`
+  - `showArtifacts`
+  - `showProblems`
+  - `showOutput`
+  - `showLogs`
+  - `showTests`
+  - `clearOutput`
+  - `clearNotifications`
+- Added `CommandRequest`.
+- Added `CommandResult`.
+- Added `CommandRegistry`.
+- Added shortcut binding table.
+- Added command-oriented Top Bar actions.
+- Added command-oriented Right Inspector tab switching.
+- Added command-oriented Bottom Tool Window tab switching.
+- Added browser `SettingsAdapter` persistence using `localStorage` with memory
+  fallback.
+- Added persistence for:
+  - `compilerMode`
+  - `rightInspector.activeTab`
+  - `bottomToolWindow.activeTab`
+- Added `NotificationAdapter` metadata support:
+  - `title`
+  - `operation`
+  - `details`
+  - `durationMs`
+- Added `PlatformError` to notification severity mapping.
+- Added Phase 4-C documentation and contract tests.
+
+### Changed
+
+- Save now routes through the `saveFile` command.
+- Analyze now routes through the `analyzeFile` command.
+- Run now routes through the `runCurrentFile` command.
+- Validate now routes through the `validateWorkspace` command.
+- Audit now routes through the `auditProject` command.
+- Right Inspector tab selection now routes through command names.
+- Bottom Tool Window tab selection now routes through command names.
+- Browser settings now use `localStorage` with memory fallback.
+
+### Keyboard Shortcut Policy
+
+Shortcuts bind to `IdeCommand` names, not directly to UI handlers.
+
+Initial bindings:
+
+| Command | macOS | Windows | Linux |
+| --- | --- | --- | --- |
+| `saveFile` | `Cmd+S` | `Ctrl+S` | `Ctrl+S` |
+| `analyzeFile` | `Cmd+Enter` | `Ctrl+Enter` | `Ctrl+Enter` |
+| `showProblems` | `Cmd+Shift+M` | `Ctrl+Shift+M` | `Ctrl+Shift+M` |
+
+Full OS-level shortcut binding remains outside Phase 4-C.
+
+### Notification Policy
+
+Notifications are platform-bound user messages with three levels:
+
+- `info`
+- `warning`
+- `error`
+
+Browser Phase 4-C uses console fallback notifications. Desktop native
+notifications are deferred to the desktop shell phase.
+
+### Compatibility
+
+- Existing Playground behavior is preserved.
+- Phase 4-B workspace/artifact adapter behavior is preserved.
+- `/api/analyze` contract is unchanged.
+- `/api/workspace/list` contract is unchanged.
+- `/api/workspace/read` contract is unchanged.
+- `/api/workspace/save` contract is unchanged.
+- Runtime semantics are unchanged.
+- Desktop shell remains deferred.
+
+### Validation
+
+- `npm run build`
+- `python3 -m pytest tests/ide/test_command_adapter_contract.py tests/ide/test_command_registry.py tests/ide/test_settings_adapter_contract.py tests/ide/test_notification_adapter_contract.py tests/ide/test_shortcut_command_mapping.py -v --tb=short`
+- `python3 scripts/dev.py test ide`
+- `python3 scripts/dev.py test smoke`
+- `python3 scripts/dev.py test backend`
+- `git diff --check`
+
+All validation commands passed.
+
+---
+
 ## ReasonScript IDE Phase 4-B - Workspace & Artifact Adapter Migration - 2026-07-01
 
 ### Status

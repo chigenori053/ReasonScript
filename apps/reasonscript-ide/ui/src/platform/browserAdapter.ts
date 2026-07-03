@@ -3,10 +3,13 @@ import type {
   ArtifactDescriptor,
   ArtifactIndexRequest,
   CommandAdapter,
-  IdeCommand,
+  CommandRequest,
   NotificationAdapter,
+  NotificationOptions,
   PlatformAdapter,
   PlatformFailure,
+  PlatformError,
+  PlatformErrorKind,
   PlatformResult,
   ReadArtifactRequest,
   SettingsAdapter,
@@ -198,8 +201,12 @@ export function createUnsupportedArtifactAdapter(): ArtifactAdapter {
 
 export function createUnsupportedCommandAdapter(): CommandAdapter {
   return {
-    async execute(command: IdeCommand) {
-      return { ok: false, error: unsupportedPlatformError(`commands.${command}`) };
+    async execute(request: CommandRequest) {
+      return {
+        ok: false,
+        command: request.command,
+        error: unsupportedPlatformError(`commands.${request.command}`),
+      };
     },
   };
 }
@@ -214,21 +221,110 @@ export function createMemorySettingsAdapter(): SettingsAdapter {
     async set<T>(key: string, value: T): Promise<void> {
       settings.set(key, value);
     },
+    async remove(key: string): Promise<void> {
+      settings.delete(key);
+    },
   };
+}
+
+const SETTINGS_PREFIX = "reasonscript.ide.";
+
+function localStorageAvailable(): boolean {
+  try {
+    const testKey = `${SETTINGS_PREFIX}storage_test`;
+    window.localStorage.setItem(testKey, "1");
+    window.localStorage.removeItem(testKey);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function createBrowserSettingsAdapter(): SettingsAdapter {
+  const memory = createMemorySettingsAdapter();
+  const canUseLocalStorage =
+    typeof window !== "undefined" && "localStorage" in window && localStorageAvailable();
+
+  if (!canUseLocalStorage) {
+    return memory;
+  }
+
+  return {
+    async get<T>(key: string): Promise<T | null> {
+      try {
+        const raw = window.localStorage.getItem(`${SETTINGS_PREFIX}${key}`);
+        return raw == null ? null : (JSON.parse(raw) as T);
+      } catch (cause) {
+        console.warn(`Invalid setting ignored: ${key}`, cause);
+        return memory.get<T>(key);
+      }
+    },
+
+    async set<T>(key: string, value: T): Promise<void> {
+      try {
+        window.localStorage.setItem(`${SETTINGS_PREFIX}${key}`, JSON.stringify(value));
+      } catch (cause) {
+        console.warn(`Setting stored in memory fallback: ${key}`, cause);
+        await memory.set(key, value);
+      }
+    },
+
+    async remove(key: string): Promise<void> {
+      try {
+        window.localStorage.removeItem(`${SETTINGS_PREFIX}${key}`);
+      } catch {
+        await memory.remove?.(key);
+      }
+    },
+  };
+}
+
+function formatNotification(message: string, options?: NotificationOptions): string {
+  const title = options?.title ? `${options.title}: ` : "";
+  const details = options?.details ? `\n${options.details}` : "";
+  return `${title}${message}${details}`;
 }
 
 export function createConsoleNotificationAdapter(): NotificationAdapter {
   return {
-    info(message: string) {
-      console.info(message);
+    info(message: string, options?: NotificationOptions) {
+      console.info(formatNotification(message, options));
     },
-    warning(message: string) {
-      console.warn(message);
+    warning(message: string, options?: NotificationOptions) {
+      console.warn(formatNotification(message, options));
     },
-    error(message: string) {
-      console.error(message);
+    error(message: string, options?: NotificationOptions) {
+      console.error(formatNotification(message, options));
     },
   };
+}
+
+const NOTIFICATION_LEVEL_BY_ERROR_KIND: Record<PlatformErrorKind, keyof NotificationAdapter> = {
+  missing: "warning",
+  read_only: "warning",
+  permission_denied: "error",
+  invalid_encoding: "error",
+  path_traversal: "error",
+  conflict: "warning",
+  unsupported: "warning",
+  network_error: "error",
+  unknown: "error",
+};
+
+export function notifyPlatformError(
+  notifications: NotificationAdapter,
+  error: PlatformError
+): void {
+  const level = NOTIFICATION_LEVEL_BY_ERROR_KIND[error.kind];
+  try {
+    notifications[level](error.message, {
+      title: error.kind,
+      operation: error.operation,
+      details: error.relativePath,
+    });
+  } catch (cause) {
+    console.error("Notification failed.", cause);
+  }
 }
 
 export function createBrowserWorkspaceAdapter(): WorkspaceAdapter {
@@ -410,7 +506,7 @@ export function createBrowserPlatformAdapter(): PlatformAdapter {
     workspace: createBrowserWorkspaceAdapter(),
     artifacts: createBrowserArtifactAdapter(),
     commands: createUnsupportedCommandAdapter(),
-    settings: createMemorySettingsAdapter(),
+    settings: createBrowserSettingsAdapter(),
     notifications: createConsoleNotificationAdapter(),
   };
 }

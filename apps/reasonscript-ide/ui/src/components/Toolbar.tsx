@@ -6,6 +6,7 @@ interface Props {
   projectName: string;
   selectedFile: string;
   dirty: boolean;
+  onSave: () => void;
   onRun: () => void;
   onAnalyze: () => void;
   onValidate: () => void;
@@ -34,6 +35,7 @@ export default function Toolbar({
   projectName,
   selectedFile,
   dirty,
+  onSave,
   onRun,
   onAnalyze,
   onValidate,
@@ -65,6 +67,9 @@ export default function Toolbar({
         {selectedFile}{dirty ? " *" : ""}
       </span>
 
+      <button className="toolbar-btn secondary" onClick={onSave} title="Save">
+        Save
+      </button>
       <button className="toolbar-btn" onClick={onValidate} title="Validate">
         Validate
       </button>
