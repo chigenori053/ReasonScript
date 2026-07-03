@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import TabPanel from "../components/TabPanel";
 import type {
   ArtifactSelection,
@@ -18,6 +19,8 @@ import RuntimeOperationsView from "./RuntimeOperationsView";
 import SourceModelView from "./SourceModelView";
 import ValidationView from "./ValidationView";
 import type { SourceModelViewModel } from "../visualization/viewModels";
+import { getPlatformAdapter } from "../platform";
+import type { ArtifactDescriptor } from "../platform";
 
 interface SelectionProps {
   selectedArtifact?: ArtifactSelection | null;
@@ -39,6 +42,8 @@ function getArtifactStatus(data: unknown) {
   if (Array.isArray(data) && data.length === 0) return "empty";
   return "available";
 }
+
+type ArtifactContentByFile = Record<string, unknown>;
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {
   return (
@@ -141,16 +146,40 @@ export function ArtifactsInspectorView({
   selectedArtifact,
   onSelectArtifact,
 }: ArtifactsProps) {
-  const artifactStateRows = [
-    ["Surface AST", projectState?.surface_ast],
-    ["Semantic AST", projectState?.semantic_ast],
-    ["Reason IR", projectState?.reason_ir],
-    ["Execution Plan", projectState?.execution_plan],
-    ["Simulation", projectState?.simulation],
-    ["Knowledge", projectState?.knowledge],
-    ["Diagnostics", projectState?.diagnostics],
-    ["Validation", projectState?.validation],
-  ];
+  const [artifactDescriptors, setArtifactDescriptors] = useState<ArtifactDescriptor[]>([]);
+  const [artifactContent, setArtifactContent] = useState<ArtifactContentByFile>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadArtifacts() {
+      const adapter = getPlatformAdapter().artifacts;
+      const index = await adapter.getArtifactIndex({});
+      if (!index.ok) {
+        if (!cancelled) {
+          setArtifactDescriptors([]);
+          setArtifactContent({});
+        }
+        return;
+      }
+
+      const entries = await Promise.all(
+        index.artifacts.map(async (descriptor) => {
+          const result = await adapter.readArtifact({ fileName: descriptor.fileName });
+          return [descriptor.fileName, result.ok ? result.content : null] as const;
+        })
+      );
+
+      if (!cancelled) {
+        setArtifactDescriptors(index.artifacts);
+        setArtifactContent(Object.fromEntries(entries));
+      }
+    }
+
+    loadArtifacts();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectState]);
 
   const tabs = [
     {
@@ -159,12 +188,18 @@ export function ArtifactsInspectorView({
       content: (
         <div className="ide-artifact-state">
           <div className="ide-section-title">Artifact State</div>
-          {artifactStateRows.map(([label, data]) => (
-            <div className="ide-artifact-row" key={label as string}>
-              <span>{label as string}</span>
-              <strong>{getArtifactStatus(data)}</strong>
+          {artifactDescriptors.map((artifact) => (
+            <div className="ide-artifact-row" key={artifact.fileName}>
+              <span>{artifact.name}</span>
+              <strong>{artifact.state}</strong>
             </div>
           ))}
+          {artifactDescriptors.length === 0 && (
+            <div className="ide-artifact-row">
+              <span>Artifacts</span>
+              <strong>{getArtifactStatus(projectState)}</strong>
+            </div>
+          )}
           <div className="ide-muted-note">
             Raw JSON artifacts remain available in this tab group.
           </div>
@@ -179,19 +214,19 @@ export function ArtifactsInspectorView({
     {
       id: "ast",
       label: "AST",
-      content: <JsonArtifactView data={projectState?.surface_ast} label="Surface AST" />,
+      content: <JsonArtifactView data={artifactContent["ast.json"]} label="Surface AST" />,
     },
     {
       id: "semantic_ast",
       label: "Semantic AST",
-      content: <JsonArtifactView data={projectState?.semantic_ast} label="Semantic AST" />,
+      content: <JsonArtifactView data={artifactContent["semantic_ast.json"]} label="Semantic AST" />,
     },
     {
       id: "reason_ir",
       label: "Reason IR",
       content: (
         <ReasonIRView
-          data={projectState?.reason_ir}
+          data={artifactContent["reason_ir.json"]}
           selectedArtifact={selectedArtifact}
           onSelectArtifact={onSelectArtifact}
         />
@@ -202,8 +237,8 @@ export function ArtifactsInspectorView({
       label: "Validation",
       content: (
         <ValidationView
-          data={projectState?.validation}
-          diagnostics={projectState?.diagnostics ?? []}
+          data={artifactContent["validation.json"]}
+          diagnostics={(artifactContent["diagnostics.json"] as ProjectState["diagnostics"] | undefined) ?? []}
           selectedArtifact={selectedArtifact}
           onSelectArtifact={onSelectArtifact}
         />

@@ -25,7 +25,9 @@ import { useProjectStore } from "./state/projectStore";
 import { useWorkspaceStore } from "./state/workspaceStore";
 import { buildProjectState, exportProjectState } from "./bridge";
 import { revealSourceSpan, revealSymbolFallback } from "./editor/sourceNavigation";
-import type { ArtifactSelection, ArtifactKind } from "./types";
+import type { ArtifactSelection, ArtifactKind, FileNode, WorkspaceScanStatus, WorkspaceState } from "./types";
+import { getPlatformAdapter, setAnalyzeArtifactSource, validateNormalizedRelativePath } from "./platform";
+import type { WorkspaceFileNode } from "./platform";
 import "./App.css";
 
 // v0.6-C: model is the preferred top-level construct for new code
@@ -37,13 +39,57 @@ model HelloWorld {
 }
 `;
 
+function scanStatusToWorkspaceState(status: { status: string; truncated: boolean }): WorkspaceScanStatus {
+  if (status.truncated || status.status === "warning") return "partial";
+  if (status.status === "success") return "complete";
+  return "failed";
+}
+
+function toFileNode(node: WorkspaceFileNode): FileNode {
+  const relativePath = node.relativePath;
+  return {
+    name: node.name,
+    path: relativePath,
+    relative_path: relativePath,
+    kind: node.kind,
+    extension: node.extension ?? (node.kind === "file" ? node.name.split(".").pop() ?? null : null),
+    children: (node.children ?? []).map(toFileNode),
+    is_ignored: node.isIgnored ?? node.is_ignored ?? node.supported === false,
+    metadata: {
+      supported: node.supported,
+      dirty: node.dirty,
+      missing: node.missing,
+      read_only: node.readOnly,
+    },
+  };
+}
+
+function workspaceFromAdapterResult(root: string, files: WorkspaceFileNode[], scanStatus: { status: string; truncated: boolean }): WorkspaceState {
+  const parts = root.split("/").filter(Boolean);
+  return {
+    schema_version: "reasonscript-workspace/0.1",
+    root_path: root,
+    root_name: parts.length > 0 ? parts[parts.length - 1] : root,
+    files: files.map(toFileNode),
+    selected_path: null,
+    active_file_path: null,
+    ignored_patterns: [],
+    scan_status: scanStatusToWorkspaceState(scanStatus),
+    metadata: { platform_adapter: "browser" },
+  };
+}
+
 export default function App() {
   const [source, setSource] = useState(DEFAULT_SOURCE);
+  const [savedSource, setSavedSource] = useState(DEFAULT_SOURCE);
+  const [selectedVersion, setSelectedVersion] = useState<string | undefined>(undefined);
+  const [selectedReadOnly, setSelectedReadOnly] = useState(false);
   const [compilerMode] = useState("normal");
   const [activeInspectorTab, setActiveInspectorTab] = useState("overview");
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const store = useProjectStore();
   const wsStore = useWorkspaceStore();
+  const platform = useMemo(() => getPlatformAdapter(), []);
 
   const handleEditorBeforeMount = useCallback((monaco: typeof Monaco) => {
     registerReasonScriptLanguage(monaco);
@@ -72,14 +118,107 @@ export default function App() {
     store.setBuildStatus("building");
     store.setLastError(null);
     try {
-      const state = await buildProjectState(source, "file:///main.rsn");
+      let sourceContext;
+      if (wsStore.workspace && wsStore.selectedPath) {
+        const pathResult = validateNormalizedRelativePath(wsStore.selectedPath);
+        if (!pathResult.ok) {
+          store.setBuildStatus("error");
+          store.setLastError(pathResult.error.message);
+          return;
+        }
+        sourceContext = {
+          workspace_root: wsStore.workspace.root_path,
+          relative_path: pathResult.relativePath,
+          dirty: source !== savedSource,
+        };
+      }
+
+      const state = await buildProjectState(
+        source,
+        wsStore.selectedPath ? `file:///${wsStore.selectedPath}` : "file:///main.rsn",
+        sourceContext
+      );
       store.setProjectState(state);
+      setAnalyzeArtifactSource(state);
     } catch (e) {
       const message = e instanceof Error ? (e.stack ?? e.message) : String(e);
       store.setBuildStatus("error");
       store.setLastError(message);
     }
-  }, [source, store]);
+  }, [savedSource, source, store, wsStore.selectedPath, wsStore.workspace]);
+
+  const handleOpenWorkspace = useCallback(async (rootPath: string) => {
+    const result = await platform.workspace.listWorkspace({ workspaceRoot: rootPath });
+    if (!result.ok) throw new Error(result.error.message);
+    wsStore.setWorkspace(workspaceFromAdapterResult(result.root, result.files, result.scanStatus));
+    wsStore.setSelectedPath(null);
+    wsStore.setActiveFilePath(null);
+  }, [platform, wsStore]);
+
+  const handleRefreshWorkspace = useCallback(async () => {
+    if (!wsStore.workspace) return;
+    const result = await platform.workspace.listWorkspace({ workspaceRoot: wsStore.workspace.root_path });
+    if (!result.ok) throw new Error(result.error.message);
+    wsStore.setWorkspace(workspaceFromAdapterResult(result.root, result.files, result.scanStatus));
+  }, [platform, wsStore]);
+
+  const handleSelectWorkspacePath = useCallback(async (relativePath: string | null) => {
+    if (!relativePath || !wsStore.workspace) {
+      wsStore.setSelectedPath(null);
+      wsStore.setActiveFilePath(null);
+      return;
+    }
+
+    const pathResult = validateNormalizedRelativePath(relativePath);
+    if (!pathResult.ok) {
+      store.setLastError(pathResult.error.message);
+      return;
+    }
+
+    const result = await platform.workspace.readFile({
+      workspaceRoot: wsStore.workspace.root_path,
+      relativePath: pathResult.relativePath,
+    });
+    if (!result.ok) {
+      store.setLastError(result.error.message);
+      return;
+    }
+
+    const nextSource = result.content ?? "";
+    wsStore.setSelectedPath(pathResult.relativePath);
+    wsStore.setActiveFilePath(pathResult.relativePath);
+    setSource(nextSource);
+    setSavedSource(nextSource);
+    setSelectedVersion(result.version);
+    setSelectedReadOnly(Boolean(result.readOnly));
+    store.setLastError(null);
+  }, [platform, store, wsStore]);
+
+  const saveCurrentFile = useCallback(async () => {
+    if (!wsStore.workspace || !wsStore.selectedPath) return;
+    if (selectedReadOnly) {
+      store.setLastError("Selected file is read-only.");
+      return;
+    }
+    const pathResult = validateNormalizedRelativePath(wsStore.selectedPath);
+    if (!pathResult.ok) {
+      store.setLastError(pathResult.error.message);
+      return;
+    }
+    const result = await platform.workspace.saveFile({
+      workspaceRoot: wsStore.workspace.root_path,
+      relativePath: pathResult.relativePath,
+      content: source,
+      expectedVersion: selectedVersion,
+    });
+    if (!result.ok) {
+      store.setLastError(result.error.message);
+      return;
+    }
+    setSelectedVersion(result.version);
+    setSavedSource(source);
+    store.setLastError(null);
+  }, [platform, selectedReadOnly, selectedVersion, source, store, wsStore.selectedPath, wsStore.workspace]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -87,10 +226,11 @@ export default function App() {
       const meta = e.metaKey || e.ctrlKey;
       if (meta && e.key === "b") { e.preventDefault(); runBuild(); }
       else if (meta && e.key === "Enter") { e.preventDefault(); runBuild(); }
+      else if (meta && e.key.toLowerCase() === "s") { e.preventDefault(); saveCurrentFile(); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [runBuild]);
+  }, [runBuild, saveCurrentFile]);
 
   const handleExport = useCallback(async () => {
     if (!store.projectState) return;
@@ -201,7 +341,7 @@ export default function App() {
         compilerMode={compilerMode}
         projectName={wsStore.workspace?.root_name ?? ps?.workspace?.project_name ?? "ReasonScript"}
         selectedFile={wsStore.selectedPath ?? ps?.metadata?.source_filename ?? "temporary source"}
-        dirty={source !== (ps?.source_files?.[0]?.text ?? source)}
+        dirty={wsStore.selectedPath ? source !== savedSource : source !== (ps?.source_files?.[0]?.text ?? source)}
         onRun={runBuild}
         onAnalyze={runBuild}
         onValidate={runBuild}
@@ -245,10 +385,11 @@ export default function App() {
           workspace={wsStore.workspace}
           selectedPath={wsStore.selectedPath}
           expandedPaths={wsStore.expandedPaths}
-          onSetWorkspace={wsStore.setWorkspace}
-          onSelectPath={wsStore.setSelectedPath}
+          onSelectPath={handleSelectWorkspacePath}
           onToggleExpanded={wsStore.toggleExpanded}
           onClearWorkspace={wsStore.clearWorkspace}
+          onOpenWorkspace={handleOpenWorkspace}
+          onRefreshWorkspace={handleRefreshWorkspace}
         />
         <div className="ide-main-pane">
           <div className="ide-editor-pane">

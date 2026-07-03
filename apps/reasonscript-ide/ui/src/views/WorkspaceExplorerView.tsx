@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import type { FileNode, FileNodeKind, WorkspaceState } from "../types";
-import { openWorkspace, refreshWorkspace } from "../bridge";
 
 // ---------------------------------------------------------------------------
 // Icon helpers
@@ -165,20 +164,22 @@ export interface WorkspaceExplorerProps {
   workspace: WorkspaceState | null;
   selectedPath: string | null;
   expandedPaths: Set<string>;
-  onSetWorkspace: (ws: WorkspaceState | null) => void;
   onSelectPath: (path: string | null) => void;
   onToggleExpanded: (path: string) => void;
   onClearWorkspace: () => void;
+  onOpenWorkspace: (path: string) => Promise<void>;
+  onRefreshWorkspace: () => Promise<void>;
 }
 
 export default function WorkspaceExplorerView({
   workspace,
   selectedPath,
   expandedPaths,
-  onSetWorkspace,
   onSelectPath,
   onToggleExpanded,
   onClearWorkspace,
+  onOpenWorkspace,
+  onRefreshWorkspace,
 }: WorkspaceExplorerProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -188,15 +189,14 @@ export default function WorkspaceExplorerView({
       setLoading(true);
       setError(null);
       try {
-        const ws = await openWorkspace(path);
-        onSetWorkspace(ws);
+        await onOpenWorkspace(path);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
         setLoading(false);
       }
     },
-    [onSetWorkspace]
+    [onOpenWorkspace]
   );
 
   const handleRefresh = useCallback(async () => {
@@ -204,14 +204,13 @@ export default function WorkspaceExplorerView({
     setLoading(true);
     setError(null);
     try {
-      const ws = await refreshWorkspace(workspace.root_path);
-      onSetWorkspace(ws);
+      await onRefreshWorkspace();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, [workspace, onSetWorkspace]);
+  }, [workspace, onRefreshWorkspace]);
 
   return (
     <div

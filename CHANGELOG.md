@@ -1,5 +1,147 @@
 # Changelog
 
+## ReasonScript IDE Phase 4-B - Workspace & Artifact Adapter Migration - 2026-07-01
+
+### Status
+
+VALIDATED
+
+### Summary
+
+ReasonScript IDE Phase 4-B has been completed as the Workspace & Artifact
+Adapter Migration phase.
+
+This phase moves workspace list/read/save operations and artifact access behind
+the `PlatformAdapter` boundary introduced in Phase 4-A. The browser
+implementation continues to use the existing backend contracts, while UI
+components no longer directly depend on workspace endpoints.
+
+The phase also adds file-backed analyze path validation, analyze-result backed
+artifact access, `PlatformError` mapping, and adapter path enforcement.
+
+### Added
+
+- Added operational `BrowserWorkspaceAdapter` support for workspace list,
+  workspace file read, and workspace file save.
+- Added analyze-result backed `BrowserArtifactAdapter`.
+- Added artifact descriptors for `ast.json`, `semantic_ast.json`,
+  `reason_ir.json`, `execution_plan.json`, `simulation.json`, `knowledge.json`,
+  `diagnostics.json`, and `validation.json`.
+- Added `PlatformError` mapping for workspace and artifact operations.
+- Added path enforcement for workspace read/save and file-backed analyze.
+- Added Phase 4-B documentation.
+- Added Phase 4-B contract tests.
+
+### Changed
+
+- Moved workspace open/refresh through
+  `PlatformAdapter.workspace.listWorkspace`.
+- Moved file selection through `PlatformAdapter.workspace.readFile`.
+- Moved save workflow through `PlatformAdapter.workspace.saveFile`.
+- Removed direct bridge dependency from `WorkspaceExplorerView`.
+- Moved Artifacts tab access through `PlatformAdapter.artifacts`.
+- Added pre-validation for `source_context.relative_path` before file-backed
+  analyze.
+- Kept raw analyze response available through the fallback `All Raw` view.
+
+### Platform Error Mapping
+
+Workspace backend mappings:
+
+| Backend code | PlatformErrorKind |
+| --- | --- |
+| `NOT_FOUND` | `missing` |
+| `PATH_TRAVERSAL` | `path_traversal` |
+| `PERMISSION_DENIED` | `permission_denied` |
+| `DECODE_ERROR` | `invalid_encoding` |
+| `INVALID_ENCODING` | `invalid_encoding` |
+| `VERSION_CONFLICT` | `conflict` |
+| `READ_ONLY` | `read_only` |
+
+HTTP mappings:
+
+| HTTP status | PlatformErrorKind |
+| --- | --- |
+| `404` | `missing` |
+| `409` | `conflict` |
+| other non-2xx | `network_error` |
+
+Thrown fetch failures are returned as `network_error`. Unsupported desktop stub
+operations return `unsupported`.
+
+### Compatibility
+
+- Existing Playground-first behavior is preserved.
+- Phase 3 workspace editing behavior is preserved.
+- Phase 3.5 standard layout behavior is preserved.
+- `/api/analyze` contract is unchanged.
+- `/api/workspace/list` contract is unchanged.
+- `/api/workspace/read` contract is unchanged.
+- `/api/workspace/save` contract is unchanged.
+- Temporary source analyze mode remains supported.
+- Desktop shell remains deferred.
+
+### Validation
+
+- `npm run build`
+- `python3 -m pytest tests/ide/test_workspace_adapter_migration.py tests/ide/test_artifact_adapter_migration.py tests/ide/test_adapter_path_enforcement.py tests/ide/test_workspace_adapter_error_mapping.py -v --tb=short`
+- `python3 scripts/dev.py test ide`
+- `python3 scripts/dev.py test smoke`
+- `python3 scripts/dev.py test backend`
+
+All validation commands passed.
+
+---
+
+## ReasonScript IDE Phase 4-A - Platform Adapter Core - 2026-07-01
+
+### Status
+
+VALIDATED
+
+### Summary
+
+ReasonScript IDE Phase 4-A defines the Platform Adapter Core.
+
+This phase introduces the minimum adapter layer required to prepare the
+Playground-first IDE UI for future macOS, Windows, and Linux desktop support.
+It does not implement a native desktop shell.
+
+### Added
+
+- Added `apps/reasonscript-ide/ui/src/platform/types.ts`.
+- Added `PlatformAdapter`, `PlatformEnvironment`, `PlatformErrorKind`,
+  `PlatformError`, and `NormalizedRelativePath`.
+- Added minimal workspace, artifact, command, settings, and notification
+  sub-adapter interfaces.
+- Added `BrowserPlatformAdapter`.
+- Added `DesktopPlatformAdapter` stub.
+- Added active adapter resolver through `getPlatformAdapter()`.
+- Added slash-normalized relative path validation.
+- Added explicit unsupported operation error policy.
+- Added Phase 4-A platform adapter tests and documentation.
+
+### Non-Goals
+
+- No Desktop shell implementation.
+- No native file dialogs.
+- No native menus.
+- No packaging or installer work.
+- No terminal emulator.
+- No LSP integration.
+- No runtime semantic changes.
+- No `/api/analyze` contract changes.
+- No workspace API contract changes.
+
+### Compatibility
+
+- Existing Playground workflow remains unchanged.
+- Existing Phase 3 workspace editing behavior remains unchanged.
+- Existing Phase 3.5 standard layout remains unchanged.
+- Desktop support remains deferred.
+
+---
+
 ## ReasonScript IDE Phase 3.5 - Standard IDE Layout Simplification - 2026-07-01
 
 ### Status

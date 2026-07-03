@@ -1,19 +1,64 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { FileNode, ProjectState, WorkspaceState } from "./types";
 
+export interface AnalyzeSourceContext {
+  workspace_root: string;
+  relative_path: string;
+  dirty: boolean;
+}
+
 export async function buildProjectState(
   source: string,
-  uri: string = "file:///main.rsn"
+  uri: string = "file:///main.rsn",
+  sourceContext?: AnalyzeSourceContext
 ): Promise<ProjectState> {
-  console.log("[bridge] buildProjectState via Tauri invoke", {
-    uri,
-    sourceLength: source.length,
+  const filename = sourceContext?.relative_path ?? uri.replace(/^file:\/\//, "") ?? "playground.rsn";
+  const response = await fetch("/api/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      source,
+      filename,
+      compiler_mode: "normal",
+      ...(sourceContext ? { source_context: sourceContext } : {}),
+    }),
   });
 
-  return await invoke<ProjectState>("build_project_state", {
-    source,
-    uri,
-  });
+  if (!response.ok) {
+    throw new Error(`Analyze request failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as Record<string, unknown>;
+  return {
+    schema_version: String(data.schema_version ?? "reasonscript-project-state/0.1"),
+    compiler_version: String(data.compiler_version ?? "playground-backend"),
+    workspace: {
+      root_uri: sourceContext?.workspace_root,
+      project_name: sourceContext?.workspace_root?.split("/").filter(Boolean).pop(),
+    },
+    source_files: [
+      {
+        uri,
+        text: source,
+        language_id: "reasonscript",
+      },
+    ],
+    surface_ast: data.surface_ast ?? data.ast ?? null,
+    semantic_ast: data.semantic_ast ?? null,
+    reason_ir: data.reason_ir ?? (Array.isArray(data.reason_irs) ? data.reason_irs[0] : null) ?? null,
+    execution_plan: data.execution_plan ?? null,
+    diagnostics: Array.isArray(data.diagnostics) ? data.diagnostics as ProjectState["diagnostics"] : [],
+    validation: data.validation ?? null,
+    analyzer: data.analysis ?? data.analyzer ?? null,
+    runtime_operations: data.runtime_operations ?? null,
+    simulation: data.simulation ?? null,
+    knowledge: data.knowledge ?? null,
+    metadata: {
+      compiler_mode: String(data.compiler_mode ?? "normal"),
+      source_filename: filename,
+    },
+    generated_at: String(data.generated_at ?? new Date().toISOString()),
+  };
 }
 
 export async function openFile(path: string): Promise<string> {
