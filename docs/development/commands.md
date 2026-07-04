@@ -6,6 +6,32 @@ All development commands use the unified entry point:
 python3 scripts/dev.py <command>
 ```
 
+## Official IDE
+
+The official IDE UI lives in:
+
+```text
+apps/reasonscript-ide/ui
+```
+
+Run the official IDE workflow with the backend and UI in separate terminals:
+
+```bash
+python3 scripts/dev.py backend
+python3 scripts/dev.py ide-ui
+```
+
+`python3 scripts/dev.py ide` prints this workflow. It does not launch multiple long-running processes in one Python command.
+
+## Legacy Playground UI
+
+`playground/frontend` remains available for legacy verification only. It is not the official IDE target for Phase 5 and later.
+
+```bash
+python3 scripts/dev.py playground
+python3 scripts/dev.py frontend
+```
+
 ## Command Reference
 
 ### `setup`
@@ -31,24 +57,35 @@ Delegates to `python3 scripts/check_environment.py`.
 ---
 
 ### `playground`
-Launch the Playground IDE (backend + frontend together).
+Launch the legacy Playground UI workflow (backend + frontend together).
 
 ```bash
 python3 scripts/dev.py playground
 ```
 
-Opens `http://localhost:5173`. Runs backend on port 8000.
+This command is deprecated for official IDE development. Opens `http://localhost:5173`. Runs backend on port 8000.
 
 ---
 
 ### `ide`
-Launch the Desktop IDE (Tauri).
+Show the official IDE workflow.
 
 ```bash
 python3 scripts/dev.py ide
 ```
 
-Requires `ide/desktop/` to be present. Not available in the current phase.
+Prints the two-terminal workflow for `backend` and `ide-ui`.
+
+---
+
+### `ide-ui`
+Launch the official IDE UI dev server only (port 5173).
+
+```bash
+python3 scripts/dev.py ide-ui
+```
+
+Runs: `npm run dev -- --host 0.0.0.0 --port 5173` in `apps/reasonscript-ide/ui/`
 
 ---
 
@@ -64,13 +101,13 @@ Runs: `uvicorn playground.backend.main:app --reload`
 ---
 
 ### `frontend`
-Launch the Playground frontend dev server only (port 5173).
+Launch the legacy Playground frontend dev server only (port 5173).
 
 ```bash
 python3 scripts/dev.py frontend
 ```
 
-Runs: `npm run dev -- --port 5173` in `playground/frontend/`
+This command is deprecated for official IDE development. Runs: `npm run dev -- --port 5173` in `playground/frontend/`
 
 ---
 
@@ -81,7 +118,7 @@ Production / validation build.
 python3 scripts/dev.py build
 ```
 
-Runs `npm run build` in `playground/frontend/`.
+Runs `npm run build` in `apps/reasonscript-ide/ui/`, then runs the legacy build in `playground/frontend/`.
 
 ---
 
@@ -92,7 +129,7 @@ Minimum smoke validation.
 python3 scripts/dev.py test smoke
 ```
 
-Runs: `tests/compatibility`, `playground_integration_tests`, frontend build.
+Runs: `tests/compatibility`, `playground_integration_tests`, official IDE UI build.
 
 ---
 
@@ -106,11 +143,24 @@ python3 scripts/dev.py test backend
 ---
 
 ### `test frontend`
-Frontend build validation.
+Official IDE UI build validation.
 
 ```bash
 python3 scripts/dev.py test frontend
 ```
+
+Runs `npm run build` in `apps/reasonscript-ide/ui/`.
+
+---
+
+### `test playground-frontend`
+Legacy Playground frontend build validation.
+
+```bash
+python3 scripts/dev.py test playground-frontend
+```
+
+Runs `npm run build` in `playground/frontend/`.
 
 ---
 

@@ -54,13 +54,15 @@ def cmd_check() -> int:
 
 
 def cmd_playground() -> int:
-    print("=== playground: launching Playground IDE ===\n")
+    print("=== playground: LEGACY Playground UI ===\n")
+    print("  [DEPRECATED] This command launches the legacy Playground UI.")
+    print("  [INFO] Use 'python3 scripts/dev.py ide' for the official IDE workflow.")
+    print("  [INFO] Use 'python3 scripts/dev.py ide-ui' for the official IDE UI.")
     script = REPO_ROOT / "playground" / "start.sh"
     if not script.exists():
         print(f"  [ERROR] {script} not found")
         return 1
-    rc = run(["bash", str(script)])
-    return rc
+    return run(["bash", str(script)])
 
 
 def cmd_backend() -> int:
@@ -76,29 +78,48 @@ def cmd_backend() -> int:
 
 
 def cmd_frontend() -> int:
-    print("=== frontend: launching Playground frontend dev server (port 5173) ===\n")
-    rc = run(["npm", "run", "dev", "--", "--port", "5173"],
-             cwd=REPO_ROOT / "playground" / "frontend")
-    return rc
+    print("=== frontend: LEGACY Playground frontend dev server (port 5173) ===\n")
+    print("  [DEPRECATED] Use 'python3 scripts/dev.py ide-ui' for the official IDE UI.")
+    return run(
+        ["npm", "run", "dev", "--", "--port", "5173"],
+        cwd=REPO_ROOT / "playground" / "frontend",
+    )
 
 
 def cmd_ide() -> int:
-    print("=== ide: Desktop IDE (Tauri) ===\n")
-    tauri_dir = REPO_ROOT / "ide" / "desktop"
-    if not tauri_dir.exists():
-        print("  [INFO] Desktop IDE (ide/desktop) is not present in this repository.")
-        print("  [INFO] This component is planned for a future phase.")
-        print("  [INFO] Use 'python3 scripts/dev.py playground' to launch the Playground IDE.")
-        return 0
-    rc = run(["npm", "run", "tauri", "dev"], cwd=tauri_dir)
-    return rc
+    print("=== ide: Official ReasonScript IDE ===\n")
+    print("Run these in two terminals:\n")
+    print("  Terminal 1:")
+    print("    python3 scripts/dev.py backend\n")
+    print("  Terminal 2:")
+    print("    python3 scripts/dev.py ide-ui\n")
+    print("Official IDE UI:")
+    print("  apps/reasonscript-ide/ui\n")
+    print("Backend:")
+    print("  playground/backend\n")
+    print("Legacy Playground UI:")
+    print("  python3 scripts/dev.py playground")
+    return 0
+
+
+def cmd_ide_ui() -> int:
+    print("=== ide-ui: launching Official ReasonScript IDE UI (port 5173) ===\n")
+    return run(
+        ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"],
+        cwd=REPO_ROOT / "apps" / "reasonscript-ide" / "ui",
+    )
 
 
 def cmd_build() -> int:
     print("=== build: production / validation build ===\n")
     rc = 0
-    print("[Playground frontend build]")
+
+    print("[Official IDE UI build]")
+    rc |= run(["npm", "run", "build"], cwd=REPO_ROOT / "apps" / "reasonscript-ide" / "ui")
+
+    print("\n[Legacy Playground frontend build]")
     rc |= run(["npm", "run", "build"], cwd=REPO_ROOT / "playground" / "frontend")
+
     return rc
 
 
@@ -112,8 +133,8 @@ def cmd_test(subcmd: str) -> int:
         rc |= run(["python3", "-m", "pytest", "tests/compatibility", "-v", "--tb=short"])
         print("\n[playground integration tests]")
         rc |= run(["python3", "-m", "pytest", "playground_integration_tests", "-v", "--tb=short"])
-        print("\n[frontend build]")
-        rc |= run(["npm", "run", "build"], cwd=REPO_ROOT / "playground" / "frontend")
+        print("\n[official IDE UI build]")
+        rc |= run(["npm", "run", "build"], cwd=REPO_ROOT / "apps" / "reasonscript-ide" / "ui")
         return rc
 
     if subcmd == "backend":
@@ -127,7 +148,11 @@ def cmd_test(subcmd: str) -> int:
         ])
 
     if subcmd == "frontend":
-        print("=== test frontend: TypeScript / React build ===\n")
+        print("=== test frontend: Official IDE UI build ===\n")
+        return run(["npm", "run", "build"], cwd=REPO_ROOT / "apps" / "reasonscript-ide" / "ui")
+
+    if subcmd in {"playground-frontend", "playground-legacy"}:
+        print("=== test playground-frontend: Legacy Playground frontend build ===\n")
         return run(["npm", "run", "build"], cwd=REPO_ROOT / "playground" / "frontend")
 
     if subcmd == "rust":
@@ -157,7 +182,7 @@ def cmd_test(subcmd: str) -> int:
         return rc
 
     print(f"  [ERROR] Unknown test subcmd: {subcmd}")
-    print("  Available: smoke | backend | frontend | rust | ide | all")
+    print("  Available: smoke | backend | frontend | playground-frontend | rust | ide | all")
     return 1
 
 
@@ -165,19 +190,22 @@ USAGE = """\
 Usage: python3 scripts/dev.py <command>
 
 Commands:
-  setup          Install / fetch all dependencies
-  check          Environment and repository sanity check
-  playground     Launch Playground IDE (backend + frontend)
-  ide            Launch Desktop IDE (Tauri)
-  backend        Launch Playground backend only (port 8000)
-  frontend       Launch Playground frontend only (port 5173)
-  build          Production / validation build
-  test smoke     Minimum smoke validation
-  test backend   Compiler / analyzer / compatibility tests
-  test frontend  Frontend build validation
-  test rust      Rust workspace tests
-  test ide       IDE contract / visualization tests
-  test all       CI-equivalent full test run
+  setup                 Install / fetch all dependencies
+  check                 Environment and repository sanity check
+  ide                   Show Official IDE workflow
+  ide-ui                Launch Official IDE UI only (apps/reasonscript-ide/ui, port 5173)
+  backend               Launch Playground backend only (port 8000)
+  playground            Launch LEGACY Playground UI workflow
+  frontend              Launch LEGACY Playground frontend only
+  build                 Production / validation build
+  test smoke            Minimum smoke validation
+  test backend          Compiler / analyzer / compatibility tests
+  test frontend         Official IDE UI build validation
+  test playground-frontend
+                        Legacy Playground frontend build validation
+  test rust             Rust workspace tests
+  test ide              IDE contract / visualization tests
+  test all              CI-equivalent full test run
 """
 
 
@@ -197,6 +225,8 @@ def main() -> int:
         return cmd_playground()
     if cmd == "ide":
         return cmd_ide()
+    if cmd == "ide-ui":
+        return cmd_ide_ui()
     if cmd == "backend":
         return cmd_backend()
     if cmd == "frontend":
@@ -205,7 +235,7 @@ def main() -> int:
         return cmd_build()
     if cmd == "test":
         if len(args) < 2:
-            print("  [ERROR] 'test' requires a subcmd: smoke | backend | frontend | rust | ide | all")
+            print("  [ERROR] 'test' requires a subcmd: smoke | backend | frontend | playground-frontend | rust | ide | all")
             return 1
         return cmd_test(args[1])
 
