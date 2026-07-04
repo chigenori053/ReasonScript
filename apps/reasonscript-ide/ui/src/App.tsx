@@ -53,6 +53,12 @@ import {
   type SampleOperationLog,
 } from "./viewModels/sampleBrowser";
 import { buildRuntimeObservabilityViewModel } from "./viewModels/runtimeObservability";
+import { buildWorkspaceDiagnosticsViewModel, workspaceDiagnosticsAsPlatformDiagnostics } from "./viewModels/workspaceDiagnostics";
+import { deriveEditorWorkspaceState } from "./viewModels/editorWorkspaceState";
+import { buildArtifactFreshness } from "./viewModels/artifactFreshness";
+import { buildProjectValidationSummary } from "./viewModels/projectValidation";
+import { mergeProblemsSources } from "./viewModels/problemsOutputLogsIntegration";
+import { buildFileDiagnosticsMapping } from "./viewModels/fileDiagnosticsMapping";
 import { useProjectStore } from "./state/projectStore";
 import { useWorkspaceStore } from "./state/workspaceStore";
 import {
@@ -980,9 +986,46 @@ export default function App() {
     () => sampleBrowserIssuesAsPlatformDiagnostics(sampleBrowserVm),
     [sampleBrowserVm]
   );
+  const workspaceDiagnosticsVm = useMemo(
+    () => buildWorkspaceDiagnosticsViewModel(wsStore.workspace),
+    [wsStore.workspace]
+  );
+  const workspaceDiagnosticsList = useMemo(
+    () => workspaceDiagnosticsAsPlatformDiagnostics(workspaceDiagnosticsVm),
+    [workspaceDiagnosticsVm]
+  );
+  const editorWorkspaceState = useMemo(
+    () => deriveEditorWorkspaceState({
+      selectedPath: wsStore.selectedPath,
+      activeFilePath: wsStore.activeFilePath,
+      sampleId: sampleBrowserState.selectedSampleId,
+      source,
+      savedSource,
+      workspace: wsStore.workspace,
+    }),
+    [sampleBrowserState.selectedSampleId, savedSource, source, wsStore.activeFilePath, wsStore.selectedPath, wsStore.workspace]
+  );
+  const artifactFreshnessVm = useMemo(
+    () => buildArtifactFreshness(ps, source),
+    [ps, source]
+  );
   const problemsDiagnostics = useMemo(
-    () => [...migratedDiagnostics, ...artifactWorkflowDiagnostics, ...languageAuditDiagnostics, ...sampleBrowserDiagnostics],
-    [artifactWorkflowDiagnostics, languageAuditDiagnostics, migratedDiagnostics, sampleBrowserDiagnostics]
+    () => mergeProblemsSources([
+      migratedDiagnostics,
+      artifactWorkflowDiagnostics,
+      languageAuditDiagnostics,
+      sampleBrowserDiagnostics,
+      workspaceDiagnosticsList,
+    ]),
+    [artifactWorkflowDiagnostics, languageAuditDiagnostics, migratedDiagnostics, sampleBrowserDiagnostics, workspaceDiagnosticsList]
+  );
+  const projectValidationSummary = useMemo(
+    () => buildProjectValidationSummary(wsStore.workspace, workspaceDiagnosticsVm, problemsDiagnostics, artifactFreshnessVm),
+    [artifactFreshnessVm, problemsDiagnostics, workspaceDiagnosticsVm, wsStore.workspace]
+  );
+  const fileDiagnosticsMappingForExplorer = useMemo(
+    () => buildFileDiagnosticsMapping(problemsDiagnostics, wsStore.selectedPath),
+    [problemsDiagnostics, wsStore.selectedPath]
   );
 
   const rightInspectorTabs = [
@@ -1001,6 +1044,9 @@ export default function App() {
           artifactWorkflowVm={artifactWorkflowVm}
           languageAuditVm={languageAuditVm}
           runtimeObservabilityVm={runtimeObservabilityVm}
+          workspaceDiagnosticsVm={workspaceDiagnosticsVm}
+          artifactFreshnessVm={artifactFreshnessVm}
+          projectValidationSummary={projectValidationSummary}
           onRunLanguageAudit={handleRunLanguageAudit}
           onExportLanguageAudit={handleExportLanguageAudit}
           auditOperationRunning={auditOperationRunning}
@@ -1064,6 +1110,8 @@ export default function App() {
           artifactOperationRunning={artifactOperationRunning}
           selectedArtifact={sel}
           onSelectArtifact={handleSelectArtifact}
+          projectValidationSummary={projectValidationSummary}
+          artifactFreshnessVm={artifactFreshnessVm}
         />
       ),
     },
@@ -1125,6 +1173,9 @@ export default function App() {
           selectedSampleId={sampleBrowserState.selectedSampleId}
           sampleLoading={sampleOperationRunning}
           editorDirty={editorDirty}
+          diagnosticsMapping={fileDiagnosticsMappingForExplorer}
+          editorWorkspaceState={editorWorkspaceState}
+          ignoredPathCount={workspaceDiagnosticsVm.ignoredPaths.length}
           onSelectPath={handleSelectWorkspacePath}
           onToggleExpanded={wsStore.toggleExpanded}
           onClearWorkspace={wsStore.clearWorkspace}
@@ -1163,6 +1214,8 @@ export default function App() {
             sampleBrowserVm={sampleBrowserVm}
             runtimeObservabilityVm={runtimeObservabilityVm}
             simulationVm={simulationVm}
+            workspaceDiagnosticsVm={workspaceDiagnosticsVm}
+            activeRelativePath={wsStore.selectedPath}
             projectState={ps}
             lastError={store.lastError}
             selectedArtifact={sel}

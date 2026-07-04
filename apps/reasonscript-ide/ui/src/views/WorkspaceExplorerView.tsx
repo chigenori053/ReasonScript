@@ -1,7 +1,19 @@
 import { useState, useCallback } from "react";
 import type { FileNode, FileNodeKind, WorkspaceState } from "../types";
 import type { ReasonScriptSample, SampleBrowserViewModel } from "../viewModels/sampleBrowser";
+import {
+  severityBadgeForPath,
+  type FileDiagnosticsMapping,
+  type IdeDiagnosticSeverity,
+} from "../viewModels/fileDiagnosticsMapping";
+import { editorSourceKindLabel, type EditorWorkspaceState } from "../viewModels/editorWorkspaceState";
 import SampleBrowserView from "./SampleBrowserView";
+
+function badgeColor(severity: IdeDiagnosticSeverity): string {
+  if (severity === "error") return "#f87171";
+  if (severity === "warning") return "#fbbf24";
+  return "#60a5fa";
+}
 
 // ---------------------------------------------------------------------------
 // Icon helpers
@@ -32,15 +44,17 @@ interface NodeProps {
   depth: number;
   selectedPath: string | null;
   expandedPaths: Set<string>;
+  diagnosticsMapping?: FileDiagnosticsMapping;
   onSelect: (path: string) => void;
   onToggle: (path: string) => void;
 }
 
-function TreeNode({ node, depth, selectedPath, expandedPaths, onSelect, onToggle }: NodeProps) {
+function TreeNode({ node, depth, selectedPath, expandedPaths, diagnosticsMapping, onSelect, onToggle }: NodeProps) {
   const isDir = node.kind === "directory";
   const isExpanded = expandedPaths.has(node.path);
   const isSelected = selectedPath === node.path;
   const ignored = node.is_ignored;
+  const badge = !isDir && diagnosticsMapping ? severityBadgeForPath(diagnosticsMapping, node.relative_path) : null;
 
   const handleClick = () => {
     if (isDir) {
@@ -80,9 +94,22 @@ function TreeNode({ node, depth, selectedPath, expandedPaths, onSelect, onToggle
         <span style={{ marginRight: 5, fontSize: 10, minWidth: 12, color: isDir ? "#7c3aed" : "#4b5563" }}>
           {fileIcon(node.kind, node.extension, isExpanded)}
         </span>
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
           {node.name}
         </span>
+        {badge && (
+          <span
+            title={`${badge} diagnostics`}
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: badgeColor(badge),
+              marginLeft: 6,
+              flexShrink: 0,
+            }}
+          />
+        )}
       </div>
 
       {isDir && isExpanded && !ignored && node.children.map((child) => (
@@ -92,6 +119,7 @@ function TreeNode({ node, depth, selectedPath, expandedPaths, onSelect, onToggle
           depth={depth + 1}
           selectedPath={selectedPath}
           expandedPaths={expandedPaths}
+          diagnosticsMapping={diagnosticsMapping}
           onSelect={onSelect}
           onToggle={onToggle}
         />
@@ -170,6 +198,9 @@ export interface WorkspaceExplorerProps {
   selectedSampleId?: string;
   sampleLoading?: boolean;
   editorDirty?: boolean;
+  diagnosticsMapping?: FileDiagnosticsMapping;
+  editorWorkspaceState?: EditorWorkspaceState;
+  ignoredPathCount?: number;
   onSelectPath: (path: string | null) => void;
   onToggleExpanded: (path: string) => void;
   onClearWorkspace: () => void;
@@ -188,6 +219,9 @@ export default function WorkspaceExplorerView({
   selectedSampleId,
   sampleLoading,
   editorDirty,
+  diagnosticsMapping,
+  editorWorkspaceState,
+  ignoredPathCount,
   onSelectPath,
   onToggleExpanded,
   onClearWorkspace,
@@ -316,7 +350,27 @@ export default function WorkspaceExplorerView({
             flexShrink: 0,
           }}
         >
-          ⚠ Scan truncated (file limit reached)
+          ⚠ Scan truncated (file limit reached){ignoredPathCount ? ` · ${ignoredPathCount} ignored path(s)` : ""}
+        </div>
+      )}
+      {workspace?.scan_status !== "partial" && Boolean(ignoredPathCount) && (
+        <div
+          className="ide-workspace-ignored-count"
+          style={{ padding: "4px 10px", fontSize: 11, color: "#6b7280", borderBottom: "1px solid #1f2937", flexShrink: 0 }}
+        >
+          {ignoredPathCount} ignored path(s)
+        </div>
+      )}
+
+      {/* Editor source-kind / dirty indicator */}
+      {editorWorkspaceState && (
+        <div
+          className="ide-editor-source-kind"
+          style={{ padding: "4px 10px", fontSize: 11, color: "#9ca3af", borderBottom: "1px solid #1f2937", flexShrink: 0 }}
+        >
+          {editorSourceKindLabel(editorWorkspaceState.sourceKind)}
+          {editorWorkspaceState.dirty ? " · dirty" : ""}
+          {editorWorkspaceState.sourceKind === "missing" && " · file no longer exists"}
         </div>
       )}
 
@@ -361,6 +415,7 @@ export default function WorkspaceExplorerView({
                 depth={0}
                 selectedPath={selectedPath}
                 expandedPaths={expandedPaths}
+                diagnosticsMapping={diagnosticsMapping}
                 onSelect={onSelectPath}
                 onToggle={onToggleExpanded}
               />

@@ -5,6 +5,15 @@ import type { ArtifactWorkflowViewModel } from "../viewModels/artifactWorkflow";
 import type { LanguageAuditViewModel } from "../viewModels/languageAudit";
 import type { RuntimeObservabilityViewModel } from "../viewModels/runtimeObservability";
 import type { SampleBrowserViewModel } from "../viewModels/sampleBrowser";
+import type { WorkspaceDiagnosticsViewModel } from "../viewModels/workspaceDiagnostics";
+import type { ArtifactFreshnessViewModel } from "../viewModels/artifactFreshness";
+import type { ProjectValidationSummary } from "../viewModels/projectValidation";
+import {
+  buildFileDiagnosticsMapping,
+  filterByScope,
+  type DiagnosticScope,
+} from "../viewModels/fileDiagnosticsMapping";
+import { buildLogsGroups } from "../viewModels/problemsOutputLogsIntegration";
 import type {
   ArtifactSelection,
   PlatformDiagnostic,
@@ -30,6 +39,9 @@ import RuntimeObservabilitySummaryView from "./RuntimeObservabilitySummaryView";
 import RuntimeOutputView from "./RuntimeOutputView";
 import SampleOperationLogsView from "./SampleOperationLogsView";
 import SampleMetadataView from "./SampleMetadataView";
+import WorkspaceDiagnosticsSummaryView from "./WorkspaceDiagnosticsSummaryView";
+import ProjectValidationSummaryView from "./ProjectValidationSummaryView";
+import ArtifactFreshnessSummaryView from "./ArtifactFreshnessSummaryView";
 import JsonArtifactView from "./JsonArtifactView";
 import PipelineOverviewView from "./PipelineOverviewView";
 import ReasonIRView from "./ReasonIRView";
@@ -83,6 +95,9 @@ interface OverviewProps {
   artifactWorkflowVm: ArtifactWorkflowViewModel;
   languageAuditVm: LanguageAuditViewModel;
   runtimeObservabilityVm: RuntimeObservabilityViewModel;
+  workspaceDiagnosticsVm: WorkspaceDiagnosticsViewModel;
+  artifactFreshnessVm: ArtifactFreshnessViewModel;
+  projectValidationSummary: ProjectValidationSummary;
   onRunLanguageAudit: () => void;
   onExportLanguageAudit: () => void;
   auditOperationRunning?: boolean;
@@ -100,6 +115,9 @@ export function StandardOverviewView({
   artifactWorkflowVm,
   languageAuditVm,
   runtimeObservabilityVm,
+  workspaceDiagnosticsVm,
+  artifactFreshnessVm,
+  projectValidationSummary,
   onRunLanguageAudit,
   onExportLanguageAudit,
   auditOperationRunning,
@@ -165,6 +183,9 @@ export function StandardOverviewView({
         onExportAudit={onExportLanguageAudit}
         disabled={auditOperationRunning}
       />
+      <WorkspaceDiagnosticsSummaryView vm={workspaceDiagnosticsVm} />
+      <ProjectValidationSummaryView summary={projectValidationSummary} />
+      <ArtifactFreshnessSummaryView vm={artifactFreshnessVm} />
 
       <section className="ide-overview-section">
         <div className="ide-section-title">Pipeline</div>
@@ -190,6 +211,8 @@ interface ArtifactsProps extends SelectionProps {
   onSetArtifactDiffSlot: (slot: "a" | "b") => void;
   onCompareArtifactDiff: () => void;
   artifactOperationRunning?: boolean;
+  projectValidationSummary: ProjectValidationSummary;
+  artifactFreshnessVm: ArtifactFreshnessViewModel;
 }
 
 export function ArtifactsInspectorView({
@@ -207,6 +230,8 @@ export function ArtifactsInspectorView({
   artifactOperationRunning,
   selectedArtifact,
   onSelectArtifact,
+  projectValidationSummary,
+  artifactFreshnessVm,
 }: ArtifactsProps) {
   const [artifactDescriptors, setArtifactDescriptors] = useState<ArtifactDescriptor[]>([]);
   const [artifactContent, setArtifactContent] = useState<ArtifactContentByFile>({});
@@ -324,12 +349,16 @@ export function ArtifactsInspectorView({
       id: "validation",
       label: "Validation",
       content: (
-        <ValidationView
-          data={artifactContent["validation.json"]}
-          diagnostics={(artifactContent["diagnostics.json"] as ProjectState["diagnostics"] | undefined) ?? []}
-          selectedArtifact={selectedArtifact}
-          onSelectArtifact={onSelectArtifact}
-        />
+        <div className="ide-validation-tab-content">
+          <ValidationView
+            data={artifactContent["validation.json"]}
+            diagnostics={(artifactContent["diagnostics.json"] as ProjectState["diagnostics"] | undefined) ?? []}
+            selectedArtifact={selectedArtifact}
+            onSelectArtifact={onSelectArtifact}
+          />
+          <JsonArtifactView data={projectValidationSummary} label="project_validation.json" />
+          <JsonArtifactView data={artifactFreshnessVm} label="artifact_freshness.json" />
+        </div>
       ),
     },
     {
@@ -361,6 +390,8 @@ interface BottomToolWindowProps extends SelectionProps {
   sampleBrowserVm: SampleBrowserViewModel;
   runtimeObservabilityVm: RuntimeObservabilityViewModel;
   simulationVm: SimulationTraceViewModel;
+  workspaceDiagnosticsVm: WorkspaceDiagnosticsViewModel;
+  activeRelativePath?: string | null;
   projectState: ProjectState | null;
   lastError: string | null;
   activeTab?: string;
@@ -378,6 +409,8 @@ export function BottomToolWindow({
   sampleBrowserVm,
   runtimeObservabilityVm,
   simulationVm,
+  workspaceDiagnosticsVm,
+  activeRelativePath,
   projectState,
   lastError,
   selectedArtifact,
@@ -388,12 +421,37 @@ export function BottomToolWindow({
   onExportLanguageAudit,
   auditOperationRunning,
 }: BottomToolWindowProps) {
+  const [problemsScope, setProblemsScope] = useState<DiagnosticScope>("all");
+  const allProblems = [...diagnostics, ...workspaceDiagnosticsVm.diagnostics];
+  const problemsMapping = buildFileDiagnosticsMapping(allProblems, activeRelativePath);
+  const ideDiagnostics = filterByScope(problemsMapping, problemsScope);
+  const logsGroups = buildLogsGroups({
+    backend: projectState ? [`compiler_version=${projectState.compiler_version}`] : [],
+    analyzer: workspaceDiagnosticsVm.diagnostics.map((d) => d.message),
+    runtime: runtimeObservabilityVm.runtimeOutput.status !== "unavailable" ? [`runtime status: ${runtimeObservabilityVm.runtimeOutput.status}`] : [],
+    ide: lastError ? [lastError] : [],
+  });
+
   const tabs = [
     {
       id: "problems",
-      label: diagnostics.length > 0 ? `Problems (${diagnostics.length})` : "Problems",
+      label: allProblems.length > 0 ? `Problems (${allProblems.length})` : "Problems",
       content: (
         <div className="ide-problems-content">
+          <div className="ide-problems-scope-filter" role="group" aria-label="Problems scope">
+            {(["current", "workspace", "all"] as DiagnosticScope[]).map((scope) => (
+              <button
+                key={scope}
+                type="button"
+                onClick={() => setProblemsScope(scope)}
+                aria-pressed={problemsScope === scope}
+                className={problemsScope === scope ? "ide-scope-filter-active" : undefined}
+              >
+                {scope}
+              </button>
+            ))}
+          </div>
+          <div className="ide-muted-note">{ideDiagnostics.length} diagnostic(s) in scope: {problemsScope}</div>
           <DiagnosticsView
             diagnostics={diagnostics}
             selectedArtifact={selectedArtifact}
@@ -413,6 +471,14 @@ export function BottomToolWindow({
           <LanguageAuditLogsView vm={languageAuditVm} />
           <SampleOperationLogsView vm={sampleBrowserVm} />
           <RuntimeOperationsView simulationVm={simulationVm} />
+          <div className="ide-output-workspace-validation-logs">
+            <div className="ide-section-title">Workspace / Project Validation Logs</div>
+            {workspaceDiagnosticsVm.diagnostics.length === 0 ? (
+              <div className="ide-muted-note">No workspace validation logs.</div>
+            ) : (
+              workspaceDiagnosticsVm.diagnostics.map((d, i) => <pre key={i}>{d.message}</pre>)
+            )}
+          </div>
         </div>
       ),
     },
@@ -421,13 +487,19 @@ export function BottomToolWindow({
       label: "Logs",
       content: (
         <div className="ide-tool-empty">
-          {lastError ? (
-            <pre>{lastError}</pre>
-          ) : projectState ? (
-            <pre>{`Last analyze: ${projectState.generated_at}\nCompiler: ${projectState.compiler_version}`}</pre>
-          ) : (
-            "No logs for this session."
-          )}
+          {lastError && <pre>{lastError}</pre>}
+          {projectState && <pre>{`Last analyze: ${projectState.generated_at}\nCompiler: ${projectState.compiler_version}`}</pre>}
+          {!lastError && !projectState && "No logs for this session."}
+          {logsGroups.map((group) => (
+            <div key={group.key} className="ide-logs-group">
+              <div className="ide-section-title">{group.label}</div>
+              {group.entries.length === 0 ? (
+                <div className="ide-muted-note">No {group.label.toLowerCase()} logs.</div>
+              ) : (
+                group.entries.map((entry, i) => <pre key={i}>{entry}</pre>)
+              )}
+            </div>
+          ))}
         </div>
       ),
     },
