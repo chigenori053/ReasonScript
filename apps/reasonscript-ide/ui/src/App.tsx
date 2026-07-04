@@ -21,9 +21,49 @@ import { buildSourceModel } from "./visualization/buildSourceModel";
 import { buildExecutionPlanFlow } from "./visualization/buildExecutionPlanFlow";
 import { buildSimulationTrace } from "./visualization/buildSimulationTrace";
 import { buildKnowledgeEvidence } from "./visualization/buildKnowledgeEvidence";
+import {
+  artifactWorkflowIssuesAsPlatformDiagnostics,
+  artifactWorkflowStateForProject,
+  buildArtifactWorkflowViewModel,
+  type ArtifactOperationKind,
+  type ArtifactOperationLog,
+  type ArtifactOperationStatus,
+  type ArtifactWorkflowViewModel,
+  type ExportArtifactResult,
+  type ImportArtifactResult,
+  type DiffArtifactResult,
+} from "./viewModels/artifactWorkflow";
+import {
+  buildDiagnosticsAnalysisViewModel,
+  migratedAnalysisDiagnosticsAsPlatformDiagnostics,
+} from "./viewModels/analysisDiagnostics";
+import {
+  buildLanguageAuditViewModel,
+  languageAuditIssuesAsPlatformDiagnostics,
+  languageAuditStateForProject,
+  type AuditOperationLog,
+  type AuditStatus,
+  type LanguageAuditViewModel,
+} from "./viewModels/languageAudit";
+import {
+  buildSampleBrowserViewModel,
+  sampleBrowserIssuesAsPlatformDiagnostics,
+  type ReasonScriptSample,
+  type SampleLoadStatus,
+  type SampleOperationLog,
+} from "./viewModels/sampleBrowser";
+import { buildRuntimeObservabilityViewModel } from "./viewModels/runtimeObservability";
 import { useProjectStore } from "./state/projectStore";
 import { useWorkspaceStore } from "./state/workspaceStore";
-import { buildProjectState, exportProjectState } from "./bridge";
+import {
+  buildProjectState,
+  diffArtifactWorkflow,
+  exportArtifactWorkflow,
+  fetchExamples,
+  importArtifactWorkflow,
+  exportLanguageAudit,
+  runLanguageAudit,
+} from "./bridge";
 import { revealSourceSpan, revealSymbolFallback } from "./editor/sourceNavigation";
 import type { ArtifactSelection, ArtifactKind, FileNode, WorkspaceScanStatus, WorkspaceState } from "./types";
 import {
@@ -45,6 +85,52 @@ model HelloWorld {
   }
 }
 `;
+
+interface ArtifactWorkflowClientState {
+  fileKey?: string;
+  exportResult?: unknown;
+  importResult?: unknown;
+  diffResult?: unknown;
+  logs: ArtifactOperationLog[];
+  lastOperation?: ArtifactOperationKind;
+  lastStatus?: ArtifactOperationStatus;
+}
+
+type ArtifactDiffSlots = {
+  a?: unknown;
+  b?: unknown;
+};
+
+const EMPTY_ARTIFACT_WORKFLOW_STATE: ArtifactWorkflowClientState = {
+  logs: [],
+};
+
+interface LanguageAuditClientState {
+  fileKey?: string;
+  sourceSnapshot?: string;
+  auditResult?: unknown;
+  exportResult?: unknown;
+  logs: AuditOperationLog[];
+  lastRunAt?: string;
+}
+
+const EMPTY_LANGUAGE_AUDIT_STATE: LanguageAuditClientState = {
+  logs: [],
+};
+
+interface SampleBrowserClientState {
+  status?: "idle" | "loading" | "loaded" | "failed" | "unavailable";
+  examples?: unknown;
+  selectedSampleId?: string;
+  issues: unknown[];
+  logs: SampleOperationLog[];
+}
+
+const EMPTY_SAMPLE_BROWSER_STATE: SampleBrowserClientState = {
+  status: "idle",
+  issues: [],
+  logs: [],
+};
 
 function scanStatusToWorkspaceState(status: { status: string; truncated: boolean }): WorkspaceScanStatus {
   if (status.truncated || status.status === "warning") return "partial";
@@ -94,15 +180,166 @@ export default function App() {
   const [compilerMode, setCompilerMode] = useState("normal");
   const [activeInspectorTab, setActiveInspectorTab] = useState("overview");
   const [activeBottomTab, setActiveBottomTab] = useState("problems");
+  const [artifactWorkflowState, setArtifactWorkflowState] = useState<ArtifactWorkflowClientState>(EMPTY_ARTIFACT_WORKFLOW_STATE);
+  const [artifactDiffSlots, setArtifactDiffSlots] = useState<ArtifactDiffSlots>({});
+  const [artifactOperationRunning, setArtifactOperationRunning] = useState(false);
+  const [languageAuditState, setLanguageAuditState] = useState<LanguageAuditClientState>(EMPTY_LANGUAGE_AUDIT_STATE);
+  const [auditOperationRunning, setAuditOperationRunning] = useState(false);
+  const [sampleBrowserState, setSampleBrowserState] = useState<SampleBrowserClientState>(EMPTY_SAMPLE_BROWSER_STATE);
+  const [sampleOperationRunning, setSampleOperationRunning] = useState(false);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const store = useProjectStore();
   const wsStore = useWorkspaceStore();
   const platform = useMemo(() => getPlatformAdapter(), []);
   const commandRegistry = useMemo(() => createCommandRegistry(), []);
+  const currentArtifactFileKey = wsStore.selectedPath ?? store.projectState?.metadata?.source_filename ?? "temporary source";
+  const currentAuditFileKey = wsStore.selectedPath ?? wsStore.workspace?.root_path ?? store.projectState?.metadata?.source_filename ?? "temporary source";
+  const editorDirty = source !== savedSource;
+
+  const appendArtifactLog = useCallback((
+    operation: ArtifactOperationKind,
+    status: ArtifactOperationStatus,
+    message: string,
+    evidence?: unknown
+  ) => {
+    const timestamp = new Date().toISOString();
+    setArtifactWorkflowState((previous) => ({
+      ...previous,
+      fileKey: currentArtifactFileKey,
+      lastOperation: operation,
+      lastStatus: status,
+      logs: [
+        ...previous.logs,
+        {
+          id: `${operation}-${timestamp}-${previous.logs.length}`,
+          operation,
+          status,
+          message,
+          timestamp,
+          evidence,
+        },
+      ],
+    }));
+  }, [currentArtifactFileKey]);
+
+  const recordArtifactResult = useCallback((
+    operation: ArtifactOperationKind,
+    status: ArtifactOperationStatus,
+    result: unknown
+  ) => {
+    setArtifactWorkflowState((previous) => ({
+      ...previous,
+      fileKey: currentArtifactFileKey,
+      exportResult: operation === "export" ? result : previous.exportResult,
+      importResult: operation === "import" ? result : previous.importResult,
+      diffResult: operation === "diff" ? result : previous.diffResult,
+      lastOperation: operation,
+      lastStatus: status,
+    }));
+  }, [currentArtifactFileKey]);
+
+  const appendLanguageAuditLog = useCallback((
+    status: AuditStatus,
+    message: string,
+    evidence?: unknown
+  ) => {
+    const timestamp = new Date().toISOString();
+    setLanguageAuditState((previous) => ({
+      ...previous,
+      fileKey: currentAuditFileKey,
+      logs: [
+        ...previous.logs,
+        {
+          id: `language-audit-${timestamp}-${previous.logs.length}`,
+          status,
+          message,
+          timestamp,
+          evidence,
+        },
+      ],
+    }));
+  }, [currentAuditFileKey]);
+
+  const recordLanguageAuditResult = useCallback((auditResult: unknown) => {
+    setLanguageAuditState((previous) => ({
+      ...previous,
+      fileKey: currentAuditFileKey,
+      sourceSnapshot: source,
+      auditResult,
+      lastRunAt: new Date().toISOString(),
+    }));
+  }, [currentAuditFileKey, source]);
+
+  const recordLanguageAuditExportResult = useCallback((exportResult: unknown) => {
+    setLanguageAuditState((previous) => ({
+      ...previous,
+      fileKey: currentAuditFileKey,
+      exportResult,
+      auditResult: (exportResult && typeof exportResult === "object" && "matrix" in exportResult)
+        ? exportResult
+        : previous.auditResult,
+      lastRunAt: previous.lastRunAt ?? new Date().toISOString(),
+    }));
+  }, [currentAuditFileKey]);
+
+  const appendSampleLog = useCallback((
+    status: SampleLoadStatus,
+    message: string,
+    sampleId?: string,
+    evidence?: unknown
+  ) => {
+    const timestamp = new Date().toISOString();
+    setSampleBrowserState((previous) => ({
+      ...previous,
+      logs: [
+        ...previous.logs,
+        {
+          id: `sample-${timestamp}-${previous.logs.length}`,
+          status,
+          message,
+          sampleId,
+          timestamp,
+          evidence,
+        },
+      ],
+    }));
+  }, []);
+
+  const appendSampleIssue = useCallback((message: string, sampleId?: string, code = "SAMPLE_LOAD_FAILED", evidence?: unknown) => {
+    setSampleBrowserState((previous) => ({
+      ...previous,
+      issues: [
+        ...previous.issues,
+        {
+          id: `sample-issue-${new Date().toISOString()}-${previous.issues.length}`,
+          severity: "error",
+          code,
+          message,
+          sampleId,
+          evidence,
+        },
+      ],
+    }));
+  }, []);
 
   useEffect(() => {
     platform.commands = commandRegistry;
   }, [commandRegistry, platform]);
+
+  useEffect(() => {
+    setArtifactWorkflowState((previous) => {
+      if (!previous.fileKey || previous.fileKey === currentArtifactFileKey) return previous;
+      return EMPTY_ARTIFACT_WORKFLOW_STATE;
+    });
+    setArtifactDiffSlots({});
+  }, [currentArtifactFileKey]);
+
+  useEffect(() => {
+    setLanguageAuditState((previous) => {
+      if (!previous.fileKey || previous.fileKey === currentAuditFileKey) return previous;
+      return EMPTY_LANGUAGE_AUDIT_STATE;
+    });
+  }, [currentAuditFileKey]);
 
   const handleEditorBeforeMount = useCallback((monaco: typeof Monaco) => {
     registerReasonScriptLanguage(monaco);
@@ -174,6 +411,76 @@ export default function App() {
       });
     });
   }, [platform]);
+
+  const refreshSamples = useCallback(async () => {
+    setSampleOperationRunning(true);
+    setSampleBrowserState((previous) => ({ ...previous, status: "loading" }));
+    appendSampleLog("loading", "Examples fetch started.");
+    try {
+      const examples = await fetchExamples();
+      setSampleBrowserState((previous) => ({
+        ...previous,
+        status: "loaded",
+        examples,
+      }));
+      const count = Array.isArray(examples)
+        ? examples.length
+        : Array.isArray((examples as Record<string, unknown> | null)?.examples)
+          ? ((examples as Record<string, unknown>).examples as unknown[]).length
+          : 0;
+      appendSampleLog("loaded", `Examples fetch completed: ${count} samples.`, undefined, examples);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setSampleBrowserState((previous) => ({ ...previous, status: "failed" }));
+      appendSampleIssue(`Example loading failed: ${message}`, undefined, "SAMPLE_FETCH_FAILED", error);
+      appendSampleLog("failed", `Examples fetch failed: ${message}`, undefined, error);
+      platform.notifications.error("Examples unavailable.", { operation: "examples.fetch", details: message });
+      setBottomToolTab("problems");
+    } finally {
+      setSampleOperationRunning(false);
+    }
+  }, [appendSampleIssue, appendSampleLog, platform.notifications, setBottomToolTab]);
+
+  useEffect(() => {
+    refreshSamples();
+  }, [refreshSamples]);
+
+  const handleSelectSample = useCallback((sampleId: string) => {
+    setSampleBrowserState((previous) => ({ ...previous, selectedSampleId: sampleId }));
+  }, []);
+
+  const handleLoadSample = useCallback((sample: ReasonScriptSample) => {
+    setSampleBrowserState((previous) => ({ ...previous, selectedSampleId: sample.id }));
+    if (!sample.source) {
+      appendSampleIssue("Sample source unavailable.", sample.id, "SAMPLE_SOURCE_UNAVAILABLE", sample.raw);
+      appendSampleLog("failed", "Sample source unavailable.", sample.id, sample.raw);
+      setBottomToolTab("problems");
+      return;
+    }
+    if (editorDirty) {
+      appendSampleIssue("Unsaved editor content blocks example loading.", sample.id, "SAMPLE_LOAD_BLOCKED", sample.raw);
+      appendSampleLog("blocked", "Sample load blocked because the editor has unsaved content.", sample.id, sample.raw);
+      setBottomToolTab("problems");
+      return;
+    }
+
+    setSource(sample.source);
+    setSavedSource(sample.source);
+    setSelectedVersion(undefined);
+    setSelectedReadOnly(false);
+    wsStore.setSelectedPath(null);
+    wsStore.setActiveFilePath(null);
+    store.setLastError(null);
+    appendSampleLog("loaded", `Example loaded: ${sample.title}`, sample.id, sample.raw);
+    setBottomToolTab("output");
+  }, [
+    appendSampleIssue,
+    appendSampleLog,
+    editorDirty,
+    setBottomToolTab,
+    store,
+    wsStore,
+  ]);
 
   const setCompilerModeSetting = useCallback((mode: string) => {
     setCompilerMode(mode);
@@ -311,6 +618,71 @@ export default function App() {
     });
   }, [platform, selectedReadOnly, selectedVersion, source, store, wsStore.selectedPath, wsStore.workspace]);
 
+  const handleRunLanguageAudit = useCallback(async () => {
+    setAuditOperationRunning(true);
+    appendLanguageAuditLog("warning", "Audit started.");
+    try {
+      const result = await runLanguageAudit();
+      recordLanguageAuditResult(result);
+      const record = result && typeof result === "object" ? result as Record<string, unknown> : {};
+      const matrix = record.matrix && typeof record.matrix === "object" ? record.matrix as Record<string, unknown> : {};
+      const summary = matrix.summary && typeof matrix.summary === "object" ? matrix.summary as Record<string, unknown> : {};
+      appendLanguageAuditLog(
+        record.ok === false ? "fail" : "pass",
+        `Audit completed: connected ${String(summary.connected ?? 0)}/${String(summary.total ?? 0)}.`,
+        result
+      );
+      setBottomToolTab("tests");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const failure = { ok: false, errors: [{ severity: "error", message, phase: "LanguageAudit" }] };
+      recordLanguageAuditResult(failure);
+      appendLanguageAuditLog("fail", `Audit failed: ${message}`, failure);
+      platform.notifications.error("Language audit failed.", { operation: "languageAudit.run", details: message });
+      setBottomToolTab("problems");
+    } finally {
+      setAuditOperationRunning(false);
+    }
+  }, [
+    appendLanguageAuditLog,
+    platform.notifications,
+    recordLanguageAuditResult,
+    setBottomToolTab,
+  ]);
+
+  const handleExportLanguageAudit = useCallback(async () => {
+    setAuditOperationRunning(true);
+    appendLanguageAuditLog("warning", "Audit export started.");
+    try {
+      const result = await exportLanguageAudit();
+      recordLanguageAuditExportResult(result);
+      const record = result && typeof result === "object" ? result as Record<string, unknown> : {};
+      const files = record.files && typeof record.files === "object" ? record.files as Record<string, unknown> : {};
+      appendLanguageAuditLog(
+        record.ok === false ? "fail" : "pass",
+        `Audit export completed${files.audit ? `: ${String(files.audit)}` : "."}`,
+        result
+      );
+      setInspectorTab("artifacts");
+      setBottomToolTab("output");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const failure = { ok: false, errors: [{ severity: "error", message, phase: "LanguageAuditExport" }] };
+      recordLanguageAuditExportResult(failure);
+      appendLanguageAuditLog("fail", `Audit export failed: ${message}`, failure);
+      platform.notifications.error("Language audit export failed.", { operation: "languageAudit.export", details: message });
+      setBottomToolTab("problems");
+    } finally {
+      setAuditOperationRunning(false);
+    }
+  }, [
+    appendLanguageAuditLog,
+    platform.notifications,
+    recordLanguageAuditExportResult,
+    setBottomToolTab,
+    setInspectorTab,
+  ]);
+
   useEffect(() => {
     commandRegistry.register("saveFile", async (request) => {
       await saveCurrentFile();
@@ -329,7 +701,7 @@ export default function App() {
       return createCommandResult(request, "Validate complete.");
     });
     commandRegistry.register("auditProject", async (request) => {
-      await runBuild();
+      await handleRunLanguageAudit();
       return createCommandResult(request, "Audit complete.");
     });
     commandRegistry.register("showOverview", async (request) => {
@@ -375,6 +747,7 @@ export default function App() {
     commandRegistry.register("clearNotifications", async (request) => createCommandResult(request));
   }, [
     commandRegistry,
+    handleRunLanguageAudit,
     runBuild,
     saveCurrentFile,
     setBottomToolTab,
@@ -406,10 +779,125 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [executeCommand]);
 
-  const handleExport = useCallback(async () => {
-    if (!store.projectState) return;
-    await exportProjectState(store.projectState, "project_state.json");
+  const currentArtifactsForDiff = useCallback(() => {
+    if (!store.projectState) return null;
+    return store.projectState?.artifacts ?? {
+      surface_ast: store.projectState?.surface_ast,
+      semantic_ast: store.projectState?.semantic_ast,
+      reason_ir: store.projectState?.reason_ir,
+      execution_plan: store.projectState?.execution_plan,
+      simulation: store.projectState?.simulation,
+      knowledge: store.projectState?.knowledge,
+      validation: store.projectState?.validation,
+    };
   }, [store.projectState]);
+
+  const handleExport = useCallback(async () => {
+    setArtifactOperationRunning(true);
+    appendArtifactLog("export", "running", "Export started.");
+    try {
+      const result = await exportArtifactWorkflow(source, wsStore.selectedPath ?? "playground.rsn");
+      recordArtifactResult("export", "success", result);
+      const record = result && typeof result === "object" ? result as Record<string, unknown> : {};
+      appendArtifactLog("export", "success", `Export completed${record.path ? `: ${String(record.path)}` : "."}`, result);
+      setInspectorTab("artifacts");
+      setBottomToolTab("output");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const failure: ExportArtifactResult = {
+        status: "failed",
+        raw: { ok: false, errors: [{ severity: "error", message, phase: "Export" }] },
+      };
+      recordArtifactResult("export", "failed", failure);
+      appendArtifactLog("export", "failed", `Export failed: ${message}`, failure.raw);
+      platform.notifications.error("Export failed.", { operation: "artifact.export", details: message });
+    } finally {
+      setArtifactOperationRunning(false);
+    }
+  }, [
+    appendArtifactLog,
+    platform.notifications,
+    recordArtifactResult,
+    setBottomToolTab,
+    setInspectorTab,
+    source,
+    wsStore.selectedPath,
+  ]);
+
+  const handleImportArtifact = useCallback(async (path: string) => {
+    const trimmed = path.trim();
+    if (!trimmed) return;
+    setArtifactOperationRunning(true);
+    appendArtifactLog("import", "running", `Import started: ${trimmed}`);
+    try {
+      const result = await importArtifactWorkflow(trimmed);
+      recordArtifactResult("import", "success", result);
+      const record = result && typeof result === "object" ? result as Record<string, unknown> : {};
+      if (record.artifacts) setArtifactDiffSlots((previous) => ({ ...previous, b: record.artifacts }));
+      appendArtifactLog("import", "success", `Import completed${record.path ? `: ${String(record.path)}` : "."}`, result);
+      setInspectorTab("artifacts");
+      setBottomToolTab("output");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const failure: ImportArtifactResult = {
+        status: "failed",
+        validationIssues: [{ id: "import-failure", operation: "import", severity: "error", code: "IMPORT_FAILED", message }],
+        raw: { ok: false, errors: [{ severity: "error", message, phase: "Import", path: trimmed }] },
+      };
+      recordArtifactResult("import", "failed", failure);
+      appendArtifactLog("import", "failed", `Import failed: ${message}`, failure.raw);
+      platform.notifications.error("Import failed.", { operation: "artifact.import", details: message });
+      setBottomToolTab("problems");
+    } finally {
+      setArtifactOperationRunning(false);
+    }
+  }, [appendArtifactLog, platform.notifications, recordArtifactResult, setBottomToolTab, setInspectorTab]);
+
+  const handleSetArtifactDiffSlot = useCallback((slot: "a" | "b") => {
+    const artifacts = currentArtifactsForDiff();
+    if (!artifacts) {
+      appendArtifactLog("diff", "failed", "Diff slot could not be set because no current artifacts are available.");
+      return;
+    }
+    setArtifactDiffSlots((previous) => ({ ...previous, [slot]: artifacts }));
+    appendArtifactLog("diff", "success", `Diff slot ${slot.toUpperCase()} set.`);
+  }, [appendArtifactLog, currentArtifactsForDiff]);
+
+  const handleCompareArtifactDiff = useCallback(async () => {
+    if (!artifactDiffSlots.a || !artifactDiffSlots.b) return;
+    setArtifactOperationRunning(true);
+    appendArtifactLog("diff", "running", "Diff started.");
+    try {
+      const result = await diffArtifactWorkflow(artifactDiffSlots.a, artifactDiffSlots.b);
+      recordArtifactResult("diff", "success", result);
+      const record = result && typeof result === "object" ? result as Record<string, unknown> : {};
+      const summary = record.summary && typeof record.summary === "object" ? record.summary as Record<string, unknown> : {};
+      appendArtifactLog("diff", "success", `Diff completed: changed ${String(summary.changed ?? 0)}.`, result);
+      setInspectorTab("artifacts");
+      setBottomToolTab("output");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const failure: DiffArtifactResult = {
+        status: "failed",
+        issues: [{ id: "diff-failure", operation: "diff", severity: "error", code: "DIFF_FAILED", message }],
+        raw: { ok: false, errors: [{ severity: "error", message, phase: "Diff" }] },
+      };
+      recordArtifactResult("diff", "failed", failure);
+      appendArtifactLog("diff", "failed", `Diff failed: ${message}`, failure.raw);
+      platform.notifications.error("Diff failed.", { operation: "artifact.diff", details: message });
+      setBottomToolTab("problems");
+    } finally {
+      setArtifactOperationRunning(false);
+    }
+  }, [
+    appendArtifactLog,
+    artifactDiffSlots.a,
+    artifactDiffSlots.b,
+    platform.notifications,
+    recordArtifactResult,
+    setBottomToolTab,
+    setInspectorTab,
+  ]);
 
   const handleSelectArtifact = useCallback(
     (sel: ArtifactSelection | null) => { store.setSelectedArtifact(sel); },
@@ -433,6 +921,21 @@ export default function App() {
   }, [setInspectorTab]);
 
   const ps = store.projectState;
+  const psWithArtifactWorkflow = useMemo(
+    () => artifactWorkflowStateForProject(ps, artifactWorkflowState),
+    [artifactWorkflowState, ps]
+  );
+  const languageAuditStateWithFreshness = useMemo(
+    () => ({
+      ...languageAuditState,
+      stale: Boolean(languageAuditState.sourceSnapshot && languageAuditState.sourceSnapshot !== source),
+    }),
+    [languageAuditState, source]
+  );
+  const psWithLanguageAudit = useMemo(
+    () => languageAuditStateForProject(ps, languageAuditStateWithFreshness),
+    [languageAuditStateWithFreshness, ps]
+  );
   const sel = store.selectedArtifact;
 
   // Build view models (memoized)
@@ -441,6 +944,46 @@ export default function App() {
   const executionPlanVm = useMemo(() => buildExecutionPlanFlow(ps?.execution_plan), [ps?.execution_plan]);
   const simulationVm = useMemo(() => buildSimulationTrace(ps?.simulation), [ps?.simulation]);
   const knowledgeVm = useMemo(() => buildKnowledgeEvidence(ps?.knowledge), [ps?.knowledge]);
+  const diagnosticsAnalysisVm = useMemo(() => buildDiagnosticsAnalysisViewModel(ps), [ps]);
+  const runtimeObservabilityVm = useMemo(() => buildRuntimeObservabilityViewModel(ps), [ps]);
+  const artifactWorkflowVm: ArtifactWorkflowViewModel = useMemo(
+    () => buildArtifactWorkflowViewModel(psWithArtifactWorkflow ?? { artifactWorkflow: artifactWorkflowState }),
+    [artifactWorkflowState, psWithArtifactWorkflow]
+  );
+  const languageAuditVm: LanguageAuditViewModel = useMemo(
+    () => buildLanguageAuditViewModel(psWithLanguageAudit ?? { languageAudit: languageAuditStateWithFreshness }),
+    [languageAuditStateWithFreshness, psWithLanguageAudit]
+  );
+  const sampleBrowserVm = useMemo(
+    () => buildSampleBrowserViewModel({
+      status: sampleBrowserState.status,
+      examples: sampleBrowserState.examples,
+      selectedSampleId: sampleBrowserState.selectedSampleId,
+      issues: sampleBrowserState.issues,
+      logs: sampleBrowserState.logs,
+    }),
+    [sampleBrowserState]
+  );
+  const migratedDiagnostics = useMemo(
+    () => migratedAnalysisDiagnosticsAsPlatformDiagnostics(diagnosticsAnalysisVm),
+    [diagnosticsAnalysisVm]
+  );
+  const artifactWorkflowDiagnostics = useMemo(
+    () => artifactWorkflowIssuesAsPlatformDiagnostics(artifactWorkflowVm),
+    [artifactWorkflowVm]
+  );
+  const languageAuditDiagnostics = useMemo(
+    () => languageAuditIssuesAsPlatformDiagnostics(languageAuditVm),
+    [languageAuditVm]
+  );
+  const sampleBrowserDiagnostics = useMemo(
+    () => sampleBrowserIssuesAsPlatformDiagnostics(sampleBrowserVm),
+    [sampleBrowserVm]
+  );
+  const problemsDiagnostics = useMemo(
+    () => [...migratedDiagnostics, ...artifactWorkflowDiagnostics, ...languageAuditDiagnostics, ...sampleBrowserDiagnostics],
+    [artifactWorkflowDiagnostics, languageAuditDiagnostics, migratedDiagnostics, sampleBrowserDiagnostics]
+  );
 
   const rightInspectorTabs = [
     {
@@ -454,6 +997,13 @@ export default function App() {
           buildStatus={store.buildStatus}
           pipelineVm={pipelineVm}
           knowledgeVm={knowledgeVm}
+          diagnosticsAnalysisVm={diagnosticsAnalysisVm}
+          artifactWorkflowVm={artifactWorkflowVm}
+          languageAuditVm={languageAuditVm}
+          runtimeObservabilityVm={runtimeObservabilityVm}
+          onRunLanguageAudit={handleRunLanguageAudit}
+          onExportLanguageAudit={handleExportLanguageAudit}
+          auditOperationRunning={auditOperationRunning}
           onNavigate={(stageId) => handlePipelineNavigate(null, stageId)}
         />
       ),
@@ -477,6 +1027,7 @@ export default function App() {
         <SimulationTraceView
           vm={simulationVm}
           rawData={ps?.simulation}
+          runtimeObservabilityVm={runtimeObservabilityVm}
           selectedArtifact={sel}
           onSelectArtifact={handleSelectArtifact}
         />
@@ -501,6 +1052,16 @@ export default function App() {
         <ArtifactsInspectorView
           projectState={ps}
           sourceModelVm={sourceModelVm}
+          artifactWorkflowVm={artifactWorkflowVm}
+          languageAuditVm={languageAuditVm}
+          sampleBrowserVm={sampleBrowserVm}
+          artifactDiffSlotAReady={Boolean(artifactDiffSlots.a)}
+          artifactDiffSlotBReady={Boolean(artifactDiffSlots.b)}
+          onExportArtifact={handleExport}
+          onImportArtifact={handleImportArtifact}
+          onSetArtifactDiffSlot={handleSetArtifactDiffSlot}
+          onCompareArtifactDiff={handleCompareArtifactDiff}
+          artifactOperationRunning={artifactOperationRunning}
           selectedArtifact={sel}
           onSelectArtifact={handleSelectArtifact}
         />
@@ -560,11 +1121,18 @@ export default function App() {
           workspace={wsStore.workspace}
           selectedPath={wsStore.selectedPath}
           expandedPaths={wsStore.expandedPaths}
+          sampleBrowserVm={sampleBrowserVm}
+          selectedSampleId={sampleBrowserState.selectedSampleId}
+          sampleLoading={sampleOperationRunning}
+          editorDirty={editorDirty}
           onSelectPath={handleSelectWorkspacePath}
           onToggleExpanded={wsStore.toggleExpanded}
           onClearWorkspace={wsStore.clearWorkspace}
           onOpenWorkspace={handleOpenWorkspace}
           onRefreshWorkspace={handleRefreshWorkspace}
+          onRefreshSamples={refreshSamples}
+          onSelectSample={handleSelectSample}
+          onLoadSample={handleLoadSample}
         />
         <div className="ide-main-pane">
           <div className="ide-editor-pane">
@@ -588,7 +1156,12 @@ export default function App() {
             />
           </div>
           <BottomToolWindow
-            diagnostics={store.diagnostics}
+            diagnostics={problemsDiagnostics}
+            diagnosticsAnalysisVm={diagnosticsAnalysisVm}
+            artifactWorkflowVm={artifactWorkflowVm}
+            languageAuditVm={languageAuditVm}
+            sampleBrowserVm={sampleBrowserVm}
+            runtimeObservabilityVm={runtimeObservabilityVm}
             simulationVm={simulationVm}
             projectState={ps}
             lastError={store.lastError}
@@ -596,6 +1169,9 @@ export default function App() {
             onSelectArtifact={handleSelectArtifact}
             activeTab={activeBottomTab}
             onActiveTabChange={setBottomToolTab}
+            onRunLanguageAudit={handleRunLanguageAudit}
+            onExportLanguageAudit={handleExportLanguageAudit}
+            auditOperationRunning={auditOperationRunning}
           />
         </div>
 

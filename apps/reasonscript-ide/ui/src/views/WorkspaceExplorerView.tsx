@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 import type { FileNode, FileNodeKind, WorkspaceState } from "../types";
+import type { ReasonScriptSample, SampleBrowserViewModel } from "../viewModels/sampleBrowser";
+import SampleBrowserView from "./SampleBrowserView";
 
 // ---------------------------------------------------------------------------
 // Icon helpers
@@ -164,22 +166,36 @@ export interface WorkspaceExplorerProps {
   workspace: WorkspaceState | null;
   selectedPath: string | null;
   expandedPaths: Set<string>;
+  sampleBrowserVm: SampleBrowserViewModel;
+  selectedSampleId?: string;
+  sampleLoading?: boolean;
+  editorDirty?: boolean;
   onSelectPath: (path: string | null) => void;
   onToggleExpanded: (path: string) => void;
   onClearWorkspace: () => void;
   onOpenWorkspace: (path: string) => Promise<void>;
   onRefreshWorkspace: () => Promise<void>;
+  onRefreshSamples: () => void;
+  onSelectSample: (sampleId: string) => void;
+  onLoadSample: (sample: ReasonScriptSample) => void;
 }
 
 export default function WorkspaceExplorerView({
   workspace,
   selectedPath,
   expandedPaths,
+  sampleBrowserVm,
+  selectedSampleId,
+  sampleLoading,
+  editorDirty,
   onSelectPath,
   onToggleExpanded,
   onClearWorkspace,
   onOpenWorkspace,
   onRefreshWorkspace,
+  onRefreshSamples,
+  onSelectSample,
+  onLoadSample,
 }: WorkspaceExplorerProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -324,7 +340,18 @@ export default function WorkspaceExplorerView({
       {/* Content */}
       <div style={{ flex: 1, overflow: "auto" }}>
         {!workspace ? (
-          <OpenBar onOpen={handleOpen} loading={loading} />
+          <>
+            <OpenBar onOpen={handleOpen} loading={loading} />
+            <SampleBrowserView
+              vm={sampleBrowserVm}
+              selectedSampleId={selectedSampleId}
+              loading={sampleLoading}
+              dirty={editorDirty}
+              onRefresh={onRefreshSamples}
+              onSelectSample={onSelectSample}
+              onLoadSample={onLoadSample}
+            />
+          </>
         ) : (
           <>
             {workspace.files.map((node) => (
@@ -343,6 +370,15 @@ export default function WorkspaceExplorerView({
                 Empty workspace
               </div>
             )}
+            <SampleBrowserView
+              vm={sampleBrowserVm}
+              selectedSampleId={selectedSampleId}
+              loading={sampleLoading}
+              dirty={editorDirty}
+              onRefresh={onRefreshSamples}
+              onSelectSample={onSelectSample}
+              onLoadSample={onLoadSample}
+            />
           </>
         )}
       </div>

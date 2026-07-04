@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
 import TabPanel from "../components/TabPanel";
+import type { DiagnosticsAnalysisViewModel } from "../viewModels/analysisDiagnostics";
+import type { ArtifactWorkflowViewModel } from "../viewModels/artifactWorkflow";
+import type { LanguageAuditViewModel } from "../viewModels/languageAudit";
+import type { RuntimeObservabilityViewModel } from "../viewModels/runtimeObservability";
+import type { SampleBrowserViewModel } from "../viewModels/sampleBrowser";
 import type {
   ArtifactSelection,
   PlatformDiagnostic,
@@ -11,7 +16,20 @@ import type {
   SimulationTraceViewModel,
 } from "../visualization/viewModels";
 import DependencyGraphView from "./DependencyGraphView";
+import AnalysisSummaryView from "./AnalysisSummaryView";
+import ArtifactOperationLogsView from "./ArtifactOperationLogsView";
+import ArtifactWorkflowSummaryView from "./ArtifactWorkflowSummaryView";
+import ArtifactWorkflowView from "./ArtifactWorkflowView";
 import DiagnosticsView from "./DiagnosticsView";
+import DiagnosticsAnalysisView from "./DiagnosticsAnalysisView";
+import LanguageAuditArtifactsView from "./LanguageAuditArtifactsView";
+import LanguageAuditLogsView from "./LanguageAuditLogsView";
+import LanguageAuditMatrixView from "./LanguageAuditMatrixView";
+import LanguageAuditSummaryView from "./LanguageAuditSummaryView";
+import RuntimeObservabilitySummaryView from "./RuntimeObservabilitySummaryView";
+import RuntimeOutputView from "./RuntimeOutputView";
+import SampleOperationLogsView from "./SampleOperationLogsView";
+import SampleMetadataView from "./SampleMetadataView";
 import JsonArtifactView from "./JsonArtifactView";
 import PipelineOverviewView from "./PipelineOverviewView";
 import ReasonIRView from "./ReasonIRView";
@@ -61,6 +79,13 @@ interface OverviewProps {
   buildStatus: string;
   pipelineVm: PipelineOverviewViewModel;
   knowledgeVm: KnowledgeViewModel;
+  diagnosticsAnalysisVm: DiagnosticsAnalysisViewModel;
+  artifactWorkflowVm: ArtifactWorkflowViewModel;
+  languageAuditVm: LanguageAuditViewModel;
+  runtimeObservabilityVm: RuntimeObservabilityViewModel;
+  onRunLanguageAudit: () => void;
+  onExportLanguageAudit: () => void;
+  auditOperationRunning?: boolean;
   onNavigate?: (stageId: string) => void;
 }
 
@@ -71,6 +96,13 @@ export function StandardOverviewView({
   buildStatus,
   pipelineVm,
   knowledgeVm,
+  diagnosticsAnalysisVm,
+  artifactWorkflowVm,
+  languageAuditVm,
+  runtimeObservabilityVm,
+  onRunLanguageAudit,
+  onExportLanguageAudit,
+  auditOperationRunning,
   onNavigate,
 }: OverviewProps) {
   const diagnostics = projectState?.diagnostics ?? [];
@@ -124,6 +156,16 @@ export function StandardOverviewView({
         )}
       </section>
 
+      <AnalysisSummaryView vm={diagnosticsAnalysisVm} />
+      <RuntimeObservabilitySummaryView vm={runtimeObservabilityVm} />
+      <ArtifactWorkflowSummaryView vm={artifactWorkflowVm} />
+      <LanguageAuditSummaryView
+        vm={languageAuditVm}
+        onRunAudit={onRunLanguageAudit}
+        onExportAudit={onExportLanguageAudit}
+        disabled={auditOperationRunning}
+      />
+
       <section className="ide-overview-section">
         <div className="ide-section-title">Pipeline</div>
         <PipelineOverviewView
@@ -138,11 +180,31 @@ export function StandardOverviewView({
 interface ArtifactsProps extends SelectionProps {
   projectState: ProjectState | null;
   sourceModelVm: SourceModelViewModel;
+  artifactWorkflowVm: ArtifactWorkflowViewModel;
+  languageAuditVm: LanguageAuditViewModel;
+  sampleBrowserVm: SampleBrowserViewModel;
+  artifactDiffSlotAReady: boolean;
+  artifactDiffSlotBReady: boolean;
+  onExportArtifact: () => void;
+  onImportArtifact: (path: string) => void;
+  onSetArtifactDiffSlot: (slot: "a" | "b") => void;
+  onCompareArtifactDiff: () => void;
+  artifactOperationRunning?: boolean;
 }
 
 export function ArtifactsInspectorView({
   projectState,
   sourceModelVm,
+  artifactWorkflowVm,
+  languageAuditVm,
+  sampleBrowserVm,
+  artifactDiffSlotAReady,
+  artifactDiffSlotBReady,
+  onExportArtifact,
+  onImportArtifact,
+  onSetArtifactDiffSlot,
+  onCompareArtifactDiff,
+  artifactOperationRunning,
   selectedArtifact,
   onSelectArtifact,
 }: ArtifactsProps) {
@@ -212,6 +274,32 @@ export function ArtifactsInspectorView({
       content: <SourceModelView vm={sourceModelVm} />,
     },
     {
+      id: "workflow",
+      label: "Workflow",
+      content: (
+        <ArtifactWorkflowView
+          vm={artifactWorkflowVm}
+          slotAReady={artifactDiffSlotAReady}
+          slotBReady={artifactDiffSlotBReady}
+          onExport={onExportArtifact}
+          onImport={onImportArtifact}
+          onSetDiffSlot={onSetArtifactDiffSlot}
+          onCompareDiff={onCompareArtifactDiff}
+          disabled={artifactOperationRunning}
+        />
+      ),
+    },
+    {
+      id: "audit",
+      label: "Audit",
+      content: <LanguageAuditArtifactsView vm={languageAuditVm} />,
+    },
+    {
+      id: "samples",
+      label: "Samples",
+      content: <SampleMetadataView vm={sampleBrowserVm} />,
+    },
+    {
       id: "ast",
       label: "AST",
       content: <JsonArtifactView data={artifactContent["ast.json"]} label="Surface AST" />,
@@ -267,15 +355,28 @@ export function ArtifactsInspectorView({
 
 interface BottomToolWindowProps extends SelectionProps {
   diagnostics: PlatformDiagnostic[];
+  diagnosticsAnalysisVm: DiagnosticsAnalysisViewModel;
+  artifactWorkflowVm: ArtifactWorkflowViewModel;
+  languageAuditVm: LanguageAuditViewModel;
+  sampleBrowserVm: SampleBrowserViewModel;
+  runtimeObservabilityVm: RuntimeObservabilityViewModel;
   simulationVm: SimulationTraceViewModel;
   projectState: ProjectState | null;
   lastError: string | null;
   activeTab?: string;
   onActiveTabChange?: (tabId: string) => void;
+  onRunLanguageAudit: () => void;
+  onExportLanguageAudit: () => void;
+  auditOperationRunning?: boolean;
 }
 
 export function BottomToolWindow({
   diagnostics,
+  diagnosticsAnalysisVm,
+  artifactWorkflowVm,
+  languageAuditVm,
+  sampleBrowserVm,
+  runtimeObservabilityVm,
   simulationVm,
   projectState,
   lastError,
@@ -283,23 +384,37 @@ export function BottomToolWindow({
   onSelectArtifact,
   activeTab,
   onActiveTabChange,
+  onRunLanguageAudit,
+  onExportLanguageAudit,
+  auditOperationRunning,
 }: BottomToolWindowProps) {
   const tabs = [
     {
       id: "problems",
       label: diagnostics.length > 0 ? `Problems (${diagnostics.length})` : "Problems",
       content: (
-        <DiagnosticsView
-          diagnostics={diagnostics}
-          selectedArtifact={selectedArtifact}
-          onSelectArtifact={onSelectArtifact}
-        />
+        <div className="ide-problems-content">
+          <DiagnosticsView
+            diagnostics={diagnostics}
+            selectedArtifact={selectedArtifact}
+            onSelectArtifact={onSelectArtifact}
+          />
+          <DiagnosticsAnalysisView vm={diagnosticsAnalysisVm} />
+        </div>
       ),
     },
     {
       id: "output",
       label: "Output",
-      content: <RuntimeOperationsView simulationVm={simulationVm} />,
+      content: (
+        <div className="ide-output-content">
+          <RuntimeOutputView vm={runtimeObservabilityVm} />
+          <ArtifactOperationLogsView vm={artifactWorkflowVm} />
+          <LanguageAuditLogsView vm={languageAuditVm} />
+          <SampleOperationLogsView vm={sampleBrowserVm} />
+          <RuntimeOperationsView simulationVm={simulationVm} />
+        </div>
+      ),
     },
     {
       id: "logs",
@@ -320,9 +435,12 @@ export function BottomToolWindow({
       id: "tests",
       label: "Tests",
       content: (
-        <div className="ide-tool-empty">
-          No test, regression, or baseline result is attached to the current analyze result.
-        </div>
+        <LanguageAuditMatrixView
+          vm={languageAuditVm}
+          onRunAudit={onRunLanguageAudit}
+          onExportAudit={onExportLanguageAudit}
+          disabled={auditOperationRunning}
+        />
       ),
     },
   ];

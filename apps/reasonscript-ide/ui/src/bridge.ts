@@ -48,6 +48,11 @@ export async function buildProjectState(
     reason_ir: data.reason_ir ?? (Array.isArray(data.reason_irs) ? data.reason_irs[0] : null) ?? null,
     execution_plan: data.execution_plan ?? null,
     diagnostics: Array.isArray(data.diagnostics) ? data.diagnostics as ProjectState["diagnostics"] : [],
+    views: data.views ?? null,
+    artifacts: data.artifacts ?? null,
+    artifactWorkflow: data.artifactWorkflow ?? data.artifact_workflow ?? null,
+    languageAudit: data.languageAudit ?? data.language_audit ?? null,
+    pipeline: data.pipeline ?? null,
     validation: data.validation ?? null,
     analyzer: data.analysis ?? data.analyzer ?? null,
     runtime_operations: data.runtime_operations ?? null,
@@ -59,6 +64,69 @@ export async function buildProjectState(
     },
     generated_at: String(data.generated_at ?? new Date().toISOString()),
   };
+}
+
+async function postArtifactOperation(endpoint: "/api/export" | "/api/import" | "/api/diff", body: unknown): Promise<unknown> {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`${endpoint} request failed with status ${response.status}`);
+  }
+  return payload;
+}
+
+export async function exportArtifactWorkflow(source: string, filename: string): Promise<unknown> {
+  return postArtifactOperation("/api/export", {
+    source,
+    filename,
+    compiler_mode: "normal",
+  });
+}
+
+export async function importArtifactWorkflow(path: string): Promise<unknown> {
+  return postArtifactOperation("/api/import", { path });
+}
+
+export async function diffArtifactWorkflow(a: unknown, b: unknown): Promise<unknown> {
+  return postArtifactOperation("/api/diff", { a, b });
+}
+
+export async function runLanguageAudit(): Promise<unknown> {
+  const response = await fetch("/api/language-audit");
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`/api/language-audit request failed with status ${response.status}`);
+  }
+  return payload;
+}
+
+export async function exportLanguageAudit(): Promise<unknown> {
+  const response = await fetch("/api/language-audit/export", { method: "POST" });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`/api/language-audit/export request failed with status ${response.status}`);
+  }
+  return payload;
+}
+
+export async function fetchExamples(): Promise<unknown> {
+  const response = await fetch("/api/examples");
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`/api/examples request failed with status ${response.status}`);
+  }
+  return payload;
 }
 
 export async function openFile(path: string): Promise<string> {

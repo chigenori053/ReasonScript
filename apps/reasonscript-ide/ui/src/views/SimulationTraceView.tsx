@@ -9,7 +9,11 @@ import type {
   SimulationEventType,
 } from "../visualization/viewModels";
 import type { ArtifactSelection } from "../types";
+import type { RuntimeObservabilityViewModel } from "../viewModels/runtimeObservability";
+import CalculationTraceView from "./CalculationTraceView";
+import InputStateView from "./InputStateView";
 import JsonArtifactView from "./JsonArtifactView";
+import RuntimeTraceView from "./RuntimeTraceView";
 
 const EVENT_COLOR: Record<SimulationEventType, string> = {
   start: "#34d399",
@@ -94,6 +98,7 @@ function TraceStepRow({
 interface Props {
   vm: SimulationTraceViewModel;
   rawData?: unknown;
+  runtimeObservabilityVm: RuntimeObservabilityViewModel;
   selectedArtifact?: ArtifactSelection | null;
   onSelectArtifact?: (sel: ArtifactSelection | null) => void;
 }
@@ -101,12 +106,17 @@ interface Props {
 export default function SimulationTraceView({
   vm,
   rawData,
+  runtimeObservabilityVm,
   selectedArtifact,
   onSelectArtifact,
 }: Props) {
-  const [tab, setTab] = useState<"trace" | "raw">("trace");
+  const [tab, setTab] = useState<"trace" | "runtime" | "input" | "calculation" | "raw">("trace");
+  const hasRuntimeFallback =
+    runtimeObservabilityVm.runtimeTrace.status !== "unavailable" ||
+    runtimeObservabilityVm.inputState.status !== "unavailable" ||
+    runtimeObservabilityVm.calculation.status !== "unavailable";
 
-  if (vm.status === "unavailable") {
+  if (vm.status === "unavailable" && !hasRuntimeFallback) {
     return (
       <div style={{ padding: "12px 16px", color: "#6b7280", fontSize: 13 }}>
         Simulation — not available
@@ -166,7 +176,7 @@ export default function SimulationTraceView({
 
       {/* Sub-tabs */}
       <div style={{ display: "flex", borderBottom: "1px solid #1f2937", flexShrink: 0 }}>
-        {(["trace", "raw"] as const).map((t) => (
+        {(["trace", "runtime", "input", "calculation", "raw"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -180,7 +190,15 @@ export default function SimulationTraceView({
               cursor: "pointer",
             }}
           >
-            {t === "trace" ? `Trace (${vm.steps.length})` : "Raw JSON"}
+            {t === "trace"
+              ? `Trace (${vm.steps.length})`
+              : t === "runtime"
+                ? `Runtime (${runtimeObservabilityVm.summary.runtimeTraceStepCount})`
+                : t === "input"
+                  ? `Input (${runtimeObservabilityVm.summary.inputStateCount})`
+                  : t === "calculation"
+                    ? `Calculation (${runtimeObservabilityVm.summary.calculationCount})`
+                    : "Raw JSON"}
           </button>
         ))}
       </div>
@@ -188,6 +206,12 @@ export default function SimulationTraceView({
       <div style={{ flex: 1, overflow: "auto" }}>
         {tab === "raw" ? (
           <JsonArtifactView data={rawData} label="Simulation" />
+        ) : tab === "runtime" ? (
+          <RuntimeTraceView vm={runtimeObservabilityVm} />
+        ) : tab === "input" ? (
+          <InputStateView vm={runtimeObservabilityVm} />
+        ) : tab === "calculation" ? (
+          <CalculationTraceView vm={runtimeObservabilityVm} />
         ) : vm.status === "failed" ? (
           <div style={{ padding: "16px", color: "#f87171", fontSize: 13 }}>
             Simulation failed

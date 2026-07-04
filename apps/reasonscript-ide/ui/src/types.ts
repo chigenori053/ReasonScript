@@ -158,6 +158,11 @@ export interface ProjectState {
   reason_ir: unknown;
   execution_plan: unknown;
   diagnostics: PlatformDiagnostic[];
+  views?: unknown;
+  artifacts?: unknown;
+  artifactWorkflow?: unknown;
+  languageAudit?: unknown;
+  pipeline?: unknown;
   validation: unknown;
   analyzer: unknown;
   runtime_operations: unknown;
