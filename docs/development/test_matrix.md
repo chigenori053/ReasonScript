@@ -7,7 +7,6 @@
 | smoke               | `python3 scripts/dev.py test smoke`               | Minimum validation (daily dev use)           |
 | backend             | `python3 scripts/dev.py test backend`             | Compiler / analyzer / compatibility tests    |
 | frontend            | `python3 scripts/dev.py test frontend`            | Official IDE UI build validation             |
-| playground-frontend | `python3 scripts/dev.py test playground-frontend` | Legacy Playground frontend build validation  |
 | rust                | `python3 scripts/dev.py test rust`                | Rust runtime workspace tests                 |
 | ide                 | `python3 scripts/dev.py test ide`                 | IDE contract / visualization tests           |
 | all                 | `python3 scripts/dev.py test all`                 | CI-equivalent full run                       |
@@ -41,14 +40,6 @@ apps/reasonscript-ide/ui/ → npm run build
 ```
 
 Validates official IDE UI TypeScript compilation and Vite bundle without a running server.
-
-## Legacy Playground Frontend Test Scope
-
-```
-playground/frontend/ → npm run build
-```
-
-The legacy Playground frontend build is isolated behind `test playground-frontend`. It is not part of smoke validation.
 
 ## Rust Test Scope
 

@@ -139,8 +139,8 @@ def test_legacy_feature_decision_docs_updated_to_migrated() -> None:
         row = re.search(rf"^\|\s*{re.escape(feature)}\s*\|.*$", source, re.MULTILINE)
         assert row is not None, feature
         assert "`MIGRATED`" in row.group(0)
-    assert "REVIEWED - UPDATED THROUGH PHASE 4.5-C2-E." in source
-    assert "ALL LEGACY FEATURE DECISIONS RESOLVED - READY FOR PHYSICAL REMOVAL PLANNING" in source
+    assert "REVIEWED - UPDATED THROUGH PHASE 4.5-D." in source
+    assert "LEGACY PLAYGROUND FRONTEND REMOVED" in source
 
 
 def test_docs_and_changelog_exist() -> None:

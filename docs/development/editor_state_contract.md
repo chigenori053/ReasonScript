@@ -1,6 +1,6 @@
 # Editor State Contract
 
-Implemented client-side in `playground/frontend/src/App.jsx`. This state
+Implemented client-side in `apps/reasonscript-ide/ui/src/App.tsx`. This state
 has no backend counterpart — it exists purely in the React component tree.
 
 ## Selected file state

@@ -140,16 +140,12 @@ def test_placement_doc_does_not_add_new_top_level_right_inspector_tabs() -> None
     assert "Allowed top-level right inspector tabs:" in source
 
 
-def test_deletion_gate_remains_not_closed() -> None:
+def test_deletion_gate_progressed_to_phase_4_5_d() -> None:
     source = _read(FEATURE_DOC)
-    normalized = _normalized(source)
-    assert "NOT CLOSED" in normalized
-    assert "ALL LEGACY FEATURE DECISIONS RESOLVED - READY FOR PHYSICAL REMOVAL PLANNING" in source
-    assert "Still NOT enough for physical deletion" in source
+    assert "LEGACY PLAYGROUND FRONTEND REMOVED" in source
 
 
-def test_physical_deletion_is_explicitly_out_of_scope() -> None:
-    for path in [FEATURE_DOC, API_DOC, PLACEMENT_DOC, CHANGELOG]:
-        source = _read(path)
-        assert "physical deletion" in source.lower()
-        assert "out of scope" in source.lower()
+def test_phase_4_5_c_changelog_recorded_physical_deletion_as_out_of_scope() -> None:
+    source = _read(CHANGELOG)
+    assert "physical deletion" in source.lower()
+    assert "out of scope" in source.lower()

@@ -15,7 +15,9 @@ the backend stable and records which endpoints are core, which support
 migration, and which should become backend-only test or regression workflow
 APIs.
 
-Physical deletion of `playground/frontend` is explicitly out of scope.
+Phase 4.5-D physically removed the legacy Playground frontend. This policy
+still does not remove backend endpoints, `/api/analyze`, or workspace API
+contracts.
 
 ## API Decision Matrix
 

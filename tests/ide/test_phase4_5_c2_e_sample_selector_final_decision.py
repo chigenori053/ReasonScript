@@ -131,8 +131,8 @@ def test_legacy_feature_decision_doc_updates_sample_selector_to_migrated() -> No
     row = re.search(r"^\|\s*Sample selector\s*\|.*$", source, re.MULTILINE)
     assert row is not None
     assert "`MIGRATED`" in row.group(0)
-    assert "REVIEWED - UPDATED THROUGH PHASE 4.5-C2-E." in source
-    assert "ALL LEGACY FEATURE DECISIONS RESOLVED - READY FOR PHYSICAL REMOVAL PLANNING" in source
+    assert "REVIEWED - UPDATED THROUGH PHASE 4.5-D." in source
+    assert "LEGACY PLAYGROUND FRONTEND REMOVED" in source
     assert "None. All previously deferred legacy UI features have been resolved." in source
 
 

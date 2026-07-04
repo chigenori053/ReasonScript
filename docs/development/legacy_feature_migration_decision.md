@@ -2,7 +2,7 @@
 
 ## Status
 
-REVIEWED - UPDATED THROUGH PHASE 4.5-C2-E.
+REVIEWED - UPDATED THROUGH PHASE 4.5-D.
 
 This document began as a Phase 4.5-C decision record.
 It now also tracks post-decision migration status for migrated legacy
@@ -10,17 +10,14 @@ features.
 
 ## Summary
 
-Phase 4.5-C classifies legacy-only Playground UI features before physical
-removal can be considered. The official IDE remains
-`apps/reasonscript-ide/ui`; `playground/frontend` remains present until the
+Phase 4.5-C classified legacy-only Playground UI features before physical
+removal could be considered. The official IDE is `apps/reasonscript-ide/ui`.
+Phase 4.5-D has physically removed `playground/frontend` now that the
 migration and deletion gates are satisfied.
 
-The current deletion gate is:
+Current deletion gate:
 
-ALL LEGACY FEATURE DECISIONS RESOLVED - READY FOR PHYSICAL REMOVAL PLANNING.
-
-Physical deletion is explicitly out of scope for this phase and remains NOT
-CLOSED.
+LEGACY PLAYGROUND FRONTEND REMOVED - VALIDATION COMPLETE.
 
 ## Decision Categories
 
@@ -44,9 +41,9 @@ CLOSED.
 
 | Feature | Legacy source | Official IDE status | Decision | Rationale |
 |---|---|---|---|---|
-| Analyze | `playground/frontend` analyze flow | Supported | `ALREADY_SUPPORTED` | The official IDE already calls `/api/analyze`. |
-| Run | `playground/frontend` run flow | Supported via runtime operations | `ALREADY_SUPPORTED` | Runtime operations are derived from official analysis state. |
-| Validate | `playground/frontend` validate flow | Supported differently | `ALREADY_SUPPORTED` | `ValidationView` covers validation from analysis-derived data. |
+| Analyze | legacy Playground UI (removed) analyze flow | Supported | `ALREADY_SUPPORTED` | The official IDE already calls `/api/analyze`. |
+| Run | legacy Playground UI (removed) run flow | Supported via runtime operations | `ALREADY_SUPPORTED` | Runtime operations are derived from official analysis state. |
+| Validate | legacy Playground UI (removed) validate flow | Supported differently | `ALREADY_SUPPORTED` | `ValidationView` covers validation from analysis-derived data. |
 | Audit | `LanguageAuditPanel` / audit flow | Migrated in Phase 4.5-C2-D | `MIGRATED` | IDE quality and verification workflow is surfaced in Overview, Problems, Output, and Artifacts. |
 | Runtime IO output | Console / `OutputPanel` | Migrated in Phase 4.5-C2-B | `MIGRATED` | Runtime output events are now surfaced in the official Output tool window. |
 | Input state | `InputStatePanel` | Migrated in Phase 4.5-C2-B | `MIGRATED` | Stateful input inspection is now surfaced in the official Simulation tab. |
@@ -113,17 +110,21 @@ None. All previously deferred legacy UI features have been resolved.
 
 ## Final Recommendation
 
-All legacy UI migration and decision blockers have been resolved.
+Legacy Playground frontend has been physically removed.
 
-Sample selector has been migrated into the official IDE as Sample Browser /
-Example Loader.
+The official IDE UI is:
 
-Do not delete `playground/frontend` until Phase 4.5-D physical removal
-planning and deletion-after-removal validation are completed.
+- `apps/reasonscript-ide/ui`
+
+The following are intentionally retained:
+
+- `playground/backend`
+- `frontend`
+- backend API contracts
 
 Proceed to:
 
-- Phase 4.5-D - Legacy Playground Physical Removal
+- Phase 5 - Workspace Diagnostics & Project Validation
 
 ## Deletion Gate Impact
 
@@ -134,10 +135,6 @@ After this phase:
   `docs/development/legacy_api_retention_policy.md`.
 - official IDE placement is defined in
   `docs/development/legacy_feature_official_ide_placement.md`.
+- `playground/frontend` has been physically removed.
 
-Still NOT enough for physical deletion:
-
-- `playground/frontend` has not been removed.
-- deletion-after-removal validation has not run.
-
-Deletion Gate: ALL LEGACY FEATURE DECISIONS RESOLVED - READY FOR PHYSICAL REMOVAL PLANNING.
+Deletion Gate: LEGACY PLAYGROUND FRONTEND REMOVED - VALIDATION COMPLETE.

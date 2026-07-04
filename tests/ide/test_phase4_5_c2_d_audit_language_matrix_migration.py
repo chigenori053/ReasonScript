@@ -138,15 +138,14 @@ def test_legacy_feature_decision_docs_updated_to_migrated() -> None:
         row = re.search(rf"^\|\s*{re.escape(feature)}\s*\|.*$", source, re.MULTILINE)
         assert row is not None, feature
         assert "`MIGRATED`" in row.group(0)
-    assert "REVIEWED - UPDATED THROUGH PHASE 4.5-C2-E." in source
-    assert "ALL LEGACY FEATURE DECISIONS RESOLVED - READY FOR PHYSICAL REMOVAL PLANNING" in source
+    assert "REVIEWED - UPDATED THROUGH PHASE 4.5-D." in source
+    assert "LEGACY PLAYGROUND FRONTEND REMOVED" in source
 
 
 def test_final_recommendation_text_is_updated_for_post_c2_d_tracking() -> None:
     source = _read(FEATURE_DOC)
-    assert "All legacy UI migration and decision blockers have been resolved." in source
-    assert "Sample selector has been migrated into the official IDE as Sample Browser" in source
-    assert "Phase 4.5-D - Legacy Playground Physical Removal" in source
+    assert "Legacy Playground frontend has been physically removed." in source
+    assert "Phase 5 - Workspace Diagnostics & Project Validation" in source
 
 
 def test_api_retention_policy_updated_for_language_audit() -> None:

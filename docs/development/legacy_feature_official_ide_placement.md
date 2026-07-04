@@ -49,8 +49,7 @@ rewritten by the official IDE migration.
 - Prefer `/api/analyze`-derived data for read-only analysis views.
 - Use dedicated APIs only for explicit artifact operations such as export,
   import, diff, audit export, or backend-only regression workflows.
-- Keep physical deletion of `playground/frontend` out of scope until all
-  deletion gates are validated.
+- The legacy Playground layout no longer exists; do not reintroduce it.
 
 Allowed top-level right inspector tabs:
 
@@ -130,5 +129,17 @@ Deprecated in Phase 4.5-C:
 - None
 
 No feature is approved for removal solely by this placement policy. Deferred
-and backend-only items must be resolved before physical deletion of
-`playground/frontend`.
+and backend-only items were resolved before Phase 4.5-D physically removed
+the legacy Playground frontend.
+
+Phase 4.5-D removed the legacy Playground frontend.
+
+The active official IDE UI is:
+
+- `apps/reasonscript-ide/ui`
+
+The legacy UI path no longer exists:
+
+- `playground/frontend`
+
+This document now records placement policy for migrated features only.

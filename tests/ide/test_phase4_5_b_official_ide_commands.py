@@ -48,19 +48,11 @@ def test_cmd_ide_is_official_workflow_guidance() -> None:
     assert "ide/desktop" not in source
 
 
-def test_legacy_playground_commands_are_marked() -> None:
-    playground_source = _function_source("cmd_playground")
-    frontend_source = _function_source("cmd_frontend")
-
-    assert "LEGACY" in playground_source or "DEPRECATED" in playground_source
-    assert "LEGACY" in frontend_source or "DEPRECATED" in frontend_source
-
-
 def test_test_frontend_targets_official_ide_ui() -> None:
     source = _function_source("cmd_test")
     marker = 'if subcmd == "frontend":'
     start = source.index(marker)
-    end = source.index('if subcmd in {"playground-frontend", "playground-legacy"}:')
+    end = source.index('if subcmd == "rust":')
     frontend_block = source[start:end]
 
     assert "Official IDE UI build" in frontend_block
@@ -68,18 +60,6 @@ def test_test_frontend_targets_official_ide_ui() -> None:
     assert '"reasonscript-ide"' in frontend_block
     assert '"ui"' in frontend_block
     assert '"playground"' not in frontend_block
-
-
-def test_test_playground_frontend_targets_legacy_frontend() -> None:
-    source = _function_source("cmd_test")
-    marker = 'if subcmd in {"playground-frontend", "playground-legacy"}:'
-    start = source.index(marker)
-    end = source.index('if subcmd == "rust":')
-    legacy_block = source[start:end]
-
-    assert "Legacy Playground frontend build" in legacy_block
-    assert '"playground"' in legacy_block
-    assert '"frontend"' in legacy_block
 
 
 def test_smoke_includes_official_ide_ui_build() -> None:
@@ -103,11 +83,30 @@ def test_test_all_includes_official_frontend_build_through_frontend_subcommand()
     assert "cmd_test(sub)" in all_block
 
 
-def test_usage_mentions_ide_ui_and_legacy_frontend_test() -> None:
+def test_usage_mentions_ide_ui() -> None:
     source = _source()
     assert "ide-ui" in source
     assert "Launch Official IDE UI only" in source
-    assert "test playground-frontend" in source
+
+
+def test_legacy_playground_commands_are_removed() -> None:
+    source = _source()
+    assert "def cmd_playground()" not in source
+    assert "def cmd_frontend()" not in source
+    assert 'if cmd == "playground":\n        return cmd_playground()' not in source
+    assert 'if cmd == "frontend":\n        return cmd_frontend()' not in source
+
+
+def test_legacy_playground_commands_fail_with_guidance() -> None:
+    source = _source()
+    assert 'if cmd in {"playground", "frontend"}:' in source
+    assert "Legacy Playground frontend has been removed" in source
+
+
+def test_no_legacy_playground_frontend_test_target() -> None:
+    source = _source()
+    assert "playground-frontend" not in source
+    assert "playground-legacy" not in source
 
 
 def test_commands_doc_documents_official_ide_workflow() -> None:
@@ -117,7 +116,6 @@ def test_commands_doc_documents_official_ide_workflow() -> None:
     assert "apps/reasonscript-ide/ui" in source
     assert "python3 scripts/dev.py backend" in source
     assert "python3 scripts/dev.py ide-ui" in source
-    assert "Legacy Playground UI" in source
     assert "test frontend" in source
 
 
@@ -126,6 +124,5 @@ def test_test_matrix_doc_documents_official_ide_ui_build() -> None:
 
     assert "Official IDE UI build validation" in source
     assert "apps/reasonscript-ide/ui/" in source
-    assert "playground/frontend/" in source
     assert "npm run build" in source
-    assert "not part of smoke validation" in source
+    assert "playground-frontend" not in source

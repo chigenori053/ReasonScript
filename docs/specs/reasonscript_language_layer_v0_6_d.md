@@ -100,5 +100,5 @@ python3 -m pytest tests/compatibility tests/playground language_surface_ast_mapp
 Frontend validation:
 
 ```bash
-cd playground/frontend && npm run build
+cd apps/reasonscript-ide/ui && npm run build
 ```

@@ -25,12 +25,7 @@ python3 scripts/dev.py ide-ui
 
 ## Legacy Playground UI
 
-`playground/frontend` remains available for legacy verification only. It is not the official IDE target for Phase 5 and later.
-
-```bash
-python3 scripts/dev.py playground
-python3 scripts/dev.py frontend
-```
+The legacy Playground frontend (`playground/frontend`) was physically removed in Phase 4.5-D. `python3 scripts/dev.py playground` and `python3 scripts/dev.py frontend` now print an error directing you to `ide` / `ide-ui`.
 
 ## Command Reference
 
@@ -41,7 +36,7 @@ Install / fetch all dependencies.
 python3 scripts/dev.py setup
 ```
 
-Runs: `pip install -r requirements-dev.txt`, creates `playground/.venv`, `npm install` (frontend), `cargo fetch` (Rust workspaces).
+Runs: `pip install -r requirements-dev.txt`, creates `playground/.venv`, `npm install` (official IDE UI), `cargo fetch` (Rust workspaces).
 
 ---
 
@@ -53,17 +48,6 @@ python3 scripts/dev.py check
 ```
 
 Delegates to `python3 scripts/check_environment.py`.
-
----
-
-### `playground`
-Launch the legacy Playground UI workflow (backend + frontend together).
-
-```bash
-python3 scripts/dev.py playground
-```
-
-This command is deprecated for official IDE development. Opens `http://localhost:5173`. Runs backend on port 8000.
 
 ---
 
@@ -100,17 +84,6 @@ Runs: `uvicorn playground.backend.main:app --reload`
 
 ---
 
-### `frontend`
-Launch the legacy Playground frontend dev server only (port 5173).
-
-```bash
-python3 scripts/dev.py frontend
-```
-
-This command is deprecated for official IDE development. Runs: `npm run dev -- --port 5173` in `playground/frontend/`
-
----
-
 ### `build`
 Production / validation build.
 
@@ -118,7 +91,7 @@ Production / validation build.
 python3 scripts/dev.py build
 ```
 
-Runs `npm run build` in `apps/reasonscript-ide/ui/`, then runs the legacy build in `playground/frontend/`.
+Runs `npm run build` in `apps/reasonscript-ide/ui/`.
 
 ---
 
@@ -150,17 +123,6 @@ python3 scripts/dev.py test frontend
 ```
 
 Runs `npm run build` in `apps/reasonscript-ide/ui/`.
-
----
-
-### `test playground-frontend`
-Legacy Playground frontend build validation.
-
-```bash
-python3 scripts/dev.py test playground-frontend
-```
-
-Runs `npm run build` in `playground/frontend/`.
 
 ---
 

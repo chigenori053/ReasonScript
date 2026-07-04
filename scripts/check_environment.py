@@ -29,7 +29,7 @@ REQUIRED_PATHS = [
     "frontend",
     "playground",
     "playground/backend",
-    "playground/frontend",
+    "apps/reasonscript-ide/ui",
     "tests",
     "docs",
     "scripts",
