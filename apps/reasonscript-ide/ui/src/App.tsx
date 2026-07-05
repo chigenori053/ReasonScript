@@ -521,6 +521,7 @@ export default function App() {
       const state = await buildProjectState(
         source,
         wsStore.selectedPath ? `file:///${wsStore.selectedPath}` : "file:///main.rsn",
+        compilerMode,
         sourceContext
       );
       store.setProjectState(state);
@@ -534,7 +535,7 @@ export default function App() {
         details: message,
       });
     }
-  }, [platform.notifications, savedSource, source, store, wsStore.selectedPath, wsStore.workspace]);
+  }, [compilerMode, platform.notifications, savedSource, source, store, wsStore.selectedPath, wsStore.workspace]);
 
   const handleOpenWorkspace = useCallback(async (rootPath: string) => {
     const result = await platform.workspace.listWorkspace({ workspaceRoot: rootPath });

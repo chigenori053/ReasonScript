@@ -10,6 +10,7 @@ export interface AnalyzeSourceContext {
 export async function buildProjectState(
   source: string,
   uri: string = "file:///main.rsn",
+  compilerMode: string = "normal",
   sourceContext?: AnalyzeSourceContext
 ): Promise<ProjectState> {
   const filename = sourceContext?.relative_path ?? uri.replace(/^file:\/\//, "") ?? "playground.rsn";
@@ -19,7 +20,7 @@ export async function buildProjectState(
     body: JSON.stringify({
       source,
       filename,
-      compiler_mode: "normal",
+      compiler_mode: compilerMode,
       ...(sourceContext ? { source_context: sourceContext } : {}),
     }),
   });
@@ -29,6 +30,21 @@ export async function buildProjectState(
   }
 
   const data = (await response.json()) as Record<string, unknown>;
+  return normalizeProjectState(data, source, uri, filename, compilerMode, sourceContext);
+}
+
+function normalizeProjectState(
+  data: Record<string, unknown>,
+  source: string,
+  uri: string,
+  filename: string,
+  compilerMode: string,
+  sourceContext?: AnalyzeSourceContext
+): ProjectState {
+  const metadata = data.metadata && typeof data.metadata === "object"
+    ? data.metadata as Record<string, unknown>
+    : {};
+
   return {
     schema_version: String(data.schema_version ?? "reasonscript-project-state/0.1"),
     compiler_version: String(data.compiler_version ?? "playground-backend"),
@@ -36,7 +52,7 @@ export async function buildProjectState(
       root_uri: sourceContext?.workspace_root,
       project_name: sourceContext?.workspace_root?.split("/").filter(Boolean).pop(),
     },
-    source_files: [
+    source_files: Array.isArray(data.source_files) ? data.source_files as ProjectState["source_files"] : [
       {
         uri,
         text: source,
@@ -59,8 +75,9 @@ export async function buildProjectState(
     simulation: data.simulation ?? null,
     knowledge: data.knowledge ?? null,
     metadata: {
-      compiler_mode: String(data.compiler_mode ?? "normal"),
-      source_filename: filename,
+      ...metadata,
+      compiler_mode: String(metadata.compiler_mode ?? data.compiler_mode ?? compilerMode),
+      source_filename: String(metadata.source_filename ?? data.filename ?? filename),
     },
     generated_at: String(data.generated_at ?? new Date().toISOString()),
   };
