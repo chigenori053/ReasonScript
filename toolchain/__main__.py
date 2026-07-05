@@ -24,6 +24,10 @@ def main() -> int:
     project_root = Path.cwd()
     package = _package_arg(args[1:])
 
+    if command in {"check", "run"} and _source_file_arg(args[1:]) is not None:
+        from scripts.reason_cli import main as reason_main
+        return reason_main(args)
+
     if command == "build":
         from toolchain.build_cmd import run
         return run(project_root, package=package)
@@ -44,8 +48,16 @@ def main() -> int:
         from toolchain.workspace_cmd import run
         return run(command, args[1:], project_root)
 
+    if command in {"analyze", "artifacts", "export", "validate-artifacts", "manifest"}:
+        from scripts.reason_cli import main as reason_main
+        return reason_main(args)
+
     if command in {"golden", "test-golden", "golden-summary", "update-golden"}:
         from toolchain.golden_cmd import run
+        return run(command, args[1:], project_root)
+
+    if command in {"agent-protocol", "agent-report"}:
+        from toolchain.agent_protocol_cmd import run
         return run(command, args[1:], project_root)
 
     print(f"Error:\n\nUnknownCommand\n\nUnknown command: {command}")
@@ -66,9 +78,15 @@ def _usage() -> None:
     print("  summary       Show machine-readable project summary")
     print("  index         Generate workspace JSON artifacts")
     print("  scan          Scan workspace files and directories")
+    print("  analyze       Analyze a .rsn source file")
+    print("  artifacts     Generate canonical source artifacts")
+    print("  validate-artifacts Validate generated artifact directory")
+    print("  manifest      Show generated artifact manifest")
     print("  golden        Run the Golden Test Corpus")
     print("  test-golden   Run the Golden Test Corpus")
     print("  golden-summary Show Golden Test Corpus summary")
+    print("  agent-protocol Validate Agent Development Protocol rules")
+    print("  agent-report  Emit Agent Development Protocol report")
 
 
 def _package_arg(args: list[str]) -> str | None:
@@ -78,6 +96,21 @@ def _package_arg(args: list[str]) -> str | None:
     if index + 1 >= len(args):
         return None
     return args[index + 1]
+
+
+def _source_file_arg(args: list[str]) -> str | None:
+    skip_next = False
+    for arg in args:
+        if skip_next:
+            skip_next = False
+            continue
+        if arg in {"--compiler-mode", "--out"}:
+            skip_next = True
+            continue
+        if arg.startswith("--"):
+            continue
+        return arg if arg.endswith(".rsn") else None
+    return None
 
 
 if __name__ == "__main__":

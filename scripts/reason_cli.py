@@ -10,6 +10,7 @@ from typing import Any
 
 from playground.backend.main import SourceRequest, analyze_endpoint
 from scripts.reason_artifacts import stable_json, write_cli_artifacts
+from toolchain.agent_protocol import agent_report, render_json, validate_repository
 from toolchain.artifacts import validate_artifact_directory
 from toolchain.diagnostics import render_diagnostics
 from toolchain.golden import run_corpus, stable_json as golden_stable_json, update_corpus, validate_corpus
@@ -106,6 +107,19 @@ def _build_parser() -> argparse.ArgumentParser:
         if name in {"workspace", "index"}:
             sub.add_argument("--out")
         sub.set_defaults(handler=cmd_workspace_foundation)
+
+    agent_protocol = subparsers.add_parser("agent-protocol")
+    agent_protocol.add_argument("project_dir", nargs="?")
+    agent_protocol.add_argument("--json", action="store_true")
+    agent_protocol.set_defaults(handler=cmd_agent_protocol)
+
+    agent_report_parser = subparsers.add_parser("agent-report")
+    agent_report_parser.add_argument("--task", default="Phase 7.5")
+    agent_report_parser.add_argument("--status", default="VALIDATED")
+    agent_report_parser.add_argument("--tests-passed", type=int, default=0)
+    agent_report_parser.add_argument("--artifacts-generated", action="store_true")
+    agent_report_parser.add_argument("--json", action="store_true")
+    agent_report_parser.set_defaults(handler=cmd_agent_report)
 
     test = subparsers.add_parser("test")
     test.add_argument("--json", action="store_true")
@@ -270,6 +284,36 @@ def cmd_workspace_foundation(args: argparse.Namespace) -> int:
     if getattr(args, "out", None):
         argv.extend(["--out", args.out])
     return run_workspace_command(args.subcommand, argv, Path.cwd())
+
+
+def cmd_agent_protocol(args: argparse.Namespace) -> int:
+    root = _resolve_input_path(Path(args.project_dir)) if args.project_dir else REPO_ROOT
+    result = validate_repository(root)
+    if args.json:
+        print(render_json(result), end="")
+    else:
+        print("ReasonScript agent protocol " + ("passed" if result["ok"] else "failed"))
+        if not result["ok"]:
+            print(render_diagnostics(result["diagnostics"]))
+    return 0 if result["ok"] else 1
+
+
+def cmd_agent_report(args: argparse.Namespace) -> int:
+    report = agent_report(
+        task=args.task,
+        status=args.status,
+        tests_passed=args.tests_passed,
+        artifacts_generated=args.artifacts_generated,
+    )
+    if args.json:
+        print(render_json(report), end="")
+    else:
+        print("ReasonScript agent report")
+        print(f"task: {report['task']}")
+        print(f"status: {report['status']}")
+        print(f"tests_passed: {report['tests_passed']}")
+        print(f"artifacts_generated: {str(report['artifacts_generated']).lower()}")
+    return 0
 
 
 def _check_result(path: Path, compiler_mode: str) -> dict[str, Any]:
