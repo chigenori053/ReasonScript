@@ -177,7 +177,7 @@ Commands:
   ide-ui                Launch Official IDE UI only (apps/reasonscript-ide/ui, port 5173)
   backend               Launch Playground backend only (port 8000)
   build                 Production / validation build
-  reason <subcommand>   ReasonScript CLI: check | analyze | run | artifacts | export | examples
+  reason <subcommand>   ReasonScript CLI: check | analyze | run | artifacts | export | golden | examples
   test smoke            Minimum smoke validation
   test backend          Compiler / analyzer / compatibility tests
   test frontend         Official IDE UI build validation

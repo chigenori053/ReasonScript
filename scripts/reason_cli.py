@@ -12,6 +12,7 @@ from playground.backend.main import SourceRequest, analyze_endpoint
 from scripts.reason_artifacts import stable_json, write_cli_artifacts
 from toolchain.artifacts import validate_artifact_directory
 from toolchain.diagnostics import render_diagnostics
+from toolchain.golden import run_corpus, stable_json as golden_stable_json, update_corpus, validate_corpus
 from toolchain.workspace_cmd import run as run_workspace_command
 
 
@@ -79,6 +80,14 @@ def _build_parser() -> argparse.ArgumentParser:
     manifest.add_argument("artifact_dir")
     manifest.add_argument("--json", action="store_true")
     manifest.set_defaults(handler=cmd_manifest)
+
+    for name in ("golden", "test-golden", "golden-summary", "update-golden"):
+        sub = subparsers.add_parser(name)
+        sub.add_argument("corpus_root", nargs="?", default=str(REPO_ROOT / "golden"))
+        if name in {"golden", "test-golden"}:
+            sub.add_argument("--out")
+        sub.add_argument("--json", action="store_true")
+        sub.set_defaults(handler=cmd_golden)
 
     examples = subparsers.add_parser("examples")
     examples.add_argument("--json", action="store_true")
@@ -170,6 +179,42 @@ def cmd_manifest(args: argparse.Namespace) -> int:
         print(f"language_version: {manifest.get('language_version')}")
         print(f"artifacts: {len(manifest.get('artifacts', []))}")
     return 0
+
+
+def cmd_golden(args: argparse.Namespace) -> int:
+    root = _resolve_input_path(Path(args.corpus_root))
+    if args.subcommand == "update-golden":
+        manifest = update_corpus(root)
+        if args.json:
+            print(golden_stable_json(manifest), end="")
+        else:
+            print("ReasonScript golden corpus updated")
+            print(f"cases: {manifest['total_cases']}")
+        return 0
+    if args.subcommand == "golden-summary":
+        validation = validate_corpus(root)
+        result = run_corpus(root) if not validation["diagnostics"] else {"summary": {"total": 0, "passed": 0, "failed": len(validation["diagnostics"]), "skipped": 0}}
+        if args.json:
+            print(golden_stable_json(result["summary"]), end="")
+        else:
+            _print_golden_summary(result["summary"])
+        return 0 if result["summary"]["failed"] == 0 else 1
+    result = run_corpus(root, out_dir=args.out)
+    if args.json:
+        print(golden_stable_json(result["report"]), end="")
+    else:
+        _print_golden_summary(result["summary"])
+        if result["summary"]["failed"]:
+            print(render_diagnostics(result["diagnostics"]["diagnostics"]))
+    return 0 if result["summary"]["failed"] == 0 else 1
+
+
+def _print_golden_summary(summary: dict[str, Any]) -> None:
+    print("ReasonScript golden corpus")
+    print(f"total: {summary['total']}")
+    print(f"passed: {summary['passed']}")
+    print(f"failed: {summary['failed']}")
+    print(f"skipped: {summary['skipped']}")
 
 
 def cmd_examples(args: argparse.Namespace) -> int:

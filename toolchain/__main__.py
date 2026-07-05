@@ -44,6 +44,10 @@ def main() -> int:
         from toolchain.workspace_cmd import run
         return run(command, args[1:], project_root)
 
+    if command in {"golden", "test-golden", "golden-summary", "update-golden"}:
+        from toolchain.golden_cmd import run
+        return run(command, args[1:], project_root)
+
     print(f"Error:\n\nUnknownCommand\n\nUnknown command: {command}")
     _usage()
     return 1
@@ -62,6 +66,9 @@ def _usage() -> None:
     print("  summary       Show machine-readable project summary")
     print("  index         Generate workspace JSON artifacts")
     print("  scan          Scan workspace files and directories")
+    print("  golden        Run the Golden Test Corpus")
+    print("  test-golden   Run the Golden Test Corpus")
+    print("  golden-summary Show Golden Test Corpus summary")
 
 
 def _package_arg(args: list[str]) -> str | None:

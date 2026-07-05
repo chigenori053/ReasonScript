@@ -57,6 +57,7 @@ CODE_CATEGORY_PREFIXES = {
     "CLI": "CLI",
     "RSN": "CLI",
     "STRICT": "Compatibility",
+    "GT": "Compatibility",
 }
 KNOWN_DIAGNOSTIC_PREFIXES = tuple(sorted(CODE_CATEGORY_PREFIXES))
 DIAGNOSTIC_CODE_PATTERN = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+[A-Z0-9-]*$")
