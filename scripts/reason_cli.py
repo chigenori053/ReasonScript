@@ -10,7 +10,7 @@ from typing import Any
 
 from playground.backend.main import SourceRequest, analyze_endpoint
 from scripts.reason_artifacts import stable_json, write_cli_artifacts
-from toolchain.agent_protocol import agent_report, render_json, validate_repository
+from toolchain.agent_protocol import agent_report, render_json, validate_repository, write_agent_report
 from toolchain.artifacts import validate_artifact_directory
 from toolchain.diagnostics import render_diagnostics
 from toolchain.golden import run_corpus, stable_json as golden_stable_json, update_corpus, validate_corpus
@@ -118,6 +118,7 @@ def _build_parser() -> argparse.ArgumentParser:
     agent_report_parser.add_argument("--status", default="VALIDATED")
     agent_report_parser.add_argument("--tests-passed", type=int, default=0)
     agent_report_parser.add_argument("--artifacts-generated", action="store_true")
+    agent_report_parser.add_argument("--out")
     agent_report_parser.add_argument("--json", action="store_true")
     agent_report_parser.set_defaults(handler=cmd_agent_report)
 
@@ -305,6 +306,8 @@ def cmd_agent_report(args: argparse.Namespace) -> int:
         tests_passed=args.tests_passed,
         artifacts_generated=args.artifacts_generated,
     )
+    if args.out:
+        write_agent_report(_resolve_output_dir(Path(args.out)), report)
     if args.json:
         print(render_json(report), end="")
     else:

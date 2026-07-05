@@ -2,7 +2,7 @@
 
 ## Agent Development Protocol Specification v1.0
 
-Status: DRAFT
+Status: VALIDATED
 
 Target Release: ReasonScript Development Platform v0.5
 
@@ -14,6 +14,8 @@ This specification defines the canonical development protocol for coding agents 
 
 The protocol standardizes task execution, validation, artifact generation, regression testing, reporting, and completion criteria to keep development deterministic and reproducible.
 
+This protocol applies to coding agents, CLI tools, CI pipelines, and future orchestration systems.
+
 ## Goals
 
 - deterministic development workflow
@@ -22,10 +24,13 @@ The protocol standardizes task execution, validation, artifact generation, regre
 - automatic artifact verification
 - regression safety
 - machine-readable reports
+- specification-first development
 
 ## Design Principles
 
 Agent workflows are deterministic, reproducible, idempotent, specification-driven, validation-first, and implementation-independent.
+
+Agents always validate work against the project specification before reporting completion.
 
 ## Canonical Workflow
 
@@ -112,12 +117,15 @@ Canonical report:
 
 ```json
 {
+  "version": "1.0",
   "task": "Phase 7.5",
   "status": "VALIDATED",
   "tests_passed": 39,
   "artifacts_generated": true
 }
 ```
+
+The report is generated as `agent_report.json`.
 
 ## Failure Handling
 
@@ -179,3 +187,53 @@ At minimum, `AGENTS.md` defines:
 - `AP-001`: Missing specification
 - `AP-002`: Missing validation
 - `AP-003`: Missing artifacts
+- `AP-004`: Golden failure
+- `AP-005`: Invalid task state
+- `AP-006`: Incomplete completion report
+- `AP-007`: Protocol violation
+- `AP-008`: Manual artifact modification
+- `AP-009`: Required command skipped
+- `AP-010`: Unrecorded compatibility change
+
+## CLI Integration
+
+The following commands are defined:
+
+```sh
+reason agent-protocol
+reason agent-report
+```
+
+Existing CLI commands participate in the protocol workflow.
+
+## Determinism Guarantees
+
+The protocol guarantees deterministic command execution, validation, artifact generation, reporting, and task completion.
+
+## Compatibility
+
+Compatible with:
+
+- `reasonscript-workspace/1.0`
+- `reasonscript-diagnostics/1.0`
+- `reasonscript-artifacts/1.0`
+- `reasonscript-golden-tests/1.0`
+- `reasonscript-cli/0.5`
+
+## Out of Scope
+
+This specification excludes autonomous task planning, source code generation strategies, AI model selection, multi-agent orchestration, human review workflow, IDE integration, and Frontend SDK.
+
+## Completion Criteria
+
+Phase 7.5 is complete when:
+
+- `AGENTS.md` is implemented and version controlled.
+- The canonical development workflow is documented.
+- Standard command sequences are implemented.
+- Validation requirements are enforced.
+- Artifact and Golden policies are enforced.
+- Validation rules `AP-001` through `AP-010` are implemented.
+- `agent_report.json` is generated in the canonical format.
+- Regression tests verify deterministic protocol execution.
+- Coding agents can complete development tasks using only the project specifications, the protocol, and the standard CLI.

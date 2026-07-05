@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from toolchain.agent_protocol import agent_report, render_json, validate_repository
+from toolchain.agent_protocol import agent_report, render_json, validate_repository, write_agent_report
 from toolchain.diagnostics import render_diagnostics
 
 
@@ -28,6 +28,9 @@ def run(command: str, args: list[str], project_root: Path) -> int:
             tests_passed=_int_option(args, "--tests-passed"),
             artifacts_generated="--artifacts-generated" in args,
         )
+        out_dir = _option_value(args, "--out")
+        if out_dir is not None:
+            write_agent_report(Path(out_dir), report)
         if json_output:
             print(render_json(report), end="")
         else:
@@ -50,7 +53,7 @@ def _path_arg(args: list[str], default: Path) -> Path:
             continue
         if arg in {"--json", "--artifacts-generated"}:
             continue
-        if arg in {"--task", "--status", "--tests-passed"}:
+        if arg in {"--task", "--status", "--tests-passed", "--out"}:
             skip_next = True
             continue
         if arg.startswith("--"):

@@ -87,12 +87,15 @@ Canonical machine-readable report:
 
 ```json
 {
+  "version": "1.0",
   "task": "Phase 7.5",
   "status": "VALIDATED",
   "tests_passed": 39,
   "artifacts_generated": true
 }
 ```
+
+The canonical report is generated as `agent_report.json`.
 
 Completion reports must include:
 
@@ -102,3 +105,16 @@ Completion reports must include:
 - Generated Artifacts
 - Compatibility Notes
 - Remaining Work
+
+## Protocol Validation Rules
+
+- `AP-001`: Missing specification
+- `AP-002`: Missing validation
+- `AP-003`: Missing artifacts
+- `AP-004`: Golden failure
+- `AP-005`: Invalid task state
+- `AP-006`: Incomplete completion report
+- `AP-007`: Protocol violation
+- `AP-008`: Manual artifact modification
+- `AP-009`: Required command skipped
+- `AP-010`: Unrecorded compatibility change
