@@ -19,6 +19,8 @@ try:
 except ImportError:  # pragma: no cover
     import tomli as tomllib  # type: ignore[no-redef]
 
+from toolchain.diagnostics import diagnostics_document, diagnostics_summary as canonical_diagnostics_summary
+
 
 WORKSPACE_SCHEMA = "reasonscript-workspace/1.0"
 SUPPORTED_SOURCE_EXTENSIONS = {".rsn", ".rs", ".py", ".toml", ".md", ".json", ".yaml", ".yml"}
@@ -40,6 +42,8 @@ GENERATED_ARTIFACTS = (
     "project_summary.json",
     "symbol_index.json",
     "dependency_graph.json",
+    "diagnostics.json",
+    "diagnostics_summary.json",
     "workspace_validation.json",
 )
 
@@ -58,7 +62,7 @@ _COMMENT_PATTERN = re.compile(r"//.*$")
 class WorkspaceDiagnostic:
     code: str
     message: str
-    severity: str = "error"
+    severity: str = "ERROR"
     file: str | None = None
     line: int | None = None
     column: int | None = None
@@ -90,6 +94,7 @@ def build_workspace_index(start: str | Path) -> dict[str, Any]:
         *_validate_duplicates(symbols),
         *_validate_dependencies(dependencies),
     ]
+    diagnostic_document = diagnostics_document([diagnostic.to_dict() for diagnostic in diagnostics])
     artifacts = [{"path": f"artifacts/{name}", "kind": "generated"} for name in GENERATED_ARTIFACTS]
     project_info = {
         "name": manifest.get("name", ""),
@@ -112,7 +117,7 @@ def build_workspace_index(start: str | Path) -> dict[str, Any]:
         "symbols": symbols,
         "dependencies": dependencies,
         "artifacts": artifacts,
-        "diagnostics": [diagnostic.to_dict() for diagnostic in diagnostics],
+        "diagnostics": diagnostic_document["diagnostics"],
     }
 
 
@@ -152,6 +157,11 @@ def write_workspace_artifacts(start: str | Path, out_dir: str | Path | None = No
     index = build_workspace_index(root)
     target = Path(out_dir).resolve() if out_dir is not None else root / "artifacts"
     summary = workspace_summary(index)
+    diagnostic_document = {
+        "version": "1.0",
+        "schema": "reasonscript-diagnostics/1.0",
+        "diagnostics": index["diagnostics"],
+    }
     symbol_index = {
         "schema": "reasonscript-symbol-index/1.0",
         "symbols": index["symbols"],
@@ -163,7 +173,7 @@ def write_workspace_artifacts(start: str | Path, out_dir: str | Path | None = No
     dependency_graph = index["dependencies"]
     validation = {
         "schema": "reasonscript-workspace-validation/1.0",
-        "ok": not any(diagnostic.get("severity") == "error" for diagnostic in index["diagnostics"]),
+        "ok": not any(diagnostic.get("severity") == "ERROR" for diagnostic in index["diagnostics"]),
         "diagnostics": index["diagnostics"],
     }
     outputs = {
@@ -171,6 +181,8 @@ def write_workspace_artifacts(start: str | Path, out_dir: str | Path | None = No
         "project_summary.json": summary,
         "symbol_index.json": symbol_index,
         "dependency_graph.json": dependency_graph,
+        "diagnostics.json": diagnostic_document,
+        "diagnostics_summary.json": canonical_diagnostics_summary(diagnostic_document),
         "workspace_validation.json": validation,
     }
     if target.exists() and not target.is_dir():
@@ -454,7 +466,7 @@ def _validate_dependencies(dependencies: dict[str, Any]) -> list[WorkspaceDiagno
                 )
             )
     for cycle in dependencies.get("cycles", []):
-        diagnostics.append(WorkspaceDiagnostic("WS-005", f"Circular dependency: {' -> '.join(cycle)}"))
+        diagnostics.append(WorkspaceDiagnostic("WS-005", f"Circular dependency: {' -> '.join(cycle)}", file="workspace"))
     return diagnostics
 
 

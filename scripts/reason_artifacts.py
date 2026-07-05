@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from toolchain.diagnostics import diagnostics_document, diagnostics_summary
+
 
 ARTIFACT_FILENAMES = {
     "surface_ast": "surface_ast.json",
@@ -15,6 +17,7 @@ ARTIFACT_FILENAMES = {
     "simulation": "simulation.json",
     "knowledge": "knowledge.json",
     "diagnostics": "diagnostics.json",
+    "diagnostics_summary": "diagnostics_summary.json",
     "validation": "validation.json",
     "project_state": "project_state.json",
 }
@@ -31,12 +34,14 @@ def write_json(path: Path, value: Any) -> None:
 def write_cli_artifacts(directory: Path, result: dict[str, Any]) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     artifacts = result.get("artifacts") if isinstance(result.get("artifacts"), dict) else {}
+    diagnostic_document = diagnostics_document(result.get("diagnostics", []))
     for key, filename in ARTIFACT_FILENAMES.items():
         if key == "diagnostics":
-            value = result.get("diagnostics", [])
+            value = diagnostic_document
+        elif key == "diagnostics_summary":
+            value = diagnostics_summary(diagnostic_document)
         elif key == "project_state":
             value = result.get("project_state")
         else:
             value = artifacts.get(key)
         write_json(directory / filename, value)
-

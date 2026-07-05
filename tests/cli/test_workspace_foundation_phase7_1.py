@@ -86,8 +86,10 @@ def test_workspace_artifacts_are_generated_with_canonical_names(tmp_path: Path) 
     assert result["artifacts"] == sorted(GENERATED_ARTIFACTS)
     assert {path.name for path in root.joinpath("artifacts").iterdir()} == set(GENERATED_ARTIFACTS)
     summary = json.loads(root.joinpath("artifacts", "project_summary.json").read_text(encoding="utf-8"))
+    diagnostics = json.loads(root.joinpath("artifacts", "diagnostics.json").read_text(encoding="utf-8"))
     assert summary["project"] == "Example"
     assert summary["modules"] == 1
+    assert diagnostics["version"] == "1.0"
 
 
 def test_reason_workspace_cli_outputs_summary(tmp_path: Path) -> None:

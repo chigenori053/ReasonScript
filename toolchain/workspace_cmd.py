@@ -105,7 +105,7 @@ def _option_value(args: list[str], option: str) -> str | None:
 def _exit_code(index: dict[str, object]) -> int:
     diagnostics = index.get("diagnostics", [])
     if isinstance(diagnostics, list) and any(
-        isinstance(diagnostic, dict) and diagnostic.get("severity") == "error"
+        isinstance(diagnostic, dict) and str(diagnostic.get("severity")).upper() == "ERROR"
         for diagnostic in diagnostics
     ):
         return 1

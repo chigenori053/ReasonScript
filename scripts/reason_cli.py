@@ -9,6 +9,7 @@ from typing import Any
 
 from playground.backend.main import SourceRequest, analyze_endpoint
 from scripts.reason_artifacts import stable_json, write_cli_artifacts
+from toolchain.diagnostics import render_diagnostics
 from toolchain.workspace_cmd import run as run_workspace_command
 
 
@@ -283,7 +284,7 @@ def _cli_diagnostics(diagnostics: list[dict[str, Any]], path: Path) -> list[dict
     if _resolve_input_path(path).suffix != ".rsn":
         result.append({
             "severity": "warning",
-            "code": "RSN-EXTENSION-WARNING",
+            "code": "CLI-001",
             "message": "ReasonScript source files should use the .rsn extension.",
             "stage": "source",
             "source_file": _display_path(path),
@@ -361,10 +362,9 @@ def _print_run(result: dict[str, Any]) -> None:
 
 
 def _print_diagnostics(diagnostics: list[dict[str, Any]]) -> None:
-    print("diagnostics:")
-    for item in diagnostics:
-        code = f" {item['code']}" if item.get("code") else ""
-        print(f"  [{item.get('severity', 'error')}]{code} {item.get('message', '')}")
+    rendered = render_diagnostics(diagnostics)
+    if rendered:
+        print(rendered)
 
 
 def _examples_result() -> dict[str, Any]:
