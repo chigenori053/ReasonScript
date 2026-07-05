@@ -1,0 +1,5 @@
+module SingleCalculation {
+  calculation Answer {
+    result = 40 + 2
+  }
+}

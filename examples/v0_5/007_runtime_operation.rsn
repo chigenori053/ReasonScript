@@ -1,0 +1,5 @@
+module RuntimeOperation {
+  calculation Answer {
+    result = runtime.input()
+  }
+}

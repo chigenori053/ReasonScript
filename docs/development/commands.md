@@ -29,6 +29,20 @@ The legacy Playground frontend (`playground/frontend`) was physically removed in
 
 ## Command Reference
 
+## ReasonScript CLI
+
+```bash
+python3 scripts/dev.py reason check <file.rsn>
+python3 scripts/dev.py reason analyze <file.rsn>
+python3 scripts/dev.py reason run <file.rsn>
+python3 scripts/dev.py reason artifacts <file.rsn> --out <dir>
+python3 scripts/dev.py reason examples
+```
+
+The ReasonScript CLI is the official non-IDE compiler/runtime path. It reuses the backend analyze pipeline used by the official IDE and can emit stable JSON with `--json`.
+
+---
+
 ### `setup`
 Install / fetch all dependencies.
 

@@ -89,6 +89,13 @@ def test_usage_mentions_ide_ui() -> None:
     assert "Launch Official IDE UI only" in source
 
 
+def test_dev_command_handles_keyboard_interrupt_without_traceback() -> None:
+    source = _function_source("run")
+    assert "except KeyboardInterrupt:" in source
+    assert "Interrupted by user." in source
+    assert "return 130" in source
+
+
 def test_legacy_playground_commands_are_removed() -> None:
     source = _source()
     assert "def cmd_playground()" not in source

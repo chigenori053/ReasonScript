@@ -9,13 +9,18 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
 
 def run(cmd: list[str], cwd: Path | None = None, env: dict | None = None) -> int:
     target = cwd or REPO_ROOT
     merged_env = {**os.environ, **(env or {})}
     print(f"  $ {' '.join(cmd)}  (in {target.relative_to(REPO_ROOT) if cwd else '.'})")
-    result = subprocess.run(cmd, cwd=target, env=merged_env)
+    try:
+        result = subprocess.run(cmd, cwd=target, env=merged_env)
+    except KeyboardInterrupt:
+        print("\n  [INFO] Interrupted by user.")
+        return 130
     return result.returncode
 
 
@@ -97,6 +102,12 @@ def cmd_build() -> int:
     return rc
 
 
+def cmd_reason(args: list[str]) -> int:
+    from scripts.reason_cli import main as reason_main
+
+    return reason_main(args)
+
+
 def cmd_test(subcmd: str) -> int:
     subcmd = subcmd.lower()
 
@@ -166,6 +177,7 @@ Commands:
   ide-ui                Launch Official IDE UI only (apps/reasonscript-ide/ui, port 5173)
   backend               Launch Playground backend only (port 8000)
   build                 Production / validation build
+  reason <subcommand>   ReasonScript CLI: check | analyze | run | artifacts | examples
   test smoke            Minimum smoke validation
   test backend          Compiler / analyzer / compatibility tests
   test frontend         Official IDE UI build validation
@@ -197,6 +209,8 @@ def main() -> int:
         return cmd_backend()
     if cmd == "build":
         return cmd_build()
+    if cmd == "reason":
+        return cmd_reason(args[1:])
     if cmd == "test":
         if len(args) < 2:
             print("  [ERROR] 'test' requires a subcmd: smoke | backend | frontend | rust | ide | all")

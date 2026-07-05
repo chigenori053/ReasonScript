@@ -1,0 +1,9 @@
+module CalculationCycle {
+  calculation A {
+    result = B
+  }
+
+  calculation B {
+    result = A
+  }
+}

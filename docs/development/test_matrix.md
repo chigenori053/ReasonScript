@@ -9,6 +9,7 @@
 | frontend            | `python3 scripts/dev.py test frontend`            | Official IDE UI build validation             |
 | rust                | `python3 scripts/dev.py test rust`                | Rust runtime workspace tests                 |
 | ide                 | `python3 scripts/dev.py test ide`                 | IDE contract / visualization tests           |
+| cli                 | `python3 -m pytest tests/cli -q`                  | ReasonScript CLI contract tests              |
 | all                 | `python3 scripts/dev.py test all`                 | CI-equivalent full run                       |
 
 ## Smoke Test Definition
@@ -58,6 +59,15 @@ tests/ide/
 ```
 
 Covers: IDE phase 1 contracts, workspace and visualization contracts.
+
+## CLI Test Scope
+
+```
+tests/cli/
+examples/v0_5/
+```
+
+Covers: `scripts/dev.py reason` command dispatch, exit code policy, JSON schemas, artifact output, examples validation, and backend analyze parity.
 
 ## CI (all)
 

@@ -1,0 +1,11 @@
+module FunctionMissingReturn {
+  fn Score(flag: bool) -> int {
+    if flag {
+      return 1
+    }
+  }
+
+  calculation Answer {
+    result = Score(false)
+  }
+}

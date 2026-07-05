@@ -1,0 +1,5 @@
+module RuntimeInputPrint {
+  calculation Answer {
+    result = runtime.print("hello")
+  }
+}
