@@ -60,6 +60,10 @@ def main() -> int:
         from toolchain.agent_protocol_cmd import run
         return run(command, args[1:], project_root)
 
+    if command == "ci":
+        from toolchain.ci_cmd import run
+        return run(command, args[1:], project_root)
+
     print(f"Error:\n\nUnknownCommand\n\nUnknown command: {command}")
     _usage()
     return 1
@@ -87,6 +91,7 @@ def _usage() -> None:
     print("  golden-summary Show Golden Test Corpus summary")
     print("  agent-protocol Validate Agent Development Protocol rules")
     print("  agent-report  Emit Agent Development Protocol report")
+    print("  ci            Run the canonical CI Stabilization pipeline")
 
 
 def _package_arg(args: list[str]) -> str | None:
