@@ -115,8 +115,8 @@ def test_reason_artifacts_generate_canonical_diagnostics_files(tmp_path: Path) -
     summary = json.loads((tmp_path / "diagnostics_summary.json").read_text(encoding="utf-8"))
     assert result.returncode == 0
     assert diagnostics["version"] == "1.0"
-    assert diagnostics["diagnostics"] == []
-    assert summary["schema"] == "reasonscript-diagnostics-summary/1.0"
+    assert diagnostics["data"]["diagnostics"] == []
+    assert summary["data"]["schema"] == "reasonscript-diagnostics-summary/1.0"
 
 
 def test_workspace_index_generates_diagnostics_artifacts(tmp_path: Path) -> None:
@@ -137,3 +137,4 @@ def test_workspace_index_generates_diagnostics_artifacts(tmp_path: Path) -> None
     assert result.returncode == 0
     assert "diagnostics.json" in payload["artifacts"]
     assert diagnostics["version"] == "1.0"
+    assert diagnostics["data"]["version"] == "1.0"

@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV = REPO_ROOT / "scripts" / "dev.py"
 VALID = REPO_ROOT / "examples" / "v0_5" / "002_single_calculation.rsn"
 EXPECTED = {
+    "language_surface_ast.json",
     "surface_ast.json",
     "semantic_ast.json",
     "reason_ir.json",
@@ -20,6 +21,8 @@ EXPECTED = {
     "diagnostics_summary.json",
     "validation.json",
     "project_state.json",
+    "artifact_manifest.json",
+    "artifact_summary.json",
 }
 
 
@@ -34,7 +37,9 @@ def test_reason_artifacts_writes_stable_filenames(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert {path.name for path in tmp_path.iterdir()} == EXPECTED
     project_state = json.loads((tmp_path / "project_state.json").read_text(encoding="utf-8"))
-    assert project_state["ok"] is True
+    assert project_state["version"] == "1.0"
+    assert project_state["schema"] == "reasonscript-project-state/0.5"
+    assert project_state["data"]["ok"] is True
     diagnostics = json.loads((tmp_path / "diagnostics.json").read_text(encoding="utf-8"))
     assert diagnostics["version"] == "1.0"
-    assert diagnostics["diagnostics"] == []
+    assert diagnostics["data"]["diagnostics"] == []

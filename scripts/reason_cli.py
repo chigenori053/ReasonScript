@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Any
 
 from playground.backend.main import SourceRequest, analyze_endpoint
 from scripts.reason_artifacts import stable_json, write_cli_artifacts
+from toolchain.artifacts import validate_artifact_directory
 from toolchain.diagnostics import render_diagnostics
 from toolchain.workspace_cmd import run as run_workspace_command
 
@@ -50,13 +52,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python3 scripts/dev.py reason", description="ReasonScript CLI")
     subparsers = parser.add_subparsers(dest="subcommand")
 
-    for name in ("check", "analyze", "run", "artifacts"):
+    for name in ("check", "analyze", "run", "artifacts", "export"):
         sub = subparsers.add_parser(name)
         sub.add_argument("file")
         sub.add_argument("--compiler-mode", choices=["normal", "strict", "default"], default="normal")
         if name in {"check", "analyze", "run"}:
             sub.add_argument("--json", action="store_true")
-        if name in {"analyze", "run", "artifacts"}:
+        if name in {"analyze", "run", "artifacts", "export"}:
             sub.add_argument("--out")
         if name == "run":
             sub.add_argument("--trace", action="store_true")
@@ -65,7 +67,18 @@ def _build_parser() -> argparse.ArgumentParser:
             "analyze": cmd_analyze,
             "run": cmd_run,
             "artifacts": cmd_artifacts,
+            "export": cmd_artifacts,
         }[name])
+
+    validate_artifacts = subparsers.add_parser("validate-artifacts")
+    validate_artifacts.add_argument("artifact_dir")
+    validate_artifacts.add_argument("--json", action="store_true")
+    validate_artifacts.set_defaults(handler=cmd_validate_artifacts)
+
+    manifest = subparsers.add_parser("manifest")
+    manifest.add_argument("artifact_dir")
+    manifest.add_argument("--json", action="store_true")
+    manifest.set_defaults(handler=cmd_manifest)
 
     examples = subparsers.add_parser("examples")
     examples.add_argument("--json", action="store_true")
@@ -130,6 +143,33 @@ def cmd_artifacts(args: argparse.Namespace) -> int:
     _write_out(Path(args.out), result)
     print(f"ReasonScript artifacts written\nfile: {result['source_file']}\nout: {args.out}")
     return 0 if result["ok"] else 1
+
+
+def cmd_validate_artifacts(args: argparse.Namespace) -> int:
+    document = validate_artifact_directory(_resolve_input_path(Path(args.artifact_dir)))
+    ok = len(document["diagnostics"]) == 0
+    if args.json:
+        print(stable_json(document), end="")
+    else:
+        print("ReasonScript artifact validation " + ("passed" if ok else "failed"))
+        if not ok:
+            print(render_diagnostics(document["diagnostics"]))
+    return 0 if ok else 1
+
+
+def cmd_manifest(args: argparse.Namespace) -> int:
+    path = _resolve_input_path(Path(args.artifact_dir)) / "artifact_manifest.json"
+    if not path.is_file():
+        raise CliFileSystemError(f"artifact manifest not found: {path}")
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    if args.json:
+        print(stable_json(manifest), end="")
+    else:
+        print("ReasonScript artifact manifest")
+        print(f"generator: {manifest.get('generator')}")
+        print(f"language_version: {manifest.get('language_version')}")
+        print(f"artifacts: {len(manifest.get('artifacts', []))}")
+    return 0
 
 
 def cmd_examples(args: argparse.Namespace) -> int:

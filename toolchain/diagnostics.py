@@ -52,6 +52,7 @@ CODE_CATEGORY_PREFIXES = {
     "KN": "Knowledge",
     "RT": "Runtime",
     "RUST": "Runtime",
+    "AR": "Artifact",
     "ART": "Artifact",
     "CLI": "CLI",
     "RSN": "CLI",

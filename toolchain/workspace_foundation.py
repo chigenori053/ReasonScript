@@ -20,6 +20,7 @@ except ImportError:  # pragma: no cover
     import tomli as tomllib  # type: ignore[no-redef]
 
 from toolchain.diagnostics import diagnostics_document, diagnostics_summary as canonical_diagnostics_summary
+from toolchain.artifacts import write_artifact_directory
 
 
 WORKSPACE_SCHEMA = "reasonscript-workspace/1.0"
@@ -44,6 +45,8 @@ GENERATED_ARTIFACTS = (
     "dependency_graph.json",
     "diagnostics.json",
     "diagnostics_summary.json",
+    "artifact_manifest.json",
+    "artifact_summary.json",
     "workspace_validation.json",
 )
 
@@ -187,10 +190,13 @@ def write_workspace_artifacts(start: str | Path, out_dir: str | Path | None = No
     }
     if target.exists() and not target.is_dir():
         return {"out_dir": str(target), "artifacts": [], "index": index, "summary": summary}
-    target.mkdir(parents=True, exist_ok=True)
-    for filename in GENERATED_ARTIFACTS:
-        (target / filename).write_text(stable_json(outputs[filename]), encoding="utf-8")
-    return {"out_dir": str(target), "artifacts": sorted(outputs), "index": index, "summary": summary}
+    artifact_result = write_artifact_directory(
+        target,
+        outputs,
+        generator="reason-workspace",
+        language_version=str(index.get("project_info", {}).get("language") or "0.5"),
+    )
+    return {"out_dir": str(target), "artifacts": artifact_result["artifacts"], "index": index, "summary": summary}
 
 
 def _load_project_manifest(root: Path) -> tuple[dict[str, Any], list[WorkspaceDiagnostic]]:
