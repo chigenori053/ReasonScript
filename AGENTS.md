@@ -21,24 +21,33 @@ Task states are monotonic:
 
 ## Required Commands
 
-Minimum command sequence:
+The canonical entry point for repository validation is:
 
 ```sh
+reason ci
+```
+
+Individual commands remain available as implementation-level interfaces for diagnosis, debugging, and incremental development:
+
+```sh
+reason workspace
 reason check
 reason analyze
 reason run
 reason artifacts
 reason validate-artifacts
 reason golden
+reason agent-protocol
+reason agent-report
 ```
 
 Optional commands:
 
 ```sh
 reason summary
-reason workspace
 reason manifest
 reason index
+reason export
 ```
 
 ## Validation Sequence
@@ -117,8 +126,9 @@ This repository follows `reasonscript-ci/1.0` for CI execution. The canonical wo
 5. Artifact Validation
 6. Golden Tests
 7. Agent Protocol Validation
-8. Unit / Integration Tests
-9. Completion Report
+8. Compatibility Verification
+9. Unit / Integration Tests
+10. Completion Report
 
 Run the full pipeline locally with:
 
@@ -140,6 +150,26 @@ The pipeline generates `ci_report.json` and `ci_summary.json`. Every validation 
 - `CI-008`: Test failure
 - `CI-009`: Compatibility failure
 - `CI-010`: Report generation failure
+
+## Canonical CI Entry Point
+
+This repository follows `reasonscript-ci-entry/1.0`. Beginning with ReasonScript Development Platform v0.5, `reason ci` is the single official validation command for local development, Coding Agents, and CI. Individual commands remain implementation-level interfaces and do not replace it.
+
+### Coding Agent Policy
+
+Coding Agents shall execute `reason ci` before reporting task completion. Execution of individual commands is permitted for diagnosis, debugging, or incremental development but does not replace the canonical validation workflow.
+
+### CI Policy
+
+GitHub Actions and equivalent CI systems shall invoke `reason ci` as the primary validation command. Platform-specific scripts shall not duplicate the validation pipeline unless required for infrastructure reasons.
+
+### Entry Point Validation Rules
+
+- `CE-001`: Missing CI pipeline
+- `CE-002`: Invalid execution order
+- `CE-003`: Required validation omitted
+- `CE-004`: Report generation failure
+- `CE-005`: Pipeline termination failure
 
 ## Protocol Validation Rules
 

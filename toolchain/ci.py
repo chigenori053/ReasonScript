@@ -21,6 +21,18 @@ CI_SCHEMA = "reasonscript-ci/1.0"
 REPORT_SCHEMA = "reasonscript-ci-report/1.0"
 SUMMARY_SCHEMA = "reasonscript-ci-summary/1.0"
 
+PHASE_ORDER = (
+    "checkout",
+    "environment_setup",
+    "workspace",
+    "diagnostics",
+    "artifacts",
+    "golden",
+    "agent_protocol",
+    "compatibility",
+    "tests",
+)
+
 VALIDATION_RULES = (
     "CI-001",
     "CI-002",
