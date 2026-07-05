@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-reasoning-model/1.0",
+  "title": "ReasoningModel",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "model_id",
+    "source_ref",
+    "input_state",
+    "reasoning_paths",
+    "selected_path_id",
+    "knowledge_emissions",
+    "evaluation_target",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema_version": {"const": "reasonscript-reasoning-model/1.0"},
+    "model_id": {"type": "string", "minLength": 1},
+    "source_ref": {"$ref": "#/$defs/SourceRef"},
+    "input_state": {"$ref": "#/$defs/InputState"},
+    "reasoning_paths": {"type": "array", "items": {"$ref": "#/$defs/ReasoningPath"}},
+    "selected_path_id": {"type": "string", "minLength": 1},
+    "knowledge_emissions": {"type": "array", "items": {"$ref": "#/$defs/KnowledgeEmission"}},
+    "evaluation_target": {"$ref": "#/$defs/EvaluationTarget"},
+    "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/Diagnostic"}},
+    "metadata": {"type": "object"}
+  },
+  "$defs": {
+    "SourceRef": {
+      "type": "object",
+      "required": ["source_id", "source_kind"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "source_kind": {
+          "type": "string",
+          "enum": [
+            "reason_script_source",
+            "reason_ir",
+            "execution_plan",
+            "simulation",
+            "knowledge",
+            "external_fixture"
+          ]
+        },
+        "artifact_refs": {"type": "object"}
+      }
+    },
+    "InputState": {
+      "type": "object",
+      "required": ["input_id", "input_kind", "units", "relations"],
+      "properties": {
+        "input_id": {"type": "string", "minLength": 1},
+        "input_kind": {
+          "type": "string",
+          "enum": ["structured_state", "text", "number", "logic"]
+        },
+        "units": {"type": "array", "items": {"$ref": "#/$defs/InputUnit"}},
+        "relations": {"type": "array", "items": {"$ref": "#/$defs/InputRelation"}}
+      }
+    },
+    "InputUnit": {
+      "type": "object",
+      "required": ["unit_id", "unit_type", "value"],
+      "properties": {
+        "unit_id": {"type": "string", "minLength": 1},
+        "unit_type": {"type": "string", "minLength": 1},
+        "value": {}
+      }
+    },
+    "InputRelation": {
+      "type": "object",
+      "required": ["relation_id", "relation_type", "source", "target"],
+      "properties": {
+        "relation_id": {"type": "string", "minLength": 1},
+        "relation_type": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "minLength": 1}
+      }
+    },
+    "ReasoningPath": {
+      "type": "object",
+      "required": ["path_id", "path_signature", "status", "steps"],
+      "properties": {
+        "path_id": {"type": "string", "minLength": 1},
+        "path_signature": {"type": "string", "minLength": 1},
+        "status": {"type": "string", "enum": ["selected", "candidate", "rejected", "failed"]},
+        "steps": {"type": "array", "items": {"$ref": "#/$defs/ReasoningStep"}},
+        "metadata": {"type": "object"}
+      }
+    },
+    "ReasoningStep": {
+      "type": "object",
+      "required": ["step_id", "step_type", "source", "target", "operation", "evidence_refs"],
+      "properties": {
+        "step_id": {"type": "string", "minLength": 1},
+        "step_type": {
+          "type": "string",
+          "enum": [
+            "state_transition",
+            "relation_check",
+            "calculation",
+            "function_return",
+            "branch_selection",
+            "knowledge_emission",
+            "runtime_operation",
+            "external_reference"
+          ]
+        },
+        "source": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "minLength": 1},
+        "operation": {"type": "string", "minLength": 1},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "BranchDecision": {
+      "type": "object",
+      "required": ["branch_id", "decision_point", "selected", "rejected", "reason", "evidence_refs"],
+      "properties": {
+        "branch_id": {"type": "string", "minLength": 1},
+        "decision_point": {"type": "string", "minLength": 1},
+        "selected": {"type": "string", "minLength": 1},
+        "rejected": {"type": "array", "items": {"type": "string"}},
+        "reason": {"type": "string", "minLength": 1},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "KnowledgeEmission": {
+      "type": "object",
+      "required": ["knowledge_id", "source_step_id", "relation", "source", "target", "evidence_path", "path_signature"],
+      "properties": {
+        "knowledge_id": {"type": "string", "minLength": 1},
+        "source_step_id": {"type": "string", "minLength": 1},
+        "relation": {"type": "string", "minLength": 1},
+        "source": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "minLength": 1},
+        "evidence_path": {"type": "array", "items": {"type": "string"}},
+        "path_signature": {"type": "string", "minLength": 1}
+      }
+    },
+    "EvaluationTarget": {
+      "type": "object",
+      "required": ["target_id", "goal", "required_checks"],
+      "properties": {
+        "target_id": {"type": "string", "minLength": 1},
+        "goal": {"type": "string", "minLength": 1},
+        "expected_relation": {"type": "object"},
+        "expected_value": {},
+        "success_criteria": {"type": "object"},
+        "required_checks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "reachability",
+              "determinism",
+              "evidence_completeness",
+              "consistency",
+              "minimality",
+              "branch_traceability"
+            ]
+          }
+        }
+      }
+    },
+    "Diagnostic": {
+      "type": "object",
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "severity": {"type": "string", "enum": ["info", "warning", "error", "fatal"]},
+        "message": {"type": "string", "minLength": 1},
+        "location": {"type": "string"}
+      }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "reasonscript-reasoning-model/1.0",
+  "source_ref": {
+    "source_id": "animal_isa",
+    "source_kind": "reason_script_source"
+  },
+  "input_state": {
+    "input_id": "input_001",
+    "input_kind": "structured_state",
+    "units": [],
+    "relations": []
+  },
+  "reasoning_paths": [],
+  "selected_path_id": "path_main",
+  "knowledge_emissions": [],
+  "evaluation_target": {
+    "target_id": "eval_001",
+    "goal": "Animal",
+    "required_checks": [
+      "reachability"
+    ]
+  },
+  "diagnostics": []
+}

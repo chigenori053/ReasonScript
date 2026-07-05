@@ -68,6 +68,10 @@ def main() -> int:
         from toolchain.ci_entry_cmd import run
         return run(command, args[1:], project_root)
 
+    if command == "reasoning-model":
+        from toolchain.reasoning_model_cmd import run
+        return run(command, args[1:], project_root)
+
     print(f"Error:\n\nUnknownCommand\n\nUnknown command: {command}")
     _usage()
     return 1
@@ -97,6 +101,7 @@ def _usage() -> None:
     print("  agent-report  Emit Agent Development Protocol report")
     print("  ci            Run the canonical CI Stabilization pipeline")
     print("  ci-entry      Validate the canonical CI entry point contract")
+    print("  reasoning-model validate <file> Validate a Reasoning Model artifact")
 
 
 def _package_arg(args: list[str]) -> str | None:

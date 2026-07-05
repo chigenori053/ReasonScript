@@ -1,0 +1,60 @@
+{
+  "schema_version": "reasonscript-reasoning-model/1.0",
+  "model_id": "InvalidDuplicateStep",
+  "source_ref": {
+    "source_id": "duplicate_step",
+    "source_kind": "external_fixture"
+  },
+  "input_state": {
+    "input_id": "input_001",
+    "input_kind": "structured_state",
+    "units": [
+      {
+        "unit_id": "A",
+        "unit_type": "object",
+        "value": "A"
+      },
+      {
+        "unit_id": "B",
+        "unit_type": "object",
+        "value": "B"
+      }
+    ],
+    "relations": []
+  },
+  "reasoning_paths": [
+    {
+      "path_id": "path_main",
+      "path_signature": "A.to.B",
+      "status": "selected",
+      "steps": [
+        {
+          "step_id": "step_001",
+          "step_type": "state_transition",
+          "source": "A",
+          "target": "B",
+          "operation": "transition",
+          "evidence_refs": []
+        },
+        {
+          "step_id": "step_001",
+          "step_type": "state_transition",
+          "source": "B",
+          "target": "A",
+          "operation": "transition",
+          "evidence_refs": []
+        }
+      ]
+    }
+  ],
+  "selected_path_id": "path_main",
+  "knowledge_emissions": [],
+  "evaluation_target": {
+    "target_id": "eval_001",
+    "goal": "B",
+    "required_checks": [
+      "reachability"
+    ]
+  },
+  "diagnostics": []
+}
