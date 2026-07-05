@@ -40,6 +40,10 @@ def main() -> int:
         from toolchain.check_cmd import run
         return run(project_root, package=package)
 
+    if command in {"workspace", "summary", "index", "scan"}:
+        from toolchain.workspace_cmd import run
+        return run(command, args[1:], project_root)
+
     print(f"Error:\n\nUnknownCommand\n\nUnknown command: {command}")
     _usage()
     return 1
@@ -54,6 +58,10 @@ def _usage() -> None:
     print("  run           Execute the compiled program")
     print("  test          Run test suites")
     print("  check         Validate sources without building")
+    print("  workspace     Show workspace foundation summary")
+    print("  summary       Show machine-readable project summary")
+    print("  index         Generate workspace JSON artifacts")
+    print("  scan          Scan workspace files and directories")
 
 
 def _package_arg(args: list[str]) -> str | None:

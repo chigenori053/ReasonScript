@@ -9,6 +9,7 @@ from typing import Any
 
 from playground.backend.main import SourceRequest, analyze_endpoint
 from scripts.reason_artifacts import stable_json, write_cli_artifacts
+from toolchain.workspace_cmd import run as run_workspace_command
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -74,6 +75,14 @@ def _build_parser() -> argparse.ArgumentParser:
     build.add_argument("project_dir")
     build.add_argument("--json", action="store_true")
     build.set_defaults(handler=cmd_build)
+
+    for name in ("workspace", "summary", "index", "scan"):
+        sub = subparsers.add_parser(name)
+        sub.add_argument("project_dir", nargs="?")
+        sub.add_argument("--json", action="store_true")
+        if name in {"workspace", "index"}:
+            sub.add_argument("--out")
+        sub.set_defaults(handler=cmd_workspace_foundation)
 
     test = subparsers.add_parser("test")
     test.add_argument("--json", action="store_true")
@@ -164,6 +173,17 @@ def cmd_build(args: argparse.Namespace) -> int:
         print(f"files: {len(files)}")
         print(f"diagnostics: {len(result['diagnostics'])}")
     return 0 if ok else 1
+
+
+def cmd_workspace_foundation(args: argparse.Namespace) -> int:
+    argv = []
+    if getattr(args, "project_dir", None):
+        argv.append(args.project_dir)
+    if getattr(args, "json", False):
+        argv.append("--json")
+    if getattr(args, "out", None):
+        argv.extend(["--out", args.out])
+    return run_workspace_command(args.subcommand, argv, Path.cwd())
 
 
 def _check_result(path: Path, compiler_mode: str) -> dict[str, Any]:
