@@ -1,0 +1,9 @@
+module FunctionReturn {
+  fn Value() -> int {
+    return 42
+  }
+
+  calculation Answer {
+    result = Value()
+  }
+}

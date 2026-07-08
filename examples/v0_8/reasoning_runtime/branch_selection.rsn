@@ -1,0 +1,13 @@
+module BranchSelection {
+  fn Select(flag: bool) -> int {
+    if flag {
+      return 1
+    }
+
+    return 0
+  }
+
+  calculation Answer {
+    result = Select(true)
+  }
+}

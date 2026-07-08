@@ -1,0 +1,9 @@
+module CalculationChain {
+  calculation A {
+    result = 10
+  }
+
+  calculation B {
+    result = A * 2
+  }
+}
