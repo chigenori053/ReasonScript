@@ -14,6 +14,7 @@ from toolchain.agent_protocol import PROTOCOL_SCHEMA, validate_repository
 from toolchain.artifacts import ARTIFACT_SCHEMA, ARTIFACT_SCHEMAS, stable_json, unwrap_artifact, validate_artifact_directory
 from toolchain.diagnostics import DIAGNOSTICS_SCHEMA, diagnostic_from_parts, diagnostics_document, validate_diagnostics_document
 from toolchain.golden import GOLDEN_SCHEMA, run_corpus
+from toolchain.reasoning_evaluation_report import CONTRACT_SCHEMA as REASONING_EVALUATION_SCHEMA
 from toolchain.reasoning_model_contract import CONTRACT_SCHEMA as REASONING_MODEL_SCHEMA
 from toolchain.workspace_foundation import WORKSPACE_SCHEMA, build_workspace_index
 
@@ -63,6 +64,7 @@ COMPATIBILITY_TARGETS = {
     "simulation/0.5": lambda: ARTIFACT_SCHEMAS.get("simulation.json") == "simulation/0.5",
     "knowledge/0.5": lambda: ARTIFACT_SCHEMAS.get("knowledge.json") == "knowledge/0.5",
     "reasonscript-reasoning-model/1.0": lambda: REASONING_MODEL_SCHEMA == "reasonscript-reasoning-model/1.0",
+    "reasonscript-reasoning-evaluation-report/1.0": lambda: REASONING_EVALUATION_SCHEMA == "reasonscript-reasoning-evaluation-report/1.0",
 }
 
 DEFAULT_TEST_COMMAND = (sys.executable, "-m", "pytest", "tests", "-q")

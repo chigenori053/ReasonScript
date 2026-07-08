@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-reasoning-evaluation-report/1.0",
+  "title": "ReasoningEvaluationReport",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "model_ref",
+    "evaluation_target_ref",
+    "summary",
+    "checks",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema_version": {"const": "reasonscript-reasoning-evaluation-report/1.0"},
+    "report_id": {"type": "string", "minLength": 1},
+    "model_ref": {"$ref": "#/$defs/ModelRef"},
+    "evaluation_target_ref": {"$ref": "#/$defs/EvaluationTargetRef"},
+    "summary": {"$ref": "#/$defs/EvaluationSummary"},
+    "checks": {"type": "array", "items": {"$ref": "#/$defs/CheckResult"}},
+    "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/Diagnostic"}},
+    "metadata": {"type": "object"}
+  },
+  "$defs": {
+    "ModelRef": {
+      "type": "object",
+      "required": ["model_id", "model_schema_version"],
+      "properties": {
+        "model_id": {"type": "string", "minLength": 1},
+        "model_schema_version": {"const": "reasonscript-reasoning-model/1.0"},
+        "source_id": {"type": "string"}
+      }
+    },
+    "EvaluationTargetRef": {
+      "type": "object",
+      "required": ["target_id", "goal", "required_checks"],
+      "properties": {
+        "target_id": {"type": "string", "minLength": 1},
+        "goal": {"type": "string", "minLength": 1},
+        "required_checks": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/CheckType"}
+        }
+      }
+    },
+    "EvaluationSummary": {
+      "type": "object",
+      "required": [
+        "status",
+        "passed",
+        "required_checks_passed",
+        "total_checks",
+        "passed_checks",
+        "failed_checks",
+        "warning_checks",
+        "fatal_diagnostics"
+      ],
+      "properties": {
+        "status": {"type": "string", "enum": ["passed", "failed", "warning", "fatal"]},
+        "passed": {"type": "boolean"},
+        "required_checks_passed": {"type": "boolean"},
+        "total_checks": {"type": "integer", "minimum": 0},
+        "passed_checks": {"type": "integer", "minimum": 0},
+        "failed_checks": {"type": "integer", "minimum": 0},
+        "warning_checks": {"type": "integer", "minimum": 0},
+        "fatal_diagnostics": {"type": "integer", "minimum": 0}
+      }
+    },
+    "CheckResult": {
+      "type": "object",
+      "required": [
+        "check_id",
+        "check_type",
+        "required",
+        "status",
+        "passed",
+        "message",
+        "evidence_refs",
+        "details"
+      ],
+      "properties": {
+        "check_id": {"type": "string", "minLength": 1},
+        "check_type": {"$ref": "#/$defs/CheckType"},
+        "required": {"type": "boolean"},
+        "status": {"type": "string", "enum": ["passed", "failed", "warning", "skipped", "fatal"]},
+        "passed": {"type": "boolean"},
+        "message": {"type": "string", "minLength": 1},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "details": {"type": "object"}
+      }
+    },
+    "CheckType": {
+      "type": "string",
+      "enum": [
+        "reachability",
+        "determinism",
+        "evidence_completeness",
+        "consistency",
+        "minimality",
+        "branch_traceability"
+      ]
+    },
+    "Diagnostic": {
+      "type": "object",
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "severity": {"type": "string", "enum": ["info", "warning", "error", "fatal"]},
+        "message": {"type": "string", "minLength": 1},
+        "location": {"type": "string"}
+      }
+    }
+  }
+}

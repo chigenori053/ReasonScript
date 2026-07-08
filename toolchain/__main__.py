@@ -72,6 +72,10 @@ def main() -> int:
         from toolchain.reasoning_model_cmd import run
         return run(command, args[1:], project_root)
 
+    if command == "reasoning-eval":
+        from toolchain.reasoning_evaluation_cmd import run
+        return run(command, args[1:], project_root)
+
     print(f"Error:\n\nUnknownCommand\n\nUnknown command: {command}")
     _usage()
     return 1
@@ -102,6 +106,8 @@ def _usage() -> None:
     print("  ci            Run the canonical CI Stabilization pipeline")
     print("  ci-entry      Validate the canonical CI entry point contract")
     print("  reasoning-model validate <file> Validate a Reasoning Model artifact")
+    print("  reasoning-eval evaluate <file> Evaluate a Reasoning Model artifact")
+    print("  reasoning-eval validate <file> Validate a Reasoning Evaluation Report")
 
 
 def _package_arg(args: list[str]) -> str | None:
