@@ -2,7 +2,7 @@
 
 ## Status
 
-IMPLEMENTED
+VALIDATED
 
 ## Version
 
@@ -23,6 +23,16 @@ ReasonScript Source
 
 This phase does not add source syntax, parser behavior, or runtime execution semantics.
 
+## Depends On
+
+- `reasonscript-reasoning-model/1.0`
+- `reasonscript-reasoning-evaluation-report/1.0`
+- `reasonscript-reasoning-runtime-prototype/1.0`
+
+## Related
+
+- `reasonscript-playground-reasoning-overview/1.0`
+
 ## v0.5 Scope
 
 v0.5 core is a CLI-first, artifact-first reasoning model development foundation. It includes the ReasoningModel, ReasoningEvaluationReport, and ReasoningRuntimeResult contracts, deterministic serialization, CLI validation, CI compatibility, and golden artifact validation.
@@ -41,12 +51,12 @@ v0.5 Core Blocking: false
 
 Golden fixtures live under `examples/v0_8/reasoning_runtime/`:
 
-- `animal_isa.rsn`
-- `calculation_chain.rsn`
-- `function_return.rsn`
-- `branch_selection.rsn`
-- `unreachable_goal.rsn`
-- `invalid_parse.rsn`
+- `animal_isa`
+- `calculation_chain`
+- `function_return`
+- `branch_selection`
+- `unreachable_goal`
+- `invalid_parse`
 
 Approved golden artifacts live under `tests/fixtures/golden/phase8/`.
 
@@ -71,6 +81,7 @@ Phase 8 Final validates:
 - deterministic serialization
 - CLI JSON output stability
 - CI compatibility target registration
+- 6 golden scenarios and 16 golden artifacts
 
 Golden validation diagnostics use the `GV-*` family:
 
@@ -107,6 +118,17 @@ Golden artifacts are generated through:
 reason phase8-golden update --json
 ```
 
+## Validation
+
+- `./reason phase8-golden validate --json`
+  - PASS
+- `python3 -m toolchain ci-entry --json`
+  - PASS
+- `python3 -m pytest tests/golden/test_phase8_golden_validation.py tests/reasoning_model/test_reasoning_runtime_prototype.py -q`
+  - PASS, 41 passed
+- `./reason ci --json`
+  - PASS, 779 tests passed
+
 ## Compatibility
 
 This phase preserves:
@@ -120,3 +142,8 @@ This phase preserves:
 - `reasonscript-reasoning-model/1.0`
 - `reasonscript-reasoning-evaluation-report/1.0`
 - `reasonscript-reasoning-runtime-prototype/1.0`
+
+## Phase Result
+
+`Phase 8 Final - COMPLETE`
+`Phase 8 Final - VALIDATED`

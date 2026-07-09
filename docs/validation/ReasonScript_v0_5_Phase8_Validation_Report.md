@@ -1,5 +1,13 @@
 # ReasonScript v0.5 Phase 8 Validation Report
 
+## Status
+
+VALIDATED
+
+## Version
+
+`reasonscript-phase8-golden-validation/1.0`
+
 ## Completion Summary
 
 ReasonScript v0.5 is a CLI-first, artifact-first reasoning model development foundation.
@@ -13,19 +21,28 @@ It can generate, validate, evaluate, serialize, and regression-test reasoning ar
 - Phase 8C: `reasonscript-reasoning-runtime-prototype/1.0` generates runtime results from existing pipeline artifacts.
 - Phase 8D: Playground Reasoning Overview is validated, experimental, and non-blocking.
 - Phase 8 Final: `reasonscript-phase8-golden-validation/1.0` freezes end-to-end golden artifacts.
+- Added Phase 8 golden validator.
+- Added `reason phase8-golden validate --json`.
+- Added `reason phase8-golden update --json`.
+- Added deterministic serialization regression checks.
+- Added CLI output stability checks.
+- Added `GV-*` diagnostics.
+- Added CI compatibility target `reasonscript-phase8-golden-validation/1.0`.
 
 ## Golden Fixtures
 
-- `examples/v0_8/reasoning_runtime/animal_isa.rsn`
-- `examples/v0_8/reasoning_runtime/calculation_chain.rsn`
-- `examples/v0_8/reasoning_runtime/function_return.rsn`
-- `examples/v0_8/reasoning_runtime/branch_selection.rsn`
-- `examples/v0_8/reasoning_runtime/unreachable_goal.rsn`
-- `examples/v0_8/reasoning_runtime/invalid_parse.rsn`
+- `animal_isa`
+- `calculation_chain`
+- `function_return`
+- `branch_selection`
+- `unreachable_goal`
+- `invalid_parse`
 
 ## Golden Artifacts
 
 Golden artifacts are stored under `tests/fixtures/golden/phase8/`.
+
+The Phase 8 Final corpus contains 6 golden scenarios and 16 golden artifacts.
 
 Valid scenarios include:
 
@@ -37,19 +54,20 @@ Valid scenarios include:
 
 ## Validation Results
 
-Required validation commands:
-
-```sh
-reason phase8-golden validate --json
-python3 -m toolchain ci-entry --json
-reason ci --json
-```
+- `./reason phase8-golden validate --json`
+  - PASS
+- `python3 -m toolchain ci-entry --json`
+  - PASS
+- `python3 -m pytest tests/golden/test_phase8_golden_validation.py tests/reasoning_model/test_reasoning_runtime_prototype.py -q`
+  - PASS, 41 passed
+- `./reason ci --json`
+  - PASS, 779 tests passed
 
 The Phase 8 golden validation checks fixture existence, schema validation, exact canonical JSON match, deterministic serialization, CLI output stability, and CI compatibility target registration.
 
 ## Compatibility Notes
 
-Phase 8 Final preserves parser behavior, runtime execution behavior, Reason IR execution semantics, ExecutionPlan semantics, Simulation semantics, Knowledge semantics, and the Phase 8A-8C artifact contracts.
+Phase 8 Final preserves parser behavior, runtime execution behavior, Reason IR execution semantics, ExecutionPlan semantics, Simulation semantics, Knowledge semantics, the Phase 8A ReasoningModel contract, the Phase 8B ReasoningEvaluationReport contract, and the Phase 8C ReasoningRuntimeResult contract.
 
 ## Known Limitations
 
@@ -60,3 +78,8 @@ Phase 8 Final preserves parser behavior, runtime execution behavior, Reason IR e
 ## Remaining Work
 
 No remaining work is required for Phase 8 Final under the accepted v0.5 core scope.
+
+## Phase Result
+
+`Phase 8 Final - COMPLETE`
+`Phase 8 Final - VALIDATED`
