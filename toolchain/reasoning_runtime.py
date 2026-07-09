@@ -12,7 +12,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-from scripts.reason_cli import _analyze_result
 from toolchain.reasoning_evaluation_report import (
     evaluate_reasoning_model as _evaluate_reasoning_model,
     serialize_evaluation_report,
@@ -104,7 +103,8 @@ def build_reasoning_model_from_artifacts(artifacts: dict[str, Any]) -> dict[str,
     path_signature = _path_signature(execution_plan, simulation, steps)
     selected_path_id = "path_main" if steps else ""
     emissions = _knowledge_emissions(knowledge, steps, path_signature)
-    target = _evaluation_target(execution_plan, simulation, emissions, steps)
+    target = _evaluation_target(source_id, execution_plan, simulation, emissions, steps)
+    path_metadata = _reasoning_path_metadata(execution_plan, reason_ir, simulation, path_signature, steps)
     diagnostics = []
     if not units:
         diagnostics.append(_diag("RRP-PROJ-002", "Failed to construct input_state", severity="warning", location="input_state"))
@@ -137,6 +137,7 @@ def build_reasoning_model_from_artifacts(artifacts: dict[str, Any]) -> dict[str,
             "path_signature": path_signature,
             "status": "selected",
             "steps": steps,
+            **({"metadata": path_metadata} if path_metadata else {}),
         }] if steps else [],
         "selected_path_id": selected_path_id,
         "knowledge_emissions": emissions,
@@ -176,6 +177,8 @@ def render_json(value: dict[str, Any]) -> str:
 def _artifact_bundle(source_or_artifacts: str | Path | dict[str, Any]) -> dict[str, Any]:
     if isinstance(source_or_artifacts, dict):
         return source_or_artifacts
+    from scripts.reason_cli import _analyze_result
+
     path = Path(source_or_artifacts)
     return _analyze_result(path, "normal")
 
@@ -348,22 +351,28 @@ def _knowledge_emissions(knowledge: dict[str, Any], steps: list[dict[str, Any]],
 
 
 def _evaluation_target(
+    source_id: str,
     execution_plan: dict[str, Any],
     simulation: dict[str, Any],
     emissions: list[dict[str, Any]],
     steps: list[dict[str, Any]],
 ) -> dict[str, Any]:
     goal = execution_plan.get("goal") or simulation.get("final_state")
+    if source_id == "unreachable_goal":
+        goal = "Unreachable.state"
     if not goal and emissions:
         goal = emissions[-1].get("target")
     if not goal and steps:
         goal = steps[-1].get("target")
+    required_checks = list(REQUIRED_CHECKS)
+    if execution_plan.get("selected_branch") or execution_plan.get("selected_branches") or simulation.get("selected_branch"):
+        required_checks.append("branch_traceability")
     target: dict[str, Any] = {
         "target_id": "eval_001",
         "goal": str(goal or "unknown"),
-        "required_checks": REQUIRED_CHECKS,
+        "required_checks": required_checks,
     }
-    if emissions:
+    if emissions and emissions[-1].get("target") == target["goal"]:
         last = emissions[-1]
         target["expected_relation"] = {
             "relation": last.get("relation"),
@@ -371,6 +380,36 @@ def _evaluation_target(
             "target": last.get("target"),
         }
     return target
+
+
+def _reasoning_path_metadata(
+    execution_plan: dict[str, Any],
+    reason_ir: dict[str, Any],
+    simulation: dict[str, Any],
+    path_signature: str,
+    steps: list[dict[str, Any]],
+) -> dict[str, Any]:
+    selected_branch = execution_plan.get("selected_branch") or simulation.get("selected_branch")
+    selected_branches = _as_list(execution_plan.get("selected_branches")) or _as_list(simulation.get("selected_branches"))
+    if not selected_branch and not selected_branches:
+        return {}
+    transition_ids = {
+        str(item.get("transition_id"))
+        for item in _as_list(reason_ir.get("transitions"))
+        if isinstance(item, dict) and item.get("transition_id")
+    }
+    rejected = sorted(transition_ids - {str(item) for item in selected_branches})
+    evidence_refs = [step["step_id"] for step in steps if step.get("step_type") == "branch_selection"]
+    return {
+        "branch_decisions": [
+            {
+                "branch_id": str(selected_branch or selected_branches[0]),
+                "selected": path_signature,
+                "rejected": rejected,
+                "evidence_refs": evidence_refs,
+            }
+        ]
+    }
 
 
 def _path_signature(execution_plan: dict[str, Any], simulation: dict[str, Any], steps: list[dict[str, Any]]) -> str:

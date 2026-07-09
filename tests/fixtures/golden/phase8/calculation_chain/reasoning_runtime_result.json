@@ -1,0 +1,246 @@
+{
+  "schema_version": "reasonscript-reasoning-runtime-prototype/1.0",
+  "run_id": "run_calculation_chain",
+  "source_ref": {
+    "source_id": "calculation_chain",
+    "source_kind": "reason_script_source",
+    "source_path": "examples/v0_8/reasoning_runtime/calculation_chain.rsn"
+  },
+  "pipeline_status": {
+    "status": "passed",
+    "parser_passed": true,
+    "reason_ir_available": true,
+    "execution_plan_available": true,
+    "simulation_available": true,
+    "knowledge_available": true,
+    "diagnostics_count": 0
+  },
+  "reasoning_model": {
+    "diagnostics": [],
+    "evaluation_target": {
+      "expected_relation": {
+        "relation": "ResultTransition",
+        "source": "CalculationChainStart",
+        "target": "B.state.result"
+      },
+      "goal": "B.state.result",
+      "required_checks": [
+        "reachability",
+        "determinism",
+        "evidence_completeness",
+        "consistency"
+      ],
+      "target_id": "eval_001"
+    },
+    "input_state": {
+      "input_id": "input_calculation_chain",
+      "input_kind": "structured_state",
+      "relations": [
+        {
+          "relation_id": "rel_001",
+          "relation_type": "ResultTransition",
+          "source": "CalculationChainStart",
+          "target": "A.state.result"
+        },
+        {
+          "relation_id": "rel_002",
+          "relation_type": "ResultTransition",
+          "source": "A.state.result",
+          "target": "B.state.result"
+        }
+      ],
+      "units": [
+        {
+          "unit_id": "A.state.result",
+          "unit_type": "state",
+          "value": "A.state.result"
+        },
+        {
+          "unit_id": "B.state.result",
+          "unit_type": "calculation_result",
+          "value": "B.state.result"
+        },
+        {
+          "unit_id": "CalculationChainStart",
+          "unit_type": "state",
+          "value": "CalculationChainStart"
+        }
+      ]
+    },
+    "knowledge_emissions": [
+      {
+        "evidence_path": [
+          "step-1"
+        ],
+        "knowledge_id": "K001",
+        "path_signature": "A.state.result.B.state.result",
+        "relation": "ResultTransition",
+        "source": "CalculationChainStart",
+        "source_step_id": "step-1",
+        "target": "A.state.result"
+      },
+      {
+        "evidence_path": [
+          "step-2"
+        ],
+        "knowledge_id": "K002",
+        "path_signature": "A.state.result.B.state.result",
+        "relation": "ResultTransition",
+        "source": "CalculationChainStart",
+        "source_step_id": "step-2",
+        "target": "B.state.result"
+      }
+    ],
+    "model_id": "CalculationChain.ReasoningModel",
+    "reasoning_paths": [
+      {
+        "path_id": "path_main",
+        "path_signature": "A.state.result.B.state.result",
+        "status": "selected",
+        "steps": [
+          {
+            "evidence_refs": [
+              "A-1-result"
+            ],
+            "operation": "ResultTransition",
+            "source": "CalculationChainStart",
+            "step_id": "step-1",
+            "step_type": "calculation",
+            "target": "A.state.result"
+          },
+          {
+            "evidence_refs": [
+              "B-1-result"
+            ],
+            "operation": "ResultTransition",
+            "source": "A.state.result",
+            "step_id": "step-2",
+            "step_type": "calculation",
+            "target": "B.state.result"
+          }
+        ]
+      }
+    ],
+    "schema_version": "reasonscript-reasoning-model/1.0",
+    "selected_path_id": "path_main",
+    "source_ref": {
+      "source_id": "calculation_chain",
+      "source_kind": "reason_script_source",
+      "artifact_refs": {
+        "execution_plan": "execution_plan.json",
+        "knowledge": "knowledge.json",
+        "reason_ir": "reason_ir.json",
+        "simulation": "simulation.json"
+      }
+    }
+  },
+  "evaluation_report": {
+    "checks": [
+      {
+        "check_id": "check_reachability",
+        "check_type": "reachability",
+        "details": {
+          "goal": "B.state.result",
+          "matched_by": "reasoning_step",
+          "matched_ref": "step-2",
+          "reachable": true,
+          "selected_path_id": "path_main"
+        },
+        "evidence_refs": [
+          "path_main",
+          "step-2"
+        ],
+        "message": "Selected reasoning path reaches the evaluation goal.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_determinism",
+        "check_type": "determinism",
+        "details": {
+          "canonical_serialization_stable": true,
+          "duplicate_ids": [],
+          "stable_ids": true
+        },
+        "evidence_refs": [
+          "CalculationChain.ReasoningModel"
+        ],
+        "message": "ReasoningModel artifact is deterministically representable.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_evidence_completeness",
+        "check_type": "evidence_completeness",
+        "details": {
+          "invalid_path_signatures": [],
+          "invalid_source_step_refs": [],
+          "knowledge_emissions_checked": 2,
+          "missing_evidence_paths": [],
+          "missing_evidence_refs": [],
+          "steps_checked": 2
+        },
+        "evidence_refs": [
+          "K001",
+          "K002",
+          "step-1",
+          "step-2"
+        ],
+        "message": "Knowledge emissions include complete evidence paths.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_consistency",
+        "check_type": "consistency",
+        "details": {
+          "fatal_model_diagnostics": 0,
+          "input_relations_valid": true,
+          "selected_path_count": 1,
+          "selected_path_valid": true,
+          "unknown_path_signatures": [],
+          "unknown_required_checks": []
+        },
+        "evidence_refs": [
+          "path_main"
+        ],
+        "message": "ReasoningModel artifact is structurally consistent.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      }
+    ],
+    "diagnostics": [],
+    "evaluation_target_ref": {
+      "goal": "B.state.result",
+      "required_checks": [
+        "reachability",
+        "determinism",
+        "evidence_completeness",
+        "consistency"
+      ],
+      "target_id": "eval_001"
+    },
+    "model_ref": {
+      "model_id": "CalculationChain.ReasoningModel",
+      "model_schema_version": "reasonscript-reasoning-model/1.0",
+      "source_id": "calculation_chain"
+    },
+    "report_id": "report_CalculationChain.ReasoningModel_eval_001",
+    "schema_version": "reasonscript-reasoning-evaluation-report/1.0",
+    "summary": {
+      "failed_checks": 0,
+      "fatal_diagnostics": 0,
+      "passed": true,
+      "passed_checks": 4,
+      "required_checks_passed": true,
+      "status": "passed",
+      "total_checks": 4,
+      "warning_checks": 0
+    }
+  },
+  "diagnostics": []
+}

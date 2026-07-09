@@ -1,0 +1,264 @@
+{
+  "schema_version": "reasonscript-reasoning-runtime-prototype/1.0",
+  "run_id": "run_animal_isa",
+  "source_ref": {
+    "source_id": "animal_isa",
+    "source_kind": "reason_script_source",
+    "source_path": "examples/v0_8/reasoning_runtime/animal_isa.rsn"
+  },
+  "pipeline_status": {
+    "status": "passed",
+    "parser_passed": true,
+    "reason_ir_available": true,
+    "execution_plan_available": true,
+    "simulation_available": true,
+    "knowledge_available": true,
+    "diagnostics_count": 0
+  },
+  "reasoning_model": {
+    "diagnostics": [],
+    "evaluation_target": {
+      "expected_relation": {
+        "relation": "ResultTransition",
+        "source": "AnimalReasoningStart",
+        "target": "Answer.state.result"
+      },
+      "goal": "Answer.state.result",
+      "required_checks": [
+        "reachability",
+        "determinism",
+        "evidence_completeness",
+        "consistency",
+        "branch_traceability"
+      ],
+      "target_id": "eval_001"
+    },
+    "input_state": {
+      "input_id": "input_animal_isa",
+      "input_kind": "structured_state",
+      "relations": [
+        {
+          "relation_id": "rel_001",
+          "relation_type": "FunctionReturnTransition",
+          "source": "AnimalReasoningStart",
+          "target": "IsAnimal.return"
+        },
+        {
+          "relation_id": "rel_002",
+          "relation_type": "ResultTransition",
+          "source": "IsAnimal.return",
+          "target": "Answer.state.result"
+        }
+      ],
+      "units": [
+        {
+          "unit_id": "AnimalReasoningStart",
+          "unit_type": "state",
+          "value": "AnimalReasoningStart"
+        },
+        {
+          "unit_id": "Answer.state.result",
+          "unit_type": "calculation_result",
+          "value": "Answer.state.result"
+        },
+        {
+          "unit_id": "IsAnimal.return",
+          "unit_type": "state",
+          "value": "IsAnimal.return"
+        }
+      ]
+    },
+    "knowledge_emissions": [
+      {
+        "evidence_path": [
+          "step-1",
+          "step-2"
+        ],
+        "knowledge_id": "K001",
+        "path_signature": "IsAnimal.return",
+        "relation": "ResultTransition",
+        "source": "AnimalReasoningStart",
+        "source_step_id": "step-2",
+        "target": "Answer.state.result"
+      }
+    ],
+    "model_id": "AnimalReasoning.ReasoningModel",
+    "reasoning_paths": [
+      {
+        "metadata": {
+          "branch_decisions": [
+            {
+              "branch_id": "IsAnimal.return",
+              "evidence_refs": [],
+              "rejected": [
+                "Answer-1-result"
+              ],
+              "selected": "IsAnimal.return"
+            }
+          ]
+        },
+        "path_id": "path_main",
+        "path_signature": "IsAnimal.return",
+        "status": "selected",
+        "steps": [
+          {
+            "evidence_refs": [
+              "IsAnimal.return"
+            ],
+            "operation": "FunctionReturnTransition",
+            "source": "AnimalReasoningStart",
+            "step_id": "step-1",
+            "step_type": "function_return",
+            "target": "IsAnimal.return"
+          },
+          {
+            "evidence_refs": [
+              "Answer-1-result"
+            ],
+            "operation": "ResultTransition",
+            "source": "IsAnimal.return",
+            "step_id": "step-2",
+            "step_type": "calculation",
+            "target": "Answer.state.result"
+          }
+        ]
+      }
+    ],
+    "schema_version": "reasonscript-reasoning-model/1.0",
+    "selected_path_id": "path_main",
+    "source_ref": {
+      "source_id": "animal_isa",
+      "source_kind": "reason_script_source",
+      "artifact_refs": {
+        "execution_plan": "execution_plan.json",
+        "knowledge": "knowledge.json",
+        "reason_ir": "reason_ir.json",
+        "simulation": "simulation.json"
+      }
+    }
+  },
+  "evaluation_report": {
+    "checks": [
+      {
+        "check_id": "check_reachability",
+        "check_type": "reachability",
+        "details": {
+          "goal": "Answer.state.result",
+          "matched_by": "reasoning_step",
+          "matched_ref": "step-2",
+          "reachable": true,
+          "selected_path_id": "path_main"
+        },
+        "evidence_refs": [
+          "path_main",
+          "step-2"
+        ],
+        "message": "Selected reasoning path reaches the evaluation goal.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_determinism",
+        "check_type": "determinism",
+        "details": {
+          "canonical_serialization_stable": true,
+          "duplicate_ids": [],
+          "stable_ids": true
+        },
+        "evidence_refs": [
+          "AnimalReasoning.ReasoningModel"
+        ],
+        "message": "ReasoningModel artifact is deterministically representable.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_evidence_completeness",
+        "check_type": "evidence_completeness",
+        "details": {
+          "invalid_path_signatures": [],
+          "invalid_source_step_refs": [],
+          "knowledge_emissions_checked": 1,
+          "missing_evidence_paths": [],
+          "missing_evidence_refs": [],
+          "steps_checked": 2
+        },
+        "evidence_refs": [
+          "K001",
+          "step-1",
+          "step-2"
+        ],
+        "message": "Knowledge emissions include complete evidence paths.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_consistency",
+        "check_type": "consistency",
+        "details": {
+          "fatal_model_diagnostics": 0,
+          "input_relations_valid": true,
+          "selected_path_count": 1,
+          "selected_path_valid": true,
+          "unknown_path_signatures": [],
+          "unknown_required_checks": []
+        },
+        "evidence_refs": [
+          "path_main"
+        ],
+        "message": "ReasoningModel artifact is structurally consistent.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_branch_traceability",
+        "check_type": "branch_traceability",
+        "details": {
+          "branch_decisions_checked": 1,
+          "branches_traceable": true,
+          "invalid_selected_branches": [],
+          "missing_branch_evidence": []
+        },
+        "evidence_refs": [],
+        "message": "Branch decisions are traceable.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      }
+    ],
+    "diagnostics": [],
+    "evaluation_target_ref": {
+      "goal": "Answer.state.result",
+      "required_checks": [
+        "reachability",
+        "determinism",
+        "evidence_completeness",
+        "consistency",
+        "branch_traceability"
+      ],
+      "target_id": "eval_001"
+    },
+    "model_ref": {
+      "model_id": "AnimalReasoning.ReasoningModel",
+      "model_schema_version": "reasonscript-reasoning-model/1.0",
+      "source_id": "animal_isa"
+    },
+    "report_id": "report_AnimalReasoning.ReasoningModel_eval_001",
+    "schema_version": "reasonscript-reasoning-evaluation-report/1.0",
+    "summary": {
+      "failed_checks": 0,
+      "fatal_diagnostics": 0,
+      "passed": true,
+      "passed_checks": 5,
+      "required_checks_passed": true,
+      "status": "passed",
+      "total_checks": 5,
+      "warning_checks": 0
+    }
+  },
+  "diagnostics": []
+}

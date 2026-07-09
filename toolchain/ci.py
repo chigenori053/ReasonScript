@@ -14,10 +14,13 @@ from toolchain.agent_protocol import PROTOCOL_SCHEMA, validate_repository
 from toolchain.artifacts import ARTIFACT_SCHEMA, ARTIFACT_SCHEMAS, stable_json, unwrap_artifact, validate_artifact_directory
 from toolchain.diagnostics import DIAGNOSTICS_SCHEMA, diagnostic_from_parts, diagnostics_document, validate_diagnostics_document
 from toolchain.golden import GOLDEN_SCHEMA, run_corpus
+from toolchain.phase8_golden_validation import CONTRACT_SCHEMA as PHASE8_GOLDEN_SCHEMA
+from toolchain.phase8_golden_validation import validate_phase8_golden
 from toolchain.reasoning_evaluation_report import CONTRACT_SCHEMA as REASONING_EVALUATION_SCHEMA
 from toolchain.reasoning_model_contract import CONTRACT_SCHEMA as REASONING_MODEL_SCHEMA
 from toolchain.reasoning_runtime import CONTRACT_SCHEMA as REASONING_RUNTIME_SCHEMA
 from toolchain.workspace_foundation import WORKSPACE_SCHEMA, build_workspace_index
+from playground.backend.reasoning_overview import CONTRACT_SCHEMA as REASONING_OVERVIEW_SCHEMA
 
 
 CI_SCHEMA = "reasonscript-ci/1.0"
@@ -67,6 +70,8 @@ COMPATIBILITY_TARGETS = {
     "reasonscript-reasoning-model/1.0": lambda: REASONING_MODEL_SCHEMA == "reasonscript-reasoning-model/1.0",
     "reasonscript-reasoning-evaluation-report/1.0": lambda: REASONING_EVALUATION_SCHEMA == "reasonscript-reasoning-evaluation-report/1.0",
     "reasonscript-reasoning-runtime-prototype/1.0": lambda: REASONING_RUNTIME_SCHEMA == "reasonscript-reasoning-runtime-prototype/1.0",
+    "reasonscript-playground-reasoning-overview/1.0": lambda: REASONING_OVERVIEW_SCHEMA == "reasonscript-playground-reasoning-overview/1.0",
+    "reasonscript-phase8-golden-validation/1.0": lambda: PHASE8_GOLDEN_SCHEMA == "reasonscript-phase8-golden-validation/1.0",
 }
 
 DEFAULT_TEST_COMMAND = (sys.executable, "-m", "pytest", "tests", "-q")
@@ -260,10 +265,19 @@ def _check_golden(root: Path) -> tuple[bool, list[Any], dict[str, Any] | None]:
     if not golden_root.is_dir():
         return False, [_ci_diag("CI-006", "Golden test failed", file="golden")], None
     result = run_corpus(golden_root)
+    phase8 = validate_phase8_golden(root)
     summary = result["summary"]
-    if summary["failed"]:
-        return False, [_ci_diag("CI-006", "Golden test failed", file="golden")], summary
-    return True, [], summary
+    metadata = {
+        **summary,
+        "phase8_golden_validation": {
+            "target": PHASE8_GOLDEN_SCHEMA,
+            "status": phase8["status"],
+            "scenarios": len(phase8["scenarios"]),
+        },
+    }
+    if summary["failed"] or not phase8["ok"]:
+        return False, [_ci_diag("CI-006", "Golden test failed", file="golden")], metadata
+    return True, [], metadata
 
 
 def _check_agent_protocol(root: Path) -> tuple[bool, list[Any], dict[str, Any] | None]:

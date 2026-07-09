@@ -1,0 +1,119 @@
+{
+  "schema_version": "reasonscript-reasoning-model/1.0",
+  "model_id": "CalculationChain.ReasoningModel",
+  "source_ref": {
+    "source_id": "calculation_chain",
+    "source_kind": "reason_script_source",
+    "artifact_refs": {
+      "execution_plan": "execution_plan.json",
+      "knowledge": "knowledge.json",
+      "reason_ir": "reason_ir.json",
+      "simulation": "simulation.json"
+    }
+  },
+  "input_state": {
+    "input_id": "input_calculation_chain",
+    "input_kind": "structured_state",
+    "units": [
+      {
+        "unit_id": "A.state.result",
+        "unit_type": "state",
+        "value": "A.state.result"
+      },
+      {
+        "unit_id": "B.state.result",
+        "unit_type": "calculation_result",
+        "value": "B.state.result"
+      },
+      {
+        "unit_id": "CalculationChainStart",
+        "unit_type": "state",
+        "value": "CalculationChainStart"
+      }
+    ],
+    "relations": [
+      {
+        "relation_id": "rel_001",
+        "relation_type": "ResultTransition",
+        "source": "CalculationChainStart",
+        "target": "A.state.result"
+      },
+      {
+        "relation_id": "rel_002",
+        "relation_type": "ResultTransition",
+        "source": "A.state.result",
+        "target": "B.state.result"
+      }
+    ]
+  },
+  "reasoning_paths": [
+    {
+      "path_id": "path_main",
+      "path_signature": "A.state.result.B.state.result",
+      "status": "selected",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "step_type": "calculation",
+          "source": "CalculationChainStart",
+          "target": "A.state.result",
+          "operation": "ResultTransition",
+          "evidence_refs": [
+            "A-1-result"
+          ]
+        },
+        {
+          "step_id": "step-2",
+          "step_type": "calculation",
+          "source": "A.state.result",
+          "target": "B.state.result",
+          "operation": "ResultTransition",
+          "evidence_refs": [
+            "B-1-result"
+          ]
+        }
+      ]
+    }
+  ],
+  "selected_path_id": "path_main",
+  "knowledge_emissions": [
+    {
+      "knowledge_id": "K001",
+      "source_step_id": "step-1",
+      "relation": "ResultTransition",
+      "source": "CalculationChainStart",
+      "target": "A.state.result",
+      "evidence_path": [
+        "step-1"
+      ],
+      "path_signature": "A.state.result.B.state.result"
+    },
+    {
+      "knowledge_id": "K002",
+      "source_step_id": "step-2",
+      "relation": "ResultTransition",
+      "source": "CalculationChainStart",
+      "target": "B.state.result",
+      "evidence_path": [
+        "step-2"
+      ],
+      "path_signature": "A.state.result.B.state.result"
+    }
+  ],
+  "evaluation_target": {
+    "target_id": "eval_001",
+    "goal": "B.state.result",
+    "expected_relation": {
+      "relation": "ResultTransition",
+      "source": "CalculationChainStart",
+      "target": "B.state.result"
+    },
+    "required_checks": [
+      "reachability",
+      "determinism",
+      "evidence_completeness",
+      "consistency"
+    ]
+  },
+  "diagnostics": []
+}
