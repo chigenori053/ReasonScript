@@ -19,7 +19,7 @@ It can generate, validate, evaluate, serialize, and regression-test reasoning ar
 - Phase 8A: `reasonscript-reasoning-model/1.0` is validated and serializable.
 - Phase 8B: `reasonscript-reasoning-evaluation-report/1.0` is validated and serializable.
 - Phase 8C: `reasonscript-reasoning-runtime-prototype/1.0` generates runtime results from existing pipeline artifacts.
-- Phase 8D: Playground Reasoning Overview is validated, experimental, and non-blocking.
+- Phase 8D: Playground Reasoning Overview is validated as an experimental visualization layer.
 - Phase 8 Final: `reasonscript-phase8-golden-validation/1.0` freezes end-to-end golden artifacts.
 - Added Phase 8 golden validator.
 - Added `reason phase8-golden validate --json`.
@@ -28,6 +28,19 @@ It can generate, validate, evaluate, serialize, and regression-test reasoning ar
 - Added CLI output stability checks.
 - Added `GV-*` diagnostics.
 - Added CI compatibility target `reasonscript-phase8-golden-validation/1.0`.
+
+## Phase 8D Release Scope
+
+Status: VALIDATED
+
+Release Scope: EXPERIMENTAL
+
+v0.5 Core Blocking: false
+
+Phase 8D is validated as an experimental visualization layer.
+
+It is not part of the v0.5 core completion criteria.  
+ReasonScript v0.5 remains a CLI-first, artifact-first reasoning model development foundation.
 
 ## Golden Fixtures
 

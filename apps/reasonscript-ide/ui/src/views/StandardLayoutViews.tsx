@@ -8,6 +8,7 @@ import type { SampleBrowserViewModel } from "../viewModels/sampleBrowser";
 import type { WorkspaceDiagnosticsViewModel } from "../viewModels/workspaceDiagnostics";
 import type { ArtifactFreshnessViewModel } from "../viewModels/artifactFreshness";
 import type { ProjectValidationSummary } from "../viewModels/projectValidation";
+import type { ReasoningRuntimeViewModel } from "../types/reasoningOverview";
 import {
   buildFileDiagnosticsMapping,
   filterByScope,
@@ -43,6 +44,7 @@ import WorkspaceDiagnosticsSummaryView from "./WorkspaceDiagnosticsSummaryView";
 import ProjectValidationSummaryView from "./ProjectValidationSummaryView";
 import ArtifactFreshnessSummaryView from "./ArtifactFreshnessSummaryView";
 import JsonArtifactView from "./JsonArtifactView";
+import ReasoningOverviewView from "./ReasoningOverviewView";
 import PipelineOverviewView from "./PipelineOverviewView";
 import ReasonIRView from "./ReasonIRView";
 import RuntimeOperationsView from "./RuntimeOperationsView";
@@ -213,6 +215,7 @@ interface ArtifactsProps extends SelectionProps {
   artifactOperationRunning?: boolean;
   projectValidationSummary: ProjectValidationSummary;
   artifactFreshnessVm: ArtifactFreshnessViewModel;
+  reasoningOverviewVm: ReasoningRuntimeViewModel;
 }
 
 export function ArtifactsInspectorView({
@@ -232,6 +235,7 @@ export function ArtifactsInspectorView({
   onSelectArtifact,
   projectValidationSummary,
   artifactFreshnessVm,
+  reasoningOverviewVm,
 }: ArtifactsProps) {
   const [artifactDescriptors, setArtifactDescriptors] = useState<ArtifactDescriptor[]>([]);
   const [artifactContent, setArtifactContent] = useState<ArtifactContentByFile>({});
@@ -323,6 +327,11 @@ export function ArtifactsInspectorView({
       id: "samples",
       label: "Samples",
       content: <SampleMetadataView vm={sampleBrowserVm} />,
+    },
+    {
+      id: "reasoning",
+      label: "Reasoning",
+      content: <ReasoningOverviewView vm={reasoningOverviewVm} />,
     },
     {
       id: "ast",

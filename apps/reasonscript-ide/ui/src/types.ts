@@ -168,6 +168,10 @@ export interface ProjectState {
   runtime_operations: unknown;
   simulation: unknown;
   knowledge: unknown;
+  reasoning_runtime?: unknown;
+  reasoning_model?: unknown;
+  reasoning_evaluation_report?: unknown;
+  reasoning_overview?: unknown;
   metadata: ProjectStateMetadata;
   generated_at: string;
 }

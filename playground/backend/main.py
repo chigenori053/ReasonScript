@@ -68,8 +68,10 @@ from frontend.language_surface.namespace import NamespaceResolutionError
 from playground.backend.engine import build_execution_plan, simulate, extract_knowledge
 from playground.backend.analyzer import analyze_ir
 from playground.backend.language_audit import run_language_audit, write_language_audit_reports
+from playground.backend.reasoning_overview import build_reasoning_overview_view_model
 from playground.backend import workspace as workspace_module
 from playground.backend.workspace import WorkspacePathError
+from toolchain.reasoning_runtime import run_reasoning_runtime
 
 EXAMPLES_DIR = REPO_ROOT / "TestPlayground" / "examples"
 REGRESSION_EXAMPLES_DIR = REPO_ROOT / "examples"
@@ -538,6 +540,24 @@ def _phase2_response(
     artifacts_with_states = dict(artifacts)
     artifacts_with_states["_states"] = artifact_states
     views = _build_views(artifacts, pipeline, diagnostics)
+    reasoning_runtime = run_reasoning_runtime({
+        "ok": ok,
+        "source_file": req.filename,
+        "diagnostics": diagnostics,
+        "artifacts": {
+            "reason_ir": artifacts.get("reason_ir"),
+            "execution_plan": artifacts.get("execution_plan"),
+            "simulation": artifacts.get("simulation"),
+            "knowledge": artifacts.get("knowledge"),
+        },
+    })
+    reasoning_model = reasoning_runtime.get("reasoning_model") if isinstance(reasoning_runtime.get("reasoning_model"), dict) else {}
+    reasoning_evaluation_report = (
+        reasoning_runtime.get("evaluation_report")
+        if isinstance(reasoning_runtime.get("evaluation_report"), dict)
+        else {}
+    )
+    reasoning_overview = build_reasoning_overview_view_model(reasoning_runtime)
 
     reason_ir = artifacts.get("reason_ir")
     reason_irs = reason_ir.get("modules", []) if isinstance(reason_ir, dict) and "modules" in reason_ir else ([reason_ir] if reason_ir else [])
@@ -557,6 +577,10 @@ def _phase2_response(
         "execution_plan": artifacts.get("execution_plan"),
         "simulation": artifacts.get("simulation"),
         "knowledge": artifacts.get("knowledge"),
+        "reasoning_runtime": reasoning_runtime,
+        "reasoning_model": reasoning_model,
+        "reasoning_evaluation_report": reasoning_evaluation_report,
+        "reasoning_overview": reasoning_overview,
         "projection_summary": artifacts.get("projection_summary"),
         "validation": artifacts.get("validation"),
         "runtime_operations": views["runtime_operations"],

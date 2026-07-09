@@ -53,6 +53,7 @@ import {
   type SampleOperationLog,
 } from "./viewModels/sampleBrowser";
 import { buildRuntimeObservabilityViewModel } from "./viewModels/runtimeObservability";
+import { buildReasoningOverviewViewModel } from "./viewModels/reasoningOverview";
 import { buildWorkspaceDiagnosticsViewModel, workspaceDiagnosticsAsPlatformDiagnostics } from "./viewModels/workspaceDiagnostics";
 import { deriveEditorWorkspaceState } from "./viewModels/editorWorkspaceState";
 import { buildArtifactFreshness } from "./viewModels/artifactFreshness";
@@ -953,6 +954,7 @@ export default function App() {
   const knowledgeVm = useMemo(() => buildKnowledgeEvidence(ps?.knowledge), [ps?.knowledge]);
   const diagnosticsAnalysisVm = useMemo(() => buildDiagnosticsAnalysisViewModel(ps), [ps]);
   const runtimeObservabilityVm = useMemo(() => buildRuntimeObservabilityViewModel(ps), [ps]);
+  const reasoningOverviewVm = useMemo(() => buildReasoningOverviewViewModel(ps), [ps]);
   const artifactWorkflowVm: ArtifactWorkflowViewModel = useMemo(
     () => buildArtifactWorkflowViewModel(psWithArtifactWorkflow ?? { artifactWorkflow: artifactWorkflowState }),
     [artifactWorkflowState, psWithArtifactWorkflow]
@@ -1113,6 +1115,7 @@ export default function App() {
           onSelectArtifact={handleSelectArtifact}
           projectValidationSummary={projectValidationSummary}
           artifactFreshnessVm={artifactFreshnessVm}
+          reasoningOverviewVm={reasoningOverviewVm}
         />
       ),
     },

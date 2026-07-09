@@ -74,6 +74,10 @@ function normalizeProjectState(
     runtime_operations: data.runtime_operations ?? null,
     simulation: data.simulation ?? null,
     knowledge: data.knowledge ?? null,
+    reasoning_runtime: data.reasoning_runtime ?? null,
+    reasoning_model: data.reasoning_model ?? null,
+    reasoning_evaluation_report: data.reasoning_evaluation_report ?? null,
+    reasoning_overview: data.reasoning_overview ?? null,
     metadata: {
       ...metadata,
       compiler_mode: String(metadata.compiler_mode ?? data.compiler_mode ?? compilerMode),
