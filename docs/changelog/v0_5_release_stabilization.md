@@ -12,6 +12,14 @@ VALIDATED
 
 ReasonScript v0.5 is a CLI-first, artifact-first reasoning model development foundation.
 
+Japanese fixed definition:
+
+```text
+ReasonScript v0.5 は、CLI優先・artifact優先の推論モデル開発基盤である。
+```
+
+The official release definition is fixed as `reasonscript-v0.5-release-definition/1.0`.
+
 ## Added
 
 - Added v0.5 release scope document.
@@ -21,6 +29,7 @@ ReasonScript v0.5 is a CLI-first, artifact-first reasoning model development fou
 - Added known limitations document.
 - Added v0.5 CLI reference.
 - Added release stabilization changelog.
+- Added official v0.5 release definition specification.
 
 ## Confirmed
 

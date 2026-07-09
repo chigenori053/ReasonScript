@@ -8,6 +8,18 @@ VALIDATED
 
 `reasonscript-v0.5-release-stabilization/1.0`
 
+## Official Release Definition
+
+ReasonScript v0.5 is a CLI-first, artifact-first reasoning model development foundation.
+
+Japanese fixed definition:
+
+```text
+ReasonScript v0.5 は、CLI優先・artifact優先の推論モデル開発基盤である。
+```
+
+Normative release definition: `reasonscript-v0.5-release-definition/1.0`.
+
 ## Release Definition
 
 ReasonScript v0.5 is a CLI-first, artifact-first reasoning model development foundation.
@@ -41,6 +53,7 @@ ReasonScript v0.5 is not:
 - `reasonscript-reasoning-evaluation-report/1.0`
 - `reasonscript-reasoning-runtime-prototype/1.0`
 - `reasonscript-phase8-golden-validation/1.0`
+- `reasonscript-v0.5-release-stabilization/1.0`
 - Canonical CI entry point
 - CLI validation commands
 - Artifact schema validation
