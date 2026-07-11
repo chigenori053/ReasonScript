@@ -49,6 +49,13 @@ ARTIFACT_SCHEMAS = {
     "simulation.json": "simulation/0.5",
     "knowledge.json": "knowledge/0.5",
     "validation.json": "reasonscript-validation/0.5",
+    "table.json": "reasonscript-table/0.1",
+    "table_schema.json": "reasonscript-table-schema/0.1",
+    "data_source.json": "reasonscript-data-source/0.1",
+    "data_operations.json": "reasonscript-data-operations/0.1",
+    "aggregation.json": "reasonscript-aggregation/0.1",
+    "data_provenance.json": "reasonscript-data-provenance/0.1",
+    "data_evidence.json": "reasonscript-data-evidence/0.1",
     "workspace_validation.json": "reasonscript-workspace-validation/1.0",
     "project_state.json": "reasonscript-project-state/0.5",
     "artifact_manifest.json": "reasonscript-artifact-manifest/1.0",
@@ -73,6 +80,13 @@ SUPPORTED_SCHEMA_PREFIXES = (
     "reasonscript-project-state/",
     "reasonscript-artifact-manifest/",
     "reasonscript-artifact-summary/",
+    "reasonscript-table/",
+    "reasonscript-table-schema/",
+    "reasonscript-data-source/",
+    "reasonscript-data-operations/",
+    "reasonscript-aggregation/",
+    "reasonscript-data-provenance/",
+    "reasonscript-data-evidence/",
 )
 
 

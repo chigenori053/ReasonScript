@@ -12,7 +12,7 @@ requires-python = ">=3.11"
 reason = "toolchain.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["toolchain*"]
+include = ["toolchain*", "runtime*"]
 
 [tool.setuptools.package-data]
 toolchain = ["../VERSION", "../schemas/*.json", "../examples/**/*.rsn"]
