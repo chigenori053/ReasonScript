@@ -36,6 +36,10 @@ def main() -> int:
         from toolchain.install_foundation import install_validate_command
         return install_validate_command(args[1:])
 
+    if command == "version-validate":
+        from toolchain.version_validation import command as version_validate_command
+        return version_validate_command(args[1:], Path.cwd())
+
     project_root = Path.cwd()
     package = _package_arg(args[1:])
 
@@ -112,6 +116,7 @@ def _usage() -> None:
     print("  doctor        Diagnose the installed environment")
     print("  install-info  Show the installation manifest")
     print("  install-validate Validate the installation contract")
+    print("  version-validate Validate release version metadata")
     print("  build         Compile source files")
     print("  run           Execute the compiled program")
     print("  test          Run test suites")

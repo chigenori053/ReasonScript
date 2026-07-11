@@ -1,5 +1,27 @@
 # Changelog
 
+## ReasonScript Install Practical Validation Corrections v1.0 - 2026-07-11
+
+### Status
+
+VALIDATED
+
+### Added
+
+- Added `reason version-validate [--json]` and its version-validation schema.
+- Added current release metadata consistency validation to canonical CI environment validation.
+- Added package-identifier normalization and separate project name/identifier fields.
+- Added project-configured artifact output resolution without requiring `--out`.
+- Added atomic installed CLI smoke-state finalization and practical external-project regressions.
+
+### Compatibility
+
+- Explicit artifact `--out` remains supported and overrides project configuration.
+- Existing projects are never rewritten implicitly.
+- Runtime, parser, Reason IR, ExecutionPlan, Simulation, and Knowledge semantics are unchanged.
+
+---
+
 ## ReasonScript Install Foundation v1.0 - 2026-07-11
 
 ### Status

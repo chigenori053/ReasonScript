@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -98,6 +99,10 @@ def inventory(root: Path) -> list[dict[str, Any]]:
 
 
 def normalize_project_identifier(name: str) -> str:
-    value = re.sub(r"[^A-Za-z0-9_]", "_", name.strip().replace("-", "_").replace(" ", "_"))
-    value = re.sub(r"_+", "_", value).strip("_") or "reasonscript_project"
-    return f"project_{value}" if value[0].isdigit() else value
+    reserved = {"package", "module", "fn", "return", "model", "if", "else", "match", "import", "export"}
+    normalized = unicodedata.normalize("NFKC", name).strip().replace("-", "_")
+    value = re.sub(r"[^A-Za-z0-9_]", "_", normalized)
+    value = re.sub(r"_+", "_", value).strip("_") or "reason_project"
+    if value[0].isdigit() or value in reserved:
+        value = f"project_{value}"
+    return value

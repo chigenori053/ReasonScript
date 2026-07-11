@@ -90,7 +90,7 @@ def install(prefix: Path, json_output: bool) -> int:
                                    for x, p in COMPONENTS],
                     "files": [{**item, "path": f"versions/{VERSION}/{item['path']}"} for item in file_inventory],
                     "validation": {"status": "pass"},
-                    "distribution_validation": {"status": "pass", "import_closure": "pass", "repository_independence": "pass", "installed_cli_smoke": "pending"}}
+                    "distribution_validation": {"status": "partial", "import_closure": "pass", "repository_independence": "pass", "installed_cli_smoke": "pending"}}
         (prefix / "install_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         result = {"schema_version": "reasonscript-install-report/1.0", "status": "success", "reason_version": VERSION,
                   "install_method": "source", "install_root": str(prefix), "cli_path": str(wrapper),

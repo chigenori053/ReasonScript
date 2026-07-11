@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "Install Distribution Completeness v1.0",
-  "tests_passed": 790,
+  "task": "Install Practical Validation Corrections v1.0",
+  "tests_passed": 794,
   "version": "1.0"
 }

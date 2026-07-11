@@ -21,6 +21,7 @@ from toolchain.reasoning_model_contract import CONTRACT_SCHEMA as REASONING_MODE
 from toolchain.reasoning_runtime import CONTRACT_SCHEMA as REASONING_RUNTIME_SCHEMA
 from toolchain.workspace_foundation import WORKSPACE_SCHEMA, build_workspace_index
 from playground.backend.reasoning_overview import CONTRACT_SCHEMA as REASONING_OVERVIEW_SCHEMA
+from toolchain.version_validation import validate_version
 
 
 CI_SCHEMA = "reasonscript-ci/1.0"
@@ -102,7 +103,7 @@ def run_pipeline(root: Path, *, run_tests: bool = True, test_command: tuple[str,
             failed = True
 
     execute("checkout", lambda: _check_checkout(root))
-    execute("environment_setup", _check_environment_setup)
+    execute("environment_setup", lambda: _check_environment_setup(root))
     execute("workspace", _check_workspace)
     execute("diagnostics", lambda: _check_diagnostics(root))
     execute("artifacts", lambda: _check_artifacts(root))
@@ -174,11 +175,13 @@ def _check_checkout(root: Path) -> tuple[bool, list[Any], dict[str, Any] | None]
     return True, [], {"root": str(root)}
 
 
-def _check_environment_setup() -> tuple[bool, list[Any], dict[str, Any] | None]:
-    ok = sys.version_info >= (3, 9)
-    metadata = {"python_version": sys.version.split()[0]}
+def _check_environment_setup(root: Path) -> tuple[bool, list[Any], dict[str, Any] | None]:
+    version = validate_version(root)
+    ok = sys.version_info >= (3, 9) and version["status"] == "pass"
+    metadata = {"python_version": sys.version.split()[0], "version_validation": version}
     if not ok:
-        return False, [_ci_diag("CI-002", "Unsupported Python runtime", file="environment")], metadata
+        message = "Unsupported Python runtime" if sys.version_info < (3, 9) else "Release version metadata mismatch"
+        return False, [_ci_diag("CI-002", message, file="environment")], metadata
     return True, [], metadata
 
 

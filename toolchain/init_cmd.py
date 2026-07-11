@@ -7,11 +7,12 @@ from toolchain.distribution_validation import normalize_project_identifier
 
 _REASON_TOML = """\
 [package]
-name = "{name}"
+name = "{project_name}"
+identifier = "{identifier}"
 version = "0.1.0"
 
 [project]
-name = "{name}"
+name = "{project_name}"
 version = "0.1.0"
 reason_version = ">=0.5.0"
 
@@ -72,7 +73,7 @@ def run(project_name: str, args: list[str] | None = None) -> int:
     (root / "artifacts").mkdir(parents=True)
 
     (root / "reason.toml").write_text(
-        _REASON_TOML.format(name=package_name), encoding="utf-8"
+        _REASON_TOML.format(project_name=root.resolve().name, identifier=package_name), encoding="utf-8"
     )
     (root / "src" / "main.rsn").write_text(
         _MAIN_RSN.format(name=package_name), encoding="utf-8"
@@ -85,4 +86,5 @@ def run(project_name: str, args: list[str] | None = None) -> int:
     (root / "artifacts" / ".gitkeep").write_text("", encoding="utf-8")
 
     print(f"Created project: {project_name}")
+    print(f"Package identifier: {package_name}")
     return 0

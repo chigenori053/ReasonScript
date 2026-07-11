@@ -195,10 +195,42 @@ def install_validation_payload() -> dict[str, Any]:
         ("IF-VAL-017", e2e["artifacts"]), ("IF-VAL-018", manifest_ok), ("IF-VAL-019", integrity_ok),
         ("IF-VAL-020", no_repo_resolution),
     ])
+    version_ok = manifest is None or manifest.get("reason_version") == reason_version()
+    package_ok = e2e["init"]
+    artifacts_config_ok = e2e["artifacts"]
+    project_root_ok = e2e["artifacts"]
+    no_leakage_ok = e2e["artifacts"]
+    smoke_ok = all(e2e.values())
+    checks.extend([
+        ("IF-PV-001", version_ok), ("IF-PV-002", package_ok), ("IF-PV-003", artifacts_config_ok),
+        ("IF-PV-004", smoke_ok), ("IF-PV-005", project_root_ok), ("IF-PV-006", no_leakage_ok),
+    ])
     results = [{"id": ident, "status": "pass" if ok else "fail"} for ident, ok in checks]
     failed = sum(not ok for _, ok in checks)
+    warnings: list[dict[str, str]] = []
+    if manifest is not None and smoke_ok and not _finalize_manifest_smoke(manifest):
+        warnings.append({"code": "IF-PV-006", "severity": "warning", "message": "Validation passed but manifest state could not be updated"})
     return {"schema_version": "reasonscript-install-validation/1.1", "status": "pass" if not failed else "fail",
-            "checks": results, "summary": {"passed": len(checks) - failed, "failed": failed}}
+            "checks": results, "diagnostics": warnings,
+            "summary": {"passed": len(checks) - failed, "failed": failed, "warnings": len(warnings)}}
+
+
+def _finalize_manifest_smoke(manifest: dict[str, Any]) -> bool:
+    path = manifest_path()
+    try:
+        updated = json.loads(json.dumps(manifest))
+        state = updated.setdefault("distribution_validation", {})
+        state.update({"installed_cli_smoke": "pass", "status": "pass"})
+        temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        temporary.write_text(json.dumps(updated, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        parsed = json.loads(temporary.read_text(encoding="utf-8"))
+        if parsed.get("schema_version") != "reasonscript-install-manifest/1.0":
+            temporary.unlink(missing_ok=True)
+            return False
+        temporary.replace(path)
+        return True
+    except (OSError, json.JSONDecodeError):
+        return False
 
 
 def _integrity_valid(manifest: dict[str, Any]) -> bool:
@@ -230,7 +262,7 @@ def _installed_cli_e2e(root: Path) -> dict[str, bool]:
         commands = {
             "check": ["check", "src/main.rsn"],
             "run": ["run", "src/main.rsn"],
-            "artifacts": ["artifacts", "src/main.rsn", "--out", "artifacts"],
+            "artifacts": ["artifacts", "src/main.rsn"],
         }
         if result["init"]:
             for name, args in commands.items():

@@ -19,7 +19,8 @@ def test_doctor_has_all_required_checks():
 def test_install_validation_contract():
     payload = install_validation_payload()
     assert payload["status"] == "pass"
-    assert len(payload["checks"]) == 20
+    assert len(payload["checks"]) == 26
+    assert [item["id"] for item in payload["checks"][-6:]] == [f"IF-PV-{i:03d}" for i in range(1, 7)]
     assert payload["schema_version"] == "reasonscript-install-validation/1.1"
 
 def test_atomic_install_and_manifest(tmp_path):

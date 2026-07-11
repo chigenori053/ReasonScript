@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -160,13 +161,35 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_artifacts(args: argparse.Namespace) -> int:
-    if not args.out:
-        print("  [ERROR] reason artifacts requires --out <dir>", file=sys.stderr)
+    source = Path(args.file).resolve()
+    try:
+        out = _artifact_output(source, args.out)
+    except (OSError, ValueError) as error:
+        print(f"ART-OUT-004: {error}", file=sys.stderr)
         return 2
-    result = _analyze_result(Path(args.file), args.compiler_mode)
-    _write_out(Path(args.out), result)
-    print(f"ReasonScript artifacts written\nfile: {result['source_file']}\nout: {args.out}")
+    result = _analyze_result(source, args.compiler_mode)
+    _write_out(out, result)
+    print(f"ReasonScript artifacts written\nfile: {result['source_file']}\nout: {out}")
     return 0 if result["ok"] else 1
+
+
+def _artifact_output(source: Path, explicit: str | None) -> Path:
+    project_root = next((parent for parent in (source.parent, *source.parents) if (parent / "reason.toml").is_file()), None)
+    if explicit:
+        candidate = Path(explicit)
+        return (Path.cwd() / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
+    if project_root is None:
+        return (Path.cwd() / "artifacts").resolve()
+    manifest = tomllib.loads((project_root / "reason.toml").read_text(encoding="utf-8"))
+    configured = manifest.get("artifacts", {}).get("directory", "artifacts")
+    if not isinstance(configured, str) or not configured.strip():
+        raise ValueError("artifact directory configuration must be a non-empty string")
+    output = (project_root / configured).resolve()
+    if output != project_root and project_root not in output.parents:
+        raise ValueError("artifact output escaped project root")
+    if output == source:
+        raise ValueError("artifact output conflicts with source file")
+    return output
 
 
 def cmd_validate_artifacts(args: argparse.Namespace) -> int:

@@ -40,13 +40,18 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     env.update({"PYTHONPATH": "", "REASONSCRIPT_HOME": str(home)})
     assert subprocess.run([str(cli), "init", "inference-validation"], cwd=tmp_path, env=env, capture_output=True).returncode == 0
     project = tmp_path / "inference-validation"
-    assert "name = \"inference_validation\"" in (project / "reason.toml").read_text(encoding="utf-8")
-    for args in (["check", "src/main.rsn"], ["run", "src/main.rsn"], ["artifacts", "src/main.rsn", "--out", "artifacts"]):
+    manifest_text = (project / "reason.toml").read_text(encoding="utf-8")
+    assert 'name = "inference-validation"' in manifest_text
+    assert 'identifier = "inference_validation"' in manifest_text
+    for args in (["check", "src/main.rsn"], ["run", "src/main.rsn"], ["artifacts", "src/main.rsn"]):
         result = subprocess.run([str(cli), *args], cwd=project, env=env, text=True, capture_output=True)
         assert result.returncode == 0, result.stderr
     validation = subprocess.run([str(cli), "install-validate", "--json"], cwd=tmp_path, env=env, text=True, capture_output=True)
     assert validation.returncode == 0, validation.stdout + validation.stderr
     assert json.loads(validation.stdout)["status"] == "pass"
+    finalized = json.loads((home / "install_manifest.json").read_text(encoding="utf-8"))
+    assert finalized["distribution_validation"]["installed_cli_smoke"] == "pass"
+    assert finalized["distribution_validation"]["status"] == "pass"
     ids = {item["id"] for item in manifest["components"]}
     assert {item[0] for item in COMPONENTS} <= ids
     for item in manifest["files"]:
@@ -57,4 +62,5 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
 def test_project_identifier_normalization():
     assert normalize_project_identifier("inference-validation") == "inference_validation"
     assert normalize_project_identifier("42 demo!") == "project_42_demo"
-    assert normalize_project_identifier("!!!") == "reasonscript_project"
+    assert normalize_project_identifier("!!!") == "reason_project"
+    assert normalize_project_identifier("model") == "project_model"
