@@ -11,16 +11,27 @@ def test_registry_contains_complete_required_set():
     assert "tensor.create" in runtime.function_ids()
     assert "tensor.matmul" in runtime.function_ids()
     assert all(contract.version == "0.1" for contract in runtime.contracts.values())
-    assert all(contract.deterministic and not contract.side_effects for contract in runtime.contracts.values())
-    assert all(contract.to_dict()["diagnostic_policy"] == "TSF" for contract in runtime.contracts.values())
+    assert all(
+        contract.deterministic and not contract.side_effects
+        for contract in runtime.contracts.values()
+    )
+    assert all(
+        contract.to_dict()["diagnostic_policy"] == "TSF"
+        for contract in runtime.contracts.values()
+    )
 
 
 def test_create_metadata_and_external_runtime_value():
     runtime = TensorRuntime()
     value = runtime.call("tensor.create", [[1, 2], [3, 4]], dtype="f32")
     assert value.metadata() == {
-        "tensor_id": "tensor_0001", "shape": [2, 2], "rank": 2, "dtype": "f32",
-        "device": "cpu", "backend": "python", "storage_ref": "runtime://tensor/tensor_0001",
+        "tensor_id": "tensor_0001",
+        "shape": [2, 2],
+        "rank": 2,
+        "dtype": "f32",
+        "device": "cpu",
+        "backend": "python",
+        "storage_ref": "runtime://tensor/tensor_0001",
         "lifecycle": "available",
     }
     assert value.runtime_value()["value_kind"] == "external"
@@ -48,9 +59,15 @@ def test_elementwise_broadcast_comparison_and_reductions():
     vector = runtime.create([10.0, 20.0])
     assert runtime.to_array(runtime.add(matrix, vector)) == [[11.0, 22.0], [13.0, 24.0]]
     assert runtime.to_array(runtime.multiply(matrix, 2)) == [[2.0, 4.0], [6.0, 8.0]]
-    assert runtime.to_array(runtime.greater(matrix, 2)) == [[False, False], [True, True]]
+    assert runtime.to_array(runtime.greater(matrix, 2)) == [
+        [False, False],
+        [True, True],
+    ]
     assert runtime.to_array(runtime.sum(matrix, axis=0)) == [4.0, 6.0]
-    assert runtime.to_array(runtime.mean(matrix, axis=-1, keep_dims=True)) == [[1.5], [3.5]]
+    assert runtime.to_array(runtime.mean(matrix, axis=-1, keep_dims=True)) == [
+        [1.5],
+        [3.5],
+    ]
     assert runtime.scalar(runtime.max(matrix)) == 4.0
     assert runtime.scalar(runtime.argmax(matrix)) == 3
 
@@ -67,7 +84,10 @@ def test_linear_algebra_and_nn_forward_trace():
     assert runtime.to_array(output) == [[1.0]]
     plan = runtime.execution_plan()
     assert [step["function_id"] for step in plan[-4:]] == [
-        "tensor.matmul", "tensor.add", "tensor.maximum", "tensor.matmul"
+        "tensor.matmul",
+        "tensor.add",
+        "tensor.maximum",
+        "tensor.matmul",
     ]
     assert plan[-1]["output"]["shape"] == [1, 1]
 
@@ -77,7 +97,9 @@ def test_softmax_composition_is_stable_and_deterministic():
         maximum = runtime.max(value, axis=-1, keep_dims=True)
         shifted = runtime.subtract(value, maximum)
         exponential = runtime.exp(shifted)
-        return runtime.divide(exponential, runtime.sum(exponential, axis=-1, keep_dims=True))
+        return runtime.divide(
+            exponential, runtime.sum(exponential, axis=-1, keep_dims=True)
+        )
 
     first, second = TensorRuntime(), TensorRuntime()
     left = softmax(first, first.create([[1000.0, 1001.0]]))
@@ -86,13 +108,26 @@ def test_softmax_composition_is_stable_and_deterministic():
     assert sum(first.to_array(left)[0]) == pytest.approx(1.0)
 
 
-@pytest.mark.parametrize("action,code", [
-    (lambda runtime: runtime.create([[1], [2, 3]]), "TSF-017"),
-    (lambda runtime: runtime.reshape(runtime.create([1, 2]), [3]), "TSF-007"),
-    (lambda runtime: runtime.matmul(runtime.create([[1, 2]]), runtime.create([[1, 2]])), "TSF-008"),
-    (lambda runtime: runtime.dimension(runtime.create([1]), 2), "TSF-005"),
-    (lambda runtime: runtime.add(runtime.create([1, 2]), runtime.create([1, 2, 3])), "TSF-006"),
-])
+@pytest.mark.parametrize(
+    "action,code",
+    [
+        (lambda runtime: runtime.create([[1], [2, 3]]), "TSF-017"),
+        (lambda runtime: runtime.reshape(runtime.create([1, 2]), [3]), "TSF-007"),
+        (
+            lambda runtime: runtime.matmul(
+                runtime.create([[1, 2]]), runtime.create([[1, 2]])
+            ),
+            "TSF-008",
+        ),
+        (lambda runtime: runtime.dimension(runtime.create([1]), 2), "TSF-005"),
+        (
+            lambda runtime: runtime.add(
+                runtime.create([1, 2]), runtime.create([1, 2, 3])
+            ),
+            "TSF-006",
+        ),
+    ],
+)
 def test_required_diagnostics(action, code):
     with pytest.raises(TensorError) as error:
         action(TensorRuntime())
@@ -115,8 +150,11 @@ def test_trace_has_backend_independent_tensor_metadata():
     result = runtime.call("tensor.add", runtime.create([1.0]), 2.0)
     entry = runtime.trace[-1]
     assert entry["output"] == {
-        "tensor_id": result.tensor_id, "shape": [1], "dtype": "f64",
-        "device": "cpu", "backend": "python",
+        "tensor_id": result.tensor_id,
+        "shape": [1],
+        "dtype": "f64",
+        "device": "cpu",
+        "backend": "python",
     }
 
 
@@ -126,7 +164,9 @@ def test_backend_failures_and_resource_limits_are_normalized(tmp_path: Path):
         runtime.zeros([3])
     assert shape_error.value.diagnostic.code == "TSF-003"
 
-    runtime = TensorRuntime(policy=TensorPolicy(inline_elements=0, max_artifact_bytes=2))
+    runtime = TensorRuntime(
+        policy=TensorPolicy(inline_elements=0, max_artifact_bytes=2)
+    )
     value = runtime.create([123])
     with pytest.raises(TensorError) as artifact_error:
         runtime.artifact(value, tmp_path)
