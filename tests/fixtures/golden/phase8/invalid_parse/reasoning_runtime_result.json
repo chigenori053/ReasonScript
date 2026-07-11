@@ -13,7 +13,7 @@
     "execution_plan_available": false,
     "simulation_available": false,
     "knowledge_available": false,
-    "diagnostics_count": 1
+    "diagnostics_count": 5
   },
   "reasoning_model": {},
   "evaluation_report": {},
@@ -21,31 +21,31 @@
     {
       "code": "RRP-PIPE-001",
       "severity": "fatal",
-      "message": "Parser or pipeline execution failed",
+      "message": "Parser or pipeline execution failed: RSN-DIAGNOSTIC - unsupported calculation statement: result = - at surface_ast",
       "location": "source"
     },
     {
       "code": "RRP-PIPE-002",
       "severity": "error",
-      "message": "Reason IR unavailable",
+      "message": "Reason IR unavailable because parser/pipeline execution failed before Reason IR generation.",
       "location": "reason_ir"
     },
     {
       "code": "RRP-PIPE-003",
       "severity": "error",
-      "message": "ExecutionPlan unavailable",
+      "message": "ExecutionPlan unavailable because parser/pipeline execution failed before ExecutionPlan generation.",
       "location": "execution_plan"
     },
     {
       "code": "RRP-PIPE-004",
       "severity": "error",
-      "message": "Simulation unavailable",
+      "message": "Simulation unavailable because parser/pipeline execution failed before Simulation generation.",
       "location": "simulation"
     },
     {
       "code": "RRP-PIPE-005",
       "severity": "warning",
-      "message": "Knowledge unavailable",
+      "message": "Knowledge unavailable because parser/pipeline execution failed before Knowledge generation.",
       "location": "knowledge"
     }
   ]
