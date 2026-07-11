@@ -1,5 +1,89 @@
 # Changelog
 
+## ReasonScript Install Foundation v1.0 - 2026-07-11
+
+### Status
+
+VALIDATED
+
+### Certification
+
+- Repository validation: PASSED
+- macOS local installation validation: PASSED
+- Linux x86_64 release certification: PENDING CI runner validation
+- Windows x86_64 release certification: PENDING CI runner validation
+
+### Summary
+
+ReasonScript Install Foundation v1.0 establishes the official installation,
+environment validation, project initialization, manifest, integrity, and safe
+uninstallation contracts for ReasonScript.
+
+The foundation enables users and Coding Agents to install and validate
+ReasonScript outside the source repository through a user-scoped installation
+layout.
+
+### Added
+
+- Added `reason --version [--json]`.
+- Added `reason doctor [--json]`.
+- Added `reason install-info [--json]`.
+- Added `reason install-validate [--json]`.
+- Added `reason init <path> --template minimal`.
+- Added macOS and Linux installation through `scripts/install.sh`.
+- Added Windows installation through `scripts/install.ps1`.
+- Added atomic version installation and activation.
+- Added Install Manifest generation.
+- Added SHA-256 file integrity records.
+- Added source and `pipx` Python package entry points.
+- Added Standard Library distribution resources.
+- Added Install Foundation JSON Schemas.
+- Added safe uninstall with dry-run and purge modes.
+- Added platform-specific installation documentation.
+- Added installation contract and end-to-end tests.
+
+### Validation
+
+- `reason ci --json`
+  - PASSED
+- Full test suite
+  - 787 passed
+- Golden Corpus
+  - PASSED
+- Phase 8 Golden
+  - 6 scenarios passed
+- Install Foundation tests
+  - 4 passed
+- Existing Toolchain conformance tests
+  - 39 passed
+- Temporary installation lifecycle
+  - install: PASSED
+  - CLI execution: PASSED
+  - manifest validation: PASSED
+  - uninstall: PASSED
+  - residual file validation: PASSED
+
+### Known Certification Gaps
+
+- Linux x86_64 clean-runner release certification remains to be completed.
+- Windows x86_64 clean-runner release certification remains to be completed.
+- PyPI publication is not included in Install Foundation v1.0.
+- Homebrew, winget, Scoop, Chocolatey, apt, and standalone binary distribution
+  remain future distribution channels.
+
+### Compatibility
+
+- Existing repository-local `./reason` execution remains supported.
+- Existing CLI behavior is preserved.
+- Runtime semantics are unchanged.
+- Parser semantics are unchanged.
+- Existing Reason IR, ExecutionPlan, Simulation, Knowledge, and ReasoningModel
+  contracts are unchanged.
+- Optional ML and image-processing backends are not required for Core
+  installation.
+
+---
+
 ## ReasonScript IDE Phase 4-D - Cross-platform Policy, Tests, and Docs - 2026-07-01
 
 ### Status

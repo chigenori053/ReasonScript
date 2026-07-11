@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"reasonscript-install-validation/1.0","type":"object","required":["schema_version","status","checks","summary"],"properties":{"schema_version":{"const":"reasonscript-install-validation/1.0"},"status":{"enum":["pass","fail"]},"checks":{"type":"array"},"summary":{"type":"object"}},"additionalProperties":true}

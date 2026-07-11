@@ -1,0 +1,6 @@
+package install_smoke_test
+module main {
+    fn run(goal) {
+        return goal
+    }
+}

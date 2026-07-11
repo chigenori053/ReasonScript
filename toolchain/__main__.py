@@ -8,6 +8,9 @@ from pathlib import Path
 
 def main() -> int:
     args = sys.argv[1:]
+    if args and args[0] in {"--version", "-V"}:
+        from toolchain.install_foundation import version_command
+        return version_command(args[1:])
     if not args:
         _usage()
         return 1
@@ -19,7 +22,19 @@ def main() -> int:
             print("Usage: reason init <project_name>")
             return 1
         from toolchain.init_cmd import run
-        return run(args[1])
+        return run(args[1], args[2:])
+
+    if command == "doctor":
+        from toolchain.install_foundation import doctor_command
+        return doctor_command(args[1:])
+
+    if command == "install-info":
+        from toolchain.install_foundation import install_info_command
+        return install_info_command(args[1:])
+
+    if command in {"install-validate", "install-ci"}:
+        from toolchain.install_foundation import install_validate_command
+        return install_validate_command(args[1:])
 
     project_root = Path.cwd()
     package = _package_arg(args[1:])
@@ -94,6 +109,9 @@ def _usage() -> None:
     print()
     print("Commands:")
     print("  init <name>   Create a new ReasonScript project")
+    print("  doctor        Diagnose the installed environment")
+    print("  install-info  Show the installation manifest")
+    print("  install-validate Validate the installation contract")
     print("  build         Compile source files")
     print("  run           Execute the compiled program")
     print("  test          Run test suites")
