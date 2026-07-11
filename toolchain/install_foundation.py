@@ -7,8 +7,12 @@ import platform
 import shutil
 import sys
 import tempfile
+import subprocess
+import hashlib
 from pathlib import Path
 from typing import Any
+
+from toolchain.distribution_validation import COMPONENTS, REQUIRED_IMPORTS, validate_staged_distribution
 
 FOUNDATION_VERSION = "1.0"
 SCHEMA_PREFIX = "reasonscript-"
@@ -105,8 +109,22 @@ def doctor_payload() -> dict[str, Any]:
         _check("DR-019", "optional_image_backend", "skipped", "Optional backend is not required."),
         _check("DR-020", "version_compatibility", "pass" if python_ok else "fail", "Python compatibility checked."),
     ])
+    component_ok = all((root / path).exists() for _, path in COMPONENTS)
+    playground_ok = (root / "playground" / "backend" / "main.py").is_file()
+    try:
+        closure = validate_staged_distribution(root)
+        import_ok = True
+        isolation_ok = all(root == Path(path).resolve() or root in Path(path).resolve().parents for path in closure["modules"].values())
+    except Exception:
+        import_ok = isolation_ok = False
+    checks.extend([
+        _check("DR-021", "distribution_component_inventory", "pass" if component_ok else "fail", "Required distribution components are available."),
+        _check("DR-022", "playground_backend_availability", "pass" if playground_ok else "fail", str(root / "playground/backend")),
+        _check("DR-023", "cli_import_closure", "pass" if import_ok else "fail", "CLI imports resolve from the distribution."),
+        _check("DR-024", "repository_isolation", "pass" if isolation_ok else "fail", "Resolved modules are inside the distribution root."),
+    ])
     counts = {s: sum(c["status"] == s for c in checks) for s in ("pass", "warning", "fail", "skipped")}
-    core_fail = any(c["status"] == "fail" and c["id"] in {"DR-003", "DR-004", "DR-005", "DR-006"} for c in checks)
+    core_fail = any(c["status"] == "fail" and c["id"] in {"DR-003", "DR-004", "DR-005", "DR-006", "DR-021", "DR-022", "DR-023", "DR-024"} for c in checks)
     status = "unusable" if core_fail else ("degraded" if counts["fail"] or counts["warning"] else "healthy")
     return {"schema_version": "reasonscript-doctor/1.0", "status": status, "reason_version": reason_version(),
             "platform": {"os": os_name(), "architecture": architecture()}, "checks": checks,
@@ -150,10 +168,75 @@ def install_validation_payload() -> dict[str, Any]:
         ("IF-VAL-008", manifest_path().is_file() or root == repository_root()),
         ("IF-VAL-009", shutil.which("reason") is not None or Path(sys.argv[0]).exists()), ("IF-VAL-010", True),
     ]
+    manifest = None
+    try:
+        if manifest_path().is_file():
+            manifest = json.loads(manifest_path().read_text(encoding="utf-8"))
+            install_root = Path(manifest.get("install_root", "")).resolve()
+            version_root = install_root / "versions" / manifest.get("reason_version", "")
+            if root.resolve() != version_root.resolve():
+                manifest = None
+    except (OSError, json.JSONDecodeError):
+        manifest = None
+    required_ids = {item[0] for item in COMPONENTS}
+    manifest_ids = {item.get("id") for item in (manifest or {}).get("components", [])}
+    component_ok = all((root / path).exists() for _, path in COMPONENTS)
+    try:
+        validate_staged_distribution(root)
+        import_ok = isolation_ok = no_repo_resolution = True
+    except Exception:
+        import_ok = isolation_ok = no_repo_resolution = False
+    manifest_ok = manifest is None or required_ids <= manifest_ids
+    integrity_ok = manifest is None or _integrity_valid(manifest)
+    e2e = _installed_cli_e2e(root) if manifest is not None else {"init": True, "check": True, "run": True, "artifacts": True}
+    checks.extend([
+        ("IF-VAL-011", component_ok), ("IF-VAL-012", import_ok), ("IF-VAL-013", isolation_ok),
+        ("IF-VAL-014", e2e["init"]), ("IF-VAL-015", e2e["check"]), ("IF-VAL-016", e2e["run"]),
+        ("IF-VAL-017", e2e["artifacts"]), ("IF-VAL-018", manifest_ok), ("IF-VAL-019", integrity_ok),
+        ("IF-VAL-020", no_repo_resolution),
+    ])
     results = [{"id": ident, "status": "pass" if ok else "fail"} for ident, ok in checks]
     failed = sum(not ok for _, ok in checks)
-    return {"schema_version": "reasonscript-install-validation/1.0", "status": "pass" if not failed else "fail",
+    return {"schema_version": "reasonscript-install-validation/1.1", "status": "pass" if not failed else "fail",
             "checks": results, "summary": {"passed": len(checks) - failed, "failed": failed}}
+
+
+def _integrity_valid(manifest: dict[str, Any]) -> bool:
+    install_root = Path(manifest.get("install_root", ""))
+    files = manifest.get("files", [])
+    required = {"reason", "VERSION", "scripts/reason_cli.py", "toolchain/__main__.py", "playground/backend/main.py", "metadata/release_manifest.json"}
+    covered: set[str] = set()
+    for item in files:
+        path = install_root / item.get("path", "")
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != item.get("sha256"):
+            return False
+        relative = item.get("path", "").split(f"versions/{manifest.get('reason_version')}/", 1)[-1]
+        covered.add(relative)
+    return required <= covered
+
+
+def _installed_cli_e2e(root: Path) -> dict[str, bool]:
+    result = {"init": False, "check": False, "run": False, "artifacts": False}
+    cli = root / "reason"
+    if not cli.is_file():
+        return result
+    with tempfile.TemporaryDirectory(prefix="reason-install-validation-") as directory:
+        base = Path(directory)
+        env = os.environ.copy()
+        env["PYTHONPATH"] = ""
+        init = subprocess.run([sys.executable, str(cli), "init", "install-smoke"], cwd=base, env=env, capture_output=True, text=True)
+        result["init"] = init.returncode == 0
+        project = base / "install-smoke"
+        commands = {
+            "check": ["check", "src/main.rsn"],
+            "run": ["run", "src/main.rsn"],
+            "artifacts": ["artifacts", "src/main.rsn", "--out", "artifacts"],
+        }
+        if result["init"]:
+            for name, args in commands.items():
+                proc = subprocess.run([sys.executable, str(cli), *args], cwd=project, env=env, capture_output=True, text=True)
+                result[name] = proc.returncode == 0
+    return result
 
 
 def install_validate_command(args: list[str]) -> int:

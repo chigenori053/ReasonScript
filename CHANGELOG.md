@@ -1119,3 +1119,16 @@ First integrated ReasonScript Platform alpha release.
   toolchain was unavailable.
 - Java DTO declarations compile, but a Java JSON codec adapter is not included.
 - Full five-language SDK compatibility certification is not granted.
+# Install Distribution Completeness v1.0
+
+## Added
+
+- Added the Playground backend and complete runtime import closure to the required distribution.
+- Added repository-independent installed CLI and generated-project E2E validation.
+- Added complete component inventory, entry-point integrity records, and project-name normalization.
+
+## Fixed
+
+- Fixed installed `reason check` failing with `ModuleNotFoundError: playground`.
+- Fixed install validation accepting incomplete or repository-dependent distributions.
+- Fixed relative source and artifact paths resolving against the installed distribution root.

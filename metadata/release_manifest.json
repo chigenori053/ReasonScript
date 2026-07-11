@@ -11,11 +11,17 @@
     "linux-x86_64"
   ],
   "components": [
-    "cli",
-    "runtime",
-    "schemas",
-    "standard-library",
-    "examples"
+    {"id": "cli", "source": "reason", "required": true},
+    {"id": "runtime-core", "source": "runtime", "required": true},
+    {"id": "toolchain", "source": "toolchain", "required": true},
+    {"id": "scripts", "source": "scripts", "required": true},
+    {"id": "frontend-core", "source": "frontend", "required": true},
+    {"id": "schemas", "source": "schemas", "required": true},
+    {"id": "standard-library", "source": "standard_library", "required": true},
+    {"id": "examples", "source": "examples", "required": true},
+    {"id": "metadata", "source": "metadata", "required": true},
+    {"id": "playground-backend", "source": "playground/backend", "required": true},
+    {"id": "conformance-core", "source": "conformance", "required": true}
   ],
   "cli_version": "0.5.0",
   "runtime_compatibility": ">=0.5.0,<0.6.0"

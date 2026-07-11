@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from toolchain.distribution_validation import normalize_project_identifier
 
 _REASON_TOML = """\
 [package]
@@ -55,6 +56,7 @@ def run(project_name: str, args: list[str] | None = None) -> int:
             print("Error:\n\nUnsupportedTemplate\n\nOnly the minimal template is available.")
             return 1
     root = Path(project_name)
+    package_name = normalize_project_identifier(root.resolve().name if project_name == "." else root.name)
     if root.exists() and project_name != ".":
         print(f"Error:\n\nProjectExists\n\nDirectory '{project_name}' already exists.")
         return 1
@@ -70,13 +72,13 @@ def run(project_name: str, args: list[str] | None = None) -> int:
     (root / "artifacts").mkdir(parents=True)
 
     (root / "reason.toml").write_text(
-        _REASON_TOML.format(name=project_name), encoding="utf-8"
+        _REASON_TOML.format(name=package_name), encoding="utf-8"
     )
     (root / "src" / "main.rsn").write_text(
-        _MAIN_RSN.format(name=project_name), encoding="utf-8"
+        _MAIN_RSN.format(name=package_name), encoding="utf-8"
     )
     (root / "tests" / "sample_test.rsn").write_text(
-        _SAMPLE_TEST_RSN.format(name=project_name), encoding="utf-8"
+        _SAMPLE_TEST_RSN.format(name=package_name), encoding="utf-8"
     )
     (root / "README.md").write_text(f"# {root.resolve().name}\n\nA ReasonScript project.\n", encoding="utf-8")
     (root / ".gitignore").write_text("target/\nartifacts/*\n!artifacts/.gitkeep\n", encoding="utf-8")

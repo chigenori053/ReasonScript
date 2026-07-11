@@ -15,6 +15,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from toolchain.distribution_validation import (
+    COMPONENTS, DISTRIBUTION_TARGETS, DistributionError, inventory,
+    validate_source_targets, validate_staged_distribution,
+)
+
 VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 
@@ -22,10 +30,6 @@ def default_home() -> Path:
     if os.name == "nt":
         return Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ReasonScript"
     return Path.home() / ".reasonscript"
-
-
-def digest(path: Path) -> dict[str, object]:
-    return {"path": path.relative_to(ROOT).as_posix(), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "size_bytes": path.stat().st_size}
 
 
 def install(prefix: Path, json_output: bool) -> int:
@@ -46,17 +50,16 @@ def install(prefix: Path, json_output: bool) -> int:
     final = versions / VERSION
     temp = versions / f"{VERSION}.tmp-{uuid.uuid4().hex}"
     try:
+        validate_source_targets(ROOT)
         temp.mkdir()
-        for name in ("toolchain", "scripts", "schemas", "frontend", "runtime", "examples", "standard_library", "metadata"):
+        for name in DISTRIBUTION_TARGETS:
             source = ROOT / name
-            if source.exists():
-                shutil.copytree(source, temp / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            shutil.copytree(source, temp / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".venv", "node_modules", ".git"))
         for name in ("reason", "VERSION", "pyproject.toml"):
             if (ROOT / name).is_file():
                 shutil.copy2(ROOT / name, temp / name)
-        validation_files = [temp / "reason", temp / "VERSION", *sorted((temp / "schemas").glob("*.json"))]
-        if not (temp / "reason").is_file() or not (temp / "toolchain").is_dir():
-            raise RuntimeError("staged distribution is incomplete")
+        validate_staged_distribution(temp, ROOT)
+        file_inventory = inventory(temp)
         if final.exists():
             shutil.rmtree(final)
         temp.replace(final)
@@ -84,8 +87,10 @@ def install(prefix: Path, json_output: bool) -> int:
                     "install_root": str(prefix), "platform": {"os": platform.system().lower(), "architecture": platform.machine()},
                     "python": {"version": platform.python_version(), "executable": sys.executable},
                     "components": [{"id": x, "version": VERSION, "required": True, "status": "installed", "path": f"versions/{VERSION}/{p}"}
-                                   for x, p in (("cli", "reason"), ("runtime-core", "toolchain"), ("schemas", "schemas"), ("examples", "examples"))],
-                    "files": [digest(ROOT / p.relative_to(temp)) for p in validation_files], "validation": {"status": "pass"}}
+                                   for x, p in COMPONENTS],
+                    "files": [{**item, "path": f"versions/{VERSION}/{item['path']}"} for item in file_inventory],
+                    "validation": {"status": "pass"},
+                    "distribution_validation": {"status": "pass", "import_closure": "pass", "repository_independence": "pass", "installed_cli_smoke": "pending"}}
         (prefix / "install_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         result = {"schema_version": "reasonscript-install-report/1.0", "status": "success", "reason_version": VERSION,
                   "install_method": "source", "install_root": str(prefix), "cli_path": str(wrapper),
@@ -93,6 +98,11 @@ def install(prefix: Path, json_output: bool) -> int:
         (prefix / "artifacts/install/install_report.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(json.dumps(result, indent=2, sort_keys=True) if json_output else f"ReasonScript {VERSION} installed.\nAdd {bin_dir} to PATH.")
         return 0 if str(bin_dir) in os.environ.get("PATH", "").split(os.pathsep) else 1
+    except DistributionError as exc:
+        shutil.rmtree(temp, ignore_errors=True)
+        result = {"schema_version": "reasonscript-install-report/1.0", "status": "failure", "diagnostics": [exc.diagnostic()]}
+        print(json.dumps(result, indent=2, sort_keys=True) if json_output else f"{exc.code}: {exc}", file=sys.stderr)
+        return 3
     except Exception as exc:
         shutil.rmtree(temp, ignore_errors=True)
         return report_error("IF-020", str(exc), json_output, 3)

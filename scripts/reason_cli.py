@@ -396,11 +396,11 @@ def _read_source(path: Path) -> str:
 
 
 def _resolve_input_path(path: Path) -> Path:
-    return path if path.is_absolute() else REPO_ROOT / path
+    return path if path.is_absolute() else Path.cwd() / path
 
 
 def _resolve_output_dir(path: Path) -> Path:
-    return path if path.is_absolute() else REPO_ROOT / path
+    return path if path.is_absolute() else Path.cwd() / path
 
 
 def _display_path(path: Path) -> str:

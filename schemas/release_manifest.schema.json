@@ -1,1 +1,24 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"reasonscript-release-manifest/1.0","type":"object","required":["schema_version","reason_version","runtime_version","language_version","minimum_python","supported_platforms","components"],"properties":{"schema_version":{"const":"reasonscript-release-manifest/1.0"},"reason_version":{"type":"string"},"runtime_version":{"type":"string"},"language_version":{"type":"string"},"minimum_python":{"type":"string"},"supported_platforms":{"type":"array"},"components":{"type":"array"}},"additionalProperties":true}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-release-manifest/1.0",
+  "type": "object",
+  "required": ["schema_version", "reason_version", "runtime_version", "language_version", "minimum_python", "supported_platforms", "components"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-release-manifest/1.0"},
+    "reason_version": {"type": "string"},
+    "runtime_version": {"type": "string"},
+    "language_version": {"type": "string"},
+    "minimum_python": {"type": "string"},
+    "supported_platforms": {"type": "array"},
+    "components": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {"type": "string"},
+          {"type": "object", "required": ["id", "source", "required"], "properties": {"id": {"type": "string"}, "source": {"type": "string"}, "required": {"type": "boolean"}}, "additionalProperties": true}
+        ]
+      }
+    }
+  },
+  "additionalProperties": true
+}

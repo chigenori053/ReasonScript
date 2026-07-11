@@ -14,12 +14,13 @@ def test_version_contract():
 
 def test_doctor_has_all_required_checks():
     payload = doctor_payload()
-    assert [item["id"] for item in payload["checks"]] == [f"DR-{i:03d}" for i in range(1, 21)]
+    assert [item["id"] for item in payload["checks"]] == [f"DR-{i:03d}" for i in range(1, 25)]
 
 def test_install_validation_contract():
     payload = install_validation_payload()
     assert payload["status"] == "pass"
-    assert len(payload["checks"]) == 10
+    assert len(payload["checks"]) == 20
+    assert payload["schema_version"] == "reasonscript-install-validation/1.1"
 
 def test_atomic_install_and_manifest(tmp_path):
     home = tmp_path / "home"
@@ -27,6 +28,8 @@ def test_atomic_install_and_manifest(tmp_path):
     assert result.returncode in (0, 1), result.stderr
     manifest = json.loads((home / "install_manifest.json").read_text())
     assert manifest["schema_version"] == "reasonscript-install-manifest/1.0"
+    assert {item["id"] for item in manifest["components"]} >= {"standard-library", "playground-backend"}
+    assert (home / "current" / "playground" / "backend" / "main.py").is_file()
     assert (home / "current" / "reason").is_file()
     dry = subprocess.run([sys.executable, str(ROOT / "scripts/uninstall.py"), "--prefix", str(home), "--dry-run", "--json"], text=True, capture_output=True)
     assert dry.returncode == 0
