@@ -29,8 +29,11 @@ def main() -> int:
     result = {"status": "success", "dry_run": args.dry_run, "paths": [str(p) for p in targets]}
     if not args.dry_run:
         for path in targets:
-            if path.is_symlink() or path.is_file(): path.unlink(missing_ok=True)
-            elif path.is_dir(): shutil.rmtree(path)
+            if path.is_symlink() or path.is_file():
+                path.unlink(missing_ok=True)
+            elif path.is_dir():
+                shutil.rmtree(path)
     print(json.dumps(result, indent=2, sort_keys=True) if args.json else "\n".join(result["paths"]))
     return 0
-if __name__ == "__main__": raise SystemExit(main())
+if __name__ == "__main__":
+    raise SystemExit(main())
