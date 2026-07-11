@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "Reasoning Runtime Failure Diagnostics v0.1",
+  "task": "GitHub Actions Linux desktop dependency fix",
   "tests_passed": 783,
   "version": "1.0"
 }
