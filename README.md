@@ -85,7 +85,7 @@ python3 release/language-surface-v0.1/run_release_validation.py
 ```
 
 The normative release specification is
-`docs/ReasonScript_Language_Surface_v0.1_Release_Specification.md`.
+`docs/specifications/ReasonScript_Language_Surface_v0.1_Release_Specification.md`.
 
 # Reason IR schema and validator
 
