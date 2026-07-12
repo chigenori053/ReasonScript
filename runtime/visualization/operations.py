@@ -77,6 +77,7 @@ def set_render(spec: VisualizationSpec, render: RenderSpec) -> VisualizationSpec
 
 def chart_data(spec: VisualizationSpec, table: Table) -> dict[str, Any]:
     validate_or_raise(spec, table)
+    if "prepared" in spec.data: return dict(spec.data["prepared"])
     if len(spec.series) > 100: raise VisualizationError("VSL-RES-001", "Too many series")
     if any(max(len(s.x), len(s.y)) > 100_000 for s in spec.series): raise VisualizationError("VSL-RES-001", "Too many data points")
     if spec.series: return {"series": [{"name": s.name, "x": list(s.x), "y": list(s.y), "errors": list(s.errors)} for s in spec.series]}

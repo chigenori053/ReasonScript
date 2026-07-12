@@ -63,7 +63,10 @@ class MatplotlibBackend(VisualizationBackend):
     @staticmethod
     def _draw(ax, spec, data):
         kind = spec.chart_type
-        if kind in {"histogram", "distribution"}: ax.hist(data["values"], bins=spec.encoding.bins or 20)
+        if kind in {"histogram", "distribution"}:
+            if data.get("groups"):
+                for group in data["groups"]: ax.hist(group["values"], bins=spec.encoding.bins or 20, alpha=.55, label=group["name"])
+            else: ax.hist(data["values"], bins=spec.encoding.bins or 20)
         elif kind == "box": ax.boxplot(data["values"])
         elif kind in {"heatmap", "correlation_matrix"}:
             image = ax.imshow(data["matrix"], aspect="auto", interpolation="nearest")

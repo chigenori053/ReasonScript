@@ -1,5 +1,37 @@
 # Changelog
 
+## ReasonScript ML Evaluation Visualization Standard Library v0.2 - 2026-07-12
+
+### Status
+
+VALIDATED
+
+### Added
+
+- Added JSON-safe binary and multiclass classification evaluation models.
+- Added confusion matrices, normalization, classification metrics, ROC/AUC, and precision–recall/AP.
+- Added Rule coverage/accuracy, error distribution, Decision Path, confidence, and score visualizations.
+- Added classification, metric, threshold, Rule, and Decision Path evidence.
+- Added evaluation Visualization IR, Render Plan, JSON Schemas, Artifacts, and Manifest integration.
+- Added installed external-project regressions.
+
+### Compatibility
+
+- Visualization v0.1 behavior remains unchanged and Matplotlib remains render-time optional.
+- Evaluation and JSON Artifact generation require no Matplotlib.
+- Data Foundation, Tensor functions, Reason IR, and non-visualization programs remain unchanged.
+
+### Validation
+
+- Binary and multiclass evaluation: PASS
+- Confusion matrices, metrics, ROC/AUC, and precision–recall/AP: PASS
+- Rule, Decision Path, error, confidence, and score evaluation: PASS
+- PNG/SVG rendering and same-environment determinism: PASS
+- Installed external-project regression: PASS
+- Canonical `reason ci --json`: PASS (808 tests)
+
+---
+
 ## ReasonScript Visualization Standard Library v0.1 - 2026-07-12
 
 ### Status

@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://reasonscript.org/schema/evaluation-render-plan/0.2","type":"object","required":["schema_version","evaluation_ref","steps"],"properties":{"schema_version":{"const":"reasonscript-evaluation-render-plan/0.2"},"evaluation_ref":{"type":"string"},"steps":{"type":"array"}},"additionalProperties":false}

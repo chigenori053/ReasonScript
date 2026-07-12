@@ -11,6 +11,13 @@ from .operations import (add_series, area, bar, bar_horizontal, box, correlation
 from .provenance import evidence, explain, provenance
 from .serialization import canonical_json, export_spec
 from .validation import validate
+from .evaluation import (ClassificationEvaluation, ClassMetric, ConfusionMatrix, ConfusionMatrixCell,
+    DecisionPathEvaluation, ErrorGroupEvaluation, EvaluationError, EvaluationVisualizationResult,
+    EvaluationVisualizationSpec, PrecisionRecallCurve, PredictionEvidence, PredictionRecord, RocCurve,
+    RuleEvaluation, ScoreDistribution, ThresholdPoint, classification_metrics, confidence_distribution,
+    confusion_matrix, decision_path_frequency, error_distribution, evaluate_classification,
+    evaluation_ir, evaluation_render_plan, normalized_confusion_matrix, precision_recall_curve,
+    render_evaluation, roc_curve, rule_accuracy, rule_coverage, score_distribution)
 
 
 def render(spec, table, output_dir, *, project_root=".", backend=None):
