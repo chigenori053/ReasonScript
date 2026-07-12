@@ -56,6 +56,7 @@ ARTIFACT_SCHEMAS = {
     "aggregation.json": "reasonscript-aggregation/0.1",
     "data_provenance.json": "reasonscript-data-provenance/0.1",
     "data_evidence.json": "reasonscript-data-evidence/0.1",
+    "titanic_analysis_result.json": "reasonscript-titanic-analysis-result/1.0",
     "workspace_validation.json": "reasonscript-workspace-validation/1.0",
     "project_state.json": "reasonscript-project-state/0.5",
     "artifact_manifest.json": "reasonscript-artifact-manifest/1.0",
@@ -87,6 +88,7 @@ SUPPORTED_SCHEMA_PREFIXES = (
     "reasonscript-aggregation/",
     "reasonscript-data-provenance/",
     "reasonscript-data-evidence/",
+    "reasonscript-titanic-analysis-result/",
 )
 
 

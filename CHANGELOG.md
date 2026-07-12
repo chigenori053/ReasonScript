@@ -1,5 +1,36 @@
 # Changelog
 
+## ReasonScript Data Analysis Public Result Serialization v1.0 - 2026-07-12
+
+### Status
+
+VALIDATED
+
+### Added
+
+- Added JSON-safe public data-analysis result envelopes and JSON Schemas.
+- Added explicit public/internal Titanic analysis API separation.
+- Added deterministic backend, table-summary, dataset, Knowledge, and Evidence serialization.
+- Added optional `titanic_analysis_result.json` artifact support and serialization regressions.
+
+### Fixed
+
+- Fixed `analyze_titanic` leaking non-serializable `DataBackend` and `Table` instances.
+- Fixed standard `json.dumps` persistence and public result determinism.
+
+### Compatibility
+
+- Titanic metrics, Knowledge count, and Data Analysis Foundation semantics remain unchanged.
+- Runtime-context callers use `analyze_titanic_execution`.
+
+### Validation
+
+- Public result serialization, JSON Schema contract, and determinism: PASS
+- Installed external-project Titanic regression: PASS
+- Canonical `reason ci --json`: PASS (801 tests)
+
+---
+
 ## ReasonScript Install Practical Validation Corrections v1.0 - 2026-07-11
 
 ### Status

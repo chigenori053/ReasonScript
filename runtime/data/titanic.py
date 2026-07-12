@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Any
 from .backend import DataBackend
 from .model import Field, Schema
+from .result import TitanicAnalysisExecution, TitanicAnalysisResult
+from .serialization import serialize_analysis_result
 
 TITANIC_SCHEMA = Schema(tuple(Field(name, dtype, nullable) for name, dtype, nullable in (
     ("PassengerId", "int", False), ("Survived", "int", False), ("Pclass", "int", False),
@@ -10,7 +12,7 @@ TITANIC_SCHEMA = Schema(tuple(Field(name, dtype, nullable) for name, dtype, null
     ("SibSp", "int", False), ("Parch", "int", False), ("Ticket", "string", False),
     ("Fare", "float", True), ("Cabin", "string", True), ("Embarked", "string", True))))
 
-def analyze_titanic(path: str | Path, *, project_root: str | Path | None = None) -> dict[str, Any]:
+def analyze_titanic_execution(path: str | Path, *, project_root: str | Path | None = None) -> TitanicAnalysisExecution:
     path = Path(path); backend = DataBackend(project_root=project_root or path.parent)
     table = backend.load_csv(path.name if project_root is None else path, TITANIC_SCHEMA)
     table = backend.derive_column(table, "FamilySize", "int", False, lambda r: r["SibSp"] + r["Parch"] + 1,
@@ -44,5 +46,11 @@ def analyze_titanic(path: str | Path, *, project_root: str | Path | None = None)
     evidence = backend.evidence(table, operation_refs=[x["operation_id"] for x in table.provenance])
     knowledge = [{"knowledge_id": kid, "statement": statement, "value": value, "unit": None, "confidence": 1.0,
         "evidence_refs": [evidence["evidence_id"]], "dataset_refs": [table.source_ref.dataset_id]} for kid, statement, value in definitions]
-    return {"input_mode": "CSV_DIRECT", "status": "VALIDATED", "table": table, "metrics": metrics,
-        "knowledge": knowledge, "evidence": evidence, "backend": backend}
+    public = serialize_analysis_result(status="pass", input_mode="CSV_DIRECT", backend=backend, table=table,
+        metrics=metrics, knowledge=knowledge, evidence=evidence, project_root=backend.project_root)
+    return TitanicAnalysisExecution(TitanicAnalysisResult(public), table, backend)
+
+
+def analyze_titanic(path: str | Path, *, project_root: str | Path | None = None) -> dict[str, Any]:
+    """Analyze Titanic CSV data and return only the JSON-safe public result."""
+    return analyze_titanic_execution(path, project_root=project_root).result.to_dict()

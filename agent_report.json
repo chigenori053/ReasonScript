@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "ReasonScript Data Analysis Foundation v0.1",
-  "tests_passed": 799,
+  "task": "ReasonScript Data Analysis Public Result Serialization v1.0",
+  "tests_passed": 801,
   "version": "1.0"
 }

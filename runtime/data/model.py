@@ -197,8 +197,14 @@ class Table:
                 "rows": [r.to_dict(self.column_names) for r in self.rows], "source_ref": self.source_ref.to_dict(),
                 "provenance_ref": [dict(p) for p in self.provenance], "metadata": dict(self.metadata)}
 
+    def to_canonical_dict(self) -> dict[str, Any]:
+        return json.loads(canonical_json(self.to_dict()))
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_canonical_dict(), ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
+
     def serialize(self) -> str:
-        return json.dumps(self.to_dict(), ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
+        return self.to_json()
 
 
 @dataclass(frozen=True)

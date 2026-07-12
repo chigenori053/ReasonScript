@@ -15,10 +15,12 @@ DATA_ARTIFACT_SCHEMAS = {
     "aggregation.json": "reasonscript-aggregation/0.1",
     "data_provenance.json": "reasonscript-data-provenance/0.1",
     "data_evidence.json": "reasonscript-data-evidence/0.1",
+    "titanic_analysis_result.json": "reasonscript-titanic-analysis-result/1.0",
 }
 
 
-def data_artifacts(table: Table, backend: DataBackend, *, knowledge: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
+def data_artifacts(table: Table, backend: DataBackend, *, knowledge: Sequence[Mapping[str, Any]] = (),
+                   analysis_result: Mapping[str, Any] | None = None) -> dict[str, Any]:
     operations = [dict(item) for item in table.provenance]
     aggregations = [ref for item in operations for ref in item.get("aggregation_refs", [])]
     evidence = backend.evidence(table, operation_refs=[item["operation_id"] for item in operations],
@@ -36,6 +38,8 @@ def data_artifacts(table: Table, backend: DataBackend, *, knowledge: Sequence[Ma
         "simulation.json": {"events": _simulation_events(table, operations, knowledge)},
         "knowledge.json": {"items": [_knowledge_item(item, table, evidence) for item in knowledge]},
     }
+    if analysis_result is not None:
+        artifacts["titanic_analysis_result.json"] = dict(analysis_result)
     return artifacts
 
 
