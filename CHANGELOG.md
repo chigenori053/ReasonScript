@@ -1,5 +1,59 @@
 # Changelog
 
+## ReasonScript KDA-2 Titanic Rule-based Classification v1.0 Specification
+
+### Status
+
+IMPLEMENTED — external consumer implementation exists; formal component validation remains pending.
+
+### Added
+
+- Added the initial formal specification for KDA-2 Titanic Rule-based Classification.
+- Added Specification ID `reasonscript-kda2-titanic-rule-classification/1.0`.
+- Defined the Dataset, Feature, Rule, Prediction, Decision Path, Evidence, Evaluation, Knowledge, Visualization, Artifact, Determinism, and Installed Distribution contracts.
+- Added `KDA2-AC-001` through `KDA2-AC-050`.
+- Defined strict installed-only Runtime provenance requirements.
+- Separated KDA-2 component validation from repository-wide canonical CI reporting.
+- Documented the external implementation and artifact location under the `kaggle-titanic-validation` project.
+
+### Verified External Results
+
+- Dataset rows: 891
+- Feature records: 891
+- Predictions: 891
+- Prediction Evidence records: 891
+- Accuracy: 0.7598204264870931
+- Balanced accuracy: 0.777538107563992
+- AUC: 0.8462755248777681
+- Average precision: 0.7903496180334
+- Knowledge records: 10
+- Visualizations: 14
+- Diagnostics: 0
+- Repeated-run artifact digest equality: PASS
+- KDA-1 regression: PASS
+
+### Validation Status
+
+- External KDA-2 implementation and artifacts: CONFIRMED
+- Installed Distribution import provenance: CONFIRMED
+- Formal KDA-2 component validation: PENDING
+- Repository-wide canonical CI: FAIL — `CI-008 Test failure`
+- Repository-wide failures are recorded separately and are not hidden.
+
+### Compatibility
+
+- No KDA-2 domain implementation was added to the ReasonScript Core repository.
+- Data Analysis Foundation behavior is unchanged.
+- Visualization Standard Library behavior is unchanged.
+- ML Evaluation Visualization v0.2 behavior is unchanged.
+- Reason IR, ExecutionPlan, Simulation, Knowledge, and Core CLI semantics are unchanged.
+
+## Installed Distribution ML Evaluation v0.2 Correction
+
+- Include the complete `runtime.visualization.evaluation` import closure and v0.2 schemas in installed-distribution validation.
+- Record every ML Evaluation Python module in the install manifest under the `ml-evaluation-visualization-v0.2` component.
+- Validate installed-only public API imports, repository isolation, Matplotlib-independent evaluation, JSON serialization, and canonical AUC/AP values.
+
 ## ReasonScript ML Evaluation Visualization Standard Library v0.2 - 2026-07-12
 
 ### Status

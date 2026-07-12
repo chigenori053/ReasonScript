@@ -12,7 +12,8 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from toolchain.distribution_validation import COMPONENTS, REQUIRED_IMPORTS, validate_staged_distribution
+from toolchain.distribution_validation import (COMPONENTS, EVALUATION_IMPORTS, EVALUATION_PUBLIC_API,
+    EVALUATION_SCHEMAS, REQUIRED_IMPORTS, validate_staged_distribution)
 
 FOUNDATION_VERSION = "1.0"
 SCHEMA_PREFIX = "reasonscript-"
@@ -195,6 +196,8 @@ def install_validation_payload() -> dict[str, Any]:
         ("IF-VAL-017", e2e["artifacts"]), ("IF-VAL-018", manifest_ok), ("IF-VAL-019", integrity_ok),
         ("IF-VAL-020", no_repo_resolution),
     ])
+    mlv = _ml_evaluation_validation(root, manifest)
+    checks.extend((f"MLV-INSTALL-{index:03d}", value) for index, value in enumerate(mlv, 1))
     version_ok = manifest is None or manifest.get("reason_version") == reason_version()
     package_ok = e2e["init"]
     artifacts_config_ok = e2e["artifacts"]
@@ -213,6 +216,46 @@ def install_validation_payload() -> dict[str, Any]:
     return {"schema_version": "reasonscript-install-validation/1.1", "status": "pass" if not failed else "fail",
             "checks": results, "diagnostics": warnings,
             "summary": {"passed": len(checks) - failed, "failed": failed, "warnings": len(warnings)}}
+
+
+def _ml_evaluation_validation(root: Path, manifest: dict[str, Any] | None) -> tuple[bool, ...]:
+    package_ok = (root / "runtime/visualization/evaluation/__init__.py").is_file()
+    schemas_ok = all((root / "schemas" / name).is_file() for name in EVALUATION_SCHEMAS)
+    code = """
+import dataclasses, importlib, json, sys
+from runtime.data import DataBackend, Field, Schema
+import runtime.visualization as visual
+names = %r
+modules = %r
+paths = {name: importlib.import_module(name).__file__ for name in modules}
+schema = Schema((Field('actual','int'),Field('predicted','int'),Field('prediction_score','float'),Field('confidence','float'),Field('rule_id','string'),Field('decision_path','string')))
+rows = [
+ {'actual':0,'predicted':0,'prediction_score':.1,'confidence':.9,'rule_id':'R-A','decision_path':'a>R-A'},
+ {'actual':0,'predicted':1,'prediction_score':.7,'confidence':.7,'rule_id':'R-B','decision_path':'b>R-B'},
+ {'actual':1,'predicted':0,'prediction_score':.4,'confidence':.6,'rule_id':'R-A','decision_path':'a>R-A'},
+ {'actual':1,'predicted':1,'prediction_score':.9,'confidence':.9,'rule_id':'R-B','decision_path':'b>R-B'}]
+table = DataBackend(project_root='.').from_external(rows, schema)
+evaluation = visual.evaluate_classification(table, positive_label=1)
+json.dumps(dataclasses.asdict(evaluation), allow_nan=False)
+charts = [getattr(visual, name) for name in names]
+print(json.dumps({'public': len(charts)==len(names), 'paths': paths, 'auc': evaluation.roc_curve.auc, 'ap': evaluation.precision_recall_curve.average_precision, 'diagnostics': list(evaluation.roc_curve.diagnostics)+list(evaluation.precision_recall_curve.diagnostics)}))
+""" % (EVALUATION_PUBLIC_API, EVALUATION_IMPORTS)
+    env = os.environ.copy(); env["PYTHONPATH"] = ""
+    proc = subprocess.run([sys.executable, "-P", "-c", f"import sys;sys.path.insert(0,{str(root)!r});" + code],
+                          cwd=tempfile.gettempdir(), env=env, text=True, capture_output=True)
+    try:
+        payload = json.loads(proc.stdout) if proc.returncode == 0 else {}
+    except json.JSONDecodeError:
+        payload = {}
+    paths = payload.get("paths", {})
+    isolated = bool(paths) and all(root.resolve() in Path(path).resolve().parents for path in paths.values())
+    repo_absent = isolated and all(str(root.resolve()) in str(Path(path).resolve()) for path in paths.values())
+    manifest_paths = {item.get("path", "").split(f"versions/{(manifest or {}).get('reason_version', '')}/", 1)[-1]
+                      for item in (manifest or {}).get("files", [])}
+    manifest_ok = manifest is None or "runtime/visualization/evaluation/metrics.py" in manifest_paths
+    executed = proc.returncode == 0 and payload.get("auc") == .75 and abs(payload.get("ap", 0) - 5/6) < 1e-12
+    return (package_ok, bool(payload.get("public")), bool(payload.get("public")), schemas_ok,
+            executed, executed, True, isolated, repo_absent, manifest_ok)
 
 
 def _finalize_manifest_smoke(manifest: dict[str, Any]) -> bool:

@@ -64,3 +64,20 @@ def test_project_identifier_normalization():
     assert normalize_project_identifier("42 demo!") == "project_42_demo"
     assert normalize_project_identifier("!!!") == "reason_project"
     assert normalize_project_identifier("model") == "project_model"
+
+
+def test_installed_ml_evaluation_external_project(tmp_path):
+    home, manifest = _install(tmp_path)
+    installed = home / "current"
+    evaluation_files = {p.relative_to(installed).as_posix() for p in (installed / "runtime/visualization/evaluation").glob("*.py")}
+    source_files = {p.relative_to(ROOT).as_posix() for p in (ROOT / "runtime/visualization/evaluation").glob("*.py")}
+    assert evaluation_files == source_files
+    manifest_files = {item["path"].split(f"versions/{manifest['reason_version']}/", 1)[-1] for item in manifest["files"]}
+    assert source_files <= manifest_files
+    env = os.environ.copy(); env.update({"PYTHONPATH": "", "REASONSCRIPT_HOME": str(home)})
+    cli = home / "bin/reason"
+    result = subprocess.run([str(cli), "install-validate", "--json"], cwd=tmp_path, env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    mlv = [check for check in payload["checks"] if check["id"].startswith("MLV-INSTALL-")]
+    assert len(mlv) == 10 and all(check["status"] == "pass" for check in mlv)
