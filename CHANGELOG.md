@@ -1,5 +1,36 @@
 # Changelog
 
+## ReasonScript Visualization Standard Library v0.1 - 2026-07-12
+
+### Status
+
+VALIDATED
+
+### Added
+
+- Added immutable backend-independent Visualization specifications under `runtime.visualization` (`visual.*`).
+- Added basic and analytical chart constructors with Typed Table grouping, aggregation, correlation, and missingness.
+- Added the optional Matplotlib reference backend with deterministic PNG/SVG rendering.
+- Added Visualization IR, Render Plan, Evidence, Validation, JSON Schemas, and Artifact Manifest output.
+- Added seven-chart Titanic and installed external-project regressions.
+
+### Security and Resources
+
+- Added project-root output confinement, path traversal rejection, explicit format and image limits, and lazy backend loading.
+
+### Compatibility
+
+- Matplotlib remains optional through `reasonscript[visualization]`; Core and Data Foundation behavior is unchanged when absent.
+
+### Validation
+
+- Basic and analytical chart contracts: PASS
+- Matplotlib PNG/SVG rendering and same-environment determinism: PASS
+- Titanic seven-chart regression and installed external-project rendering: PASS
+- Canonical `reason ci --json`: PASS (804 tests)
+
+---
+
 ## ReasonScript Data Analysis Public Result Serialization v1.0 - 2026-07-12
 
 ### Status

@@ -5,5 +5,6 @@ this package provides the stable installed-distribution boundary.
 """
 
 from .data import DataBackend
+from . import visualization as visual
 
-__all__ = ["DataBackend"]
+__all__ = ["DataBackend", "visual"]

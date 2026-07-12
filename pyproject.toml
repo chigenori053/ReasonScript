@@ -11,6 +11,10 @@ requires-python = ">=3.11"
 [project.scripts]
 reason = "toolchain.__main__:main"
 
+[project.optional-dependencies]
+visualization = ["matplotlib>=3.8,<4"]
+full = ["matplotlib>=3.8,<4"]
+
 [tool.setuptools.packages.find]
 include = ["toolchain*", "runtime*"]
 

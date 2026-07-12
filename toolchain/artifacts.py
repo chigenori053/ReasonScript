@@ -57,6 +57,11 @@ ARTIFACT_SCHEMAS = {
     "data_provenance.json": "reasonscript-data-provenance/0.1",
     "data_evidence.json": "reasonscript-data-evidence/0.1",
     "titanic_analysis_result.json": "reasonscript-titanic-analysis-result/1.0",
+    "visualization_spec.json": "reasonscript-visualization-spec/0.1",
+    "visualization_ir.json": "reasonscript-visualization-ir/0.1",
+    "render_plan.json": "reasonscript-visualization-render-plan/0.1",
+    "visualization_evidence.json": "reasonscript-visualization-evidence/0.1",
+    "visualization_validation.json": "reasonscript-visualization-validation/0.1",
     "workspace_validation.json": "reasonscript-workspace-validation/1.0",
     "project_state.json": "reasonscript-project-state/0.5",
     "artifact_manifest.json": "reasonscript-artifact-manifest/1.0",
@@ -89,6 +94,11 @@ SUPPORTED_SCHEMA_PREFIXES = (
     "reasonscript-data-provenance/",
     "reasonscript-data-evidence/",
     "reasonscript-titanic-analysis-result/",
+    "reasonscript-visualization-spec/",
+    "reasonscript-visualization-ir/",
+    "reasonscript-visualization-render-plan/",
+    "reasonscript-visualization-evidence/",
+    "reasonscript-visualization-validation/",
 )
 
 
