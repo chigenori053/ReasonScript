@@ -397,7 +397,55 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool) -> dict[
     }
     if include_trace:
         result["trace"] = simulation.get("trace", []) if isinstance(simulation, dict) else []
+    source = _read_source(path)
+    if analyze["ok"] and _requires_integrated_runtime(source, analyze):
+        from frontend.integrated_computation_runtime import (
+            LoopLimitError,
+            execute_program,
+        )
+        from frontend.language_surface.parser import parse
+        from frontend.tensor import TensorError
+
+        try:
+            integrated = execute_program(parse(source))
+            runtime_result = integrated.to_dict()
+            result["runtime_result"] = runtime_result
+            result["runtime_output"] = [runtime_result["result"]]
+            result["goal_reached"] = True
+            result["artifacts"]["runtime_result"] = runtime_result
+            result["artifacts"]["tensor_metadata"] = runtime_result["tensor_metadata"]
+            if include_trace:
+                result["trace"] = runtime_result["tensor_trace"] + runtime_result["loop_trace"]
+        except TensorError as error:
+            diagnostic = error.diagnostic.to_dict()
+            diagnostic.update({"stage": "runtime", "source_file": _display_path(path)})
+            result["ok"] = False
+            result["goal_reached"] = False
+            result["diagnostics"].append(diagnostic)
+        except LoopLimitError as error:
+            result["ok"] = False
+            result["goal_reached"] = False
+            result["diagnostics"].append({
+                "code": error.code,
+                "severity": "fatal",
+                "category": "runtime.loop",
+                "message": str(error),
+                "stage": "runtime",
+                "source_file": _display_path(path),
+            })
     return result
+
+
+def _requires_integrated_runtime(source: str, analyze: dict[str, Any]) -> bool:
+    reason_ir = analyze.get("artifacts", {}).get("reason_ir")
+    modules = reason_ir.get("modules", []) if isinstance(reason_ir, dict) and "modules" in reason_ir else [reason_ir]
+    has_tensor = any(
+        isinstance(item, dict)
+        and bool(item.get("metadata", {}).get("tensor_operations"))
+        for item in modules
+    )
+    has_loop = any(token in source for token in ("for ", "while ", "loop {"))
+    return has_tensor or has_loop
 
 
 def _analyze_endpoint_response(path: Path, compiler_mode: str) -> dict[str, Any]:

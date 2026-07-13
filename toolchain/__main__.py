@@ -87,6 +87,14 @@ def main() -> int:
         from toolchain.ci_entry_cmd import run
         return run(command, args[1:], project_root)
 
+    if command == "project-validate":
+        from toolchain.project_validate_cmd import run
+        return run(args[1:], project_root)
+
+    if command == "phase1r-validate":
+        from toolchain.phase1r_validation_cmd import run
+        return run(args[1:], project_root)
+
     if command == "reasoning-model":
         from toolchain.reasoning_model_cmd import run
         return run(command, args[1:], project_root)
@@ -136,6 +144,8 @@ def _usage() -> None:
     print("  agent-report  Emit Agent Development Protocol report")
     print("  ci            Run the canonical CI Stabilization pipeline")
     print("  ci-entry      Validate the canonical CI entry point contract")
+    print("  project-validate Validate a standalone ReasonScript project")
+    print("  phase1r-validate Generate and validate Phase 1R probes")
     print("  reasoning-model validate <file> Validate a Reasoning Model artifact")
     print("  reasoning-eval evaluate <file> Evaluate a Reasoning Model artifact")
     print("  reasoning-eval validate <file> Validate a Reasoning Evaluation Report")

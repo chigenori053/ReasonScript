@@ -7,9 +7,10 @@ from frontend.tensor import TensorError, TensorPolicy, TensorRuntime
 
 def test_registry_contains_complete_required_set():
     runtime = TensorRuntime()
-    assert len(runtime.function_ids()) == 46
+    assert len(runtime.function_ids()) == 49
     assert "tensor.create" in runtime.function_ids()
     assert "tensor.matmul" in runtime.function_ids()
+    assert {"tensor.relu", "tensor.softmax", "tensor.linear"} <= set(runtime.function_ids())
     assert all(contract.version == "0.1" for contract in runtime.contracts.values())
     assert all(
         contract.deterministic and not contract.side_effects
@@ -174,4 +175,4 @@ def test_backend_failures_and_resource_limits_are_normalized(tmp_path: Path):
 
     with pytest.raises(TensorError) as backend_error:
         runtime.call("tensor.divide", value, 0)
-    assert backend_error.value.diagnostic.code == "TSF-013"
+    assert backend_error.value.diagnostic.code == "TSF-012"

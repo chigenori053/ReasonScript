@@ -1,0 +1,20 @@
+{
+  "data": {
+    "artifacts": [
+      {
+        "name": "diagnostics.json",
+        "sha256": "608f27dc8d3931833a4908c8035d286bb093801e3f9e1943ef68d7ed46483b63"
+      },
+      {
+        "name": "diagnostics_validation.json",
+        "sha256": "d541562be6a1148eb82dc43cbf3b624343d6b5a429a94b966f496fc1734d946e"
+      }
+    ],
+    "schema_version": "reasonscript-phase-1r-manifest/0.1"
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-phase-1r-manifest/0.1",
+  "version": "1.0"
+}

@@ -1,0 +1,16 @@
+{
+  "data": {
+    "artifacts": [
+      {
+        "name": "project_validation_report.json",
+        "sha256": "b4137db5c7d634fab3027e49f4de47bafae49ebb20bad6b341cfe7ab5edd303d"
+      }
+    ],
+    "schema_version": "reasonscript-phase-1r-manifest/0.1"
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-phase-1r-manifest/0.1",
+  "version": "1.0"
+}

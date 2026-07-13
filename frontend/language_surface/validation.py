@@ -116,6 +116,11 @@ from .nodes import (
     WildcardPatternNode,
 )
 from .namespace import ModuleNamespace, NamespaceResolutionError, resolve_program
+from frontend.tensor.integration import (
+    TensorSemanticError,
+    tensor_call_name,
+    validate_tensor_call,
+)
 from .semantic_patterns import StructPatternSemanticError, resolve_struct_pattern
 
 
@@ -1531,6 +1536,11 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
+            if isinstance(value.object, IdentifierNode) and value.object.name == "tensor":
+                # ``tensor`` is a standard namespace, not a user module or a
+                # mutable value. Callable resolution happens on the enclosing
+                # CallExpressionNode.
+                return
             if isinstance(value.object, RuntimeNamespaceNode):
                 raise SurfaceValidationError("RV-4 UnknownRuntimeMethod")
             enum_reference = _enum_variant_reference(value, symbols)
@@ -1556,6 +1566,14 @@ def _validate_calculation_expression(
                 return
             visit(value.object)
         elif isinstance(value, CallExpressionNode):
+            if tensor_call_name(value) is not None:
+                try:
+                    validate_tensor_call(value)
+                except TensorSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
             visit(value.callee, callee=True)
             for argument in value.arguments:
                 visit(argument)
@@ -1863,6 +1881,12 @@ def _expression_type(
             return _UNKNOWN_TYPE
         raise SurfaceValidationError("CV5-7 index access requires collection type")
     if isinstance(value, CallExpressionNode):
+        if tensor_call_name(value) is not None:
+            try:
+                validate_tensor_call(value)
+            except TensorSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            return NamedTypeNode("Tensor")
         if isinstance(value.callee, IdentifierNode):
             if value.callee.name == _CURRENT_FUNCTION:
                 raise SurfaceValidationError("FN-007 recursive function calls are rejected")

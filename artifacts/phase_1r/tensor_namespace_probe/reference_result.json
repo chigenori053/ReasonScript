@@ -1,0 +1,17 @@
+{
+  "data": [
+    [
+      1.0,
+      2.0
+    ],
+    [
+      3.0,
+      4.0
+    ]
+  ],
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-reference-result/0.1",
+  "version": "1.0"
+}

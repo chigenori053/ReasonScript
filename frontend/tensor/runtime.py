@@ -28,13 +28,25 @@ class TensorDiagnostic:
     details: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "code": self.code,
             "severity": self.severity,
             "category": self.category,
             "message": self.message,
             "details": self.details,
         }
+        # ICRIR diagnostics keep the established details object while also
+        # exposing the traceability fields required by the runtime contract.
+        for key in (
+            "source_location",
+            "operation_ref",
+            "tensor_ref",
+            "runtime_step",
+            "recovery_hint",
+        ):
+            if key in self.details:
+                result[key] = self.details[key]
+        return result
 
 
 class TensorError(ValueError):
@@ -46,7 +58,10 @@ class TensorError(ValueError):
         category: str = "tensor.runtime",
         **details: Any,
     ):
-        self.diagnostic = TensorDiagnostic(code, message, category, details=details)
+        severity = str(details.pop("severity", "fatal"))
+        self.diagnostic = TensorDiagnostic(
+            code, message, category, severity=severity, details=details
+        )
         super().__init__(f"{code}: {message}")
 
 
@@ -115,11 +130,17 @@ class TensorFunctionContract:
     backend_policy: str = "abstract"
     diagnostic_policy: str = "TSF"
     artifact_policy: str = "metadata_only"
+    argument_contract: tuple[dict[str, Any], ...] = ()
+    return_contract: dict[str, Any] = field(default_factory=dict)
+    backend_operation: str | None = None
+    lowering_policy: str = "native"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "function_id": self.function_id,
+            "qualified_name": self.function_id,
             "namespace": "tensor",
+            "name": self.function_id.split(".", 1)[1],
             "version": self.version,
             "inputs": list(self.inputs),
             "output": self.output,
@@ -132,6 +153,12 @@ class TensorFunctionContract:
             "backend": self.backend_policy,
             "diagnostic_policy": self.diagnostic_policy,
             "artifact_policy": self.artifact_policy,
+            "callable": True,
+            "argument_contract": list(self.argument_contract),
+            "return_contract": dict(self.return_contract),
+            "backend_operation": self.backend_operation
+            or self.function_id.split(".", 1)[1],
+            "lowering_policy": self.lowering_policy,
         }
 
 
@@ -271,6 +298,7 @@ class TensorRuntime:
         self.policy = policy or TensorPolicy()
         self._refs: dict[str, TensorValueRef] = {}
         self._next_id = 1
+        self._active_function: str | None = None
         self.trace: list[dict[str, Any]] = []
         self.contracts = _contracts()
 
@@ -279,12 +307,20 @@ class TensorRuntime:
 
     def call(self, function_id: str, *args: Any, **kwargs: Any) -> Any:
         if function_id not in self.contracts:
-            raise TensorError("TSF-012", f"unsupported Tensor function: {function_id}")
+            raise TensorError(
+                "TSF-014",
+                f"Tensor operation is unsupported by the selected backend: {function_id}",
+                function_id=function_id,
+                backend=self.backend.name,
+            )
+        self._validate_argument_count(function_id, len(args), kwargs)
         method = getattr(self, function_id.split(".", 1)[1])
+        self._active_function = function_id
         started = time.perf_counter_ns()
         try:
             output = method(*args, **kwargs)
         except TensorError as error:
+            self._active_function = None
             self.trace.append(
                 self._trace_entry(
                     function_id,
@@ -297,8 +333,9 @@ class TensorRuntime:
             )
             raise
         except Exception as error:
+            self._active_function = None
             normalized = TensorError(
-                "TSF-013",
+                "TSF-012",
                 "Tensor backend execution failed",
                 function_id=function_id,
                 backend=self.backend.name,
@@ -325,7 +362,31 @@ class TensorRuntime:
                 [],
             )
         )
+        self._active_function = None
         return output
+
+    def _validate_argument_count(
+        self, function_id: str, positional: int, named: dict[str, Any]
+    ) -> None:
+        limits = {
+            "tensor.create": (1, 3),
+            "tensor.relu": (1, 1),
+            "tensor.softmax": (1, 2),
+            "tensor.linear": (2, 3),
+        }
+        if function_id not in limits:
+            return
+        minimum, maximum = limits[function_id]
+        count = positional + len(named)
+        if count < minimum or count > maximum:
+            raise TensorError(
+                "TSF-016",
+                "Tensor function argument count mismatch",
+                function_id=function_id,
+                minimum=minimum,
+                maximum=maximum,
+                actual=count,
+            )
 
     def _trace_entry(
         self,
@@ -364,6 +425,7 @@ class TensorRuntime:
         self, shape: tuple[int, ...], dtype: str, data: list[Any]
     ) -> TensorValueRef:
         self._validate_shape(shape, dtype)
+        self._validate_finite(data)
         if len(self._refs) >= self.policy.max_live_tensors:
             raise TensorError("TSF-013", "maximum live Tensor count exceeded")
         tensor_id = f"tensor_{self._next_id:04d}"
@@ -392,6 +454,16 @@ class TensorRuntime:
         ):
             raise TensorError("TSF-003", "invalid Tensor shape", shape=list(shape))
         size = _product(shape)
+        if size == 0 or any(dimension == 0 for dimension in shape):
+            raise TensorError(
+                "TSF-009",
+                "Empty tensor is not allowed",
+                shape=list(shape),
+                source_location={"line": None, "column": None},
+                operation_ref=self._active_function,
+                tensor_ref="tensor_input",
+                recovery_hint="Provide at least one finite tensor element.",
+            )
         if (
             size > self.policy.max_elements
             or size * DTYPE_BYTES[dtype] > self.policy.max_tensor_bytes
@@ -399,6 +471,49 @@ class TensorRuntime:
             raise TensorError(
                 "TSF-003", "Tensor shape exceeds resource policy", shape=list(shape)
             )
+
+    def _validate_finite(self, data: list[Any]) -> None:
+        for index, value in enumerate(data):
+            if isinstance(value, float) and math.isnan(value):
+                if self._active_function not in {None, "tensor.create"}:
+                    raise TensorError(
+                        "TSF-012",
+                        "Tensor operation produced a non-finite value",
+                        operation=self._active_function,
+                        operation_ref=self._active_function,
+                        flattened_index=index,
+                        value_category="nan",
+                    )
+                raise TensorError(
+                    "TSF-010",
+                    "Tensor contains NaN",
+                    flattened_index=index,
+                    value_category="nan",
+                    operation_ref=self._active_function,
+                    tensor_ref="tensor_input",
+                    source_location={"line": None, "column": None},
+                    recovery_hint="Replace NaN with a finite value before tensor creation.",
+                )
+            if isinstance(value, float) and math.isinf(value):
+                if self._active_function not in {None, "tensor.create"}:
+                    raise TensorError(
+                        "TSF-012",
+                        "Tensor operation produced a non-finite value",
+                        operation=self._active_function,
+                        operation_ref=self._active_function,
+                        flattened_index=index,
+                        value_category=("positive_infinity" if value > 0 else "negative_infinity"),
+                    )
+                raise TensorError(
+                    "TSF-011",
+                    "Tensor contains Infinity",
+                    flattened_index=index,
+                    value_category=("positive_infinity" if value > 0 else "negative_infinity"),
+                    operation_ref=self._active_function,
+                    tensor_ref="tensor_input",
+                    source_location={"line": None, "column": None},
+                    recovery_hint="Replace Infinity with a finite value before tensor creation.",
+                )
 
     def _tensor(self, value: TensorValueRef) -> _Tensor:
         if not isinstance(value, TensorValueRef):
@@ -759,6 +874,30 @@ class TensorRuntime:
         ]
         return self._new((a.shape[0], b.shape[1]), _promote(a.dtype, b.dtype), data)
 
+    def relu(self, value: TensorValueRef) -> TensorValueRef:
+        """Return ``max(value, 0)`` while preserving semantic trace identity."""
+        return self.maximum(value, 0)
+
+    def softmax(self, value: TensorValueRef, axis: int = -1) -> TensorValueRef:
+        """Numerically stable softmax over one axis."""
+        tensor = self._tensor(value)
+        normalized = _normalize_axis(axis, len(tensor.shape))
+        maximum = self.max(value, axis=normalized, keep_dims=True)
+        shifted = self.subtract(value, maximum)
+        exponential = self.exp(shifted)
+        denominator = self.sum(exponential, axis=normalized, keep_dims=True)
+        return self.divide(exponential, denominator)
+
+    def linear(
+        self,
+        value: TensorValueRef,
+        weight: TensorValueRef,
+        bias: TensorValueRef | None = None,
+    ) -> TensorValueRef:
+        """Apply the standard ``matmul(value, weight) + bias`` orientation."""
+        result = self.matmul(value, weight)
+        return result if bias is None else self.add(result, bias)
+
     def norm(self, value: TensorValueRef, order: int = 2) -> TensorValueRef:
         tensor = self._tensor(value)
         if order not in {1, 2}:
@@ -825,6 +964,39 @@ class TensorRuntime:
         )
         return metadata
 
+    def load_artifact(self, metadata: dict[str, Any]) -> TensorValueRef:
+        """Validate and load an external Tensor artifact into this session."""
+        try:
+            shape = tuple(metadata["shape"])
+            dtype = str(metadata["dtype"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise TensorError("TSF-020", "Invalid external Tensor metadata") from error
+        if "inline_data" in metadata:
+            literal_shape, flat = _shape_and_flat(metadata["inline_data"])
+            if literal_shape != shape:
+                raise TensorError("TSF-003", "External Tensor shape mismatch")
+            return self._new(shape, dtype, flat)
+        storage_ref = metadata.get("storage_ref")
+        if not isinstance(storage_ref, str):
+            raise TensorError("TSF-020", "External Tensor storage reference is missing")
+        try:
+            payload = Path(storage_ref).read_bytes()
+        except OSError as error:
+            raise TensorError("TSF-020", "External Tensor artifact cannot be read") from error
+        expected = metadata.get("checksum")
+        actual = f"sha256:{hashlib.sha256(payload).hexdigest()}"
+        if expected != actual:
+            raise TensorError("TSF-020", "External Tensor checksum mismatch")
+        if metadata.get("byte_size") not in {None, len(payload)}:
+            raise TensorError("TSF-020", "External Tensor byte size mismatch")
+        try:
+            values = json.loads(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise TensorError("TSF-020", "External Tensor payload is invalid") from error
+        if not isinstance(values, list) or len(values) != _product(shape):
+            raise TensorError("TSF-003", "External Tensor shape mismatch")
+        return self._new(shape, dtype, values)
+
 
 def _nested(data: list[Any], shape: tuple[int, ...]) -> Any:
     if not shape:
@@ -847,6 +1019,7 @@ def _contracts() -> dict[str, TensorFunctionContract]:
         "elementwise": "negate abs exp log sqrt",
         "reduction": "sum mean min max argmax argmin",
         "linear_algebra": "dot matmul norm",
+        "inference": "relu softmax linear",
         "conversion": "cast to_array scalar",
     }
     result = {}
@@ -858,9 +1031,39 @@ def _contracts() -> dict[str, TensorFunctionContract]:
                 else ("data_or_shape",)
             )
             result[f"tensor.{name}"] = TensorFunctionContract(
-                f"tensor.{name}", inputs, "Tensor", policy
+                f"tensor.{name}",
+                inputs,
+                "Tensor",
+                policy,
+                argument_contract=_argument_contract(name),
+                return_contract={"kind": "tensor", "shape": "inferred", "dtype": "inferred"},
+                backend_operation=name,
+                lowering_policy=("primitive_or_native" if name in {"relu", "softmax", "linear"} else "native"),
             )
     return result
+
+
+def _argument_contract(name: str) -> tuple[dict[str, Any], ...]:
+    if name == "create":
+        return (
+            {"name": "values", "kind": "nested_numeric", "required": True},
+            {"name": "dtype", "kind": "dtype", "required": False},
+            {"name": "device", "kind": "string", "required": False},
+        )
+    if name == "softmax":
+        return (
+            {"name": "input", "kind": "tensor", "required": True},
+            {"name": "axis", "kind": "int", "required": False, "default": -1},
+        )
+    if name == "linear":
+        return (
+            {"name": "input", "kind": "tensor", "required": True},
+            {"name": "weight", "kind": "tensor", "required": True},
+            {"name": "bias", "kind": "tensor", "required": False},
+        )
+    if name == "relu":
+        return ({"name": "input", "kind": "tensor", "required": True},)
+    return ()
 
 
 def create_tensor_runtime() -> TensorRuntime:

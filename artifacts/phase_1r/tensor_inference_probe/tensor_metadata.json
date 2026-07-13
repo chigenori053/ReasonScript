@@ -1,0 +1,151 @@
+{
+  "data": [
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 2,
+      "shape": [
+        1,
+        3
+      ],
+      "storage_ref": "runtime://tensor/tensor_0001",
+      "tensor_id": "tensor_0001"
+    },
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 2,
+      "shape": [
+        3,
+        2
+      ],
+      "storage_ref": "runtime://tensor/tensor_0002",
+      "tensor_id": "tensor_0002"
+    },
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 1,
+      "shape": [
+        2
+      ],
+      "storage_ref": "runtime://tensor/tensor_0003",
+      "tensor_id": "tensor_0003"
+    },
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 2,
+      "shape": [
+        1,
+        2
+      ],
+      "storage_ref": "runtime://tensor/tensor_0004",
+      "tensor_id": "tensor_0004"
+    },
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 2,
+      "shape": [
+        1,
+        2
+      ],
+      "storage_ref": "runtime://tensor/tensor_0005",
+      "tensor_id": "tensor_0005"
+    },
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 2,
+      "shape": [
+        1,
+        2
+      ],
+      "storage_ref": "runtime://tensor/tensor_0006",
+      "tensor_id": "tensor_0006"
+    },
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 2,
+      "shape": [
+        1,
+        1
+      ],
+      "storage_ref": "runtime://tensor/tensor_0007",
+      "tensor_id": "tensor_0007"
+    },
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 2,
+      "shape": [
+        1,
+        2
+      ],
+      "storage_ref": "runtime://tensor/tensor_0008",
+      "tensor_id": "tensor_0008"
+    },
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 2,
+      "shape": [
+        1,
+        2
+      ],
+      "storage_ref": "runtime://tensor/tensor_0009",
+      "tensor_id": "tensor_0009"
+    },
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 2,
+      "shape": [
+        1,
+        1
+      ],
+      "storage_ref": "runtime://tensor/tensor_0010",
+      "tensor_id": "tensor_0010"
+    },
+    {
+      "backend": "python",
+      "device": "cpu",
+      "dtype": "f64",
+      "lifecycle": "available",
+      "rank": 2,
+      "shape": [
+        1,
+        2
+      ],
+      "storage_ref": "runtime://tensor/tensor_0011",
+      "tensor_id": "tensor_0011"
+    }
+  ],
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-tensor-metadata/0.1",
+  "version": "1.0"
+}

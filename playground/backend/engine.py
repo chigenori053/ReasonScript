@@ -115,6 +115,10 @@ def build_execution_plan(ir: dict[str, Any]) -> dict[str, Any]:
         "evidence_refs": [],
         "planner_version": "playground-planner/0.2",
     }
+    tensor_plan = ir.get("metadata", {}).get("tensor_execution_plan")
+    if isinstance(tensor_plan, dict):
+        result["tensor_operations"] = list(tensor_plan.get("operations", []))
+        result["tensor_backend"] = tensor_plan.get("backend", "abstract")
     if selected_or_pattern is not None:
         result.update(selected_or_pattern)
     if pattern_identity is not None:

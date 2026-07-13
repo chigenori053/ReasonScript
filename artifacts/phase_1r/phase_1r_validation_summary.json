@@ -1,0 +1,17 @@
+{
+  "artifact_validation_passed": true,
+  "determinism_gate": "passed",
+  "diagnostics": [],
+  "execution_plan_gate": "passed",
+  "ir_gate": "passed",
+  "loop_gate": "passed",
+  "namespace_gate": "passed",
+  "numerical_gate": "passed",
+  "project_validation_gate": "passed",
+  "regression_gate": "passed",
+  "runtime_gate": "passed",
+  "safety_gate": "passed",
+  "schema_version": "reasonscript-phase-1r-validation/0.1",
+  "semantic_gate": "passed",
+  "status": "validated"
+}

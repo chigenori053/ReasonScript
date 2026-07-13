@@ -90,6 +90,11 @@ from .pattern_evaluator import PatternEvaluator, RuntimeEnumValue, RuntimeStruct
 from .semantic_patterns import StructPatternSemanticError, resolve_struct_pattern
 from .validation import SurfaceValidationError, validate
 from .namespace import resolve_program
+from frontend.tensor.integration import (
+    public_registry as tensor_public_registry,
+    tensor_execution_plan,
+    tensor_operations,
+)
 
 
 def project_program(program: ProgramNode) -> tuple[semantic.ModuleNode, ...]:
@@ -116,6 +121,7 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
     imports: list[str] = []
     surface_goals = [node for node in module.body if isinstance(node, GoalNode)]
     goal_target = surface_goals[0].name if surface_goals else f"{module.name}Result"
+    module_tensor_operations = tensor_operations(module)
     declarations.append(
         semantic.GoalNode(
             f"{namespace}-goal",
@@ -308,6 +314,27 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                 f"{namespace}-runtime-operations",
                 "runtime_operations",
                 _runtime_operations(module),
+            ),
+            *(
+                (
+                    semantic.MetadataNode(
+                        f"{namespace}-tensor-registry",
+                        "tensor_function_registry",
+                        list(tensor_public_registry()),
+                    ),
+                    semantic.MetadataNode(
+                        f"{namespace}-tensor-operations",
+                        "tensor_operations",
+                        module_tensor_operations,
+                    ),
+                    semantic.MetadataNode(
+                        f"{namespace}-tensor-execution-plan",
+                        "tensor_execution_plan",
+                        tensor_execution_plan(module_tensor_operations),
+                    ),
+                )
+                if module_tensor_operations
+                else ()
             ),
             semantic.MetadataNode(
                 f"{namespace}-reasoning-types",

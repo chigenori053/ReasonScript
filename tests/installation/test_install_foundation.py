@@ -19,7 +19,8 @@ def test_doctor_has_all_required_checks():
 def test_install_validation_contract():
     payload = install_validation_payload()
     assert payload["status"] == "pass"
-    assert len(payload["checks"]) == 26
+    # v1.1 includes 20 base, 10 ML-evaluation, and 6 project-validation checks.
+    assert len(payload["checks"]) == 36
     assert [item["id"] for item in payload["checks"][-6:]] == [f"IF-PV-{i:03d}" for i in range(1, 7)]
     assert payload["schema_version"] == "reasonscript-install-validation/1.1"
 
