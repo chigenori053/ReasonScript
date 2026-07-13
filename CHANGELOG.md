@@ -1,10 +1,42 @@
 # Changelog
 
+## ReasonScript KDA-2 Component Validation v1.0
+
+### Status
+
+PROPOSED (specification); executed with result VALIDATED — see Execution Results below.
+
+### Added
+
+- Added the formal KDA-2 component-validation contract, Specification ID `reasonscript-kda2-component-validation/1.0`.
+- Added installed-only Runtime provenance validation (KDA2-V1).
+- Added Dataset, Feature, Rule, Prediction, Evidence, Evaluation, Knowledge, Visualization, Artifact, and Determinism validation phases (KDA2-V2 through KDA2-V13).
+- Added `KDA2-CV-001` through `KDA2-CV-050`.
+- Added explicit repository-wide CI failure classification (`kda2_related` / `unrelated` / `uncertain`).
+- Added formal component-validation result and report contracts.
+
+### Execution Results
+
+- Acceptance criteria: 50 passed / 0 failed
+- KDA-2 diagnostics: 0
+- Determinism (full pipeline rerun, 416 files compared): PASS, 0 digest mismatches
+- Installed-only import provenance: CONFIRMED, no `.deps` or core-repository source used
+- KDA-1 regression, `reason doctor --json`, `reason install-validate --json`: PASS
+- Repository-wide `./reason ci --json`: FAIL — `CI-008`, classified `unrelated`, does not block KDA-2 component status
+- Final KDA-2 Component Status: **VALIDATED**
+
+### Compatibility
+
+- KDA-2 implementation semantics are unchanged.
+- Titanic Rule Set v1.0 is unchanged.
+- Data Foundation, VSL v0.1, and MLV v0.2 semantics are unchanged.
+- Repository-wide certification remains separate from KDA-2 component validation.
+
 ## ReasonScript KDA-2 Titanic Rule-based Classification v1.0 Specification
 
 ### Status
 
-IMPLEMENTED — external consumer implementation exists; formal component validation remains pending.
+VALIDATED (KDA-2 Component) — external consumer implementation exists; formal component validation executed and passed via `reasonscript-kda2-component-validation/1.0`.
 
 ### Added
 

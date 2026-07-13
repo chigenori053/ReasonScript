@@ -1,6 +1,6 @@
 # ReasonScript KDA-2 Titanic Rule-based Classification v1.0
 
-Status: IMPLEMENTED
+Status: VALIDATED (KDA-2 Component; see §24.1. Repository-wide certification is recorded separately and remains FAIL — CI-008, unrelated.)
 
 Specification ID: `reasonscript-kda2-titanic-rule-classification/1.0`
 
@@ -10,7 +10,7 @@ Specification ID: `reasonscript-kda2-titanic-rule-classification/1.0`
 - Specification ID: `reasonscript-kda2-titanic-rule-classification/1.0`
 - Validation Series: ReasonScript Kaggle Data Analysis Validation
 - Milestone: KDA-2
-- Status: IMPLEMENTED
+- Status: VALIDATED (KDA-2 Component; see §24.1)
 - Specification Type: Initial specification
 - Implementation Location: `/Users/chigenori/ReasonScriptProjects/kaggle-titanic-validation`
 - Core Repository: `/Users/chigenori/development/ReasonScript`
@@ -950,6 +950,20 @@ Installed Distribution:    CONFIRMED (import provenance verified; see §18.2)
 Repository-wide CI:        FAIL — CI-008
 Formal KDA-2 Status:       IMPLEMENTED
 ```
+
+### 24.1 更新: Component Validation実行後の状態
+
+`reasonscript-kda2-component-validation/1.0`(`docs/specifications/ReasonScript_KDA2_Component_Validation_v1.0.md`)に定義された`scripts/validate_kda2_component.py`を実行した結果、KDA2-CV-001〜050の全50件がPASSし、KDA-2 Diagnosticsは0件であった。
+
+```text
+Formal Component Validation:  EXECUTED
+Acceptance Criteria:          50 passed / 0 failed
+KDA-2 Diagnostics:            0
+Repository-wide CI:           FAIL — CI-008 (classified `unrelated`; does not block KDA-2 component status)
+Formal KDA-2 Component Status: VALIDATED
+```
+
+Repository-wide CI(`CI-008`)は本仕様の§21.2で記録した通り引き続きFAILであり、これはRepository-wide release certificationとは別のStatusとして記録される。KDA-2 ComponentのStatusは、`reasonscript-kda2-component-validation/1.0`の全Acceptance Criteriaを満たしたことにより`IMPLEMENTED`から`VALIDATED`へ移行した。
 
 ## 25. Completion Report更新要件
 
