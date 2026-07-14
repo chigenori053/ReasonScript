@@ -1,7 +1,7 @@
 {
   "schema_version": "reasonscript-release-manifest/1.0",
-  "reason_version": "0.5.0",
-  "runtime_version": "0.5.0",
+  "reason_version": "0.5.1",
+  "runtime_version": "0.5.1",
   "language_version": "0.7",
   "minimum_python": "3.11",
   "supported_platforms": [
@@ -21,8 +21,9 @@
     {"id": "examples", "source": "examples", "required": true},
     {"id": "metadata", "source": "metadata", "required": true},
     {"id": "playground-backend", "source": "playground/backend", "required": true},
-    {"id": "conformance-core", "source": "conformance", "required": true}
+    {"id": "conformance-core", "source": "conformance", "required": true},
+    {"id": "canonical-fixtures", "source": "canonical_fixtures", "required": true}
   ],
-  "cli_version": "0.5.0",
+  "cli_version": "0.5.1",
   "runtime_compatibility": ">=0.5.0,<0.6.0"
 }

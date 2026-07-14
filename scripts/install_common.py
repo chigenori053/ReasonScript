@@ -8,6 +8,7 @@ import json
 import os
 import platform
 import shutil
+import subprocess
 import sys
 import tempfile
 import uuid
@@ -22,6 +23,7 @@ from toolchain.distribution_validation import (
     COMPONENTS, DISTRIBUTION_TARGETS, DistributionError, inventory,
     validate_source_targets, validate_staged_distribution,
 )
+from toolchain.install_update.platform import current_adapter
 
 VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
@@ -58,6 +60,16 @@ def install(prefix: Path, json_output: bool) -> int:
         for name in ("reason", "VERSION", "pyproject.toml"):
             if (ROOT / name).is_file():
                 shutil.copy2(ROOT / name, temp / name)
+        runtime_launcher = temp / "bin/reason-runtime"
+        runtime_launcher.parent.mkdir(parents=True)
+        runtime_launcher.write_text(
+            "#!/usr/bin/env python3\n"
+            "import os, pathlib, sys\n"
+            "target = pathlib.Path(__file__).resolve().parent.parent / 'reason'\n"
+            "os.execv(sys.executable, [sys.executable, str(target), *sys.argv[1:]])\n",
+            encoding="utf-8",
+        )
+        runtime_launcher.chmod(0o755)
         validate_staged_distribution(temp, ROOT)
         file_inventory = inventory(temp)
         if final.exists():
@@ -72,14 +84,33 @@ def install(prefix: Path, json_output: bool) -> int:
             shutil.copytree(final, current)
         bin_dir = prefix / "bin"
         bin_dir.mkdir(exist_ok=True)
+        native_source = ROOT / "InstallFoundationUpdater/src/main.rs"
+        native_updater = bin_dir / ("reason-updater.exe" if os.name == "nt" else "reason-updater")
+        rustc = shutil.which("rustc")
+        if rustc and native_source.is_file():
+            compiled = subprocess.run([rustc, "-O", str(native_source), "-o", str(native_updater)], text=True, capture_output=True)
+            if compiled.returncode:
+                raise RuntimeError(f"Native updater build failed: {compiled.stderr.strip()}")
+        launcher_py = bin_dir / "reason-launcher.py"
+        launcher_py.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, os, pathlib, sys\n"
+            "root = pathlib.Path(__file__).resolve().parent.parent\n"
+            "state = json.loads((root / 'metadata/current.json').read_text(encoding='utf-8'))\n"
+            "target = root / 'versions' / state['active_version'] / 'bin/reason-runtime'\n"
+            "os.environ['REASONSCRIPT_HOME'] = str(root)\n"
+            "os.execv(sys.executable, [sys.executable, str(target), *sys.argv[1:]])\n",
+            encoding="utf-8",
+        )
+        launcher_py.chmod(0o755)
         if os.name == "nt":
             wrapper = bin_dir / "reason.cmd"
-            wrapper.write_text(f'@echo off\r\n"{sys.executable}" "{current / "reason"}" %*\r\n', encoding="utf-8")
+            wrapper.write_text(f'@echo off\r\n"{sys.executable}" "{launcher_py}" %*\r\n', encoding="utf-8")
         else:
             wrapper = bin_dir / "reason"
-            wrapper.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{current / "reason"}" "$@"\n', encoding="utf-8")
+            wrapper.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{launcher_py}" "$@"\n', encoding="utf-8")
             wrapper.chmod(0o755)
-        for directory in ("artifacts/install", "cache", "config"):
+        for directory in ("artifacts/install", "cache", "config", "metadata", "staging", "backup"):
             (prefix / directory).mkdir(parents=True, exist_ok=True)
         manifest = {"schema_version": "reasonscript-install-manifest/1.0", "install_id": f"rs-install-{uuid.uuid4().hex}",
                     "reason_version": VERSION, "runtime_version": VERSION, "install_foundation_version": "1.0",
@@ -92,6 +123,28 @@ def install(prefix: Path, json_output: bool) -> int:
                     "validation": {"status": "pass"},
                     "distribution_validation": {"status": "partial", "import_closure": "pass", "repository_independence": "pass", "installed_cli_smoke": "pending"}}
         (prefix / "install_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        adapter = current_adapter()
+        now = manifest["installed_at"]
+        adapter.atomic_json_write(prefix / "metadata/current.json", {
+            "schema_version": "reasonscript-current-installation/1.0", "active_version": VERSION,
+            "previous_version": None, "activation_status": "active",
+        })
+        adapter.atomic_json_write(prefix / "metadata/install_state.json", {
+            "schema_version": "reasonscript-install-state/1.1", "installed_version": VERSION,
+            "runtime_version": VERSION, "install_foundation_version": "1.1",
+            "platform": adapter.name, "architecture": adapter.architecture, "install_root": str(prefix),
+            "installed_at": now, "updated_at": now, "update_count": 0, "status": "healthy",
+        })
+        adapter.atomic_json_write(prefix / "metadata/installed_files.json", {
+            "schema_version": "reasonscript-installed-files/1.1", "version": VERSION,
+            "files": [{"path": f"versions/{VERSION}/{item['path']}", "sha256": item["sha256"],
+                       "managed": True, "component": item["path"].split("/", 1)[0]}
+                      for item in file_inventory],
+        })
+        adapter.atomic_json_write(prefix / "metadata/update_history.json", {
+            "schema_version": "reasonscript-update-history/1.0", "updates": [],
+        })
+        shutil.copy2(prefix / "install_manifest.json", prefix / "metadata/install_manifest.json")
         result = {"schema_version": "reasonscript-install-report/1.0", "status": "success", "reason_version": VERSION,
                   "install_method": "source", "install_root": str(prefix), "cli_path": str(wrapper),
                   "validation": {"status": "pass"}, "diagnostics": []}
@@ -120,7 +173,17 @@ def main() -> int:
     parser.add_argument("--non-interactive", action="store_true")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--modify-path", action="store_true", help="Reserved; profile files are never changed implicitly.")
+    parser.add_argument("--update", action="store_true")
+    parser.add_argument("--package", type=Path)
+    parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
+    if args.update:
+        if args.package is None:
+            return report_error("INS-UPD-017", "--package is required with --update.", args.json, 2)
+        from toolchain.install_update.core import UpdateEngine
+        payload, exit_code = UpdateEngine(args.prefix).update(args.package, args.force)
+        print(json.dumps(payload, indent=2, sort_keys=True) if args.json else f"ReasonScript update: {payload['status']}")
+        return exit_code
     return install(args.prefix, args.json)
 
 

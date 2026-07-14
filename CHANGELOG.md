@@ -1,5 +1,29 @@
 # Changelog
 
+## ReasonScript Install Foundation v1.1 - 2026-07-14
+
+### Added
+
+- Added the cross-platform `reason update` CLI for package checks, local package updates, installed-state validation, and rollback.
+- Added common install state, current-version, managed-file inventory, update-history, package checksum, and update-report contracts.
+- Added deterministic version planning, SHA-256 verification, archive traversal protection, staging, version-directory installation, atomic activation, preservation, and rollback.
+- Added macOS, Linux, and Windows Platform Adapter contracts plus a dependency-free native Rust activation helper.
+- Added deterministic local update-package generation and bundled Phase 1R validation fixtures.
+
+### Changed
+
+- Updated ReasonScript from 0.5.0 to 0.5.1 so the update foundation ships as a distinct Release Unit.
+- Updated clean installation to create v1.1 metadata while retaining the v1.0 root manifest and `current` compatibility entry.
+- Updated the fixed launcher to resolve `metadata/current.json` and the active version's `bin/reason-runtime`.
+
+### Validation
+
+- Native updater unit test: PASS.
+- Install/update regression tests: PASS.
+- Installed `0.5.0 -> 0.5.1`, post-install validation, and explicit rollback lifecycle on macOS arm64: PASS.
+- `reason ci --json`: PASS, 839 tests.
+- Linux and Windows adapters are implemented and contract-tested; device validation remains pending.
+
 ## ReasonScript KDA-2 Component Validation v1.0
 
 ### Status

@@ -23,7 +23,8 @@ def main() -> int:
     if Path(manifest.get("install_root", "")).resolve() != root:
         print("IF-017: Install manifest root mismatch.")
         return 3
-    targets = [root / "versions", root / "current", root / "bin", manifest_path]
+    targets = [root / "versions", root / "current", root / "bin", root / "metadata",
+               root / "staging", root / "backup", manifest_path]
     if args.purge:
         targets.extend([root / "cache", root / "config", root / "artifacts"])
     result = {"status": "success", "dry_run": args.dry_run, "paths": [str(p) for p in targets]}

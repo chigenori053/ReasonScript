@@ -15,7 +15,7 @@ from typing import Any
 
 DISTRIBUTION_TARGETS = (
     "toolchain", "scripts", "schemas", "frontend", "runtime", "examples",
-    "standard_library", "metadata", "playground", "conformance",
+    "standard_library", "metadata", "playground", "conformance", "canonical_fixtures",
 )
 
 COMPONENTS = (
@@ -30,6 +30,7 @@ COMPONENTS = (
     ("metadata", "metadata"),
     ("playground-backend", "playground/backend"),
     ("conformance-core", "conformance"),
+    ("canonical-fixtures", "canonical_fixtures"),
     ("ml-evaluation-visualization-v0.2", "runtime/visualization/evaluation"),
 )
 
@@ -133,12 +134,11 @@ def import_from_distribution(root: Path, name: str):
 
 def inventory(root: Path) -> list[dict[str, Any]]:
     files: list[dict[str, Any]] = []
-    paths = {root / p for p in INTEGRITY_ENTRY_POINTS}
-    paths.update((root / "schemas").glob("*.json"))
-    paths.update(path for path in (root / "runtime/visualization/evaluation").rglob("*") if path.is_file() and path.suffix != ".pyc")
+    for relative in INTEGRITY_ENTRY_POINTS:
+        if not (root / relative).is_file():
+            raise DistributionError("IF-DC-006", "Required component integrity record source is missing.", "integrity", relative)
+    paths = {path for path in root.rglob("*") if path.is_file() and path.suffix != ".pyc" and "__pycache__" not in path.parts}
     for path in sorted(paths):
-        if not path.is_file():
-            raise DistributionError("IF-DC-006", "Required component integrity record source is missing.", "integrity", str(path.relative_to(root)))
         files.append({"path": path.relative_to(root).as_posix(), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "size_bytes": path.stat().st_size})
     return files
 

@@ -19,6 +19,8 @@ from toolchain.project_validation import validate_project
 def run_phase1r_validation(root: Path, *, regression_passed: bool = False) -> dict[str, Any]:
     root = root.resolve()
     fixtures = root / "tests" / "fixtures"
+    if not fixtures.is_dir():
+        fixtures = root / "canonical_fixtures" / "phase1r"
     output = root / "artifacts" / "phase_1r"
     output.mkdir(parents=True, exist_ok=True)
 

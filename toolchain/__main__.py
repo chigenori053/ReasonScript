@@ -36,6 +36,14 @@ def main() -> int:
         from toolchain.install_foundation import install_validate_command
         return install_validate_command(args[1:])
 
+    if command == "update":
+        from toolchain.install_update.cli import run
+        return run(args[1:])
+
+    if command == "install-foundation-report":
+        from toolchain.install_update.report import run
+        return run(args[1:], Path.cwd())
+
     if command == "version-validate":
         from toolchain.version_validation import command as version_validate_command
         return version_validate_command(args[1:], Path.cwd())
@@ -124,6 +132,8 @@ def _usage() -> None:
     print("  doctor        Diagnose the installed environment")
     print("  install-info  Show the installation manifest")
     print("  install-validate Validate the installation contract")
+    print("  update         Check, install, validate, or roll back an update package")
+    print("  install-foundation-report Generate Install Foundation validation summary")
     print("  version-validate Validate release version metadata")
     print("  build         Compile source files")
     print("  run           Execute the compiled program")

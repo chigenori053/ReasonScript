@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_version_contract():
     assert version_payload()["schema_version"] == "reasonscript-version/1.0"
-    assert version_payload()["install_foundation_version"] == "1.0"
+    assert version_payload()["install_foundation_version"] == "1.1"
 
 def test_doctor_has_all_required_checks():
     payload = doctor_payload()
@@ -33,6 +33,9 @@ def test_atomic_install_and_manifest(tmp_path):
     assert {item["id"] for item in manifest["components"]} >= {"standard-library", "playground-backend"}
     assert (home / "current" / "playground" / "backend" / "main.py").is_file()
     assert (home / "current" / "reason").is_file()
+    state = json.loads((home / "metadata/install_state.json").read_text())
+    assert state["schema_version"] == "reasonscript-install-state/1.1"
+    assert state["install_foundation_version"] == "1.1"
     dry = subprocess.run([sys.executable, str(ROOT / "scripts/uninstall.py"), "--prefix", str(home), "--dry-run", "--json"], text=True, capture_output=True)
     assert dry.returncode == 0
     assert (home / "current" / "reason").is_file()

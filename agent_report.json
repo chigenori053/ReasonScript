@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "ReasonScript ML Evaluation Visualization Standard Library v0.2",
-  "tests_passed": 808,
+  "task": "ReasonScript Install Foundation v1.1",
+  "tests_passed": 839,
   "version": "1.0"
 }

@@ -15,7 +15,7 @@ from typing import Any
 from toolchain.distribution_validation import (COMPONENTS, EVALUATION_IMPORTS, EVALUATION_PUBLIC_API,
     EVALUATION_SCHEMAS, REQUIRED_IMPORTS, validate_staged_distribution)
 
-FOUNDATION_VERSION = "1.0"
+FOUNDATION_VERSION = "1.1"
 SCHEMA_PREFIX = "reasonscript-"
 
 
@@ -147,6 +147,17 @@ def install_info_command(args: list[str]) -> int:
     path = manifest_path()
     if path.is_file():
         payload = json.loads(path.read_text(encoding="utf-8"))
+        current_path = Path(payload.get("install_root", default_home())) / "metadata/current.json"
+        try:
+            current = json.loads(current_path.read_text(encoding="utf-8"))
+            active = current.get("active_version")
+            if isinstance(active, str):
+                payload["reason_version"] = active
+                payload["runtime_version"] = active
+                payload["install_foundation_version"] = FOUNDATION_VERSION
+                payload["active_installation"] = current
+        except (OSError, json.JSONDecodeError):
+            pass
     else:
         payload = {"schema_version": "reasonscript-install-manifest/1.0", "status": "development",
                    "reason_version": reason_version(), "install_root": str(repository_root()), "install_method": "source-tree",
