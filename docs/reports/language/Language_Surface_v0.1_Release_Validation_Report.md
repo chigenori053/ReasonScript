@@ -60,7 +60,7 @@ criterion depends on that adapter.
 
 ## 4. Release Artifacts
 
-- `docs/ReasonScript_Language_Surface_v0.1_Release_Specification.md`
+- `docs/specifications/ReasonScript_Language_Surface_v0.1_Release_Specification.md`
 - `release/language-surface-v0.1/manifest.json`
 - `release/language-surface-v0.1/run_release_validation.py`
 - `release/language-surface-v0.1/reports/release_validation_results.json`
@@ -75,4 +75,3 @@ ExecutionPlan, or Calculation Semantics interface versions.
 The repository-level `VERSION` remains the Platform release version
 `0.1.0-alpha`; Language Surface uses its independent interface version
 `reasonscript-language-surface/0.1`.
-

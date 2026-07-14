@@ -1,0 +1,141 @@
+{
+  "data": {
+    "diagnostics": [
+      {
+        "category": "Runtime",
+        "code": "TSF-005",
+        "fix": {},
+        "id": "diag-00000001",
+        "location": {
+          "column": null,
+          "file": "tests/fixtures/invalid_tensor_probe.rsn",
+          "length": null,
+          "line": null
+        },
+        "message": "axis is out of range",
+        "metadata": {},
+        "related_locations": [],
+        "severity": "ERROR"
+      },
+      {
+        "category": "Runtime",
+        "code": "TSF-007",
+        "fix": {},
+        "id": "diag-00000002",
+        "location": {
+          "column": null,
+          "file": "tests/fixtures/invalid_tensor_probe.rsn",
+          "length": null,
+          "line": null
+        },
+        "message": "reshape element count mismatch",
+        "metadata": {},
+        "related_locations": [],
+        "severity": "ERROR"
+      },
+      {
+        "category": "Runtime",
+        "code": "TSF-008",
+        "fix": {},
+        "id": "diag-00000003",
+        "location": {
+          "column": null,
+          "file": "tests/fixtures/invalid_tensor_probe.rsn",
+          "length": null,
+          "line": null
+        },
+        "message": "tensor.matmul dimension mismatch",
+        "metadata": {},
+        "related_locations": [],
+        "severity": "ERROR"
+      },
+      {
+        "category": "Runtime",
+        "code": "TSF-009",
+        "fix": {},
+        "id": "diag-00000004",
+        "location": {
+          "column": null,
+          "file": "tests/fixtures/invalid_tensor_probe.rsn",
+          "length": null,
+          "line": null
+        },
+        "message": "Empty tensor is not allowed",
+        "metadata": {},
+        "related_locations": [],
+        "severity": "ERROR"
+      },
+      {
+        "category": "Runtime",
+        "code": "TSF-010",
+        "fix": {},
+        "id": "diag-00000005",
+        "location": {
+          "column": null,
+          "file": "tests/fixtures/invalid_tensor_probe.rsn",
+          "length": null,
+          "line": null
+        },
+        "message": "Tensor contains NaN",
+        "metadata": {},
+        "related_locations": [],
+        "severity": "ERROR"
+      },
+      {
+        "category": "Runtime",
+        "code": "TSF-011",
+        "fix": {},
+        "id": "diag-00000006",
+        "location": {
+          "column": null,
+          "file": "tests/fixtures/invalid_tensor_probe.rsn",
+          "length": null,
+          "line": null
+        },
+        "message": "Tensor contains Infinity",
+        "metadata": {},
+        "related_locations": [],
+        "severity": "ERROR"
+      },
+      {
+        "category": "Runtime",
+        "code": "TSF-011",
+        "fix": {},
+        "id": "diag-00000007",
+        "location": {
+          "column": null,
+          "file": "tests/fixtures/invalid_tensor_probe.rsn",
+          "length": null,
+          "line": null
+        },
+        "message": "Tensor contains Infinity",
+        "metadata": {},
+        "related_locations": [],
+        "severity": "ERROR"
+      },
+      {
+        "category": "Runtime",
+        "code": "TSF-012",
+        "fix": {},
+        "id": "diag-00000008",
+        "location": {
+          "column": null,
+          "file": "tests/fixtures/invalid_tensor_probe.rsn",
+          "length": null,
+          "line": null
+        },
+        "message": "Tensor backend execution failed",
+        "metadata": {},
+        "related_locations": [],
+        "severity": "ERROR"
+      }
+    ],
+    "schema": "reasonscript-diagnostics/1.0",
+    "version": "1.0"
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-diagnostics/1.0",
+  "version": "1.0"
+}

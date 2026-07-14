@@ -77,6 +77,8 @@ def run_reasoning_runtime(source_or_artifacts: str | Path | dict[str, Any]) -> d
             if isinstance(report.get("summary"), dict) and not report["summary"].get("passed", False):
                 diagnostics.append(_diag("RRP-EVAL-003", "Required evaluation checks failed", severity="warning", location="evaluation_report.summary"))
 
+    diagnostics = _sort_diagnostics(diagnostics)
+    pipeline_status["diagnostics_count"] = len(diagnostics)
     return _canonicalize({
         "schema_version": CONTRACT_SCHEMA,
         "run_id": f"run_{_slug(source_ref.get('source_id', 'runtime'))}",
@@ -84,7 +86,7 @@ def run_reasoning_runtime(source_or_artifacts: str | Path | dict[str, Any]) -> d
         "pipeline_status": pipeline_status,
         "reasoning_model": model,
         "evaluation_report": report,
-        "diagnostics": _sort_diagnostics(diagnostics),
+        "diagnostics": diagnostics,
     })
 
 
@@ -224,8 +226,9 @@ def _pipeline_status(bundle: dict[str, Any], diagnostics: list[dict[str, Any]]) 
 def _pipeline_diagnostics(bundle: dict[str, Any]) -> list[dict[str, Any]]:
     payload = bundle.get("artifacts") if isinstance(bundle.get("artifacts"), dict) else bundle
     diagnostics: list[dict[str, Any]] = []
+    pipeline_failed = bundle.get("ok") is False
     if bundle.get("ok") is False:
-        diagnostics.append(_diag("RRP-PIPE-001", "Parser or pipeline execution failed", severity="fatal", location="source"))
+        diagnostics.append(_diag("RRP-PIPE-001", _pipeline_failure_message(bundle), severity="fatal", location="source"))
     for key, code, message, severity in (
         ("reason_ir", "RRP-PIPE-002", "Reason IR unavailable", "error"),
         ("execution_plan", "RRP-PIPE-003", "ExecutionPlan unavailable", "error"),
@@ -233,11 +236,71 @@ def _pipeline_diagnostics(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         ("knowledge", "RRP-PIPE-005", "Knowledge unavailable", "warning"),
     ):
         if not isinstance(payload.get(key), dict):
+            if pipeline_failed:
+                message = _artifact_unavailable_cause(key, message)
             diagnostics.append(_diag(code, message, severity=severity, location=key))
     upstream = bundle.get("diagnostics") if isinstance(bundle.get("diagnostics"), list) else []
     if any(str(item.get("severity", "")).lower() == "fatal" for item in upstream if isinstance(item, dict)):
         diagnostics.append(_diag("RRP-PIPE-006", "Upstream diagnostics contain fatal error", severity="fatal", location="diagnostics"))
     return diagnostics
+
+
+def _pipeline_failure_message(bundle: dict[str, Any]) -> str:
+    root = _root_diagnostic_summary(bundle)
+    if root:
+        return f"Parser or pipeline execution failed: {root}"
+    return "Parser or pipeline execution failed; no detailed parser diagnostic was available."
+
+
+def _root_diagnostic_summary(bundle: dict[str, Any]) -> str | None:
+    upstream = bundle.get("diagnostics") if isinstance(bundle.get("diagnostics"), list) else []
+    for item in upstream:
+        if not isinstance(item, dict):
+            continue
+        severity = str(item.get("severity") or "").lower()
+        if severity not in {"fatal", "error"}:
+            continue
+        return _diagnostic_summary(item)
+    for item in upstream:
+        if isinstance(item, dict):
+            return _diagnostic_summary(item)
+    validation = bundle.get("artifacts", {}).get("validation") if isinstance(bundle.get("artifacts"), dict) else None
+    if isinstance(validation, dict):
+        for item in _as_list(validation.get("errors")):
+            if isinstance(item, dict):
+                return _diagnostic_summary(item)
+    return None
+
+
+def _diagnostic_summary(item: dict[str, Any]) -> str:
+    parts = []
+    code = item.get("code")
+    if code:
+        parts.append(str(code))
+    message = item.get("message")
+    if message:
+        parts.append(str(message))
+    location = item.get("stage") or item.get("phase") or item.get("location")
+    line = item.get("line")
+    column = item.get("column")
+    if location or line is not None or column is not None:
+        where = str(location or "source")
+        if line is not None:
+            where += f" line {line}"
+            if column is not None:
+                where += f", column {column}"
+        parts.append(f"at {where}")
+    return " - ".join(parts) if parts else "unknown diagnostic"
+
+
+def _artifact_unavailable_cause(key: str, base_message: str) -> str:
+    artifact = {
+        "reason_ir": "Reason IR",
+        "execution_plan": "ExecutionPlan",
+        "simulation": "Simulation",
+        "knowledge": "Knowledge",
+    }[key]
+    return f"{base_message} because parser/pipeline execution failed before {artifact} generation."
 
 
 def _input_units_and_relations(

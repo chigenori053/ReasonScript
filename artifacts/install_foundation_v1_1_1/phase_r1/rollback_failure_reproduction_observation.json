@@ -1,0 +1,76 @@
+{
+  "after_rollback": {
+    "active_version": "0.5.0",
+    "doctor_status": "passed",
+    "failed_version_directory_exists": true,
+    "fixed_launcher_version": "0.5.0",
+    "install_info_status": "passed",
+    "install_validate_status": "passed",
+    "previous_version": "0.5.1",
+    "required_components_present": true,
+    "user_data_preserved": true
+  },
+  "before_update": {
+    "active_version": "0.5.0",
+    "install_foundation_version": "1.0",
+    "installation_health": "pass",
+    "previous_version": null,
+    "runtime_version": "0.5.0",
+    "version_directories": [
+      "0.5.0"
+    ]
+  },
+  "current_behavior": {
+    "diagnostic_code": "INS-UPD-012",
+    "exit_code": 10,
+    "top_level_status": "failed"
+  },
+  "diagnostic": {
+    "attempted_version": "0.5.1",
+    "category": "installation_update",
+    "code": "INS-UPD-012",
+    "message": "Rollback failed: [Errno 2] No such file or directory: '<install-root>/versions/0.5.0/canonical_fixtures/phase1r'",
+    "message_classification": "rollback_failure",
+    "missing_path": "<install-root>/versions/0.5.0/canonical_fixtures/phase1r",
+    "phase": "rolling_back",
+    "recovery_hint": "Run the launcher from <install-root>/versions/0.5.0/reason directly.",
+    "restored_version": "0.5.0",
+    "severity": "fatal"
+  },
+  "environment": {
+    "network_used": false,
+    "operational_recovery_confirmed": true,
+    "temporary_install_root": true
+  },
+  "observation_order": [
+    "validation_started",
+    "post_install_validation_forced_failure",
+    "validation_started",
+    "phase1r_fixture_lookup"
+  ],
+  "rollback": {
+    "launcher_reported_version": "0.5.0",
+    "launcher_resolved": true,
+    "phase1r_fixture_exists": false,
+    "phase1r_fixture_lookup_attempted": true,
+    "phase1r_fixture_path": "<install-root>/versions/0.5.0/canonical_fixtures/phase1r",
+    "pointer_restored": true,
+    "restored_version": "0.5.0",
+    "started": true,
+    "validation_failed": true
+  },
+  "scenario_id": "rollback_legacy_0_5_0_from_0_5_1_failure",
+  "schema_version": "reasonscript-rollback-reproduction-observation/1.0",
+  "update": {
+    "activation_reached": true,
+    "failure_phase": "validating_active",
+    "failure_reason": "fixture_manifest_flag",
+    "from_version": "0.5.0",
+    "package_validation": "passed",
+    "plan_status": "update_available",
+    "post_install_validation_failed": true,
+    "staging_result": "passed",
+    "to_version": "0.5.1",
+    "version_installation_result": "passed"
+  }
+}

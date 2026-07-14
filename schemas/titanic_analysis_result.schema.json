@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/titanic-analysis-result/1.0",
+  "title": "ReasonScript Titanic Analysis Result 1.0",
+  "type": "object",
+  "required": ["schema_version", "status", "input_mode", "backend", "dataset", "table", "metrics", "knowledge", "evidence", "diagnostics"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-titanic-analysis-result/1.0"},
+    "status": {"enum": ["pass", "error"]},
+    "input_mode": {"const": "CSV_DIRECT"},
+    "backend": {
+      "type": "object",
+      "required": ["id", "version", "implementation"],
+      "properties": {"id": {"const": "python-reference"}, "version": {"type": "string"}, "implementation": {"type": "string"}},
+      "additionalProperties": false
+    },
+    "dataset": {
+      "type": "object",
+      "required": ["dataset_id", "source_kind", "source_path", "sha256", "size_bytes", "row_count", "column_count", "schema_id"]
+    },
+    "table": {
+      "type": "object",
+      "required": ["table_id", "row_count", "column_count", "schema_id", "columns", "source_ref", "provenance_ref", "artifact"]
+    },
+    "metrics": {"type": "object"},
+    "knowledge": {"type": "array"},
+    "evidence": {"type": "object"},
+    "diagnostics": {"type": "array"}
+  },
+  "additionalProperties": false
+}

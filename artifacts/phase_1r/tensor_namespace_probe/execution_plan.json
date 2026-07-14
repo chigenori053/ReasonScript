@@ -1,0 +1,36 @@
+{
+  "data": {
+    "backend": "abstract",
+    "deterministic": true,
+    "operations": [
+      {
+        "backend_operation": "create",
+        "dependencies": [],
+        "dtype": "f64",
+        "execution_order": 1,
+        "function": "tensor.create",
+        "lowered_operations": [
+          "tensor.create"
+        ],
+        "operation_id": "op_tensor_call_001",
+        "operation_type": "tensor_call",
+        "output_ref": "tensor_value_001",
+        "semantic_operation": "tensor.create",
+        "shape": [
+          2,
+          2
+        ],
+        "source_ref": {
+          "column": null,
+          "line": null
+        }
+      }
+    ],
+    "schema_version": "reasonscript-tensor-execution-plan/0.1"
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "execution-plan/0.5",
+  "version": "1.0"
+}

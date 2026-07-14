@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-install-state/1.1",
+  "type": "object",
+  "required": ["schema_version", "installed_version", "runtime_version", "install_foundation_version", "platform", "architecture", "install_root", "installed_at", "updated_at", "update_count", "status"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-install-state/1.1"},
+    "installed_version": {"type": "string"},
+    "runtime_version": {"type": "string"},
+    "install_foundation_version": {"const": "1.1"},
+    "platform": {"enum": ["macos", "linux", "windows"]},
+    "architecture": {"type": "string"},
+    "install_root": {"type": "string"},
+    "installed_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "update_count": {"type": "integer", "minimum": 0},
+    "status": {"enum": ["healthy", "degraded", "failed"]}
+  },
+  "additionalProperties": false
+}

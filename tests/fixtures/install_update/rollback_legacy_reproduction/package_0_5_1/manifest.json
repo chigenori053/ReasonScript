@@ -1,0 +1,19 @@
+{
+  "architecture": "arm64",
+  "components": [
+    {"name": "cli", "version": "0.5.1"},
+    {"name": "runtime-core", "version": "0.5.1"},
+    {"name": "toolchain", "version": "0.5.1"},
+    {"name": "schemas", "version": "0.5.1"},
+    {"name": "standard-library", "version": "0.5.1"}
+  ],
+  "install_foundation_version": "1.1",
+  "maximum_previous_version": null,
+  "minimum_previous_version": "0.5.0",
+  "package_type": "update_and_install",
+  "package_version": "0.5.1",
+  "platform": "macos",
+  "runtime_version": "0.5.1",
+  "schema_version": "reasonscript-install-manifest/1.1",
+  "test_hooks": {"force_post_install_validation_failure": true}
+}

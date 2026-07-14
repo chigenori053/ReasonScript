@@ -1,0 +1,13 @@
+{
+  "data": {
+    "backend": "abstract",
+    "deterministic": true,
+    "operations": [],
+    "schema_version": "reasonscript-tensor-execution-plan/0.1"
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "execution-plan/0.5",
+  "version": "1.0"
+}

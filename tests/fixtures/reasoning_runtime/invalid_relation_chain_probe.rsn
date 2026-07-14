@@ -1,0 +1,10 @@
+module InvalidRelationChainProbe {
+  object Dog
+  object Animal
+
+  relation Dog IsA Animal
+
+  calculation Answer {
+    result = true
+  }
+}

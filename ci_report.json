@@ -1,0 +1,135 @@
+{
+  "diagnostics": [],
+  "phases": [
+    {
+      "diagnostics": [],
+      "id": "checkout",
+      "metadata": {
+        "root": "/Users/chigenori/development/ReasonScript"
+      },
+      "status": "PASS"
+    },
+    {
+      "diagnostics": [],
+      "id": "environment_setup",
+      "metadata": {
+        "python_version": "3.14.0",
+        "version_validation": {
+          "canonical_version": "0.5.1",
+          "checks": [
+            {
+              "actual": "0.5.1",
+              "expected": "0.5.1",
+              "id": "VER-001",
+              "status": "pass"
+            },
+            {
+              "actual": "0.5.1",
+              "expected": "0.5.1",
+              "id": "VER-002",
+              "status": "pass"
+            },
+            {
+              "actual": "0.5.1",
+              "expected": "0.5.1",
+              "id": "VER-003",
+              "status": "pass"
+            },
+            {
+              "actual": "0.5.1",
+              "expected": "0.5.1",
+              "id": "VER-004",
+              "status": "pass"
+            },
+            {
+              "actual": "0.5.1",
+              "expected": "0.5.1",
+              "id": "VER-005",
+              "status": "pass"
+            },
+            {
+              "actual": ">=0.5.0,<0.6.0",
+              "expected": ">=0.5.0,<0.6.0",
+              "id": "VER-006",
+              "status": "pass"
+            }
+          ],
+          "schema_version": "reasonscript-version-validation/1.0",
+          "status": "pass",
+          "summary": {
+            "failed": 0,
+            "passed": 6
+          }
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "diagnostics": [],
+      "id": "workspace",
+      "metadata": {
+        "files": 2,
+        "schema": "reasonscript-workspace/1.0"
+      },
+      "status": "PASS"
+    },
+    {
+      "diagnostics": [],
+      "id": "diagnostics",
+      "metadata": {
+        "checked": 4
+      },
+      "status": "PASS"
+    },
+    {
+      "diagnostics": [],
+      "id": "artifacts",
+      "metadata": {
+        "checked": 5
+      },
+      "status": "PASS"
+    },
+    {
+      "diagnostics": [],
+      "id": "golden",
+      "metadata": {
+        "failed": 0,
+        "passed": 1,
+        "phase8_golden_validation": {
+          "scenarios": 6,
+          "status": "PASS",
+          "target": "reasonscript-phase8-golden-validation/1.0"
+        },
+        "schema": "reasonscript-golden-summary/1.0",
+        "skipped": 0,
+        "total": 1,
+        "version": "1.0"
+      },
+      "status": "PASS"
+    },
+    {
+      "diagnostics": [],
+      "id": "agent_protocol",
+      "status": "PASS"
+    },
+    {
+      "diagnostics": [],
+      "id": "compatibility",
+      "metadata": {
+        "targets": 14
+      },
+      "status": "PASS"
+    },
+    {
+      "diagnostics": [],
+      "id": "tests",
+      "metadata": {
+        "tests_passed": 873
+      },
+      "status": "PASS"
+    }
+  ],
+  "schema": "reasonscript-ci-report/1.0",
+  "status": "PASS",
+  "version": "1.0"
+}

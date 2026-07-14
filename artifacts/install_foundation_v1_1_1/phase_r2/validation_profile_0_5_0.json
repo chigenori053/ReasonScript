@@ -1,0 +1,399 @@
+{
+  "baseline": {
+    "cli_entry_point": {
+      "category": "baseline",
+      "command": null,
+      "command_available": true,
+      "components_available": true,
+      "declared": true,
+      "fixtures_available": true,
+      "id": "cli_entry_point",
+      "reasons": [],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "required",
+      "required_schemas": [],
+      "schemas_available": true,
+      "status": "available"
+    },
+    "doctor": {
+      "category": "baseline",
+      "command": "doctor",
+      "command_available": true,
+      "components_available": true,
+      "declared": true,
+      "fixtures_available": true,
+      "id": "doctor",
+      "reasons": [],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "required",
+      "required_schemas": [],
+      "schemas_available": true,
+      "status": "available"
+    },
+    "install_info": {
+      "category": "baseline",
+      "command": "install-info",
+      "command_available": true,
+      "components_available": true,
+      "declared": true,
+      "fixtures_available": true,
+      "id": "install_info",
+      "reasons": [],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "required",
+      "required_schemas": [],
+      "schemas_available": true,
+      "status": "available"
+    },
+    "install_validate": {
+      "category": "baseline",
+      "command": "install-validate",
+      "command_available": true,
+      "components_available": true,
+      "declared": true,
+      "fixtures_available": true,
+      "id": "install_validate",
+      "reasons": [],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "required",
+      "required_schemas": [],
+      "schemas_available": true,
+      "status": "available"
+    },
+    "parser_import": {
+      "category": "baseline",
+      "command": null,
+      "command_available": false,
+      "components_available": false,
+      "declared": false,
+      "fixtures_available": false,
+      "id": "parser_import",
+      "reasons": [
+        "capability_not_declared"
+      ],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "optional",
+      "required_schemas": [],
+      "schemas_available": false,
+      "status": "not_declared"
+    },
+    "runtime_import": {
+      "category": "baseline",
+      "command": null,
+      "command_available": true,
+      "components_available": true,
+      "declared": true,
+      "fixtures_available": true,
+      "id": "runtime_import",
+      "reasons": [],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "required",
+      "required_schemas": [],
+      "schemas_available": true,
+      "status": "available"
+    },
+    "schema_inventory": {
+      "category": "baseline",
+      "command": null,
+      "command_available": true,
+      "components_available": true,
+      "declared": true,
+      "fixtures_available": true,
+      "id": "schema_inventory",
+      "reasons": [],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "required",
+      "required_schemas": [],
+      "schemas_available": true,
+      "status": "available"
+    },
+    "standard_library": {
+      "category": "baseline",
+      "command": null,
+      "command_available": true,
+      "components_available": true,
+      "declared": true,
+      "fixtures_available": true,
+      "id": "standard_library",
+      "reasons": [],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "required",
+      "required_schemas": [],
+      "schemas_available": true,
+      "status": "available"
+    },
+    "version": {
+      "category": "baseline",
+      "command": "--version",
+      "command_available": true,
+      "components_available": true,
+      "declared": true,
+      "fixtures_available": true,
+      "id": "version",
+      "reasons": [],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "required",
+      "required_schemas": [],
+      "schemas_available": true,
+      "status": "available"
+    }
+  },
+  "components": {
+    "cli": {
+      "declared": true,
+      "id": "cli",
+      "relative_path": "reason",
+      "required": true,
+      "status": "available"
+    },
+    "metadata": {
+      "declared": true,
+      "id": "metadata",
+      "relative_path": "metadata",
+      "required": true,
+      "status": "available"
+    },
+    "runtime-core": {
+      "declared": true,
+      "id": "runtime-core",
+      "relative_path": "runtime",
+      "required": true,
+      "status": "available"
+    },
+    "schemas": {
+      "declared": true,
+      "id": "schemas",
+      "relative_path": "schemas",
+      "required": true,
+      "status": "available"
+    },
+    "standard-library": {
+      "declared": true,
+      "id": "standard-library",
+      "relative_path": "standard_library",
+      "required": true,
+      "status": "available"
+    },
+    "toolchain": {
+      "declared": true,
+      "id": "toolchain",
+      "relative_path": "toolchain",
+      "required": true,
+      "status": "available"
+    }
+  },
+  "diagnostics": [
+    {
+      "category": "validation_profile",
+      "code": "VP-LEGACY-001",
+      "message": "A legacy validation profile was resolved for ReasonScript 0.5.0.",
+      "reason_version": "0.5.0",
+      "severity": "info"
+    }
+  ],
+  "features": {
+    "data_analysis_smoke": {
+      "category": "feature",
+      "command": null,
+      "command_available": false,
+      "components_available": false,
+      "declared": false,
+      "fixtures_available": false,
+      "id": "data_analysis_smoke",
+      "reasons": [
+        "capability_not_declared"
+      ],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "optional",
+      "required_schemas": [],
+      "schemas_available": false,
+      "status": "not_declared"
+    },
+    "loop_smoke": {
+      "category": "feature",
+      "command": null,
+      "command_available": false,
+      "components_available": false,
+      "declared": false,
+      "fixtures_available": false,
+      "id": "loop_smoke",
+      "reasons": [
+        "capability_not_declared"
+      ],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "optional",
+      "required_schemas": [],
+      "schemas_available": false,
+      "status": "not_declared"
+    },
+    "phase1r_validate": {
+      "category": "feature",
+      "command": null,
+      "command_available": false,
+      "components_available": false,
+      "declared": false,
+      "fixtures_available": false,
+      "id": "phase1r_validate",
+      "reasons": [
+        "capability_not_declared"
+      ],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "optional",
+      "required_schemas": [],
+      "schemas_available": false,
+      "status": "not_declared"
+    },
+    "phase8_golden": {
+      "category": "feature",
+      "command": null,
+      "command_available": false,
+      "components_available": false,
+      "declared": false,
+      "fixtures_available": false,
+      "id": "phase8_golden",
+      "reasons": [
+        "capability_not_declared"
+      ],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "optional",
+      "required_schemas": [],
+      "schemas_available": false,
+      "status": "not_declared"
+    },
+    "project_validate": {
+      "category": "feature",
+      "command": null,
+      "command_available": false,
+      "components_available": false,
+      "declared": false,
+      "fixtures_available": false,
+      "id": "project_validate",
+      "reasons": [
+        "capability_not_declared"
+      ],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "optional",
+      "required_schemas": [],
+      "schemas_available": false,
+      "status": "not_declared"
+    },
+    "reasoning_runtime": {
+      "category": "feature",
+      "command": null,
+      "command_available": false,
+      "components_available": false,
+      "declared": false,
+      "fixtures_available": false,
+      "id": "reasoning_runtime",
+      "reasons": [
+        "capability_not_declared"
+      ],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "optional",
+      "required_schemas": [],
+      "schemas_available": false,
+      "status": "not_declared"
+    },
+    "tensor_smoke": {
+      "category": "feature",
+      "command": null,
+      "command_available": false,
+      "components_available": false,
+      "declared": false,
+      "fixtures_available": false,
+      "id": "tensor_smoke",
+      "reasons": [
+        "capability_not_declared"
+      ],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "optional",
+      "required_schemas": [],
+      "schemas_available": false,
+      "status": "not_declared"
+    },
+    "update_validate": {
+      "category": "feature",
+      "command": null,
+      "command_available": false,
+      "components_available": false,
+      "declared": false,
+      "fixtures_available": false,
+      "id": "update_validate",
+      "reasons": [
+        "capability_not_declared"
+      ],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "optional",
+      "required_schemas": [],
+      "schemas_available": false,
+      "status": "not_declared"
+    },
+    "visualization_smoke": {
+      "category": "feature",
+      "command": null,
+      "command_available": false,
+      "components_available": false,
+      "declared": false,
+      "fixtures_available": false,
+      "id": "visualization_smoke",
+      "reasons": [
+        "capability_not_declared"
+      ],
+      "required_components": [],
+      "required_fixtures": [],
+      "required_level": "optional",
+      "required_schemas": [],
+      "schemas_available": false,
+      "status": "not_declared"
+    }
+  },
+  "fixtures": {
+    "phase1r": {
+      "declared": false,
+      "id": "phase1r",
+      "missing_files": [],
+      "path_type": null,
+      "relative_path": null,
+      "required": false,
+      "required_files": [],
+      "status": "not_declared"
+    }
+  },
+  "install_foundation_version": "1.0",
+  "profile_source": "legacy_fallback",
+  "reason_version": "0.5.0",
+  "release_root": "<release-root>",
+  "runtime_version": "0.5.0",
+  "schema_version": "reasonscript-validation-profile/1.0",
+  "schemas": {},
+  "summary": {
+    "baseline_available": 8,
+    "baseline_total": 9,
+    "baseline_unavailable": 0,
+    "features_available": 0,
+    "features_not_declared": 9,
+    "features_total": 9,
+    "features_unavailable": 0,
+    "fixtures_available": 0,
+    "fixtures_total": 1,
+    "optional_capabilities_ready": true,
+    "required_capabilities_ready": true
+  }
+}

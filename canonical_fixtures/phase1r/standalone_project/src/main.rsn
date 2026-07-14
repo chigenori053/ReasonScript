@@ -1,0 +1,8 @@
+module StandaloneTensorProject {
+  calculation Answer {
+    let input = tensor.create([[1.0, 2.0]])
+    let weight = tensor.create([[0.5, -0.5], [1.0, 1.0]])
+    let logits = tensor.linear(input, weight)
+    result = tensor.softmax(logits)
+  }
+}

@@ -13,7 +13,7 @@
     "execution_plan_available": true,
     "simulation_available": true,
     "knowledge_available": true,
-    "diagnostics_count": 0
+    "diagnostics_count": 1
   },
   "reasoning_model": {
     "diagnostics": [],

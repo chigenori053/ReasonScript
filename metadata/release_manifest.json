@@ -1,0 +1,29 @@
+{
+  "schema_version": "reasonscript-release-manifest/1.0",
+  "reason_version": "0.5.1",
+  "runtime_version": "0.5.1",
+  "language_version": "0.7",
+  "minimum_python": "3.11",
+  "supported_platforms": [
+    "macos-arm64",
+    "macos-x86_64",
+    "windows-x86_64",
+    "linux-x86_64"
+  ],
+  "components": [
+    {"id": "cli", "source": "reason", "required": true},
+    {"id": "runtime-core", "source": "runtime", "required": true},
+    {"id": "toolchain", "source": "toolchain", "required": true},
+    {"id": "scripts", "source": "scripts", "required": true},
+    {"id": "frontend-core", "source": "frontend", "required": true},
+    {"id": "schemas", "source": "schemas", "required": true},
+    {"id": "standard-library", "source": "standard_library", "required": true},
+    {"id": "examples", "source": "examples", "required": true},
+    {"id": "metadata", "source": "metadata", "required": true},
+    {"id": "playground-backend", "source": "playground/backend", "required": true},
+    {"id": "conformance-core", "source": "conformance", "required": true},
+    {"id": "canonical-fixtures", "source": "canonical_fixtures", "required": true}
+  ],
+  "cli_version": "0.5.1",
+  "runtime_compatibility": ">=0.5.0,<0.6.0"
+}

@@ -1,0 +1,12 @@
+{
+  "artifact_version": "1.0",
+  "artifacts": [
+    "manifest.json",
+    "project_validation_report.json"
+  ],
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-artifact-manifest/1.0",
+  "version": "1.0"
+}

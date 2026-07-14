@@ -8,6 +8,9 @@ from pathlib import Path
 
 def main() -> int:
     args = sys.argv[1:]
+    if args and args[0] in {"--version", "-V"}:
+        from toolchain.install_foundation import version_command
+        return version_command(args[1:])
     if not args:
         _usage()
         return 1
@@ -19,7 +22,31 @@ def main() -> int:
             print("Usage: reason init <project_name>")
             return 1
         from toolchain.init_cmd import run
-        return run(args[1])
+        return run(args[1], args[2:])
+
+    if command == "doctor":
+        from toolchain.install_foundation import doctor_command
+        return doctor_command(args[1:])
+
+    if command == "install-info":
+        from toolchain.install_foundation import install_info_command
+        return install_info_command(args[1:])
+
+    if command in {"install-validate", "install-ci"}:
+        from toolchain.install_foundation import install_validate_command
+        return install_validate_command(args[1:])
+
+    if command == "update":
+        from toolchain.install_update.cli import run
+        return run(args[1:])
+
+    if command == "install-foundation-report":
+        from toolchain.install_update.report import run
+        return run(args[1:], Path.cwd())
+
+    if command == "version-validate":
+        from toolchain.version_validation import command as version_validate_command
+        return version_validate_command(args[1:], Path.cwd())
 
     project_root = Path.cwd()
     package = _package_arg(args[1:])
@@ -68,6 +95,14 @@ def main() -> int:
         from toolchain.ci_entry_cmd import run
         return run(command, args[1:], project_root)
 
+    if command == "project-validate":
+        from toolchain.project_validate_cmd import run
+        return run(args[1:], project_root)
+
+    if command == "phase1r-validate":
+        from toolchain.phase1r_validation_cmd import run
+        return run(args[1:], project_root)
+
     if command == "reasoning-model":
         from toolchain.reasoning_model_cmd import run
         return run(command, args[1:], project_root)
@@ -94,6 +129,12 @@ def _usage() -> None:
     print()
     print("Commands:")
     print("  init <name>   Create a new ReasonScript project")
+    print("  doctor        Diagnose the installed environment")
+    print("  install-info  Show the installation manifest")
+    print("  install-validate Validate the installation contract")
+    print("  update         Check, install, validate, or roll back an update package")
+    print("  install-foundation-report Generate Install Foundation validation summary")
+    print("  version-validate Validate release version metadata")
     print("  build         Compile source files")
     print("  run           Execute the compiled program")
     print("  test          Run test suites")
@@ -113,6 +154,8 @@ def _usage() -> None:
     print("  agent-report  Emit Agent Development Protocol report")
     print("  ci            Run the canonical CI Stabilization pipeline")
     print("  ci-entry      Validate the canonical CI entry point contract")
+    print("  project-validate Validate a standalone ReasonScript project")
+    print("  phase1r-validate Generate and validate Phase 1R probes")
     print("  reasoning-model validate <file> Validate a Reasoning Model artifact")
     print("  reasoning-eval evaluate <file> Evaluate a Reasoning Model artifact")
     print("  reasoning-eval validate <file> Validate a Reasoning Evaluation Report")

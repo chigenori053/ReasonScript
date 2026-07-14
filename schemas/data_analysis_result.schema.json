@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/data-analysis-result/0.1",
+  "title": "ReasonScript Data Analysis Result 0.1",
+  "type": "object",
+  "required": ["schema_version", "status", "input_mode", "backend", "dataset", "table", "metrics", "knowledge", "evidence", "diagnostics"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "status": {"enum": ["pass", "error"]},
+    "input_mode": {"type": "string"},
+    "backend": {"type": "object"},
+    "dataset": {"type": "object"},
+    "table": {"type": "object"},
+    "metrics": {"type": "object"},
+    "knowledge": {"type": "array"},
+    "evidence": {"type": "object"},
+    "diagnostics": {"type": "array"}
+  },
+  "additionalProperties": false
+}

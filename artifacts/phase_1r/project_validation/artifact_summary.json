@@ -1,0 +1,14 @@
+{
+  "artifact_count": 2,
+  "artifacts": [
+    "manifest.json",
+    "project_validation_report.json"
+  ],
+  "errors": 0,
+  "generated": true,
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-artifact-summary/1.0",
+  "version": "1.0"
+}

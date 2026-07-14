@@ -51,6 +51,7 @@ CODE_CATEGORY_PREFIXES = {
     "SIM": "Simulation",
     "KN": "Knowledge",
     "RT": "Runtime",
+    "TSF": "Runtime",
     "RUST": "Runtime",
     "AR": "Artifact",
     "ART": "Artifact",

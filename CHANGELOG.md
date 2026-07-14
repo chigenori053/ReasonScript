@@ -1,5 +1,315 @@
 # Changelog
 
+## ReasonScript Install Foundation v1.1 - 2026-07-14
+
+### Added
+
+- Added the cross-platform `reason update` CLI for package checks, local package updates, installed-state validation, and rollback.
+- Added common install state, current-version, managed-file inventory, update-history, package checksum, and update-report contracts.
+- Added deterministic version planning, SHA-256 verification, archive traversal protection, staging, version-directory installation, atomic activation, preservation, and rollback.
+- Added macOS, Linux, and Windows Platform Adapter contracts plus a dependency-free native Rust activation helper.
+- Added deterministic local update-package generation and bundled Phase 1R validation fixtures.
+
+### Changed
+
+- Updated ReasonScript from 0.5.0 to 0.5.1 so the update foundation ships as a distinct Release Unit.
+- Updated clean installation to create v1.1 metadata while retaining the v1.0 root manifest and `current` compatibility entry.
+- Updated the fixed launcher to resolve `metadata/current.json` and the active version's `bin/reason-runtime`.
+
+### Validation
+
+- Native updater unit test: PASS.
+- Install/update regression tests: PASS.
+- Installed `0.5.0 -> 0.5.1`, post-install validation, and explicit rollback lifecycle on macOS arm64: PASS.
+- `reason ci --json`: PASS, 839 tests.
+- Linux and Windows adapters are implemented and contract-tested; device validation remains pending.
+
+## ReasonScript KDA-2 Component Validation v1.0
+
+### Status
+
+PROPOSED (specification); executed with result VALIDATED — see Execution Results below.
+
+### Added
+
+- Added the formal KDA-2 component-validation contract, Specification ID `reasonscript-kda2-component-validation/1.0`.
+- Added installed-only Runtime provenance validation (KDA2-V1).
+- Added Dataset, Feature, Rule, Prediction, Evidence, Evaluation, Knowledge, Visualization, Artifact, and Determinism validation phases (KDA2-V2 through KDA2-V13).
+- Added `KDA2-CV-001` through `KDA2-CV-050`.
+- Added explicit repository-wide CI failure classification (`kda2_related` / `unrelated` / `uncertain`).
+- Added formal component-validation result and report contracts.
+
+### Execution Results
+
+- Acceptance criteria: 50 passed / 0 failed
+- KDA-2 diagnostics: 0
+- Determinism (full pipeline rerun, 416 files compared): PASS, 0 digest mismatches
+- Installed-only import provenance: CONFIRMED, no `.deps` or core-repository source used
+- KDA-1 regression, `reason doctor --json`, `reason install-validate --json`: PASS
+- Repository-wide `./reason ci --json`: FAIL — `CI-008`, classified `unrelated`, does not block KDA-2 component status
+- Final KDA-2 Component Status: **VALIDATED**
+
+### Compatibility
+
+- KDA-2 implementation semantics are unchanged.
+- Titanic Rule Set v1.0 is unchanged.
+- Data Foundation, VSL v0.1, and MLV v0.2 semantics are unchanged.
+- Repository-wide certification remains separate from KDA-2 component validation.
+
+## ReasonScript KDA-2 Titanic Rule-based Classification v1.0 Specification
+
+### Status
+
+VALIDATED (KDA-2 Component) — external consumer implementation exists; formal component validation executed and passed via `reasonscript-kda2-component-validation/1.0`.
+
+### Added
+
+- Added the initial formal specification for KDA-2 Titanic Rule-based Classification.
+- Added Specification ID `reasonscript-kda2-titanic-rule-classification/1.0`.
+- Defined the Dataset, Feature, Rule, Prediction, Decision Path, Evidence, Evaluation, Knowledge, Visualization, Artifact, Determinism, and Installed Distribution contracts.
+- Added `KDA2-AC-001` through `KDA2-AC-050`.
+- Defined strict installed-only Runtime provenance requirements.
+- Separated KDA-2 component validation from repository-wide canonical CI reporting.
+- Documented the external implementation and artifact location under the `kaggle-titanic-validation` project.
+
+### Verified External Results
+
+- Dataset rows: 891
+- Feature records: 891
+- Predictions: 891
+- Prediction Evidence records: 891
+- Accuracy: 0.7598204264870931
+- Balanced accuracy: 0.777538107563992
+- AUC: 0.8462755248777681
+- Average precision: 0.7903496180334
+- Knowledge records: 10
+- Visualizations: 14
+- Diagnostics: 0
+- Repeated-run artifact digest equality: PASS
+- KDA-1 regression: PASS
+
+### Validation Status
+
+- External KDA-2 implementation and artifacts: CONFIRMED
+- Installed Distribution import provenance: CONFIRMED
+- Formal KDA-2 component validation: PENDING
+- Repository-wide canonical CI: FAIL — `CI-008 Test failure`
+- Repository-wide failures are recorded separately and are not hidden.
+
+### Compatibility
+
+- No KDA-2 domain implementation was added to the ReasonScript Core repository.
+- Data Analysis Foundation behavior is unchanged.
+- Visualization Standard Library behavior is unchanged.
+- ML Evaluation Visualization v0.2 behavior is unchanged.
+- Reason IR, ExecutionPlan, Simulation, Knowledge, and Core CLI semantics are unchanged.
+
+## Installed Distribution ML Evaluation v0.2 Correction
+
+- Include the complete `runtime.visualization.evaluation` import closure and v0.2 schemas in installed-distribution validation.
+- Record every ML Evaluation Python module in the install manifest under the `ml-evaluation-visualization-v0.2` component.
+- Validate installed-only public API imports, repository isolation, Matplotlib-independent evaluation, JSON serialization, and canonical AUC/AP values.
+
+## ReasonScript ML Evaluation Visualization Standard Library v0.2 - 2026-07-12
+
+### Status
+
+VALIDATED
+
+### Added
+
+- Added JSON-safe binary and multiclass classification evaluation models.
+- Added confusion matrices, normalization, classification metrics, ROC/AUC, and precision–recall/AP.
+- Added Rule coverage/accuracy, error distribution, Decision Path, confidence, and score visualizations.
+- Added classification, metric, threshold, Rule, and Decision Path evidence.
+- Added evaluation Visualization IR, Render Plan, JSON Schemas, Artifacts, and Manifest integration.
+- Added installed external-project regressions.
+
+### Compatibility
+
+- Visualization v0.1 behavior remains unchanged and Matplotlib remains render-time optional.
+- Evaluation and JSON Artifact generation require no Matplotlib.
+- Data Foundation, Tensor functions, Reason IR, and non-visualization programs remain unchanged.
+
+### Validation
+
+- Binary and multiclass evaluation: PASS
+- Confusion matrices, metrics, ROC/AUC, and precision–recall/AP: PASS
+- Rule, Decision Path, error, confidence, and score evaluation: PASS
+- PNG/SVG rendering and same-environment determinism: PASS
+- Installed external-project regression: PASS
+- Canonical `reason ci --json`: PASS (808 tests)
+
+---
+
+## ReasonScript Visualization Standard Library v0.1 - 2026-07-12
+
+### Status
+
+VALIDATED
+
+### Added
+
+- Added immutable backend-independent Visualization specifications under `runtime.visualization` (`visual.*`).
+- Added basic and analytical chart constructors with Typed Table grouping, aggregation, correlation, and missingness.
+- Added the optional Matplotlib reference backend with deterministic PNG/SVG rendering.
+- Added Visualization IR, Render Plan, Evidence, Validation, JSON Schemas, and Artifact Manifest output.
+- Added seven-chart Titanic and installed external-project regressions.
+
+### Security and Resources
+
+- Added project-root output confinement, path traversal rejection, explicit format and image limits, and lazy backend loading.
+
+### Compatibility
+
+- Matplotlib remains optional through `reasonscript[visualization]`; Core and Data Foundation behavior is unchanged when absent.
+
+### Validation
+
+- Basic and analytical chart contracts: PASS
+- Matplotlib PNG/SVG rendering and same-environment determinism: PASS
+- Titanic seven-chart regression and installed external-project rendering: PASS
+- Canonical `reason ci --json`: PASS (804 tests)
+
+---
+
+## ReasonScript Data Analysis Public Result Serialization v1.0 - 2026-07-12
+
+### Status
+
+VALIDATED
+
+### Added
+
+- Added JSON-safe public data-analysis result envelopes and JSON Schemas.
+- Added explicit public/internal Titanic analysis API separation.
+- Added deterministic backend, table-summary, dataset, Knowledge, and Evidence serialization.
+- Added optional `titanic_analysis_result.json` artifact support and serialization regressions.
+
+### Fixed
+
+- Fixed `analyze_titanic` leaking non-serializable `DataBackend` and `Table` instances.
+- Fixed standard `json.dumps` persistence and public result determinism.
+
+### Compatibility
+
+- Titanic metrics, Knowledge count, and Data Analysis Foundation semantics remain unchanged.
+- Runtime-context callers use `analyze_titanic_execution`.
+
+### Validation
+
+- Public result serialization, JSON Schema contract, and determinism: PASS
+- Installed external-project Titanic regression: PASS
+- Canonical `reason ci --json`: PASS (801 tests)
+
+---
+
+## ReasonScript Install Practical Validation Corrections v1.0 - 2026-07-11
+
+### Status
+
+VALIDATED
+
+### Added
+
+- Added `reason version-validate [--json]` and its version-validation schema.
+- Added current release metadata consistency validation to canonical CI environment validation.
+- Added package-identifier normalization and separate project name/identifier fields.
+- Added project-configured artifact output resolution without requiring `--out`.
+- Added atomic installed CLI smoke-state finalization and practical external-project regressions.
+
+### Compatibility
+
+- Explicit artifact `--out` remains supported and overrides project configuration.
+- Existing projects are never rewritten implicitly.
+- Runtime, parser, Reason IR, ExecutionPlan, Simulation, and Knowledge semantics are unchanged.
+
+---
+
+## ReasonScript Install Foundation v1.0 - 2026-07-11
+
+### Status
+
+VALIDATED
+
+### Certification
+
+- Repository validation: PASSED
+- macOS local installation validation: PASSED
+- Linux x86_64 release certification: PENDING CI runner validation
+- Windows x86_64 release certification: PENDING CI runner validation
+
+### Summary
+
+ReasonScript Install Foundation v1.0 establishes the official installation,
+environment validation, project initialization, manifest, integrity, and safe
+uninstallation contracts for ReasonScript.
+
+The foundation enables users and Coding Agents to install and validate
+ReasonScript outside the source repository through a user-scoped installation
+layout.
+
+### Added
+
+- Added `reason --version [--json]`.
+- Added `reason doctor [--json]`.
+- Added `reason install-info [--json]`.
+- Added `reason install-validate [--json]`.
+- Added `reason init <path> --template minimal`.
+- Added macOS and Linux installation through `scripts/install.sh`.
+- Added Windows installation through `scripts/install.ps1`.
+- Added atomic version installation and activation.
+- Added Install Manifest generation.
+- Added SHA-256 file integrity records.
+- Added source and `pipx` Python package entry points.
+- Added Standard Library distribution resources.
+- Added Install Foundation JSON Schemas.
+- Added safe uninstall with dry-run and purge modes.
+- Added platform-specific installation documentation.
+- Added installation contract and end-to-end tests.
+
+### Validation
+
+- `reason ci --json`
+  - PASSED
+- Full test suite
+  - 787 passed
+- Golden Corpus
+  - PASSED
+- Phase 8 Golden
+  - 6 scenarios passed
+- Install Foundation tests
+  - 4 passed
+- Existing Toolchain conformance tests
+  - 39 passed
+- Temporary installation lifecycle
+  - install: PASSED
+  - CLI execution: PASSED
+  - manifest validation: PASSED
+  - uninstall: PASSED
+  - residual file validation: PASSED
+
+### Known Certification Gaps
+
+- Linux x86_64 clean-runner release certification remains to be completed.
+- Windows x86_64 clean-runner release certification remains to be completed.
+- PyPI publication is not included in Install Foundation v1.0.
+- Homebrew, winget, Scoop, Chocolatey, apt, and standalone binary distribution
+  remain future distribution channels.
+
+### Compatibility
+
+- Existing repository-local `./reason` execution remains supported.
+- Existing CLI behavior is preserved.
+- Runtime semantics are unchanged.
+- Parser semantics are unchanged.
+- Existing Reason IR, ExecutionPlan, Simulation, Knowledge, and ReasoningModel
+  contracts are unchanged.
+- Optional ML and image-processing backends are not required for Core
+  installation.
+
+---
+
 ## ReasonScript IDE Phase 4-D - Cross-platform Policy, Tests, and Docs - 2026-07-01
 
 ### Status
@@ -1035,3 +1345,16 @@ First integrated ReasonScript Platform alpha release.
   toolchain was unavailable.
 - Java DTO declarations compile, but a Java JSON codec adapter is not included.
 - Full five-language SDK compatibility certification is not granted.
+# Install Distribution Completeness v1.0
+
+## Added
+
+- Added the Playground backend and complete runtime import closure to the required distribution.
+- Added repository-independent installed CLI and generated-project E2E validation.
+- Added complete component inventory, entry-point integrity records, and project-name normalization.
+
+## Fixed
+
+- Fixed installed `reason check` failing with `ModuleNotFoundError: playground`.
+- Fixed install validation accepting incomplete or repository-dependent distributions.
+- Fixed relative source and artifact paths resolving against the installed distribution root.

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-update-history/1.0",
+  "type": "object",
+  "required": ["schema_version", "updates"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-update-history/1.0"},
+    "updates": {"type": "array", "items": {"type": "object", "required": ["from_version", "to_version", "status", "started_at", "completed_at", "rollback_performed"]}}
+  },
+  "additionalProperties": false
+}

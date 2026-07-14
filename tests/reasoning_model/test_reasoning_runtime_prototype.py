@@ -217,6 +217,51 @@ def test_rrp_t305_invalid_source_produces_fatal_runtime_result() -> None:
     assert "RRP-PIPE-001" in {item["code"] for item in runtime["diagnostics"]}
 
 
+def test_reasoning_runtime_parser_failure_includes_root_diagnostic() -> None:
+    runtime = run_reasoning_runtime(FIXTURES / "invalid_relation_chain_probe.rsn")
+    diagnostics = {item["code"]: item for item in runtime["diagnostics"]}
+
+    assert runtime["pipeline_status"]["status"] == "fatal"
+    assert runtime["pipeline_status"]["parser_passed"] is False
+    assert runtime["reasoning_model"] == {}
+    assert runtime["evaluation_report"] == {}
+    assert "RRP-PIPE-001" in diagnostics
+    message = diagnostics["RRP-PIPE-001"]["message"]
+    assert message != "Parser or pipeline execution failed"
+    assert (
+        message.startswith("Parser or pipeline execution failed: ")
+        or message == "Parser or pipeline execution failed; no detailed parser diagnostic was available."
+    )
+
+
+def test_reasoning_runtime_diagnostics_count_matches_emitted_diagnostics() -> None:
+    runtime = run_reasoning_runtime(FIXTURES / "invalid_relation_chain_probe.rsn")
+    assert runtime["pipeline_status"]["diagnostics_count"] == len(runtime["diagnostics"])
+
+
+def test_reasoning_runtime_unavailable_artifacts_explain_parser_failure_cause() -> None:
+    runtime = run_reasoning_runtime(FIXTURES / "invalid_relation_chain_probe.rsn")
+    diagnostics = {item["code"]: item for item in runtime["diagnostics"]}
+
+    assert "because parser/pipeline execution failed" in diagnostics["RRP-PIPE-002"]["message"]
+    assert "because parser/pipeline execution failed" in diagnostics["RRP-PIPE-003"]["message"]
+    assert "because parser/pipeline execution failed" in diagnostics["RRP-PIPE-004"]["message"]
+    assert "because parser/pipeline execution failed" in diagnostics["RRP-PIPE-005"]["message"]
+
+
+def test_reasoning_runtime_successful_result_remains_unchanged() -> None:
+    runtime = run_reasoning_runtime(EXAMPLES / "animal_isa.rsn")
+
+    assert runtime["pipeline_status"]["status"] == "passed"
+    assert runtime["pipeline_status"]["parser_passed"] is True
+    assert runtime["pipeline_status"]["reason_ir_available"] is True
+    assert runtime["pipeline_status"]["execution_plan_available"] is True
+    assert runtime["pipeline_status"]["simulation_available"] is True
+    assert runtime["pipeline_status"]["knowledge_available"] is True
+    assert runtime["diagnostics"] == []
+    assert runtime["evaluation_report"]["summary"]["status"] == "passed"
+
+
 def test_rrp_t306_runtime_output_is_deterministic() -> None:
     first = serialize_reasoning_runtime_result(run_reasoning_runtime(EXAMPLES / "branch_selection.rsn"))
     second = serialize_reasoning_runtime_result(run_reasoning_runtime(EXAMPLES / "branch_selection.rsn"))

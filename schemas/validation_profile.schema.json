@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-validation-profile/1.0",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "reason_version",
+    "install_foundation_version",
+    "runtime_version",
+    "profile_source",
+    "release_root",
+    "baseline",
+    "features",
+    "fixtures",
+    "components",
+    "schemas",
+    "summary",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "reasonscript-validation-profile/1.0"
+    },
+    "reason_version": {
+      "type": "string"
+    },
+    "install_foundation_version": {
+      "type": "string"
+    },
+    "runtime_version": {
+      "type": "string"
+    },
+    "profile_source": {
+      "enum": [
+        "release_metadata",
+        "release_manifest",
+        "legacy_fallback",
+        "minimum_baseline",
+        "test_fixture"
+      ]
+    },
+    "release_root": {
+      "type": "string"
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/capability"
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/capability"
+      }
+    },
+    "fixtures": {
+      "type": "object"
+    },
+    "components": {
+      "type": "object"
+    },
+    "schemas": {
+      "type": "object"
+    },
+    "summary": {
+      "type": "object"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "$defs": {
+    "capability": {
+      "type": "object",
+      "required": [
+        "id",
+        "category",
+        "required_level",
+        "declared",
+        "status",
+        "command_available",
+        "required_fixtures",
+        "fixtures_available",
+        "required_components",
+        "components_available",
+        "required_schemas",
+        "schemas_available",
+        "reasons"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "baseline",
+            "feature"
+          ]
+        },
+        "required_level": {
+          "enum": [
+            "required",
+            "optional",
+            "informational"
+          ]
+        },
+        "declared": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "unavailable",
+            "not_declared",
+            "invalid",
+            "unsupported"
+          ]
+        },
+        "command": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "command_available": {
+          "type": "boolean"
+        },
+        "required_fixtures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fixtures_available": {
+          "type": "boolean"
+        },
+        "required_components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "components_available": {
+          "type": "boolean"
+        },
+        "required_schemas": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "schemas_available": {
+          "type": "boolean"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

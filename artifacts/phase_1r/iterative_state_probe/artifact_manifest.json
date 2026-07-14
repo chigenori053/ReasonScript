@@ -1,0 +1,20 @@
+{
+  "artifact_version": "1.0",
+  "artifacts": [
+    "comparison_report.json",
+    "diagnostics.json",
+    "execution_plan.json",
+    "manifest.json",
+    "reason_ir.json",
+    "reference_result.json",
+    "runtime_result.json",
+    "simulation.json",
+    "source.rsn",
+    "tensor_metadata.json"
+  ],
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-artifact-manifest/1.0",
+  "version": "1.0"
+}

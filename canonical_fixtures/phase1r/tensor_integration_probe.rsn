@@ -1,0 +1,10 @@
+module TensorIntegrationProbe {
+  calculation Answer {
+    let input = tensor.create([[1.0, -2.0, 0.5]], "f64")
+    let weight = tensor.create([[0.2, -0.1], [0.4, 0.3], [-0.5, 0.7]], "f64")
+    let bias = tensor.create([0.1, -0.2], "f64")
+    let logits = tensor.linear(input, weight, bias)
+    let activated = tensor.relu(logits)
+    result = tensor.softmax(activated, -1)
+  }
+}

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -160,13 +161,35 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_artifacts(args: argparse.Namespace) -> int:
-    if not args.out:
-        print("  [ERROR] reason artifacts requires --out <dir>", file=sys.stderr)
+    source = Path(args.file).resolve()
+    try:
+        out = _artifact_output(source, args.out)
+    except (OSError, ValueError) as error:
+        print(f"ART-OUT-004: {error}", file=sys.stderr)
         return 2
-    result = _analyze_result(Path(args.file), args.compiler_mode)
-    _write_out(Path(args.out), result)
-    print(f"ReasonScript artifacts written\nfile: {result['source_file']}\nout: {args.out}")
+    result = _analyze_result(source, args.compiler_mode)
+    _write_out(out, result)
+    print(f"ReasonScript artifacts written\nfile: {result['source_file']}\nout: {out}")
     return 0 if result["ok"] else 1
+
+
+def _artifact_output(source: Path, explicit: str | None) -> Path:
+    project_root = next((parent for parent in (source.parent, *source.parents) if (parent / "reason.toml").is_file()), None)
+    if explicit:
+        candidate = Path(explicit)
+        return (Path.cwd() / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
+    if project_root is None:
+        return (Path.cwd() / "artifacts").resolve()
+    manifest = tomllib.loads((project_root / "reason.toml").read_text(encoding="utf-8"))
+    configured = manifest.get("artifacts", {}).get("directory", "artifacts")
+    if not isinstance(configured, str) or not configured.strip():
+        raise ValueError("artifact directory configuration must be a non-empty string")
+    output = (project_root / configured).resolve()
+    if output != project_root and project_root not in output.parents:
+        raise ValueError("artifact output escaped project root")
+    if output == source:
+        raise ValueError("artifact output conflicts with source file")
+    return output
 
 
 def cmd_validate_artifacts(args: argparse.Namespace) -> int:
@@ -374,7 +397,55 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool) -> dict[
     }
     if include_trace:
         result["trace"] = simulation.get("trace", []) if isinstance(simulation, dict) else []
+    source = _read_source(path)
+    if analyze["ok"] and _requires_integrated_runtime(source, analyze):
+        from frontend.integrated_computation_runtime import (
+            LoopLimitError,
+            execute_program,
+        )
+        from frontend.language_surface.parser import parse
+        from frontend.tensor import TensorError
+
+        try:
+            integrated = execute_program(parse(source))
+            runtime_result = integrated.to_dict()
+            result["runtime_result"] = runtime_result
+            result["runtime_output"] = [runtime_result["result"]]
+            result["goal_reached"] = True
+            result["artifacts"]["runtime_result"] = runtime_result
+            result["artifacts"]["tensor_metadata"] = runtime_result["tensor_metadata"]
+            if include_trace:
+                result["trace"] = runtime_result["tensor_trace"] + runtime_result["loop_trace"]
+        except TensorError as error:
+            diagnostic = error.diagnostic.to_dict()
+            diagnostic.update({"stage": "runtime", "source_file": _display_path(path)})
+            result["ok"] = False
+            result["goal_reached"] = False
+            result["diagnostics"].append(diagnostic)
+        except LoopLimitError as error:
+            result["ok"] = False
+            result["goal_reached"] = False
+            result["diagnostics"].append({
+                "code": error.code,
+                "severity": "fatal",
+                "category": "runtime.loop",
+                "message": str(error),
+                "stage": "runtime",
+                "source_file": _display_path(path),
+            })
     return result
+
+
+def _requires_integrated_runtime(source: str, analyze: dict[str, Any]) -> bool:
+    reason_ir = analyze.get("artifacts", {}).get("reason_ir")
+    modules = reason_ir.get("modules", []) if isinstance(reason_ir, dict) and "modules" in reason_ir else [reason_ir]
+    has_tensor = any(
+        isinstance(item, dict)
+        and bool(item.get("metadata", {}).get("tensor_operations"))
+        for item in modules
+    )
+    has_loop = any(token in source for token in ("for ", "while ", "loop {"))
+    return has_tensor or has_loop
 
 
 def _analyze_endpoint_response(path: Path, compiler_mode: str) -> dict[str, Any]:
@@ -396,11 +467,11 @@ def _read_source(path: Path) -> str:
 
 
 def _resolve_input_path(path: Path) -> Path:
-    return path if path.is_absolute() else REPO_ROOT / path
+    return path if path.is_absolute() else Path.cwd() / path
 
 
 def _resolve_output_dir(path: Path) -> Path:
-    return path if path.is_absolute() else REPO_ROOT / path
+    return path if path.is_absolute() else Path.cwd() / path
 
 
 def _display_path(path: Path) -> str:
