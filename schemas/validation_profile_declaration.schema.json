@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-validation-profile-declaration/1.0",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "reason_version",
+    "install_foundation_version",
+    "baseline",
+    "features",
+    "fixtures"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "reasonscript-validation-profile-declaration/1.0"
+    },
+    "reason_version": {
+      "type": "string"
+    },
+    "install_foundation_version": {
+      "type": "string"
+    },
+    "runtime_version": {
+      "type": "string"
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "baseline": {
+      "type": "object"
+    },
+    "features": {
+      "type": "object"
+    },
+    "fixtures": {
+      "type": "object"
+    },
+    "components": {
+      "type": "object"
+    },
+    "schemas": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

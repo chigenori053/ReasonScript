@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "Install Foundation v1.1.1 Phase R1",
-  "tests_passed": 794,
+  "task": "Install Foundation v1.1.1 Phase R2",
+  "tests_passed": 873,
   "version": "1.0"
 }

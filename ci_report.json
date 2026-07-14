@@ -15,35 +15,35 @@
       "metadata": {
         "python_version": "3.14.0",
         "version_validation": {
-          "canonical_version": "0.5.0",
+          "canonical_version": "0.5.1",
           "checks": [
             {
-              "actual": "0.5.0",
-              "expected": "0.5.0",
+              "actual": "0.5.1",
+              "expected": "0.5.1",
               "id": "VER-001",
               "status": "pass"
             },
             {
-              "actual": "0.5.0",
-              "expected": "0.5.0",
+              "actual": "0.5.1",
+              "expected": "0.5.1",
               "id": "VER-002",
               "status": "pass"
             },
             {
-              "actual": "0.5.0",
-              "expected": "0.5.0",
+              "actual": "0.5.1",
+              "expected": "0.5.1",
               "id": "VER-003",
               "status": "pass"
             },
             {
-              "actual": "0.5.0",
-              "expected": "0.5.0",
+              "actual": "0.5.1",
+              "expected": "0.5.1",
               "id": "VER-004",
               "status": "pass"
             },
             {
-              "actual": "0.5.0",
-              "expected": "0.5.0",
+              "actual": "0.5.1",
+              "expected": "0.5.1",
               "id": "VER-005",
               "status": "pass"
             },
@@ -77,7 +77,7 @@
       "diagnostics": [],
       "id": "diagnostics",
       "metadata": {
-        "checked": 0
+        "checked": 4
       },
       "status": "PASS"
     },
@@ -85,7 +85,7 @@
       "diagnostics": [],
       "id": "artifacts",
       "metadata": {
-        "checked": 0
+        "checked": 5
       },
       "status": "PASS"
     },
@@ -124,7 +124,7 @@
       "diagnostics": [],
       "id": "tests",
       "metadata": {
-        "tests_passed": 794
+        "tests_passed": 873
       },
       "status": "PASS"
     }
