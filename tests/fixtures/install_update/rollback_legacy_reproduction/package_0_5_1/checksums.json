@@ -1,0 +1,18 @@
+{
+  "algorithm": "sha256",
+  "files": [
+    {"path": "payload/VERSION", "sha256": "aba951626c8690ce493cbc8f018205bb468003f61fbf00fd3d3c71cebabc0177"},
+    {"path": "payload/bin/reason-runtime", "sha256": "8597de15759d4466d66087d7c7729ed294f67acc4a28856247840faeaaeb343b"},
+    {"path": "payload/bin/reason-updater", "sha256": "7de832f8344aacc6d9256eeab7750a3481dae3df93ab8aa6a958895c42c6740d"},
+    {"path": "payload/canonical_fixtures/phase1r/iterative_state_probe.rsn", "sha256": "564c8848a8cf83478758f77ce478b03aafdfc2f75a11184965db15c3217bfe8c"},
+    {"path": "payload/canonical_fixtures/phase1r/tensor_integration_probe.rsn", "sha256": "10ec3399d8859d770f23fd26a1b13a98c767ee53b9b883a8145c1f18acead377"},
+    {"path": "payload/canonical_fixtures/phase1r/tensor_namespace_probe.rsn", "sha256": "65241c9078f3e10b49672a566f795d49d5eab207725f096c5e2a4269b6314cbe"},
+    {"path": "payload/metadata/release_manifest.json", "sha256": "b32b9725b31be99cf9f17d2c8c40dcecf4f5bc31c2825502a08b6c1b48f777ff"},
+    {"path": "payload/reason", "sha256": "2701e382fee33a0dea2f660e1d2d5bd465863baf513d49c2a3051997a4a2e53f"},
+    {"path": "payload/runtime/README.txt", "sha256": "857c35537c7fce99a10ceb72d19d0dd2db048c533c976884dd157453a71bcc60"},
+    {"path": "payload/schemas/base.json", "sha256": "021255195c42e7fb53021398b825d196a7cab90c8f5a6ef19e4f8816e71b637f"},
+    {"path": "payload/standard_library/base.rsn", "sha256": "bfae5b00d525bf73cee8584fd69eed7ccd662c044e6b9938be809582de924f5a"},
+    {"path": "payload/toolchain/README.txt", "sha256": "9ba1e767af618b041bbc6d42d5f66c7cf7220cc761a696179d07e384f6063639"}
+  ],
+  "schema_version": "reasonscript-package-checksums/1.0"
+}
