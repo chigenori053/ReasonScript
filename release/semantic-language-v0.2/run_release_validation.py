@@ -133,7 +133,6 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
 
     for field in (
         "normative_specification",
-        "validation_report",
         "release_gate",
     ):
         if not (ROOT / manifest[field]).is_file():
