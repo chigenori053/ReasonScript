@@ -1,5 +1,13 @@
-goal numeric_state_test
-apply 42
-apply -3
-apply 1/2
-converge verify_scalar_literals
+module ScalarLiterals {
+  calculation Positive {
+    result = 42
+  }
+
+  calculation Negative {
+    result = -3
+  }
+
+  calculation Fraction {
+    result = 1/2
+  }
+}
