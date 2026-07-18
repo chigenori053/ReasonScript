@@ -1,0 +1,8 @@
+// Install Foundation post-install smoke probe.
+// Owned by the update validator, not user-facing documentation: keep it a
+// minimal scalar-arithmetic program that must always parse, plan, and run.
+module ScalarSmoke {
+  calculation Answer {
+    result = 1/2 + 3/4
+  }
+}

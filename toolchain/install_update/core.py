@@ -391,7 +391,7 @@ class UpdateEngine:
             validation = self.validator(final)
             if any(value != "passed" for value in validation.values()):
                 raise UpdateError("INS-UPD-010", phase="validating_active", validation=validation)
-            self._complete(package, plan, validation, started)
+            self._complete(package, plan, started)
             return self._completed_report(package, plan, validation), 0
         except UpdateError as exc:
             if activated and previous:
@@ -443,7 +443,9 @@ class UpdateEngine:
             fixtures = work / "tests/fixtures"
             shutil.copytree(root / "canonical_fixtures/phase1r", fixtures)
             scalar_source = work / "scalar_smoke.rsn"
-            shutil.copy2(root / "examples/scalar_arithmetic.rsn", scalar_source)
+            # Use the install-foundation-owned smoke fixture, not a user-facing
+            # example: doc examples may be rewritten and must not gate updates.
+            shutil.copy2(root / "canonical_fixtures/install_smoke/scalar_smoke.rsn", scalar_source)
             scalar = subprocess.run([sys.executable, str(cli), "run", str(scalar_source), "--json"],
                                     cwd=work, env=env, text=True, capture_output=True)
             phase1r = subprocess.run([sys.executable, str(cli), "phase1r-validate", "--json"], cwd=work, env=env, text=True, capture_output=True)
@@ -455,7 +457,7 @@ class UpdateEngine:
                        "project_validation": "passed" if project.returncode == 0 else "failed"})
         return result
 
-    def _complete(self, package: Package, plan: dict[str, Any], validation: dict[str, str], started: str) -> None:
+    def _complete(self, package: Package, plan: dict[str, Any], started: str) -> None:
         state = self._read_json(self.metadata / "install_state.json")
         now = _timestamp()
         backup = self.root / "backup" / plan["installed_version"] / "metadata"
