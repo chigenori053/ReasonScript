@@ -44,7 +44,18 @@ def build(output: Path, target_platform: str, target_architecture: str,
         package = Path(directory) / package_name
         payload = package / "payload"
         payload.mkdir(parents=True)
-        ignored = shutil.ignore_patterns("__pycache__", "*.pyc", ".venv", "node_modules", ".git")
+        ignored = shutil.ignore_patterns(
+            "__pycache__",
+            "*.pyc",
+            ".venv",
+            "node_modules",
+            ".git",
+            "target",
+            ".DS_Store",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+        )
         for name in DISTRIBUTION_TARGETS:
             shutil.copytree(ROOT / name, payload / name, ignore=ignored)
         for name in ("reason", "VERSION", "pyproject.toml"):
