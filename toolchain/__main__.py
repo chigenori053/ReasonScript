@@ -115,6 +115,10 @@ def main() -> int:
         from toolchain.reasoning_runtime_cmd import run
         return run(command, args[1:], project_root)
 
+    if command == "cluster":
+        from toolchain.cluster_runtime_cmd import run
+        return run(command, args[1:], project_root)
+
     if command == "phase8-golden":
         from toolchain.phase8_golden_cmd import run
         return run(command, args[1:], project_root)
@@ -160,6 +164,7 @@ def _usage() -> None:
     print("  reasoning-eval evaluate <file> Evaluate a Reasoning Model artifact")
     print("  reasoning-eval validate <file> Validate a Reasoning Evaluation Report")
     print("  reasoning-runtime run <source.rsn> Generate a Reasoning Runtime Result")
+    print("  cluster       Plan, run, simulate, validate, and compare cluster execution")
     print("  phase8-golden validate Run Phase 8 golden validation")
 
 

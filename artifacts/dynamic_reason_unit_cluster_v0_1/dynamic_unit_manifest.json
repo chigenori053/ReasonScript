@@ -1,0 +1,145 @@
+{
+  "artifacts": [
+    {
+      "bytes": 3087,
+      "checksum": "sha256:ae188a0c1506b665d904653667e176cb63b5f328f1784097c1c5b36d82c78097",
+      "file": "dynamic_unit_lifecycle.jsonl"
+    },
+    {
+      "bytes": 746,
+      "checksum": "sha256:58250308087e6dcc31b75b560301a35c95290e03070453835ff021fdcd3b7fc3",
+      "file": "dynamic_unit_proposals.jsonl"
+    },
+    {
+      "bytes": 834,
+      "checksum": "sha256:0ccf2619196a9b19c23687c65c8a4ccff05b244bc8ad7d71b52d9f2e67d01a05",
+      "file": "dynamic_plan_revisions.jsonl"
+    },
+    {
+      "bytes": 1352,
+      "checksum": "sha256:433b3ce1bde6e0d019b65921a488915dad99a66062bba58190c15591e132a6fe",
+      "file": "dynamic_branch_graph.json"
+    },
+    {
+      "bytes": 85,
+      "checksum": "sha256:08a2a5c983292c5054f8c7e2ed9b4701d5f6576078e8c75796b8fe6ec83f9df4",
+      "file": "dynamic_pruning_report.json"
+    },
+    {
+      "bytes": 318,
+      "checksum": "sha256:5de218bf76751700570facf5c6e7ddfdf1ef63e629a615f2289abc579b3030ab",
+      "file": "dynamic_convergence_report.json"
+    },
+    {
+      "bytes": 535,
+      "checksum": "sha256:e7bec91d0c53ec6ff005fb2a924d2304b5bfff0e04ae555d1b46d6f34b81d802",
+      "file": "dynamic_budget_report.json"
+    },
+    {
+      "bytes": 1915,
+      "checksum": "sha256:574e9927394e04751d72a6e219414c719a883d3a496288ca9b69c19e81e12cc6",
+      "file": "dynamic_execution_summary.json"
+    }
+  ],
+  "cluster_run_reference": {
+    "activation_candidates": [
+      "seed_unit_0001"
+    ],
+    "diagnostics": [],
+    "dynamic_budget": {
+      "max_active_units": 32,
+      "max_branches": 64,
+      "max_generation_depth": 8,
+      "max_logical_steps": 500,
+      "max_messages": 100000,
+      "max_proposals_per_epoch": 256,
+      "max_reactivations_per_unit": 3,
+      "max_state_bytes": 67108864,
+      "max_total_units": 1000,
+      "max_units_per_branch": 128
+    },
+    "enabled": true,
+    "generation_rules": [
+      {
+        "deterministic": true,
+        "input_contract": {
+          "required_state_refs": []
+        },
+        "limits": {
+          "max_generation_depth": 64,
+          "max_total_units": 10000
+        },
+        "output_contract": {
+          "max_units_per_trigger": 16,
+          "unit_kind": "derived"
+        },
+        "rule_id": "rule_dynamic_generation",
+        "schema_version": "reasonscript-generation-rule/0.1",
+        "trigger": {
+          "event_type": "task_completed"
+        },
+        "version": "0.1"
+      }
+    ],
+    "initial_branch": {
+      "branch_id": "branch_root_0001",
+      "state": "active"
+    },
+    "schema_version": "reasonscript-dynamic-plan/0.1",
+    "seed_reason_units": [
+      {
+        "reason_unit_id": "seed_unit_0001",
+        "state": "ready",
+        "task_id": "task_0001",
+        "unit_kind": "seed"
+      }
+    ],
+    "valid": true
+  },
+  "configuration": {
+    "convergence": {
+      "policies": [
+        "quiescence",
+        "state_stable"
+      ],
+      "stable_epochs": 3
+    },
+    "enabled": true,
+    "fallback": {
+      "dynamic_failure": "abort",
+      "worker_shortage": "single_node"
+    },
+    "lifecycle": {
+      "allow_generation": true,
+      "allow_reactivation": true,
+      "allow_replacement": true,
+      "allow_suspension": true
+    },
+    "limits": {
+      "max_active_units": 32,
+      "max_branches": 64,
+      "max_generation_depth": 8,
+      "max_logical_steps": 500,
+      "max_messages": 100000,
+      "max_proposals_per_epoch": 256,
+      "max_reactivations_per_unit": 3,
+      "max_state_bytes": 67108864,
+      "max_total_units": 1000,
+      "max_units_per_branch": 128
+    },
+    "pruning": {
+      "budget_pruning": true,
+      "dominated_branches": true,
+      "duplicate_branches": true,
+      "duplicate_units": true
+    },
+    "revision": {
+      "apply_at": "logical_step_boundary",
+      "atomic": true
+    },
+    "schema_version": "reasonscript-dynamic-reason-unit-cluster-config/0.1"
+  },
+  "run_id": "dynamic_run_876f40adb5c77c74",
+  "run_semantic_seed": "sha256:876f40adb5c77c74091175559b0c710aee5c818938ad793d704b02e233c7fe48",
+  "schema_version": "reasonscript-dynamic-reason-unit-cluster/0.1"
+}

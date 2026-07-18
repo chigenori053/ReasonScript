@@ -9,8 +9,8 @@
     "reason golden"
   ],
   "schema": "reasonscript-agent-report/1.0",
-  "status": "VALIDATED",
-  "task": "Install Foundation v1.1.1 Phase R2",
-  "tests_passed": 873,
+  "status": "COMPLETED",
+  "task": "Dynamic ReasonUnit Cluster Execution v0.1",
+  "tests_passed": 879,
   "version": "1.0"
 }

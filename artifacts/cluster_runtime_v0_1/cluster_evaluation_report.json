@@ -1,0 +1,33 @@
+{
+  "correctness": {
+    "all_required_tasks_completed": true,
+    "dependency_order_valid": true,
+    "final_state_valid": true,
+    "knowledge_valid": true,
+    "messages_complete": true,
+    "state_conflict_free": true,
+    "trace_complete": true
+  },
+  "determinism": {
+    "canonicalized": true,
+    "message_logically_ordered": true,
+    "semantic_digest": "sha256:2b17a76f1e0f6d47318522009748d3c623cf28a50ab1a7267e1fbb40ff8e7e3c"
+  },
+  "efficiency": {
+    "logical_steps": 2,
+    "message_count": 18,
+    "retry_count": 0,
+    "task_parallel_ratio": 0.0,
+    "worker_count": 2
+  },
+  "equivalence": {
+    "evaluation": true,
+    "final_state": true,
+    "knowledge": true,
+    "semantic_projection": true
+  },
+  "fallback_used": false,
+  "passed": true,
+  "schema_version": "reasonscript-cluster-evaluation-report/0.1",
+  "status": "passed"
+}

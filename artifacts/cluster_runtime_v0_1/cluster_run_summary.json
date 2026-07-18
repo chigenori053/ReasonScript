@@ -1,0 +1,103 @@
+{
+  "diagnostic_count": 0,
+  "evaluation_status": "passed",
+  "fallback_used": false,
+  "mode": "local_process",
+  "run_id": "cluster_run_344f817e017bbbeb",
+  "schema_version": "reasonscript-cluster-run-summary/0.1",
+  "semantic_result": {
+    "diagnostics": [],
+    "evaluation": {},
+    "final_state": "B.state.result",
+    "knowledge": {
+      "evidence_count": 1,
+      "generated_at": "1970-01-01T00:00:00+00:00",
+      "knowledge": [
+        {
+          "branch_id": null,
+          "confidence": 0.92,
+          "evidence": {
+            "path": [
+              "CalculationChainStart",
+              "A.state.result"
+            ],
+            "transitions": [
+              "A-1-result"
+            ]
+          },
+          "evidence_path": [],
+          "from_simulation": false,
+          "id": "K001",
+          "path_length": 1,
+          "path_signature": "",
+          "relation": "ResultTransition",
+          "source": "CalculationChainStart",
+          "target": "A.state.result"
+        },
+        {
+          "branch_id": null,
+          "confidence": 0.84,
+          "evidence": {
+            "path": [
+              "CalculationChainStart",
+              "A.state.result",
+              "B.state.result"
+            ],
+            "transitions": [
+              "A-1-result",
+              "B-1-result"
+            ]
+          },
+          "evidence_path": [],
+          "from_simulation": true,
+          "id": "K002",
+          "path_length": 2,
+          "path_signature": "",
+          "relation": "ResultTransition",
+          "source": "CalculationChainStart",
+          "target": "B.state.result"
+        }
+      ],
+      "knowledge_count": 2,
+      "schema_version": "knowledge-emergence/0.2"
+    },
+    "simulation": {
+      "confidence": 0.84,
+      "cost": 2.0,
+      "final_state": "B.state.result",
+      "goal_reached": true,
+      "path_signature": "",
+      "schema_version": "semantic-simulation/0.2",
+      "selected_branch": null,
+      "selected_branches": [],
+      "step_count": 2,
+      "success": true,
+      "trace": [
+        {
+          "event": "start",
+          "state": "CalculationChainStart",
+          "step": 0
+        },
+        {
+          "event": "transition",
+          "state": "A.state.result",
+          "step": 1,
+          "transition": "A-1-result"
+        },
+        {
+          "event": "transition",
+          "state": "B.state.result",
+          "step": 2,
+          "transition": "B-1-result"
+        }
+      ],
+      "violations": []
+    }
+  },
+  "status": "completed",
+  "task_counts": {
+    "completed": 2,
+    "failed": 0,
+    "total": 2
+  }
+}
