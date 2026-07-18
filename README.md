@@ -51,13 +51,12 @@ ReasonScript Source
 Release documentation:
 
 - `docs/ReasonScript_Platform_v0.1_Alpha_Release_Specification.md`
-- `docs/ReasonScript_Platform_v0.1_Alpha_Release_Report.md`
 - `docs/ReasonScript_Language_Specification_v0.1.md`
-- `docs/ReasonScript_Language_Phase_1_Validation_Report.md`
 - `docs/ReasonScript_Operational_Semantics_v0.1.md`
-- `Operational_Semantics_Validation_Report.md`
 - `release/v0.1-alpha/manifest.json`
 - `CHANGELOG.md`
+
+See `docs/README.md` for the full documentation index.
 
 Run the integrated release gate with:
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Cleaned up repository documentation for the open-source release: removed
+  internal validation reports, phase completion reports, and audit artifacts;
+  added a documentation index at `docs/README.md`.
+
 ## ReasonScript Install Foundation v1.1 - 2026-07-14
 
 ### Added
