@@ -1,0 +1,14 @@
+{
+  "data": {
+    "clause_order": [
+      "from",
+      "resources",
+      "mode",
+      "as"
+    ],
+    "existing_source_unchanged": true,
+    "idempotent": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-formatter-contract/1.0"
+}

@@ -1,0 +1,5 @@
+model Existing {
+    calculation Value {
+        result = 42
+    }
+}

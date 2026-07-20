@@ -1,0 +1,10 @@
+{
+  "data": {
+    "overwrite_explicit": true,
+    "source_implicit_overwrite": false,
+    "write_capability": true,
+    "writer": "RUO-F1/T1 atomic"
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-object-save-contract/1.0"
+}

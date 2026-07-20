@@ -1,0 +1,14 @@
+{
+  "data": {
+    "direct_snapshot_mutation": "reject",
+    "sequence": [
+      "snapshot",
+      "begin",
+      "apply",
+      "validate",
+      "commit_or_rollback"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-transaction-language-boundary-contract/1.0"
+}

@@ -1,0 +1,97 @@
+{
+  "data": {
+    "deterministic_serialization": true,
+    "model_parse": true,
+    "module_parse": true,
+    "sample_ast": {
+      "modules": [
+        {
+          "body": [
+            {
+              "clause_spans": [
+                {
+                  "clause": "name",
+                  "node_type": "ReasonObjectClauseSpanNode",
+                  "span": {
+                    "end_column": 22,
+                    "end_line": 2,
+                    "node_type": "SourceSpanNode",
+                    "start_column": 15,
+                    "start_line": 2
+                  }
+                },
+                {
+                  "clause": "from",
+                  "node_type": "ReasonObjectClauseSpanNode",
+                  "span": {
+                    "end_column": 50,
+                    "end_line": 2,
+                    "node_type": "SourceSpanNode",
+                    "start_column": 23,
+                    "start_line": 2
+                  }
+                },
+                {
+                  "clause": "resources",
+                  "node_type": "ReasonObjectClauseSpanNode",
+                  "span": {
+                    "end_column": 30,
+                    "end_line": 3,
+                    "node_type": "SourceSpanNode",
+                    "start_column": 1,
+                    "start_line": 3
+                  }
+                },
+                {
+                  "clause": "mode",
+                  "node_type": "ReasonObjectClauseSpanNode",
+                  "span": {
+                    "end_column": 12,
+                    "end_line": 4,
+                    "node_type": "SourceSpanNode",
+                    "start_column": 1,
+                    "start_line": 4
+                  }
+                },
+                {
+                  "clause": "as",
+                  "node_type": "ReasonObjectClauseSpanNode",
+                  "span": {
+                    "end_column": 34,
+                    "end_line": 5,
+                    "node_type": "SourceSpanNode",
+                    "start_column": 1,
+                    "start_line": 5
+                  }
+                }
+              ],
+              "expected_object_id": "ruo:object:universal-fixture",
+              "load_mode": "strict",
+              "name": "vehicle",
+              "node_type": "ReasonObjectBindingNode",
+              "resource_root": "objects/resources",
+              "source_path": "objects/complete.ruo",
+              "source_span": {
+                "end_column": 34,
+                "end_line": 5,
+                "node_type": "SourceSpanNode",
+                "start_column": 1,
+                "start_line": 2
+              },
+              "syntax_version": "reason-object-binding/1.0"
+            }
+          ],
+          "name": "VehicleObject",
+          "node_type": "ModuleNode",
+          "source_kind": "model",
+          "visibility": "Private"
+        }
+      ],
+      "node_type": "ProgramNode",
+      "package": null
+    },
+    "spans_complete": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-parser-ast-report/1.0"
+}

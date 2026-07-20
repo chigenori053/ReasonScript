@@ -1,0 +1,76 @@
+{
+  "data": {
+    "deterministic": true,
+    "hidden_transaction_boundaries": 0,
+    "plan": {
+      "bindings": [
+        {
+          "binding_id": "ruo-binding:f1fd5e22ee471126c7d39b11",
+          "capability_requirements": [
+            "filesystem_read"
+          ],
+          "determinism": "deterministic_for_verified_inputs",
+          "expected_object_id": "ruo:object:universal-fixture",
+          "failure_modes": [
+            "capability",
+            "integrity",
+            "identity",
+            "resource",
+            "limit"
+          ],
+          "input_type": "ReasonObjectBinding",
+          "lexical_name": "vehicle",
+          "load_mode": "strict",
+          "logical_source_ref": "objects/complete.ruo",
+          "node_type": "ReasonObjectBindingIR",
+          "output_type": "ReasonObject",
+          "resource_root_ref": "objects/resources",
+          "source_span": {
+            "end_column": 34,
+            "end_line": 5,
+            "node_type": "SourceSpanNode",
+            "start_column": 1,
+            "start_line": 2
+          }
+        }
+      ],
+      "load_profile": "lazy_verified",
+      "operations": [],
+      "resource_limits_required": true,
+      "steps": [
+        {
+          "operation": "binding_resolution",
+          "order": 1,
+          "transaction_boundary": false
+        },
+        {
+          "operation": "capability_validation",
+          "order": 2,
+          "transaction_boundary": false
+        },
+        {
+          "operation": "native_load",
+          "order": 3,
+          "transaction_boundary": false
+        },
+        {
+          "operation": "operation_execution",
+          "order": 4,
+          "transaction_boundary": false
+        },
+        {
+          "operation": "transaction_commit_or_rollback",
+          "order": 5,
+          "transaction_boundary": true
+        },
+        {
+          "operation": "projection_or_save",
+          "order": 6,
+          "transaction_boundary": false
+        }
+      ]
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-execution-plan-report/1.0"
+}

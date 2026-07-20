@@ -1,0 +1,313 @@
+{
+  "data": {
+    "functions": [
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonObject",
+        "name": "ruo.object_id",
+        "native_operation": "object_id",
+        "output_type": "StableId",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonObject",
+        "name": "ruo.snapshot",
+        "native_operation": "snapshot",
+        "output_type": "ReasonObjectSnapshot",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonObjectSnapshot,StableId",
+        "name": "ruo.resolve",
+        "native_operation": "resolve",
+        "output_type": "ReasonEntityRef",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonObjectSnapshot,ReasonQuery",
+        "name": "ruo.query",
+        "native_operation": "query",
+        "output_type": "ReasonQueryResult",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonObjectSnapshot",
+        "name": "ruo.begin",
+        "native_operation": "begin",
+        "output_type": "ReasonTransaction",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonTransaction,ReasonOperation",
+        "name": "ruo.apply",
+        "native_operation": "apply",
+        "output_type": "ReasonTransaction",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonTransaction",
+        "name": "ruo.validate",
+        "native_operation": "validate",
+        "output_type": "ReasonTransactionResult",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonTransaction",
+        "name": "ruo.commit",
+        "native_operation": "commit",
+        "output_type": "ReasonTransactionResult",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonTransaction",
+        "name": "ruo.rollback",
+        "native_operation": "rollback",
+        "output_type": "ReasonTransactionResult",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonObjectSnapshot,ReasonSelector",
+        "name": "ruo.select",
+        "native_operation": "select",
+        "output_type": "ReasonSelection",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonObjectSnapshot,ReasonSelector",
+        "name": "ruo.materialize",
+        "native_operation": "materialize",
+        "output_type": "ReasonSelection",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonObjectSnapshot,ReasonProjectionProfile",
+        "name": "ruo.project",
+        "native_operation": "project",
+        "output_type": "ReasonProjection",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonObjectSnapshot,Path,OverwritePolicy",
+        "name": "ruo.save",
+        "native_operation": "save",
+        "output_type": "ReasonTransactionResult",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonObjectSnapshot,StableId,ReasonSelector?",
+        "name": "ruo.tensor_view",
+        "native_operation": "tensor_view",
+        "output_type": "ReasonTensorView",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonValue",
+        "name": "ruo.status",
+        "native_operation": "status",
+        "output_type": "ReasonStatus",
+        "version": "1.0"
+      },
+      {
+        "determinism": "deterministic",
+        "failure_states": [
+          "absent",
+          "not_loaded",
+          "unavailable",
+          "unknown",
+          "invalid",
+          "deleted",
+          "stale",
+          "conflict",
+          "error"
+        ],
+        "input_type": "ReasonValue",
+        "name": "ruo.diagnostics",
+        "native_operation": "diagnostics",
+        "output_type": "ReasonDiagnosticSet",
+        "version": "1.0"
+      }
+    ],
+    "namespace": "ruo"
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-ruo-standard-function-registry/1.0"
+}

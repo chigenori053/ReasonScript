@@ -731,6 +731,32 @@ class FunctionDeclarationNode:
     return_type: TypeNode | None = None
 
 
+@dataclass(frozen=True)
+class SourceSpanNode:
+    start_line: int
+    start_column: int
+    end_line: int
+    end_column: int
+
+
+@dataclass(frozen=True)
+class ReasonObjectClauseSpanNode:
+    clause: str
+    span: SourceSpanNode
+
+
+@dataclass(frozen=True)
+class ReasonObjectBindingNode:
+    name: str
+    source_path: str
+    resource_root: str | None
+    load_mode: str
+    expected_object_id: str | None
+    source_span: SourceSpanNode
+    clause_spans: tuple[ReasonObjectClauseSpanNode, ...]
+    syntax_version: str = "reason-object-binding/1.0"
+
+
 AstNode: TypeAlias = (
     ImportNode
     | ConceptNode
@@ -750,6 +776,7 @@ AstNode: TypeAlias = (
     | TransitionNode
     | CalculationNode
     | FunctionDeclarationNode
+    | ReasonObjectBindingNode
 )
 
 
@@ -802,6 +829,9 @@ _NODE_TYPES = {
         FloatLiteralNode,
         ForStatementNode,
         FunctionDeclarationNode,
+        SourceSpanNode,
+        ReasonObjectClauseSpanNode,
+        ReasonObjectBindingNode,
         GoalNode,
         GoalStatementNode,
         IdentifierNode,

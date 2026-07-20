@@ -1,0 +1,21 @@
+{
+  "data": {
+    "load_profiles": [
+      "eager_verified",
+      "lazy_verified",
+      "metadata_only"
+    ],
+    "save_boundary": true,
+    "stages": [
+      "binding_resolution",
+      "capability_validation",
+      "native_load",
+      "operation_execution",
+      "transaction_commit_or_rollback",
+      "projection_or_save"
+    ],
+    "transaction_boundary": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-execution-plan-contract/1.0"
+}

@@ -1,0 +1,37 @@
+{
+  "data": {
+    "binding_id_is_object_id": false,
+    "example": {
+      "binding_id": "ruo-binding:f1fd5e22ee471126c7d39b11",
+      "capability_requirements": [
+        "filesystem_read"
+      ],
+      "determinism": "deterministic_for_verified_inputs",
+      "expected_object_id": "ruo:object:universal-fixture",
+      "failure_modes": [
+        "capability",
+        "integrity",
+        "identity",
+        "resource",
+        "limit"
+      ],
+      "input_type": "ReasonObjectBinding",
+      "lexical_name": "vehicle",
+      "load_mode": "strict",
+      "logical_source_ref": "objects/complete.ruo",
+      "node_type": "ReasonObjectBindingIR",
+      "output_type": "ReasonObject",
+      "resource_root_ref": "objects/resources",
+      "source_span": {
+        "end_column": 34,
+        "end_line": 5,
+        "node_type": "SourceSpanNode",
+        "start_column": 1,
+        "start_line": 2
+      }
+    },
+    "node": "ReasonObjectBindingIR"
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-compiler-mapping-contract/1.0"
+}

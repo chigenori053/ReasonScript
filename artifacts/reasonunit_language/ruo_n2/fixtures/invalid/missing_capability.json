@@ -1,0 +1,5 @@
+{
+  "case_id": "missing_capability",
+  "expected": "rejected",
+  "published_partial_target": false
+}

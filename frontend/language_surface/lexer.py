@@ -38,6 +38,12 @@ KEYWORDS = {
     "optional",
     "pub",
     "reach",
+    "reason_object",
+    "from",
+    "resources",
+    "mode",
+    "strict",
+    "preserve",
     "require",
     "requires",
     "result",
@@ -149,7 +155,7 @@ def tokenize(source: str) -> tuple[SurfaceToken, ...]:
             index += len(matched)
             column += len(matched)
             continue
-        if char in "{}()[]:,.":
+        if char in "{}()[]:,.;":
             tokens.append(
                 SurfaceToken(SurfaceTokenType.DELIMITER, char, line, column)
             )

@@ -1,0 +1,21 @@
+{
+  "data": {
+    "checks": [
+      "scope",
+      "duplicate",
+      "path",
+      "mode",
+      "expected_id",
+      "capability_compatibility",
+      "operation_types"
+    ],
+    "runtime_checks": [
+      "existence",
+      "seal",
+      "resource",
+      "actual_object_id"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-semantic-analysis-contract/1.0"
+}

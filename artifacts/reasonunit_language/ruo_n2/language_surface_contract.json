@@ -1,0 +1,9 @@
+{
+  "data": {
+    "explicit_opt_in": true,
+    "nested_declaration": "reason_object",
+    "preferred_top_level": "model"
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-language-surface-contract/1.0"
+}

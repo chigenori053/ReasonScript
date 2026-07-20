@@ -1,0 +1,5 @@
+{
+  "case_id": "diagnostic_span_loss",
+  "expected": "rejected",
+  "published_partial_target": false
+}

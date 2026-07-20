@@ -1,0 +1,12 @@
+{
+  "data": {
+    "distinct": [
+      "binding_name/object_id",
+      "source_order/object_id",
+      "source_path/object_id"
+    ],
+    "expected_id_renames": false
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-binding-semantics-contract/1.0"
+}

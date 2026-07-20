@@ -1,0 +1,18 @@
+{
+  "data": {
+    "fields": [
+      "dtype",
+      "shape",
+      "axes",
+      "mapping",
+      "mask",
+      "chunks",
+      "logical_digest",
+      "resource_status",
+      "partial_selection"
+    ],
+    "snapshot_lease_bound": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-tensor-view-integration-contract/1.0"
+}

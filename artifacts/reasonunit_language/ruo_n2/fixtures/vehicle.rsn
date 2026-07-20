@@ -1,0 +1,6 @@
+model VehicleObject {
+    reason_object vehicle from "objects/complete.ruo"
+        resources "objects/resources"
+        mode strict
+        as "ruo:object:universal-fixture";
+}

@@ -1,0 +1,9 @@
+{
+  "data": {
+    "non_opt_in_source_byte_unchanged": true,
+    "protected_behavior": "unchanged",
+    "semantic_loss": 0
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-backward-compatibility-report/1.0"
+}

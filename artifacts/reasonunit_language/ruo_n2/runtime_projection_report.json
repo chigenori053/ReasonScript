@@ -1,0 +1,9 @@
+{
+  "data": {
+    "deterministic": true,
+    "protected_behavior": "unchanged",
+    "source_snapshot": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-runtime-projection-report/1.0"
+}

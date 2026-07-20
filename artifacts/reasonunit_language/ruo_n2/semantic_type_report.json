@@ -1,0 +1,9 @@
+{
+  "data": {
+    "failures": 0,
+    "presence_states": 10,
+    "types": 12
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-semantic-type-report/1.0"
+}

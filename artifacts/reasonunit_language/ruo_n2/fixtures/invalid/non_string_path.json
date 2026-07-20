@@ -1,0 +1,5 @@
+{
+  "case_id": "non_string_path",
+  "expected": "rejected",
+  "published_partial_target": false
+}

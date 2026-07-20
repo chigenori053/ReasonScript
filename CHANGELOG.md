@@ -4,6 +4,29 @@
 
 ### Added
 
+- Implemented ReasonScript Phase RUO-N2 ReasonUnit Object Language and CLI
+  Integration v1.0:
+  - Added nested `reason_object` bindings for `model` and compatibility
+    `module`, deterministic clause/source spans, static path and identity
+    validation, stable `ReasonObjectBindingIR`, typed `ReasonObjectOperationIR`,
+    and explicit capability/native-load/transaction/save execution-plan stages.
+  - Added all 12 RUO opaque language types, 10 presence/failure states, and 16
+    versioned `ruo.*` standard functions mapped to RUO-N1 native operations.
+  - Added the consolidated `reason object` CLI, deterministic formatter,
+    capability-gated native loading and atomic persistence, seven offline
+    examples, 28 invalid cases, a project-owned schema, and all 56 canonical
+    artifacts.
+  - Recorded the additive RUO-N1 implementation-status normalization without
+    changing any RUO-N1 historical canonical artifact.
+
+### RUO-N2 Validation
+
+- RUO-N2 matrix: 67/67 PASS; dedicated integration tests: 17 PASS.
+- Focused RUO and language compatibility regression: 159 PASS.
+- Native Rust tests: 5 passed; Clippy and rustfmt: PASS.
+- `reason ci --json`: PASS, 1051 tests.
+- Agent Protocol: PASS.
+
 - Implemented ReasonScript Phase RUO-N1 Native ReasonUnit Object Runtime Type v1.0:
   - Added the safe-Rust `NativeReasonUnitRuntime` core with namespaced stable IDs,
     generation-checked handles, deterministic native registries, immutable

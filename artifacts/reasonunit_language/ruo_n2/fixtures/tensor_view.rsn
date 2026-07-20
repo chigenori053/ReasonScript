@@ -1,0 +1,5 @@
+model TensorObject {
+    reason_object tensor from "objects/complete.ruo"
+        resources "objects/resources"
+        mode strict;
+}

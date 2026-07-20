@@ -1,0 +1,19 @@
+{
+  "data": {
+    "direct_native_api": true,
+    "preserves": [
+      "stable_ids",
+      "handles",
+      "snapshots",
+      "diagnostics",
+      "partial_states",
+      "resources",
+      "tensor_mappings",
+      "transactions"
+    ],
+    "profile": "reasonscript-reasonunit-native-runtime/1.0",
+    "python_core_semantic_fallback": false
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-native-runtime-binding-contract/1.0"
+}

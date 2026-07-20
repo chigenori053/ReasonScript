@@ -262,6 +262,7 @@ def unwrap_artifact(value: Any) -> Any:
             "reasonscript-reasonunit-file-format/1.0",
             "reasonscript-reasonunit-tensor/1.0",
             "reasonscript-reasonunit-native-runtime/1.0",
+            "reasonscript-reasonunit-language-integration/1.0",
         }
         and isinstance(value.get("data"), dict)
     ):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+import hashlib
 
 from frontend import ast as semantic
 from frontend.compiler import compile as compile_semantic
@@ -61,6 +62,7 @@ from .nodes import (
     QualifiedIdentifierNode,
     RangePatternNode,
     ReasonGraphDeclarationNode,
+    ReasonObjectBindingNode,
     ReachStatementNode,
     RelationNode,
     RequireStatementNode,
@@ -122,6 +124,8 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
     surface_goals = [node for node in module.body if isinstance(node, GoalNode)]
     goal_target = surface_goals[0].name if surface_goals else f"{module.name}Result"
     module_tensor_operations = tensor_operations(module)
+    reason_object_bindings = _reason_object_bindings(module, namespace)
+    reason_object_operations = _reason_object_operations(module)
     declarations.append(
         semantic.GoalNode(
             f"{namespace}-goal",
@@ -314,6 +318,14 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                 f"{namespace}-runtime-operations",
                 "runtime_operations",
                 _runtime_operations(module),
+            ),
+            *(
+                (semantic.MetadataNode(f"{namespace}-reason-object-bindings", "reason_object_bindings", reason_object_bindings),)
+                if reason_object_bindings else ()
+            ),
+            *(
+                (semantic.MetadataNode(f"{namespace}-reason-object-operations", "reason_object_operations", reason_object_operations),)
+                if reason_object_operations else ()
             ),
             *(
                 (
@@ -560,6 +572,53 @@ def _runtime_operations(module: ModuleNode) -> list[dict[str, Any]]:
             }
         )
     return result
+
+
+def _reason_object_bindings(module: ModuleNode, namespace: str) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for node in module.body:
+        if not isinstance(node, ReasonObjectBindingNode):
+            continue
+        binding_id = "ruo-binding:" + hashlib.sha256(f"{namespace}:{node.name}".encode()).hexdigest()[:24]
+        result.append({
+            "node_type": "ReasonObjectBindingIR",
+            "binding_id": binding_id,
+            "lexical_name": node.name,
+            "logical_source_ref": node.source_path,
+            "resource_root_ref": node.resource_root,
+            "load_mode": node.load_mode,
+            "expected_object_id": node.expected_object_id,
+            "capability_requirements": ["filesystem_read"],
+            "input_type": "ReasonObjectBinding",
+            "output_type": "ReasonObject",
+            "failure_modes": ["capability", "integrity", "identity", "resource", "limit"],
+            "determinism": "deterministic_for_verified_inputs",
+            "source_span": to_json_value(node.source_span),
+        })
+    return result
+
+
+_RUO_OUTPUT_TYPES = {"object_id": "StableId", "snapshot": "ReasonObjectSnapshot", "resolve": "ReasonEntityRef", "query": "ReasonQueryResult", "begin": "ReasonTransaction", "apply": "ReasonTransaction", "validate": "ReasonTransactionResult", "commit": "ReasonTransactionResult", "rollback": "ReasonTransactionResult", "select": "ReasonSelection", "materialize": "ReasonSelection", "project": "ReasonProjection", "save": "ReasonTransactionResult", "tensor_view": "ReasonTensorView", "status": "ReasonStatus", "diagnostics": "ReasonDiagnosticSet"}
+
+
+def _reason_object_operations(module: ModuleNode) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for node in module.body:
+        for call in _walk_ruo_calls(node):
+            method = call.callee.member
+            result.append({"node_type": "ReasonObjectOperationIR", "operation": method, "native_operation": method, "input_type": "typed", "output_type": _RUO_OUTPUT_TYPES[method], "arguments": [to_json_value(argument) for argument in call.arguments], "capability_requirement": "filesystem_write" if method == "save" else ("filesystem_read" if method in {"materialize", "tensor_view"} else None), "failure_modes": ["not_loaded", "unavailable", "invalid", "deleted", "stale", "conflict", "error"], "determinism": "deterministic"})
+    return result
+
+
+def _walk_ruo_calls(value: Any):
+    if isinstance(value, CallExpressionNode) and isinstance(value.callee, MemberAccessNode) and isinstance(value.callee.object, IdentifierNode) and value.callee.object.name == "ruo":
+        yield value
+    if isinstance(value, tuple):
+        for item in value: yield from _walk_ruo_calls(item)
+    elif isinstance(value, list):
+        for item in value: yield from _walk_ruo_calls(item)
+    elif hasattr(value, "__dataclass_fields__"):
+        for field in value.__dataclass_fields__: yield from _walk_ruo_calls(getattr(value, field))
 
 
 def _function_symbols(module: ModuleNode, namespace: str) -> list[dict[str, Any]]:
@@ -2358,7 +2417,7 @@ def execution_plan_for(reason_ir: dict[str, Any]) -> dict[str, Any]:
         }
         for index, transition in enumerate(reason_ir["transitions"], 1)
     ]
-    return {
+    result = {
         "selected_steps": steps,
         "alternative_paths": [],
         "expected_cost": sum(
@@ -2367,6 +2426,19 @@ def execution_plan_for(reason_ir: dict[str, Any]) -> dict[str, Any]:
         "evidence_refs": [],
         "planner_version": "language-surface-validation/0.1",
     }
+    bindings = reason_ir.get("metadata", {}).get("reason_object_bindings", [])
+    if bindings:
+        result["reason_object_plan"] = {
+            "load_profile": "lazy_verified",
+            "bindings": bindings,
+            "steps": [
+                {"order": index, "operation": operation, "transaction_boundary": operation in {"transaction_commit_or_rollback", "save"}}
+                for index, operation in enumerate(["binding_resolution", "capability_validation", "native_load", "operation_execution", "transaction_commit_or_rollback", "projection_or_save"], 1)
+            ],
+            "resource_limits_required": True,
+            "operations": reason_ir.get("metadata", {}).get("reason_object_operations", []),
+        }
+    return result
 
 
 def _calculation_transition_id(

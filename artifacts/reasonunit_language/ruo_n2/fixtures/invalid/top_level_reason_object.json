@@ -1,0 +1,5 @@
+{
+  "case_id": "top_level_reason_object",
+  "expected": "rejected",
+  "published_partial_target": false
+}

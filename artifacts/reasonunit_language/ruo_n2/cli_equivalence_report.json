@@ -1,0 +1,14 @@
+{
+  "data": {
+    "consolidated": "reason object",
+    "expert": [
+      "reasonunit-object",
+      "reasonunit-file",
+      "reasonunit-tensor",
+      "reasonunit-runtime"
+    ],
+    "semantic_differences": 0
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-cli-equivalence-report/1.0"
+}

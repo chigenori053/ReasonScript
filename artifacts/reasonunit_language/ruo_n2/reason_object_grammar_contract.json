@@ -1,0 +1,13 @@
+{
+  "data": {
+    "clause_order": [
+      "from",
+      "resources",
+      "mode",
+      "as"
+    ],
+    "grammar": "reason_object IDENTIFIER from STRING (resources STRING)? (mode (strict|preserve))? (as STRING)? ;?"
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-reason-object-grammar-contract/1.0"
+}

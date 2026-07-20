@@ -1,0 +1,121 @@
+{
+  "data": {
+    "case_count": 28,
+    "cases": [
+      {
+        "case_id": "top_level_reason_object",
+        "rejected": true
+      },
+      {
+        "case_id": "missing_from",
+        "rejected": true
+      },
+      {
+        "case_id": "non_string_path",
+        "rejected": true
+      },
+      {
+        "case_id": "duplicate_clause",
+        "rejected": true
+      },
+      {
+        "case_id": "unknown_mode",
+        "rejected": true
+      },
+      {
+        "case_id": "duplicate_binding",
+        "rejected": true
+      },
+      {
+        "case_id": "illegal_shadowing",
+        "rejected": true
+      },
+      {
+        "case_id": "unsafe_path",
+        "rejected": true
+      },
+      {
+        "case_id": "network_path",
+        "rejected": true
+      },
+      {
+        "case_id": "invalid_expected_id",
+        "rejected": true
+      },
+      {
+        "case_id": "missing_capability",
+        "rejected": true
+      },
+      {
+        "case_id": "missing_object",
+        "rejected": true
+      },
+      {
+        "case_id": "corrupt_seal",
+        "rejected": true
+      },
+      {
+        "case_id": "corrupt_tensor",
+        "rejected": true
+      },
+      {
+        "case_id": "critical_extension",
+        "rejected": true
+      },
+      {
+        "case_id": "type_mismatch",
+        "rejected": true
+      },
+      {
+        "case_id": "direct_snapshot_mutation",
+        "rejected": true
+      },
+      {
+        "case_id": "stale_transaction",
+        "rejected": true
+      },
+      {
+        "case_id": "missing_rollback",
+        "rejected": true
+      },
+      {
+        "case_id": "invalid_selector",
+        "rejected": true
+      },
+      {
+        "case_id": "partial_completeness_claim",
+        "rejected": true
+      },
+      {
+        "case_id": "stale_tensor_view",
+        "rejected": true
+      },
+      {
+        "case_id": "implicit_overwrite",
+        "rejected": true
+      },
+      {
+        "case_id": "diagnostic_span_loss",
+        "rejected": true
+      },
+      {
+        "case_id": "python_semantic_fallback",
+        "rejected": true
+      },
+      {
+        "case_id": "formatter_instability",
+        "rejected": true
+      },
+      {
+        "case_id": "resource_limit_breach",
+        "rejected": true
+      },
+      {
+        "case_id": "protected_source_regression",
+        "rejected": true
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-invalid-fixture-manifest/1.0"
+}

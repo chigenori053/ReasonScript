@@ -1,0 +1,17 @@
+{
+  "data": {
+    "affected_artifact": "validation_summary.json",
+    "effective_phase": "RUO-N2",
+    "field": "implementation_status",
+    "historical_artifacts_rewritten": false,
+    "implementation_semantic_compatibility_results_changed": false,
+    "normalized_value": "IMPLEMENTED",
+    "original_run_manifest_digest": "sha256:f145cc2238ec11b07a34a076d2ce81eec008ff89dc440c781e6838c7ee353f3e",
+    "original_value": "VALIDATED",
+    "phase_status_unchanged": "VALIDATED",
+    "reason": "implementation and validation axes were conflated",
+    "transition_unchanged": "PROCEED_TO_RUO-N2"
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-ruo-n1-status-normalization/1.0"
+}

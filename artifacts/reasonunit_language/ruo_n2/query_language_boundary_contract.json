@@ -1,0 +1,12 @@
+{
+  "data": {
+    "inputs": [
+      "canonical_json",
+      "typed_constructors"
+    ],
+    "textual_query_language": "deferred",
+    "validated": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-query-language-boundary-contract/1.0"
+}

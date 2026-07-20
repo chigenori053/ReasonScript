@@ -1,0 +1,5 @@
+{
+  "case_id": "python_semantic_fallback",
+  "expected": "rejected",
+  "published_partial_target": false
+}

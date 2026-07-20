@@ -1,0 +1,4 @@
+module MolecularObject {
+    reason_object molecule from "objects/complete.ruo"
+        mode preserve;
+}

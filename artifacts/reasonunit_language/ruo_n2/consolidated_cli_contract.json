@@ -1,0 +1,21 @@
+{
+  "data": {
+    "command": "reason object",
+    "expert_clis_retained": true,
+    "operations": [
+      "check",
+      "run",
+      "inspect",
+      "query",
+      "snapshot",
+      "transact",
+      "select",
+      "project",
+      "tensor",
+      "save",
+      "validate-phase"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-consolidated-cli-contract/1.0"
+}

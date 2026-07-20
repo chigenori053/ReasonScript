@@ -1,0 +1,5 @@
+{
+  "case_id": "formatter_instability",
+  "expected": "rejected",
+  "published_partial_target": false
+}

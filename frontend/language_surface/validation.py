@@ -83,6 +83,8 @@ from .nodes import (
     RangePatternNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
+    ReasonObjectBindingNode,
+    ReasonObjectClauseSpanNode,
     ReasonGraphTransitionNode,
     RelationNode,
     RelationType,
@@ -99,6 +101,7 @@ from .nodes import (
     StateDeclarationNode,
     StateKind,
     StateTypeNode,
+    SourceSpanNode,
     StructDeclarationNode,
     StructBindingPatternNode,
     StructFieldPatternNode,
@@ -165,6 +168,7 @@ DECLARATION_NODES = (
     CalculationNode,
     FunctionDeclarationNode,
     TransitionNode,
+    ReasonObjectBindingNode,
 )
 KNOWN_NODE_TYPES = (
     ProgramNode,
@@ -213,6 +217,8 @@ KNOWN_NODE_TYPES = (
     QualifiedIdentifierNode,
     RuntimeNamespaceNode,
     RuntimeCallExpressionNode,
+    SourceSpanNode,
+    ReasonObjectClauseSpanNode,
     UnaryExpressionNode,
     BinaryExpressionNode,
     ComparisonExpressionNode,
@@ -755,6 +761,8 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
             visit(item.expression)
             return
         if isinstance(item, MemberAccessNode):
+            if isinstance(item.object, IdentifierNode) and item.object.name in {"tensor", "ruo"}:
+                return
             visit(item.object)
             return
         if isinstance(item, CallExpressionNode):
@@ -1536,7 +1544,7 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
-            if isinstance(value.object, IdentifierNode) and value.object.name == "tensor":
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"tensor", "ruo"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1574,6 +1582,11 @@ def _validate_calculation_expression(
                 for argument in value.arguments:
                     visit(argument)
                 return
+            if _ruo_call_name(value) is not None:
+                _validate_ruo_call(value)
+                for argument in value.arguments:
+                    visit(argument)
+                return
             visit(value.callee, callee=True)
             for argument in value.arguments:
                 visit(argument)
@@ -1604,6 +1617,29 @@ def _member_access_parts(value: Any) -> tuple[str, ...]:
         if parts:
             return (*parts, value.member)
     return ()
+
+
+_RUO_METHOD_ARITY = {
+    "object_id": (1, 1), "snapshot": (1, 1), "resolve": (2, 2), "query": (2, 2),
+    "begin": (1, 1), "apply": (2, 2), "validate": (1, 1), "commit": (1, 1),
+    "rollback": (1, 1), "select": (2, 2), "materialize": (2, 2), "project": (2, 2),
+    "save": (3, 3), "tensor_view": (2, 3), "status": (1, 1), "diagnostics": (1, 1),
+}
+
+
+def _ruo_call_name(value: CallExpressionNode) -> str | None:
+    callee = value.callee
+    if isinstance(callee, MemberAccessNode) and isinstance(callee.object, IdentifierNode) and callee.object.name == "ruo":
+        return callee.member
+    return None
+
+
+def _validate_ruo_call(value: CallExpressionNode) -> None:
+    method = _ruo_call_name(value); bounds = _RUO_METHOD_ARITY.get(str(method))
+    if bounds is None:
+        raise SurfaceValidationError("RUO-N2-009 unknown ruo standard function")
+    if not bounds[0] <= len(value.arguments) <= bounds[1]:
+        raise SurfaceValidationError(f"RUO-N2-009 ruo.{method} argument count mismatch")
 
 
 def _validate_runtime_call(value: RuntimeCallExpressionNode) -> None:
