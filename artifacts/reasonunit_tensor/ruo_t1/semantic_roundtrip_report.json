@@ -1,0 +1,13 @@
+{
+  "data": {
+    "inline_external_logical_digest_equal": true,
+    "loss_counts": {
+      "identity": 0,
+      "mapping": 0,
+      "semantic": 0,
+      "validity": 0
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-semantic-roundtrip-report/1.0"
+}

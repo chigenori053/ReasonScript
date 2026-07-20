@@ -119,6 +119,10 @@ def main() -> int:
         from toolchain.reasonunit_file_cmd import run
         return run(args[1:], project_root)
 
+    if command == "reasonunit-tensor":
+        from toolchain.reasonunit_tensor_cmd import run
+        return run(args[1:], project_root)
+
     if command == "reasoning-model":
         from toolchain.reasoning_model_cmd import run
         return run(command, args[1:], project_root)
@@ -180,6 +184,7 @@ def _usage() -> None:
     print("  reasonunit-compatibility Generate or validate the RUO-C1 compatibility foundation")
     print("  reasonunit-object Generate or validate the RUO-U1 universal Object model")
     print("  reasonunit-file Read, write, validate, inspect, select, and verify canonical .ruo files")
+    print("  reasonunit-tensor Encode, validate, inspect, decode, select, convert, and verify Tensor payloads")
     print("  reasoning-model validate <file> Validate a Reasoning Model artifact")
     print("  reasoning-eval evaluate <file> Evaluate a Reasoning Model artifact")
     print("  reasoning-eval validate <file> Validate a Reasoning Evaluation Report")

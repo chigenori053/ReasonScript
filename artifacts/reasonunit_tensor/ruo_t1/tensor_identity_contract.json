@@ -1,0 +1,16 @@
+{
+  "data": {
+    "distinct": [
+      "payload/resource",
+      "payload/digest",
+      "unit/index",
+      "resource/path",
+      "identity/device",
+      "identity/chunk"
+    ],
+    "payload_prefix": "ruo:payload:",
+    "resource_prefix": "ruo:resource:"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-tensor-identity-contract/1.0"
+}

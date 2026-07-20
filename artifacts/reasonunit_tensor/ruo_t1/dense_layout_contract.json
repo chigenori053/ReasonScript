@@ -1,0 +1,12 @@
+{
+  "data": {
+    "byte_order": "little",
+    "contiguous": true,
+    "layout": "row_major",
+    "offset_bytes": 0,
+    "padding": "prohibited",
+    "strides": "prohibited"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-dense-layout-contract/1.0"
+}

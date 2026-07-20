@@ -1,0 +1,11 @@
+{
+  "data": {
+    "float_complex": "canonical_hex_bytes",
+    "integer_boolean": "canonical JSON",
+    "max_bytes": 65536,
+    "max_elements": 4096,
+    "order": "row_major"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-inline-tensor-contract/1.0"
+}

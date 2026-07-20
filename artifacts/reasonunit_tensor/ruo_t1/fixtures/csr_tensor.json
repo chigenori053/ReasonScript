@@ -1,0 +1,71 @@
+{
+  "axes": [
+    {
+      "duplicate_policy": "forbidden",
+      "ordering": "ordered",
+      "ordinal": 0,
+      "partial_loading_status": "complete",
+      "size": 2
+    },
+    {
+      "duplicate_policy": "forbidden",
+      "ordering": "ordered",
+      "ordinal": 1,
+      "partial_loading_status": "complete",
+      "size": 2
+    }
+  ],
+  "conversion": {
+    "identity_loss_count": 0,
+    "mapping_loss_count": 0,
+    "profile": "ruo.tensor.conversion/1",
+    "semantic_loss_count": 0,
+    "source_logical_digest": "sha256:7c3821d3369a363c127e3540b251bea467854952c8ab38b6ebb336cba0463c44",
+    "target_logical_digest": "sha256:7c3821d3369a363c127e3540b251bea467854952c8ab38b6ebb336cba0463c44",
+    "validity_loss_count": 0
+  },
+  "dtype": "int32",
+  "element_count": 4,
+  "evidence_refs": [],
+  "extensions": {},
+  "logical_digest": "sha256:7c3821d3369a363c127e3540b251bea467854952c8ab38b6ebb336cba0463c44",
+  "payload_id": "ruo:payload:tensor",
+  "rank": 2,
+  "representation": "csr_resource",
+  "shape": [
+    2,
+    2
+  ],
+  "storage": {
+    "column_index_dtype": "uint64",
+    "column_indices": [
+      0,
+      1
+    ],
+    "duplicate_column_policy": "forbidden",
+    "explicit_zero_policy": "forbidden",
+    "nnz": 2,
+    "row_pointer_dtype": "uint64",
+    "row_pointers": [
+      0,
+      1,
+      2
+    ],
+    "sorted_columns": true,
+    "values": [
+      1,
+      2
+    ]
+  },
+  "tensor_profile": "ruo.tensor/1.0",
+  "validity": {
+    "states": [
+      "valid",
+      "valid",
+      "valid",
+      "valid"
+    ],
+    "status": "complete"
+  },
+  "value_presence": "present"
+}

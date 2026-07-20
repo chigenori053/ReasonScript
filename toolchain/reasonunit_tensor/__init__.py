@@ -8,5 +8,6 @@ from .model import (
     mapping_digest, normalized_logical, resolve_resource, select_tensor,
     shape_product, tensor_resource_record, validate_tensor, verify_resource,
 )
+from .phase import CANONICAL_ARTIFACTS, generate_tensor_profile, validate_tensor_profile, verify_ruo_f1
 
 __all__ = [name for name in globals() if not name.startswith("_")]

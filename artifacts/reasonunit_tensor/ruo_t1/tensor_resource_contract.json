@@ -1,0 +1,18 @@
+{
+  "data": {
+    "extension": ".ruot",
+    "media_type": "application/vnd.reasonscript.ruo-tensor",
+    "metadata_authority": ".ruo",
+    "raw_header": false,
+    "required_integrity": [
+      "sha256",
+      "byte_size",
+      "tensor_id",
+      "representation",
+      "dtype",
+      "shape_digest"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-tensor-resource-contract/1.0"
+}

@@ -1,0 +1,23 @@
+{
+  "data": {
+    "evidence": {
+      "byte_roundtrip_identical": true,
+      "c0": "40/40",
+      "c1": "56/56",
+      "f1": "72/72",
+      "f1_focused": "12 passed",
+      "focused_prerequisites": "106 passed",
+      "protected_behavior": "unchanged",
+      "repository_tests": 1014,
+      "semantic_loss_count": 0,
+      "three_run_byte_equality": true,
+      "u1": "65/65"
+    },
+    "external_resource_validation": true,
+    "fixture_validation": true,
+    "format_changed": false,
+    "protected_behavior": "unchanged"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-ruo-f1-compatibility-report/1.0"
+}

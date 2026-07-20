@@ -1,0 +1,17 @@
+{
+  "data": {
+    "network": false,
+    "reject": [
+      "absolute",
+      "parent",
+      "dot",
+      "backslash",
+      "NUL",
+      "drive",
+      "symlink_escape"
+    ],
+    "relative_resource_root": true
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-path-safety-contract/1.0"
+}

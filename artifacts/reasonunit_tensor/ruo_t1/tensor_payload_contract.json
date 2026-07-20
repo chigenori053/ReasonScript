@@ -1,0 +1,29 @@
+{
+  "data": {
+    "profile_id": "ruo.payload.tensor/1",
+    "representations": [
+      "inline",
+      "dense_resource",
+      "coo_resource",
+      "csr_resource"
+    ],
+    "required": [
+      "tensor_profile",
+      "dtype",
+      "rank",
+      "shape",
+      "element_count",
+      "representation",
+      "axes",
+      "value_presence",
+      "validity",
+      "storage",
+      "logical_digest",
+      "evidence_refs",
+      "extensions"
+    ],
+    "tensor_profile": "ruo.tensor/1.0"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-tensor-payload-contract/1.0"
+}

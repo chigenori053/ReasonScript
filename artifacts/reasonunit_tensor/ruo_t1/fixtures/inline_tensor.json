@@ -1,0 +1,38 @@
+{
+  "axes": [
+    {
+      "duplicate_policy": "forbidden",
+      "ordering": "ordered",
+      "ordinal": 0,
+      "partial_loading_status": "complete",
+      "size": 2
+    }
+  ],
+  "dtype": "float32",
+  "element_count": 2,
+  "evidence_refs": [],
+  "extensions": {},
+  "logical_digest": "sha256:e54bdbc3cf252350212e6a2077b520c6b0f76093fa03ce74ab3365ff8ee3953f",
+  "payload_id": "ruo:payload:inline-tensor",
+  "rank": 1,
+  "representation": "inline",
+  "shape": [
+    2
+  ],
+  "storage": {
+    "inline_scalar_encoding": "canonical_hex_bytes",
+    "values": [
+      "00000000",
+      "0000c03f"
+    ]
+  },
+  "tensor_profile": "ruo.tensor/1.0",
+  "validity": {
+    "states": [
+      "valid",
+      "valid"
+    ],
+    "status": "complete"
+  },
+  "value_presence": "present"
+}

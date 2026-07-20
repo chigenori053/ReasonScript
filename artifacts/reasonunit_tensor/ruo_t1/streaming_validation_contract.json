@@ -1,0 +1,10 @@
+{
+  "data": {
+    "bounded_memory": true,
+    "incremental_digests": true,
+    "ordered_chunks": true,
+    "resolved_after_complete_validation": true
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-streaming-validation-contract/1.0"
+}

@@ -1,0 +1,26 @@
+{
+  "data": {
+    "entries": [
+      {
+        "phase": "RUO-N1",
+        "semantics": "native Runtime Tensor"
+      },
+      {
+        "phase": "RUO-N2",
+        "semantics": "language syntax and native CLI integration"
+      },
+      {
+        "phase": "RUO-M1",
+        "semantics": "legacy migration"
+      },
+      {
+        "phase": "RUO-W1",
+        "semantics": "WorldModel pilot"
+      }
+    ],
+    "ml_performance_claim": false,
+    "native_runtime_claim": false
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-deferred-semantics-register/1.0"
+}

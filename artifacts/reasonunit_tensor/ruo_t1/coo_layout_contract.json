@@ -1,0 +1,14 @@
+{
+  "data": {
+    "bounds_checked": true,
+    "duplicates": "forbidden",
+    "explicit_zero_policies": [
+      "forbidden",
+      "preserve"
+    ],
+    "index_dtype": "uint64",
+    "ordering": "lexicographic"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-coo-layout-contract/1.0"
+}

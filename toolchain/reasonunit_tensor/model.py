@@ -114,7 +114,7 @@ def decode_scalar(dtype: str, data: bytes) -> Any:
         if data not in {b"\x00", b"\x01"}: raise TensorError("RUO-T1-007", "Boolean byte must be 0x00 or 0x01.", stage="scalar")
         return data == b"\x01"
     if spec["kind"] == "int": return int.from_bytes(data, "little", signed=spec["signed"])
-    if spec["kind"] == "bfloat": value = struct.unpack("<f", data + b"\x00\x00")[0]
+    if spec["kind"] == "bfloat": value = struct.unpack("<f", b"\x00\x00" + data)[0]
     elif spec["kind"] == "float": value = struct.unpack("<" + spec["format"], data)[0]
     else:
         values = struct.unpack("<" + spec["format"] * 2, data)
@@ -204,16 +204,18 @@ def mapping_digest(tensor_id: str, ordinal: int, mapping: dict[str, Any]) -> str
 def _chunks(chunks: Any, byte_size: int, data: bytes | None, limits: dict[str, int]) -> None:
     if chunks in (None, []): return
     if not isinstance(chunks, list) or len(chunks) > limits["chunks"]: raise TensorError("RUO-T1-012", "Invalid chunk list or limit exceeded.", stage="chunk")
-    offset = 0; element_start = 0
+    offset = 0; element_start = 0; axis_end = 0
     for index, chunk in enumerate(chunks):
         if chunk.get("index") != index or chunk.get("byte_offset") != offset or chunk.get("logical_element_start") != element_start:
             raise TensorError("RUO-T1-012", "Chunks must be ordered, contiguous, and non-overlapping.", stage="chunk")
+        if "axis0_start" in chunk and (chunk.get("axis0_start") != axis_end or not isinstance(chunk.get("axis0_end"), int) or chunk.get("axis0_end") < axis_end):
+            raise TensorError("RUO-T1-012", "Chunk axis-0 coverage is malformed.", stage="chunk")
         size = chunk.get("byte_size"); count = chunk.get("logical_element_count")
         if not isinstance(size, int) or size < 0 or not isinstance(count, int) or count < 0:
             raise TensorError("RUO-T1-012", "Invalid chunk range.", stage="chunk")
         if data is not None and _sha(data[offset:offset + size]) != chunk.get("sha256"):
             raise TensorError("RUO-T1-012", "Chunk digest mismatch.", stage="chunk", metadata={"chunk_index": index})
-        offset += size; element_start += count
+        offset += size; element_start += count; axis_end = chunk.get("axis0_end", axis_end)
     if offset != byte_size: raise TensorError("RUO-T1-012", "Chunks do not exactly cover resource.", stage="chunk")
 
 
@@ -265,7 +267,10 @@ def _csr(body: dict[str, Any], count: int, limits: dict[str, int]) -> list[Any]:
         row_columns = columns[pointers[row]:pointers[row + 1]]
         if any(isinstance(col, bool) or not isinstance(col, int) or col < 0 or col >= shape[1] for col in row_columns) or any(a >= b for a, b in zip(row_columns, row_columns[1:])):
             raise TensorError("RUO-T1-009", "CSR columns must be in range and strictly increasing.", stage="csr")
-        for index in range(pointers[row], pointers[row + 1]): dense[row * shape[1] + columns[index]] = values[index]; encode_scalar(body["dtype"], values[index])
+        for index in range(pointers[row], pointers[row + 1]):
+            encoded = encode_scalar(body["dtype"], values[index])
+            if storage.get("explicit_zero_policy") != "preserve" and all(byte == 0 for byte in encoded): raise TensorError("RUO-T1-009", "Explicit zero requires preserve policy.", stage="csr")
+            dense[row * shape[1] + columns[index]] = values[index]
     return dense
 
 
@@ -299,7 +304,7 @@ def normalized_logical(payload: dict[str, Any], *, resource_bytes: bytes | None 
     for axis in semantic_axes:
         mapping = axis.get("identity_mapping")
         if isinstance(mapping, dict): mapping.pop("mapping_digest", None)
-    return {"tensor_profile": body.get("tensor_profile"), "dtype": body.get("dtype"), "rank": body.get("rank"), "shape": body.get("shape"), "axes": semantic_axes, "values_hex": [encode_scalar(body["dtype"], value).hex() for value in values], "validity": body.get("validity"), "unit": body.get("unit"), "reference_frame": body.get("reference_frame"), "explicit_zero_policy": body.get("storage", {}).get("explicit_zero_policy"), "critical_extensions": {key: value for key, value in body.get("extensions", {}).items() if isinstance(value, dict) and value.get("critical")}}
+    return {"tensor_profile": body.get("tensor_profile"), "dtype": body.get("dtype"), "rank": body.get("rank"), "shape": body.get("shape"), "axes": semantic_axes, "values_hex": [encode_scalar(body["dtype"], value).hex() for value in values], "validity": body.get("validity"), "unit": body.get("unit"), "reference_frame": body.get("reference_frame"), "explicit_zero_policy": body.get("storage", {}).get("explicit_zero_policy", "forbidden"), "critical_extensions": {key: value for key, value in body.get("extensions", {}).items() if isinstance(value, dict) and value.get("critical")}}
 
 
 def logical_digest(payload: dict[str, Any], *, resource_bytes: bytes | None = None) -> str:
@@ -313,8 +318,13 @@ def validate_tensor(payload: dict[str, Any], *, resource_bytes: bytes | None = N
     try:
         if not isinstance(body, dict) or body.get("tensor_profile") != PROFILE:
             raise TensorError("RUO-T1-002", "Invalid Tensor profile.", stage="payload", tensor_id=tensor_id)
-        if envelope_id and (not envelope_id.startswith("ruo:payload:") or payload.get("profile_id") != PAYLOAD_PROFILE):
+        if envelope_id and (not envelope_id.startswith("ruo:payload:") or ("profile_id" in payload and payload.get("profile_id") != PAYLOAD_PROFILE)):
             raise TensorError("RUO-T1-002", "Invalid Tensor Payload identity.", stage="identity", tensor_id=tensor_id)
+        if body.get("value_presence") not in {"present", "external", "not_loaded", "unknown", "redacted"}:
+            raise TensorError("RUO-T1-002", "Invalid Tensor value presence.", stage="payload", tensor_id=tensor_id)
+        for namespace, extension in body.get("extensions", {}).items():
+            if isinstance(extension, dict) and extension.get("critical") and not str(namespace).startswith("ruo.tensor."):
+                raise TensorError("RUO-T1-022", "Unknown critical Tensor extension.", stage="version", tensor_id=tensor_id)
         dtype = body.get("dtype")
         if dtype not in DTYPES: raise TensorError("RUO-T1-003", "Unknown or invalid dtype.", stage="dtype", tensor_id=tensor_id)
         rank, shape = body.get("rank"), body.get("shape")
@@ -332,7 +342,11 @@ def validate_tensor(payload: dict[str, Any], *, resource_bytes: bytes | None = N
             logical_bytes = _inline_bytes(dtype, body.get("storage", {}).get("values"))
             if count > limits["inline_elements"] or len(logical_bytes) > limits["inline_bytes"]: raise TensorError("RUO-T1-010", "Inline Tensor limit exceeded.", stage="inline")
             if len(logical_bytes) != count * DTYPES[dtype]["width"]: raise TensorError("RUO-T1-010", "Inline value count mismatch.", stage="inline")
-        elif representation == "dense_resource": logical_bytes = _dense(body, resource_bytes, count, limits)
+        elif representation == "dense_resource":
+            storage = body.get("storage", {}); resource_id = storage.get("resource_id")
+            if not isinstance(resource_id, str) or not resource_id.startswith("ruo:resource:") or resource_id in {tensor_id, body.get("logical_digest")} or storage.get("media_type") != MEDIA_TYPE or not _safe_locator(storage.get("locator")):
+                raise TensorError("RUO-T1-011", "Invalid or ambiguous Tensor Resource identity, media type, or locator.", stage="resource", tensor_id=tensor_id, resource_id=resource_id)
+            logical_bytes = _dense(body, resource_bytes, count, limits)
         elif representation == "coo_resource": _coo(body, count, limits)
         elif representation == "csr_resource": _csr(body, count, limits)
         else: raise TensorError("RUO-T1-002", "Unknown Tensor representation.", stage="payload")

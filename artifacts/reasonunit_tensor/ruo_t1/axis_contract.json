@@ -1,0 +1,20 @@
+{
+  "data": {
+    "optional": [
+      "semantic_role",
+      "unit",
+      "coordinate_payload_ref",
+      "identity_mapping"
+    ],
+    "ordinal_is_identity": false,
+    "required": [
+      "ordinal",
+      "size",
+      "ordering",
+      "duplicate_policy",
+      "partial_loading_status"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-axis-contract/1.0"
+}
