@@ -1,0 +1,9 @@
+{
+  "data": {
+    "commits": "serialized_and_conflict_checked",
+    "reads": "concurrent",
+    "snapshots": "Send+Sync"
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-concurrency-contract/1.0"
+}

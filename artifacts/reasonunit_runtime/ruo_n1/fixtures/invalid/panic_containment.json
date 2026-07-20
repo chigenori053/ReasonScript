@@ -1,0 +1,5 @@
+{
+  "case_id": "panic_containment",
+  "expected": "rejected",
+  "partial_commit_count": 0
+}

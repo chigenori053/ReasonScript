@@ -1,0 +1,9 @@
+{
+  "data": {
+    "explicit": true,
+    "protected_behavior": "unchanged",
+    "semantic_loss": 0
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-runtime-projection-report/1.0"
+}

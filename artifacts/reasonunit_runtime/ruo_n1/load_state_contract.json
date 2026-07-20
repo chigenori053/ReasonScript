@@ -1,0 +1,17 @@
+{
+  "data": {
+    "collapsed": false,
+    "states": [
+      "metadata_only",
+      "not_loaded",
+      "partially_loaded",
+      "materialized",
+      "evicted",
+      "unavailable",
+      "invalid",
+      "deleted"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-load-state-contract/1.0"
+}

@@ -1,0 +1,5 @@
+{
+  "case_id": "stale_tensor_mapping",
+  "expected": "rejected",
+  "partial_commit_count": 0
+}

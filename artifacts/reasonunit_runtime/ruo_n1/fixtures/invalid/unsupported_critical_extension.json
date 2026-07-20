@@ -1,0 +1,5 @@
+{
+  "case_id": "unsupported_critical_extension",
+  "expected": "rejected",
+  "partial_commit_count": 0
+}

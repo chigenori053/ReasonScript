@@ -1,0 +1,9 @@
+{
+  "data": {
+    "native_core_authoritative": true,
+    "provenance": "reasonscript-reasonunit-native-runtime/1.0",
+    "python_core_semantic_dependency": 0
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-adapter-dependency-report/1.0"
+}

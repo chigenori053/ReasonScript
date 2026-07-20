@@ -1,0 +1,10 @@
+{
+  "data": {
+    "evict": "pass",
+    "lease": "pass",
+    "pin": "pass",
+    "reload_verify": "pass"
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-resource-lifecycle-report/1.0"
+}

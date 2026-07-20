@@ -1,0 +1,10 @@
+{
+  "data": {
+    "atomic": true,
+    "cross_object_atomic": false,
+    "optimistic": true,
+    "rollback_partial_commits": 0
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-transaction-contract/1.0"
+}

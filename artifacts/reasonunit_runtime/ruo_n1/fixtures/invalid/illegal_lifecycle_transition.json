@@ -1,0 +1,5 @@
+{
+  "case_id": "illegal_lifecycle_transition",
+  "expected": "rejected",
+  "partial_commit_count": 0
+}

@@ -1,0 +1,72 @@
+{
+  "data": {
+    "immutable_input": true,
+    "verification": {
+      "artifact_count": 47,
+      "evidence": {
+        "c0": "40/40",
+        "c1": "56/56",
+        "f1": "72/72",
+        "protected_behavior": "unchanged",
+        "repository_tests": 1025,
+        "t1": "74/74",
+        "t1_focused": "11 passed",
+        "three_run_byte_equality": true,
+        "u1": "65/65"
+      },
+      "issues": [],
+      "ok": true,
+      "profile_version": "reasonscript-reasonunit-tensor/1.0",
+      "run_manifest_sha256": "sha256:cacc6f6a6a28ddeef929e3c6e94dbfbd0202fbf6192facfdda34bc6bf5eee1fa",
+      "statuses": {
+        "artifact_validation_status": "VALIDATED",
+        "atomic_publication_status": "VALIDATED",
+        "axis_status": "VALIDATED",
+        "byte_roundtrip_status": "VALIDATED",
+        "chunking_status": "VALIDATED",
+        "cli_status": "VALIDATED",
+        "conversion_status": "VALIDATED",
+        "coo_layout_status": "VALIDATED",
+        "csr_layout_status": "VALIDATED",
+        "dense_layout_status": "VALIDATED",
+        "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+        "dtype_registry_status": "VALIDATED",
+        "execution_projection_status": "VALIDATED",
+        "existing_tensor_compatibility_status": "VALIDATED",
+        "implementation_status": "VALIDATED",
+        "inline_tensor_status": "VALIDATED",
+        "logical_tensor_digest_status": "VALIDATED",
+        "partial_loading_status": "VALIDATED",
+        "path_safety_status": "VALIDATED",
+        "phase_status": "VALIDATED",
+        "physical_resource_digest_status": "VALIDATED",
+        "protected_behavior_status": "UNCHANGED",
+        "resource_limit_status": "VALIDATED",
+        "ruo_c0_prerequisite_status": "VALIDATED",
+        "ruo_c1_prerequisite_status": "VALIDATED",
+        "ruo_f1_prerequisite_status": "VALIDATED",
+        "ruo_u1_prerequisite_status": "VALIDATED",
+        "semantic_roundtrip_status": "VALIDATED",
+        "shape_rank_status": "VALIDATED",
+        "streaming_validation_status": "VALIDATED",
+        "tamper_detection_status": "VALIDATED",
+        "tensor_identity_status": "VALIDATED",
+        "tensor_payload_status": "VALIDATED",
+        "tensor_resource_status": "VALIDATED",
+        "tensor_view_status": "VALIDATED",
+        "transition_decision": "PROCEED_TO_RUO-N1",
+        "unit_coordinate_semantics_status": "VALIDATED",
+        "unit_index_mapping_status": "VALIDATED",
+        "validity_mask_status": "VALIDATED",
+        "version_compatibility_status": "VALIDATED"
+      },
+      "summary": {
+        "failed": 0,
+        "passed": 74,
+        "total": 74
+      }
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-ruo-t1-input-manifest/1.0"
+}

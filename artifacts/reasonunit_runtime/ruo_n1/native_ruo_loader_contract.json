@@ -1,0 +1,21 @@
+{
+  "data": {
+    "failure_isolation": true,
+    "modes": [
+      "strict",
+      "preserve"
+    ],
+    "sequence": [
+      "physical",
+      "record_integrity",
+      "seal",
+      "semantic",
+      "native_staging",
+      "registry",
+      "snapshot",
+      "insert"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-ruo-loader-contract/1.0"
+}

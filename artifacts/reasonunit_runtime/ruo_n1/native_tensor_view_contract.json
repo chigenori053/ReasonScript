@@ -1,0 +1,10 @@
+{
+  "data": {
+    "device_view_noncanonical": true,
+    "dtypes": 15,
+    "identity_mapping_preserved": true,
+    "lease_bound": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-tensor-view-contract/1.0"
+}

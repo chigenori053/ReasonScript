@@ -1,0 +1,23 @@
+{
+  "data": {
+    "ordering": "logical_or_stable_id",
+    "profiles": [
+      "identity",
+      "owner",
+      "containment",
+      "payload",
+      "state",
+      "relations",
+      "evidence",
+      "dependencies",
+      "lifecycle",
+      "partial",
+      "execution",
+      "tensor",
+      "extension",
+      "revision_diff"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-query-contract/1.0"
+}

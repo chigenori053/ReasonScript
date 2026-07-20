@@ -1,0 +1,19 @@
+{
+  "data": {
+    "operations": [
+      "load_ruo",
+      "insert_object",
+      "get_snapshot",
+      "resolve_id",
+      "query",
+      "begin_transaction",
+      "commit_transaction",
+      "materialize",
+      "evict",
+      "project_execution",
+      "write_ruo"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-api-contract/1.0"
+}

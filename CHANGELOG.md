@@ -4,6 +4,27 @@
 
 ### Added
 
+- Implemented ReasonScript Phase RUO-N1 Native ReasonUnit Object Runtime Type v1.0:
+  - Added the safe-Rust `NativeReasonUnitRuntime` core with namespaced stable IDs,
+    generation-checked handles, deterministic native registries, immutable
+    concurrent-read snapshots, atomic optimistic transactions, native queries,
+    resource lifecycle contracts, Tensor views, and explicit Runtime/Cluster
+    projections.
+  - Added native RUO-F1 loading and byte-preserving snapshot writing, the thin
+    `reason reasonunit-runtime` CLI boundary, 21 fixture classes, 26 hostile and
+    invalid cases, a project-owned artifact schema, and all 54 RUO-N1 canonical
+    artifacts.
+  - Validated RUO-N1-T001 through T074, three-run byte equality, zero unsafe
+    blocks, reference/native parity, prerequisite preservation, and transition
+    `PROCEED_TO_RUO-N2`.
+
+### Validation
+
+- Native Rust tests: 5 passed; Clippy and rustfmt: PASS.
+- Earlier RUO focused regression: 126 passed.
+- `reason ci --json`: PASS, 1034 tests.
+- Agent Protocol: PASS.
+
 - Implemented the Update Package Provenance and Freshness Verification
   Specification v0.1 (`reasonscript-update-package-manifest/1.0`):
   - `scripts/build_update_package.py` now records the source commit, dirty

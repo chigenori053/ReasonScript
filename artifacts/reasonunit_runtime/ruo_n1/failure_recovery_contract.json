@@ -1,0 +1,23 @@
+{
+  "data": {
+    "classes": [
+      "load",
+      "integrity",
+      "compatibility",
+      "semantic",
+      "resource",
+      "stale_handle",
+      "conflict",
+      "lifecycle",
+      "query",
+      "projection",
+      "persistence",
+      "limit",
+      "adapter",
+      "internal_invariant"
+    ],
+    "last_valid_snapshot_preserved": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-failure-recovery-contract/1.0"
+}

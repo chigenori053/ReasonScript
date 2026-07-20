@@ -1,0 +1,10 @@
+{
+  "data": {
+    "acyclic": true,
+    "explicit_roots": true,
+    "one_containment_parent": true,
+    "one_owner": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-ownership-containment-contract/1.0"
+}

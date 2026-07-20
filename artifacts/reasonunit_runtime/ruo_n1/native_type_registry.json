@@ -1,0 +1,26 @@
+{
+  "data": {
+    "closed_core_variants": true,
+    "compiled": true,
+    "types": [
+      "NativeReasonUnitObject",
+      "NativeAtomicReasonUnit",
+      "NativeCompositeReasonUnit",
+      "NativePayload",
+      "NativeStateRecord",
+      "NativeRelation",
+      "NativeEvidenceRecord",
+      "NativeConstraint",
+      "NativeDependency",
+      "NativeLifecycle",
+      "NativeRevision",
+      "NativeSnapshot",
+      "NativeTransaction",
+      "NativeExtension",
+      "NativeTensorView",
+      "NativeExecutionProjection"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-type-registry/1.0"
+}

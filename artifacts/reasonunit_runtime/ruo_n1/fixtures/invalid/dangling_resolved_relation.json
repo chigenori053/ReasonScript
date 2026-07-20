@@ -1,0 +1,5 @@
+{
+  "case_id": "dangling_resolved_relation",
+  "expected": "rejected",
+  "partial_commit_count": 0
+}

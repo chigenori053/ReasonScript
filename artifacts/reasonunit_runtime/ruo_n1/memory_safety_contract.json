@@ -1,0 +1,9 @@
+{
+  "data": {
+    "hostile_input": "Result_error",
+    "panic_crosses_boundary": false,
+    "unsafe_blocks": 0
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-memory-safety-contract/1.0"
+}

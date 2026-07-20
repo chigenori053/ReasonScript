@@ -1,0 +1,9 @@
+{
+  "data": {
+    "false_complete_rejected": true,
+    "indeterminate_preserved": true,
+    "not_loaded_preserved": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-partial-materialization-report/1.0"
+}

@@ -1,0 +1,14 @@
+{
+  "data": {
+    "explicit_opt_in": true,
+    "protected": [
+      "input",
+      "result",
+      "diagnostic",
+      "trace",
+      "artifact"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-existing-runtime-compatibility-contract/1.0"
+}

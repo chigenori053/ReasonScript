@@ -1,0 +1,17 @@
+{
+  "data": {
+    "tracks": [
+      "identity",
+      "locator",
+      "sha256",
+      "bytes",
+      "availability",
+      "verification",
+      "pins",
+      "leases",
+      "load_state"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-resource-manager-contract/1.0"
+}

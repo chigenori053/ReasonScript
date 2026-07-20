@@ -1,0 +1,5 @@
+{
+  "case_id": "stale_derived_state",
+  "expected": "rejected",
+  "partial_commit_count": 0
+}

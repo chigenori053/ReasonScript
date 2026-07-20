@@ -1,0 +1,18 @@
+{
+  "data": {
+    "handle_fields": [
+      "store_id",
+      "generation",
+      "slot"
+    ],
+    "stable_id_distinct_from": [
+      "handle",
+      "arena_index",
+      "pointer",
+      "tensor_index",
+      "worker"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-stable-identity-handle-contract/1.0"
+}

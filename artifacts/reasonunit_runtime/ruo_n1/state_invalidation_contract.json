@@ -1,0 +1,14 @@
+{
+  "data": {
+    "closure": [
+      "derived_state",
+      "evidence",
+      "query_cache",
+      "projection",
+      "tensor_view"
+    ],
+    "ordering": "stable_id"
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-state-invalidation-contract/1.0"
+}

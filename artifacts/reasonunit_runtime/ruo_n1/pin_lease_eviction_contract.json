@@ -1,0 +1,12 @@
+{
+  "data": {
+    "leased_evict": "reject",
+    "pinned_evict": "reject",
+    "reload_verifies": [
+      "digest",
+      "size"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-pin-lease-eviction-contract/1.0"
+}

@@ -1,0 +1,10 @@
+{
+  "data": {
+    "diagnostic_reordering": false,
+    "panic_containment": true,
+    "semantic_dependency_count": 0,
+    "stable_ids_only": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-adapter-ffi-contract/1.0"
+}
