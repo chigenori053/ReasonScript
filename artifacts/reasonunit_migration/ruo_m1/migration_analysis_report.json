@@ -1,0 +1,24 @@
+{
+  "data": {
+    "analysis_digest": "sha256:bfb3fd7178732c3d58a9fe9f307b6d1fe6e921503c24fcb09823efb113baf062",
+    "authorities": {
+      "extensions": "opaque_lossless",
+      "legacy_source": "identity_and_semantics",
+      "mapping_profile": "target_representation"
+    },
+    "inventory": "<authorized-root>/inventory.json",
+    "inventory_digest": "sha256:527cdb125f14b79ce0e6b1ed6c1c32c714a6cdd3d8904f116a7d0114ef55a8ef",
+    "mapping_profile": "legacy-json/1",
+    "profile_version": "reasonscript-reasonunit-migration/1.0",
+    "units": [
+      {
+        "bytes": 595,
+        "classification": "project_local",
+        "relative_path": "legacy.json",
+        "sha256": "sha256:d7f77e3f52a5e60286b3418046885d65b55a2cdc50305ba9640ad2f03acd17b4"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-migration-analysis-report/1.0"
+}

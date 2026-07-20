@@ -1,0 +1,9 @@
+{
+  "data": {
+    "allow_write_required": true,
+    "previous_target": "preserved",
+    "published_evidence": "archived"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-rollback-contract/1.0"
+}

@@ -1,0 +1,28 @@
+{
+  "data": {
+    "risks": [
+      {
+        "blocking": false,
+        "mitigation": "opaque retention",
+        "risk": "ambiguous semantics"
+      },
+      {
+        "blocking": false,
+        "mitigation": "freeze digest",
+        "risk": "source drift"
+      },
+      {
+        "blocking": false,
+        "mitigation": "directory atomic replace",
+        "risk": "partial publication"
+      },
+      {
+        "blocking": false,
+        "mitigation": "semantic locator hash",
+        "risk": "identity instability"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-risk-register/1.0"
+}

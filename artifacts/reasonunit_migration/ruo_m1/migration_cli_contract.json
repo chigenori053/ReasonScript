@@ -1,0 +1,46 @@
+{
+  "data": {
+    "command": "reason object migrate",
+    "diagnostic_codes": [
+      "RUO-M1-001",
+      "RUO-M1-002",
+      "RUO-M1-003",
+      "RUO-M1-004",
+      "RUO-M1-005",
+      "RUO-M1-006",
+      "RUO-M1-007",
+      "RUO-M1-008",
+      "RUO-M1-009",
+      "RUO-M1-010",
+      "RUO-M1-011",
+      "RUO-M1-012",
+      "RUO-M1-013",
+      "RUO-M1-014",
+      "RUO-M1-015",
+      "RUO-M1-016",
+      "RUO-M1-017",
+      "RUO-M1-018",
+      "RUO-M1-019",
+      "RUO-M1-020",
+      "RUO-M1-021",
+      "RUO-M1-022",
+      "RUO-M1-023",
+      "RUO-M1-024"
+    ],
+    "operations": [
+      "discover",
+      "analyze",
+      "plan",
+      "dry-run",
+      "convert",
+      "compare",
+      "validate",
+      "publish",
+      "rollback",
+      "status",
+      "validate-phase"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-migration-cli-contract/1.0"
+}

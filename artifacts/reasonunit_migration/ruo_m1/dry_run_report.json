@@ -1,0 +1,20 @@
+{
+  "data": {
+    "actions": [
+      {
+        "mapping_count": 2,
+        "output": "objects/phase-fixture.ruo",
+        "source": "<authorized-root>/legacy.json"
+      }
+    ],
+    "plan_digest": "sha256:normalized-migration-plan",
+    "profile_version": "reasonscript-reasonunit-migration/1.0",
+    "staged_output_count": 1,
+    "staging": "<authorized-root>/staging",
+    "status": "DRY_RUN_VALID",
+    "validation": "VALIDATED",
+    "writes_outside_staging": 0
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-dry-run-report/1.0"
+}

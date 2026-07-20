@@ -1,0 +1,42 @@
+{
+  "extension": {
+    "project:key": "value"
+  },
+  "project_id": "phase-fixture",
+  "relations": [
+    {
+      "from": "root",
+      "to": "leaf"
+    }
+  ],
+  "tensor": {
+    "dtype": "int32",
+    "shape": [
+      2
+    ],
+    "values": [
+      1,
+      2
+    ]
+  },
+  "units": [
+    {
+      "children": [
+        "leaf"
+      ],
+      "id": "ruo:unit:legacy-root",
+      "kind": "composite",
+      "locator": "root",
+      "state": {
+        "ready": true
+      }
+    },
+    {
+      "kind": "atomic",
+      "locator": "leaf",
+      "payload": {
+        "text": "retained"
+      }
+    }
+  ]
+}

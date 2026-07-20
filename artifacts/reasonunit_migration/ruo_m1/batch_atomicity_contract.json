@@ -1,0 +1,8 @@
+{
+  "data": {
+    "boundary": "project batch",
+    "partial_commit_count": 0
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-batch-atomicity-contract/1.0"
+}

@@ -1,0 +1,8 @@
+{
+  "data": {
+    "legacy_preserved": true,
+    "published_evidence_retained": true
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-rollback-report/1.0"
+}

@@ -1,0 +1,8 @@
+{
+  "data": {
+    "batch_atomic": true,
+    "partial_commit_count": 0
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-project-atomicity-report/1.0"
+}

@@ -1,0 +1,367 @@
+{
+  "data": {
+    "statuses": {
+      "artifact_validation_status": "COMPLETE",
+      "behavioral_parity_status": "COMPLETE",
+      "cli_status": "COMPLETE",
+      "constraint_dependency_status": "COMPLETE",
+      "consumer_cutover_status": "COMPLETE",
+      "conversion_status": "COMPLETE",
+      "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+      "dry_run_status": "COMPLETE",
+      "evidence_provenance_status": "COMPLETE",
+      "extension_retention_status": "COMPLETE",
+      "id_generation_status": "COMPLETE",
+      "idempotency_resume_status": "COMPLETE",
+      "identity_mapping_status": "COMPLETE",
+      "identity_preservation_status": "COMPLETE",
+      "implementation_status": "IMPLEMENTED",
+      "lifecycle_revision_status": "COMPLETE",
+      "mapping_profile_status": "COMPLETE",
+      "migration_analysis_status": "COMPLETE",
+      "migration_plan_status": "COMPLETE",
+      "migration_provenance_status": "COMPLETE",
+      "ownership_containment_status": "COMPLETE",
+      "partial_migration_status": "COMPLETE",
+      "phase_status": "VALIDATED",
+      "project_atomicity_status": "COMPLETE",
+      "protected_behavior_status": "UNCHANGED",
+      "publication_status": "COMPLETE",
+      "relation_mapping_status": "COMPLETE",
+      "rollback_status": "COMPLETE",
+      "ruo_n2_prerequisite_status": "COMPLETE",
+      "security_resource_limit_status": "COMPLETE",
+      "semantic_authority_status": "COMPLETE",
+      "semantic_comparison_status": "COMPLETE",
+      "source_freeze_status": "COMPLETE",
+      "source_inventory_status": "COMPLETE",
+      "state_mapping_status": "COMPLETE",
+      "tensor_migration_status": "COMPLETE",
+      "transition_decision": "PROCEED_TO_RUO-W1"
+    },
+    "summary": {
+      "failed": 0,
+      "passed": 63,
+      "total": 63
+    },
+    "tests": [
+      {
+        "requirement": "N2 prerequisite",
+        "status": "pass",
+        "test_id": "RUO-M1-T001"
+      },
+      {
+        "requirement": "input immutability",
+        "status": "pass",
+        "test_id": "RUO-M1-T002"
+      },
+      {
+        "requirement": "discovery",
+        "status": "pass",
+        "test_id": "RUO-M1-T003"
+      },
+      {
+        "requirement": "recursive inventory",
+        "status": "pass",
+        "test_id": "RUO-M1-T004"
+      },
+      {
+        "requirement": "classification",
+        "status": "pass",
+        "test_id": "RUO-M1-T005"
+      },
+      {
+        "requirement": "source freeze",
+        "status": "pass",
+        "test_id": "RUO-M1-T006"
+      },
+      {
+        "requirement": "source drift rejection",
+        "status": "pass",
+        "test_id": "RUO-M1-T007"
+      },
+      {
+        "requirement": "semantic authority",
+        "status": "pass",
+        "test_id": "RUO-M1-T008"
+      },
+      {
+        "requirement": "analysis",
+        "status": "pass",
+        "test_id": "RUO-M1-T009"
+      },
+      {
+        "requirement": "mapping profile",
+        "status": "pass",
+        "test_id": "RUO-M1-T010"
+      },
+      {
+        "requirement": "explicit identity",
+        "status": "pass",
+        "test_id": "RUO-M1-T011"
+      },
+      {
+        "requirement": "generated identity",
+        "status": "pass",
+        "test_id": "RUO-M1-T012"
+      },
+      {
+        "requirement": "identity reorder stability",
+        "status": "pass",
+        "test_id": "RUO-M1-T013"
+      },
+      {
+        "requirement": "identity relocation stability",
+        "status": "pass",
+        "test_id": "RUO-M1-T014"
+      },
+      {
+        "requirement": "collision rejection",
+        "status": "pass",
+        "test_id": "RUO-M1-T015"
+      },
+      {
+        "requirement": "ownership mapping",
+        "status": "pass",
+        "test_id": "RUO-M1-T016"
+      },
+      {
+        "requirement": "containment mapping",
+        "status": "pass",
+        "test_id": "RUO-M1-T017"
+      },
+      {
+        "requirement": "cycle rejection",
+        "status": "pass",
+        "test_id": "RUO-M1-T018"
+      },
+      {
+        "requirement": "state mapping",
+        "status": "pass",
+        "test_id": "RUO-M1-T019"
+      },
+      {
+        "requirement": "relation mapping",
+        "status": "pass",
+        "test_id": "RUO-M1-T020"
+      },
+      {
+        "requirement": "evidence mapping",
+        "status": "pass",
+        "test_id": "RUO-M1-T021"
+      },
+      {
+        "requirement": "provenance mapping",
+        "status": "pass",
+        "test_id": "RUO-M1-T022"
+      },
+      {
+        "requirement": "lifecycle mapping",
+        "status": "pass",
+        "test_id": "RUO-M1-T023"
+      },
+      {
+        "requirement": "revision mapping",
+        "status": "pass",
+        "test_id": "RUO-M1-T024"
+      },
+      {
+        "requirement": "constraint mapping",
+        "status": "pass",
+        "test_id": "RUO-M1-T025"
+      },
+      {
+        "requirement": "dependency mapping",
+        "status": "pass",
+        "test_id": "RUO-M1-T026"
+      },
+      {
+        "requirement": "tensor identity",
+        "status": "pass",
+        "test_id": "RUO-M1-T027"
+      },
+      {
+        "requirement": "tensor retention",
+        "status": "pass",
+        "test_id": "RUO-M1-T028"
+      },
+      {
+        "requirement": "extension retention",
+        "status": "pass",
+        "test_id": "RUO-M1-T029"
+      },
+      {
+        "requirement": "critical extension safety",
+        "status": "pass",
+        "test_id": "RUO-M1-T030"
+      },
+      {
+        "requirement": "partial semantics",
+        "status": "pass",
+        "test_id": "RUO-M1-T031"
+      },
+      {
+        "requirement": "plan digest",
+        "status": "pass",
+        "test_id": "RUO-M1-T032"
+      },
+      {
+        "requirement": "dry run no write",
+        "status": "pass",
+        "test_id": "RUO-M1-T033"
+      },
+      {
+        "requirement": "conversion staging",
+        "status": "pass",
+        "test_id": "RUO-M1-T034"
+      },
+      {
+        "requirement": "U1 validation",
+        "status": "pass",
+        "test_id": "RUO-M1-T035"
+      },
+      {
+        "requirement": "F1 validation",
+        "status": "pass",
+        "test_id": "RUO-M1-T036"
+      },
+      {
+        "requirement": "T1 compatibility",
+        "status": "pass",
+        "test_id": "RUO-M1-T037"
+      },
+      {
+        "requirement": "N1 compatibility",
+        "status": "pass",
+        "test_id": "RUO-M1-T038"
+      },
+      {
+        "requirement": "N2 binding compatibility",
+        "status": "pass",
+        "test_id": "RUO-M1-T039"
+      },
+      {
+        "requirement": "semantic comparison",
+        "status": "pass",
+        "test_id": "RUO-M1-T040"
+      },
+      {
+        "requirement": "zero loss",
+        "status": "pass",
+        "test_id": "RUO-M1-T041"
+      },
+      {
+        "requirement": "approved extension",
+        "status": "pass",
+        "test_id": "RUO-M1-T042"
+      },
+      {
+        "requirement": "behavioral parity",
+        "status": "pass",
+        "test_id": "RUO-M1-T043"
+      },
+      {
+        "requirement": "publication precondition",
+        "status": "pass",
+        "test_id": "RUO-M1-T044"
+      },
+      {
+        "requirement": "explicit write capability",
+        "status": "pass",
+        "test_id": "RUO-M1-T045"
+      },
+      {
+        "requirement": "atomic publication",
+        "status": "pass",
+        "test_id": "RUO-M1-T046"
+      },
+      {
+        "requirement": "consumer cutover",
+        "status": "pass",
+        "test_id": "RUO-M1-T047"
+      },
+      {
+        "requirement": "rollback capability",
+        "status": "pass",
+        "test_id": "RUO-M1-T048"
+      },
+      {
+        "requirement": "rollback restoration",
+        "status": "pass",
+        "test_id": "RUO-M1-T049"
+      },
+      {
+        "requirement": "evidence preservation",
+        "status": "pass",
+        "test_id": "RUO-M1-T050"
+      },
+      {
+        "requirement": "idempotency",
+        "status": "pass",
+        "test_id": "RUO-M1-T051"
+      },
+      {
+        "requirement": "resume checkpoint",
+        "status": "pass",
+        "test_id": "RUO-M1-T052"
+      },
+      {
+        "requirement": "changed source resume rejection",
+        "status": "pass",
+        "test_id": "RUO-M1-T053"
+      },
+      {
+        "requirement": "batch atomicity",
+        "status": "pass",
+        "test_id": "RUO-M1-T054"
+      },
+      {
+        "requirement": "zero partial commit",
+        "status": "pass",
+        "test_id": "RUO-M1-T055"
+      },
+      {
+        "requirement": "provenance chain",
+        "status": "pass",
+        "test_id": "RUO-M1-T056"
+      },
+      {
+        "requirement": "CLI operations",
+        "status": "pass",
+        "test_id": "RUO-M1-T057"
+      },
+      {
+        "requirement": "resource limits",
+        "status": "pass",
+        "test_id": "RUO-M1-T058"
+      },
+      {
+        "requirement": "path safety",
+        "status": "pass",
+        "test_id": "RUO-M1-T059"
+      },
+      {
+        "requirement": "offline execution",
+        "status": "pass",
+        "test_id": "RUO-M1-T060"
+      },
+      {
+        "requirement": "57 artifacts",
+        "status": "pass",
+        "test_id": "RUO-M1-T061"
+      },
+      {
+        "requirement": "three-run determinism",
+        "status": "pass",
+        "test_id": "RUO-M1-T062"
+      },
+      {
+        "requirement": "reason ci",
+        "status": "pass",
+        "test_id": "RUO-M1-T063"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-validation-summary/1.0"
+}

@@ -1,0 +1,8 @@
+{
+  "data": {
+    "history": "opaque retention",
+    "initial_revision": "ruo:revision:migration-0"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-lifecycle-revision-mapping-contract/1.0"
+}

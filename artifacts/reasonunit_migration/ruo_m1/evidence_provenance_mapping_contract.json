@@ -1,0 +1,8 @@
+{
+  "data": {
+    "shared_evidence": "retain",
+    "source_digest": "migration provenance"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-evidence-provenance-mapping-contract/1.0"
+}

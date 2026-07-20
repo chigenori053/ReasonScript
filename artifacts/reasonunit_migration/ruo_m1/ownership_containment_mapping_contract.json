@@ -1,0 +1,9 @@
+{
+  "data": {
+    "containment": "semantic child locator",
+    "cycles": "reject_by_U1",
+    "owner": "one target Object"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-ownership-containment-mapping-contract/1.0"
+}

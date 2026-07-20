@@ -40,10 +40,13 @@ def _native(root: Path, operation: str, path: Path) -> dict[str, Any]:
 
 
 def run(args: list[str], root: Path) -> int:
+    if args and args[0] == "migrate":
+        from toolchain.reasonunit_migration_cmd import run as run_migration
+        return run_migration(args[1:], root)
     operations = {"check", "run", "inspect", "query", "snapshot", "transact", "select", "project", "tensor", "save", "generate", "validate-phase"}
     operation = args[0] if args else ""
     if operation not in operations:
-        print("Usage: reason object <check|run|inspect|query|snapshot|transact|select|project|tensor|save|generate|validate-phase> ..."); return 1
+        print("Usage: reason object <check|run|inspect|query|snapshot|transact|select|project|tensor|save|migrate|generate|validate-phase> ..."); return 1
     json_output = "--json" in args
     try:
         if operation in {"generate", "validate-phase"}:

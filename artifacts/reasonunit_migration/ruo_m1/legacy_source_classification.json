@@ -1,0 +1,20 @@
+{
+  "data": {
+    "classes": [
+      "reasonscript_native_legacy",
+      "runtime_native_legacy",
+      "cluster_native_legacy",
+      "tensor_native_legacy",
+      "standard_schema_legacy",
+      "project_local",
+      "adapter_owned",
+      "documentation_only",
+      "implicit_behavior",
+      "external_evidence",
+      "unknown"
+    ],
+    "unsupported": "reject_without_write"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-legacy-source-classification/1.0"
+}

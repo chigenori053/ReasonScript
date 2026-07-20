@@ -1,0 +1,9 @@
+{
+  "data": {
+    "checkpoint_source_bound": true,
+    "key": "plan_digest",
+    "same_plan_same_bytes": true
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-idempotency-resume-contract/1.0"
+}

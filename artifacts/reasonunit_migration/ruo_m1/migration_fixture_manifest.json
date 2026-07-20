@@ -1,0 +1,30 @@
+{
+  "data": {
+    "fixture_count": 21,
+    "fixtures": [
+      "minimal_atomic",
+      "composite_children",
+      "legacy_ids",
+      "generated_ids",
+      "project_local_relations",
+      "shared_evidence",
+      "lifecycle_replacement",
+      "tensor_inline_external",
+      "partial_not_loaded",
+      "legacy_rsn_artifacts",
+      "runtime_cluster_behavior",
+      "molecular_model",
+      "vehicle_precursor",
+      "unknown_noncritical_extension",
+      "unknown_critical_rejection",
+      "multi_object_project_atomic",
+      "publish_cutover_rollback",
+      "interrupted_resume",
+      "repeated_idempotency",
+      "maximum_resource_boundary",
+      "hostile_ambiguous_conflicting"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-migration-fixture-manifest/1.0"
+}

@@ -1,0 +1,8 @@
+{
+  "data": {
+    "activation_marker": "active_migration.json",
+    "same_atomic_boundary": true
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-consumer-cutover-contract/1.0"
+}

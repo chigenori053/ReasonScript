@@ -4,6 +4,28 @@
 
 ### Added
 
+- Implemented ReasonScript Phase RUO-M1 Legacy ReasonUnit Migration v1.0:
+  - Added deterministic read-only discovery and classification, SHA-256 source
+    freeze, semantic authority analysis, versioned plans, stable-ID preservation
+    and semantic-locator ID generation, bidirectional traceability, and bounded
+    offline input handling.
+  - Added staging-only conversion to canonical RUO-U1/RUO-F1 Objects and RUO-T1
+    resources, lossless `legacy` extension retention, semantic reconstruction
+    comparison, and direct RUO-N1 native and RUO-N2 binding validation.
+  - Added explicit project-atomic publication, generated consumer bindings,
+    source/plan-bound evidence, idempotent republishing, and rollback that
+    preserves both prior and migrated evidence.
+  - Added the consolidated `reason object migrate` workflow, 21 fixture
+    classes, all 24 diagnostics, a project-owned schema, 57 canonical
+    artifacts, and six inventoried migration fixture files.
+
+### RUO-M1 Validation
+
+- RUO-M1 matrix: 63/63 PASS; dedicated migration tests: 20 PASS.
+- Focused RUO regression: 163 PASS.
+- Native Rust checks, Clippy, rustfmt, and Agent Protocol: PASS.
+- `reason ci --json`: PASS, 1071 tests.
+
 - Implemented ReasonScript Phase RUO-N2 ReasonUnit Object Language and CLI
   Integration v1.0:
   - Added nested `reason_object` bindings for `model` and compatibility

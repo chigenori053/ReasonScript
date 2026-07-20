@@ -1,0 +1,8 @@
+{
+  "data": {
+    "ambiguity": "blocking",
+    "classification_before_mapping": true
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-migration-analysis-contract/1.0"
+}

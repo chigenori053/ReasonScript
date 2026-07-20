@@ -1,0 +1,8 @@
+{
+  "data": {
+    "reconstruction": "target core plus opaque legacy extension",
+    "semantic_loss_count": 0
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-semantic-comparison-contract/1.0"
+}

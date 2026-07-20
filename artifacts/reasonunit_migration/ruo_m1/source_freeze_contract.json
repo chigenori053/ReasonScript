@@ -1,0 +1,9 @@
+{
+  "data": {
+    "algorithm": "SHA-256",
+    "mutation_after_freeze": "reject",
+    "source_write_count": 0
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-source-freeze-contract/1.0"
+}

@@ -1,0 +1,8 @@
+{
+  "data": {
+    "lossless": true,
+    "undeclared_inference": false
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-constraint-dependency-mapping-contract/1.0"
+}
