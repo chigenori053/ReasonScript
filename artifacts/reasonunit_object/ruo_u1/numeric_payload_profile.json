@@ -1,0 +1,15 @@
+{
+  "data": {
+    "canonical_nonfinite": "rejected",
+    "profile_id": "ruo.payload.numeric/1",
+    "requires": [
+      "values",
+      "dimensions",
+      "unit",
+      "reference_frame",
+      "validity_mask"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-numeric-payload-profile/1.0"
+}

@@ -1,0 +1,215 @@
+{
+  "data": {
+    "artifact_count": 38,
+    "artifacts": [
+      {
+        "bytes": 362,
+        "path": "abstract_payload_profile.json",
+        "sha256": "sha256:741fb19c0fa0fee76d329db0d5000422298972eb1207b8b721719a6970d12ec7"
+      },
+      {
+        "bytes": 254,
+        "path": "atomic_reasonunit_contract.json",
+        "sha256": "sha256:636567aa85d37b5f67f2fd56a9dd74b47302837ed3925dfa97576a71c27e7948"
+      },
+      {
+        "bytes": 377,
+        "path": "binary_reference_payload_profile.json",
+        "sha256": "sha256:6536d126be27e15486c4a98bb1c3bf6347355a8e4b16243848a964440dfb6c3b"
+      },
+      {
+        "bytes": 289,
+        "path": "composite_reasonunit_contract.json",
+        "sha256": "sha256:31c42a99aeca96b8bbb89d8747f93dbaa17ad9e94ef3aab73be55f84a98b2bbb"
+      },
+      {
+        "bytes": 399,
+        "path": "constraint_dependency_contract.json",
+        "sha256": "sha256:04ca2d4d0336b03be0d7bd495d6c72cab08601dd767b0c99db08cdde79206ec1"
+      },
+      {
+        "bytes": 659,
+        "path": "deferred_semantics_register.json",
+        "sha256": "sha256:c936f9c6d752f91aff8382b87beab3f7a9df03b95a20eccea3645f76db4aad61"
+      },
+      {
+        "bytes": 259,
+        "path": "diagnostics.json",
+        "sha256": "sha256:ee0bc4021fe2b599b2702881b6d68b72db0209f1e1ccc493ee7f4a5118d41550"
+      },
+      {
+        "bytes": 377,
+        "path": "evidence_registry_contract.json",
+        "sha256": "sha256:f1b66b5d41f713905526ee980e21206590be3957bd10618c4ed7bb4810b8899f"
+      },
+      {
+        "bytes": 1599,
+        "path": "execution_projection_contract.json",
+        "sha256": "sha256:9c1d941cb4f1aa32c09b73fa3c84e58117ae699404b72ade5abbb67790fec128"
+      },
+      {
+        "bytes": 337,
+        "path": "extension_registry_contract.json",
+        "sha256": "sha256:80bc21bce9aa398c10fc69178f7412b1227e7fc69ce941c0962e1343cc12e6f7"
+      },
+      {
+        "bytes": 2161,
+        "path": "final_report.md",
+        "sha256": "sha256:c0690c91df38e813eb64f754ba4bc555971711b06aa173b04f52eed26c13e8ae"
+      },
+      {
+        "bytes": 382,
+        "path": "graph_payload_profile.json",
+        "sha256": "sha256:50a304c7fba6f83894dca71a3f9370c264c9f22e0da3097a47eea9ecce0e0992"
+      },
+      {
+        "bytes": 607,
+        "path": "identity_namespace_contract.json",
+        "sha256": "sha256:8551a2b2fd19491fa02bd8a92c1ebc042838501d24ee10926e496a99b94eaf97"
+      },
+      {
+        "bytes": 440,
+        "path": "lifecycle_contract.json",
+        "sha256": "sha256:787de855f8764c3ee4c28582206922278d591acd9a7c1fb6b4f41d97f46eb1df"
+      },
+      {
+        "bytes": 384,
+        "path": "numeric_payload_profile.json",
+        "sha256": "sha256:b6f340aef14c6ec5d05d334610a34c62778c9a0482a4a8130e55ffea9e71f3c7"
+      },
+      {
+        "bytes": 383,
+        "path": "ownership_containment_contract.json",
+        "sha256": "sha256:9d9b470f9637f13d647d2a8ef66d90d0d49d94559d8e02337fff8e92edaf1325"
+      },
+      {
+        "bytes": 398,
+        "path": "partial_loading_contract.json",
+        "sha256": "sha256:e975e4bd7418992ab58aa6338ca0ac2f75adce373b3d07959d8be288cea0eda2"
+      },
+      {
+        "bytes": 544,
+        "path": "payload_coverage_report.json",
+        "sha256": "sha256:0e92c2c80712be7a5f730afb56662179cbff92a217042271ed318afabe740697"
+      },
+      {
+        "bytes": 544,
+        "path": "payload_envelope_contract.json",
+        "sha256": "sha256:ea75a902f312beeb9d47288572ac2cc45791df086730346c9b9b3848457529d8"
+      },
+      {
+        "bytes": 502,
+        "path": "payload_profile_registry.json",
+        "sha256": "sha256:c98eb3fc508d0ab11b6b3539b05cd77fe7e43f3d8b7bc063a721a3ce23f426c2"
+      },
+      {
+        "bytes": 370,
+        "path": "reason_entity_contract.json",
+        "sha256": "sha256:08610e0047282db53d704acb7456543548730893d8874a296c48c71ef7a56992"
+      },
+      {
+        "bytes": 393,
+        "path": "relation_model_contract.json",
+        "sha256": "sha256:731257c1ad1dde45dab64ea84d95f1e7fba4aae09003b5cc2e77b74869f3548d"
+      },
+      {
+        "bytes": 929,
+        "path": "revision_transaction_contract.json",
+        "sha256": "sha256:0c8d66452979b263530d7fd4e0c69f157f6f058c10a2bc9e1b6da48123aeabf2"
+      },
+      {
+        "bytes": 1371,
+        "path": "risk_register.json",
+        "sha256": "sha256:024531090b7ae1bbc3e5b648bd8f063e5f3f08e1918cb58e8ad75125a5b88bae"
+      },
+      {
+        "bytes": 846,
+        "path": "ruo_c1_compatibility_report.json",
+        "sha256": "sha256:aba323cb4c7ecd638b178c9aa94b07034a7671d47c0dd30cf4982f78f80b1da4"
+      },
+      {
+        "bytes": 2117,
+        "path": "ruo_c1_input_manifest.json",
+        "sha256": "sha256:f8b336173fb768c3eaf5c251c18e46bf62aa3e09a17f31b106f53610ba63070a"
+      },
+      {
+        "bytes": 358,
+        "path": "scalar_payload_profile.json",
+        "sha256": "sha256:cf3f7fe2deb649597a13409be937e95590f8f20dece4efc2c2cc10509fe3cbcb"
+      },
+      {
+        "bytes": 494,
+        "path": "semantic_roundtrip_report.json",
+        "sha256": "sha256:03f7820b2ea83f60a086ac810a0e43fa499b2f61a84676f2465231b9c8efde47"
+      },
+      {
+        "bytes": 393,
+        "path": "spatial_payload_profile.json",
+        "sha256": "sha256:61a33c53b9be1a0de840d1b92a40977f70592995f2365264282c1989edfbb38d"
+      },
+      {
+        "bytes": 582,
+        "path": "state_model_contract.json",
+        "sha256": "sha256:b1eb07ae0cca02ee12847cafe2cbcc9d44354e77f547e792cee754b318647d76"
+      },
+      {
+        "bytes": 394,
+        "path": "temporal_payload_profile.json",
+        "sha256": "sha256:e4d618b777f80828511e6ebb0ce2ba9ca15fefbf71562edeecfa971622307432"
+      },
+      {
+        "bytes": 417,
+        "path": "tensor_reference_payload_profile.json",
+        "sha256": "sha256:7ecebe12b1921777aa8fe31d527f35e39f94b9383ea4fa3f936fd0ae8f032321"
+      },
+      {
+        "bytes": 355,
+        "path": "text_payload_profile.json",
+        "sha256": "sha256:23ad98a1234f04aacdf4087abac54172a50b16a4201c2cc8e940a7ea624e3e33"
+      },
+      {
+        "bytes": 3082,
+        "path": "universal_fixture_manifest.json",
+        "sha256": "sha256:6ecd66c52f9d038260b626d1fe7fd6c06a470fa5f20cf74e91927aa5230a8937"
+      },
+      {
+        "bytes": 522,
+        "path": "universal_object_contract.json",
+        "sha256": "sha256:c1b9dbc415b9a59768913aa04d10d40faa64524e38095ac006b32170be8ec40f"
+      },
+      {
+        "bytes": 725,
+        "path": "universal_query_contract.json",
+        "sha256": "sha256:5a90fb7a3c8c5d964c18a4227ed5ecd4d8c73f5ff3ea692d3ba5c3fe03f05672"
+      },
+      {
+        "bytes": 10087,
+        "path": "validation_summary.json",
+        "sha256": "sha256:6291e1b8777236257ab60330020f35e7c296a568af6fd02a3febc808cd4db3da"
+      },
+      {
+        "bytes": null,
+        "digest_scope": "canonical data object before self entry",
+        "path": "run_manifest.json",
+        "sha256": "sha256:c7f9319a4d4778faa6fb27f16cecf75b1c0e2a07a0d8459dd203456afe1720e0"
+      }
+    ],
+    "canonicalization": {
+      "encoding": "UTF-8",
+      "host_fields": "excluded",
+      "line_endings": "LF",
+      "non_finite": "rejected",
+      "object_keys": "sorted",
+      "payload_order": "profile-defined",
+      "set_like_lists": "stable identity",
+      "unicode": "NFC"
+    },
+    "self_digest": "sha256:c7f9319a4d4778faa6fb27f16cecf75b1c0e2a07a0d8459dd203456afe1720e0",
+    "self_digest_contract": "SHA-256 of canonical data object before self entry",
+    "source_digests": {
+      "ruo_c1_manifest": "sha256:a6afd6594e066738b49644686f7ab88cdfeefa110030264e9cce38ddf59068e3"
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-run-manifest/1.0"
+}

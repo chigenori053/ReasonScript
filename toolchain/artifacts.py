@@ -255,7 +255,11 @@ def unwrap_artifact(value: Any) -> Any:
         return value.get("data")
     if (
         isinstance(value, dict)
-        and value.get("profile_version") == "reasonscript-reasonunit-baseline/1.0"
+        and value.get("profile_version") in {
+            "reasonscript-reasonunit-baseline/1.0",
+            "reasonscript-reasonunit-compatibility/1.0",
+            "reasonscript-reasonunit-object-universal/1.0",
+        }
         and isinstance(value.get("data"), dict)
     ):
         return value["data"]

@@ -1,0 +1,12 @@
+{
+  "data": {
+    "canonical_owner_count": 1,
+    "containment_acyclic": true,
+    "containment_parent_maximum": 1,
+    "multiple_roots": true,
+    "ownership_acyclic": true,
+    "reachability_required": true
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-ownership-containment-contract/1.0"
+}

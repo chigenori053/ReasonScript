@@ -1,0 +1,25 @@
+{
+  "data": {
+    "coverage": "complete",
+    "heterogeneous_fixture_profiles": [
+      "text",
+      "numeric",
+      "temporal",
+      "abstract"
+    ],
+    "profile_count": 9,
+    "profiles_covered": [
+      "abstract",
+      "binary-reference",
+      "graph",
+      "numeric",
+      "scalar",
+      "spatial",
+      "temporal",
+      "tensor-reference",
+      "text"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-payload-coverage-report/1.0"
+}

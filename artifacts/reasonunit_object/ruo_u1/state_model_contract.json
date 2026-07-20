@@ -1,0 +1,26 @@
+{
+  "data": {
+    "classes": [
+      "unit_local",
+      "object_shared",
+      "derived",
+      "external",
+      "cached",
+      "unknown"
+    ],
+    "distinctions": [
+      "proposed!=committed",
+      "derived!=observed",
+      "cached!=authoritative",
+      "unknown!=false",
+      "not_loaded!=absent",
+      "invalid!=deleted"
+    ],
+    "source_revisions_required_for": [
+      "derived",
+      "cached"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-state-model-contract/1.0"
+}

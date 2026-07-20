@@ -1,0 +1,21 @@
+{
+  "data": {
+    "boundary_roles": [
+      "identity",
+      "ownership",
+      "transaction",
+      "persistence",
+      "projection"
+    ],
+    "native_runtime_type": false,
+    "object_executes_implicitly": false,
+    "registries": [
+      "unit",
+      "state",
+      "relation",
+      "evidence"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-object-boundary-contract/1.0"
+}

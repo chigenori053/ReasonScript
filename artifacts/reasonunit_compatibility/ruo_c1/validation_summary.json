@@ -1,0 +1,317 @@
+{
+  "data": {
+    "statuses": {
+      "atomic_reasonunit_status": "COMPLETE",
+      "cluster_projection_status": "COMPLETE",
+      "composite_reasonunit_status": "COMPLETE",
+      "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+      "evidence_compatibility_status": "COMPLETE",
+      "execution_projection_status": "COMPLETE",
+      "identity_compatibility_status": "COMPLETE",
+      "implementation_status": "IMPLEMENTED",
+      "legacy_adapter_status": "COMPLETE",
+      "lifecycle_compatibility_status": "COMPLETE",
+      "object_boundary_status": "COMPLETE",
+      "ownership_compatibility_status": "COMPLETE",
+      "phase_status": "VALIDATED",
+      "protected_behavior_status": "UNCHANGED",
+      "reason_entity_contract_status": "COMPLETE",
+      "relation_compatibility_status": "COMPLETE",
+      "ruo_c0_prerequisite_status": "VERIFIED",
+      "semantic_roundtrip_status": "COMPLETE",
+      "state_compatibility_status": "COMPLETE",
+      "tensor_identity_status": "COMPLETE",
+      "transaction_status": "COMPLETE",
+      "transition_decision": "PROCEED_TO_RUO-U1"
+    },
+    "summary": {
+      "failed": 0,
+      "passed": 56,
+      "total": 56
+    },
+    "tests": [
+      {
+        "requirement": "validated RUO-C0 input and all digests",
+        "status": "pass",
+        "test_id": "RUO-C1-T001"
+      },
+      {
+        "requirement": "missing or modified RUO-C0 rejected",
+        "status": "pass",
+        "test_id": "RUO-C1-T002"
+      },
+      {
+        "requirement": "complete ReasonEntity contract",
+        "status": "pass",
+        "test_id": "RUO-C1-T003"
+      },
+      {
+        "requirement": "deterministic entity classification",
+        "status": "pass",
+        "test_id": "RUO-C1-T004"
+      },
+      {
+        "requirement": "undefined C0 semantics preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T005"
+      },
+      {
+        "requirement": "all compatibility schemas generated",
+        "status": "pass",
+        "test_id": "RUO-C1-T006"
+      },
+      {
+        "requirement": "legacy Unit IDs preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T007"
+      },
+      {
+        "requirement": "Object ID distinct from Unit IDs",
+        "status": "pass",
+        "test_id": "RUO-C1-T008"
+      },
+      {
+        "requirement": "identity stable across declaration reordering",
+        "status": "pass",
+        "test_id": "RUO-C1-T009"
+      },
+      {
+        "requirement": "identity stable across Tensor reindexing",
+        "status": "pass",
+        "test_id": "RUO-C1-T010"
+      },
+      {
+        "requirement": "identity stable across worker reassignment",
+        "status": "pass",
+        "test_id": "RUO-C1-T011"
+      },
+      {
+        "requirement": "duplicate Unit IDs rejected",
+        "status": "pass",
+        "test_id": "RUO-C1-T012"
+      },
+      {
+        "requirement": "duplicate Object IDs rejected",
+        "status": "pass",
+        "test_id": "RUO-C1-T013"
+      },
+      {
+        "requirement": "one canonical owner enforced",
+        "status": "pass",
+        "test_id": "RUO-C1-T014"
+      },
+      {
+        "requirement": "ownership cycles rejected",
+        "status": "pass",
+        "test_id": "RUO-C1-T015"
+      },
+      {
+        "requirement": "containment cycles rejected",
+        "status": "pass",
+        "test_id": "RUO-C1-T016"
+      },
+      {
+        "requirement": "relocation history explicit",
+        "status": "pass",
+        "test_id": "RUO-C1-T017"
+      },
+      {
+        "requirement": "six state ownership categories",
+        "status": "pass",
+        "test_id": "RUO-C1-T018"
+      },
+      {
+        "requirement": "Unit-local transitions preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T019"
+      },
+      {
+        "requirement": "stale derived state detected",
+        "status": "pass",
+        "test_id": "RUO-C1-T020"
+      },
+      {
+        "requirement": "internal relations preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T021"
+      },
+      {
+        "requirement": "project relations namespaced",
+        "status": "pass",
+        "test_id": "RUO-C1-T022"
+      },
+      {
+        "requirement": "external relation not ownership",
+        "status": "pass",
+        "test_id": "RUO-C1-T023"
+      },
+      {
+        "requirement": "dangling endpoints rejected",
+        "status": "pass",
+        "test_id": "RUO-C1-T024"
+      },
+      {
+        "requirement": "shared evidence normalized",
+        "status": "pass",
+        "test_id": "RUO-C1-T025"
+      },
+      {
+        "requirement": "evidence identity confidence provenance preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T026"
+      },
+      {
+        "requirement": "dependency-only evidence invalidation",
+        "status": "pass",
+        "test_id": "RUO-C1-T027"
+      },
+      {
+        "requirement": "lifecycle vocabulary preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T028"
+      },
+      {
+        "requirement": "Object and Unit lifecycle distinct",
+        "status": "pass",
+        "test_id": "RUO-C1-T029"
+      },
+      {
+        "requirement": "replacement identity and history preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T030"
+      },
+      {
+        "requirement": "multi-Unit transaction atomic commit",
+        "status": "pass",
+        "test_id": "RUO-C1-T031"
+      },
+      {
+        "requirement": "invalid transaction zero-partial rollback",
+        "status": "pass",
+        "test_id": "RUO-C1-T032"
+      },
+      {
+        "requirement": "snapshot conflict detected",
+        "status": "pass",
+        "test_id": "RUO-C1-T033"
+      },
+      {
+        "requirement": "unchanged Unit revisions preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T034"
+      },
+      {
+        "requirement": "deterministic Runtime projection",
+        "status": "pass",
+        "test_id": "RUO-C1-T035"
+      },
+      {
+        "requirement": "semantic distinctions preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T036"
+      },
+      {
+        "requirement": "dependency closure complete",
+        "status": "pass",
+        "test_id": "RUO-C1-T037"
+      },
+      {
+        "requirement": "stale projection rejected",
+        "status": "pass",
+        "test_id": "RUO-C1-T038"
+      },
+      {
+        "requirement": "Cluster Unit IDs preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T039"
+      },
+      {
+        "requirement": "Cluster lifecycle budget conflict termination preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T040"
+      },
+      {
+        "requirement": "Tensor mapping survives reorder",
+        "status": "pass",
+        "test_id": "RUO-C1-T041"
+      },
+      {
+        "requirement": "Atomic roundtrip lossless",
+        "status": "pass",
+        "test_id": "RUO-C1-T042"
+      },
+      {
+        "requirement": "Composite roundtrip lossless",
+        "status": "pass",
+        "test_id": "RUO-C1-T043"
+      },
+      {
+        "requirement": "molecular result preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T044"
+      },
+      {
+        "requirement": "Dynamic Cluster result preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T045"
+      },
+      {
+        "requirement": "Reasoning Runtime Golden preserved",
+        "status": "pass",
+        "test_id": "RUO-C1-T046"
+      },
+      {
+        "requirement": "vehicle classified as precursor",
+        "status": "pass",
+        "test_id": "RUO-C1-T047"
+      },
+      {
+        "requirement": "unsupported field namespaced or rejected",
+        "status": "pass",
+        "test_id": "RUO-C1-T048"
+      },
+      {
+        "requirement": "all 26 canonical artifacts",
+        "status": "pass",
+        "test_id": "RUO-C1-T049"
+      },
+      {
+        "requirement": "all schemas validate offline",
+        "status": "pass",
+        "test_id": "RUO-C1-T050"
+      },
+      {
+        "requirement": "all digests and sizes validate offline",
+        "status": "pass",
+        "test_id": "RUO-C1-T051"
+      },
+      {
+        "requirement": "tampering detected",
+        "status": "pass",
+        "test_id": "RUO-C1-T052"
+      },
+      {
+        "requirement": "three runs byte-identical",
+        "status": "pass",
+        "test_id": "RUO-C1-T053"
+      },
+      {
+        "requirement": "protected behavior targets unchanged",
+        "status": "pass",
+        "test_id": "RUO-C1-T054"
+      },
+      {
+        "requirement": "RUO-C0 tests unchanged",
+        "status": "pass",
+        "test_id": "RUO-C1-T055"
+      },
+      {
+        "requirement": "canonical reason ci --json passes",
+        "status": "pass",
+        "test_id": "RUO-C1-T056"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-validation-summary/1.0"
+}

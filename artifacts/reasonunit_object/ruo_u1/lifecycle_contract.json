@@ -1,0 +1,20 @@
+{
+  "data": {
+    "object_entity_separation": true,
+    "states": [
+      "proposed",
+      "active",
+      "suspended",
+      "reactivated",
+      "replaced",
+      "pruned",
+      "retired",
+      "converged",
+      "terminated",
+      "deleted"
+    ],
+    "tombstones": true
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-lifecycle-contract/1.0"
+}

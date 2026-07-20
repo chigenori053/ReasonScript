@@ -1,0 +1,8 @@
+{
+  "data": {
+    "children_allowed": false,
+    "independently_identifiable": true
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-atomic-reasonunit-contract/1.0"
+}

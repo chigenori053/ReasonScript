@@ -1,0 +1,11 @@
+{
+  "data": {
+    "confidence_contract_required_when_present": true,
+    "confidence_optional": true,
+    "history_retained": true,
+    "normalized_shared_registry": true,
+    "selective_invalidation": true
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-evidence-registry-contract/1.0"
+}

@@ -1,0 +1,15 @@
+{
+  "data": {
+    "dependency_independent_of_ownership": true,
+    "invalidation_closure": [
+      "states",
+      "evidence",
+      "projections",
+      "cache",
+      "constraints"
+    ],
+    "undeclared_cycles": "invalid"
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-constraint-dependency-contract/1.0"
+}

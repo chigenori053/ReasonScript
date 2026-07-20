@@ -9,8 +9,8 @@
     "reason golden"
   ],
   "schema": "reasonscript-agent-report/1.0",
-  "status": "IMPLEMENTED",
-  "task": "Phase RUO-C0 ReasonUnit Baseline Freeze",
-  "tests_passed": 981,
+  "status": "VALIDATED",
+  "task": "Phase RUO-U1",
+  "tests_passed": 1002,
   "version": "1.0"
 }

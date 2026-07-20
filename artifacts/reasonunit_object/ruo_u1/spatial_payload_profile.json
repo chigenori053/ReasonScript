@@ -1,0 +1,15 @@
+{
+  "data": {
+    "canonical_nonfinite": "rejected",
+    "profile_id": "ruo.payload.spatial/1",
+    "requires": [
+      "coordinates",
+      "geometry_role",
+      "dimensionality",
+      "unit",
+      "reference_frame"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-spatial-payload-profile/1.0"
+}

@@ -1,0 +1,19 @@
+{
+  "data": {
+    "preserves": [
+      "canonical_unit_id",
+      "lifecycle",
+      "dependency",
+      "budget",
+      "conflict",
+      "proposal",
+      "commit",
+      "convergence",
+      "pruning",
+      "worker_reassignment"
+    ],
+    "projection_changes_cluster_runtime": false
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-cluster-projection-contract/1.0"
+}

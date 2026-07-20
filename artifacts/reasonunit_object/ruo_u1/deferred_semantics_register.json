@@ -1,0 +1,28 @@
+{
+  "data": {
+    "entries": [
+      {
+        "phase": "RUO-F1",
+        "semantics": "persistent encoding"
+      },
+      {
+        "phase": "RUO-T1",
+        "semantics": "native tensor storage"
+      },
+      {
+        "phase": "RUO-N1",
+        "semantics": "native runtime type"
+      },
+      {
+        "phase": "RUO-N2",
+        "semantics": "language and CLI integration"
+      },
+      {
+        "phase": "RUO-W1",
+        "semantics": "world-level atomic commit"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-deferred-semantics-register/1.0"
+}

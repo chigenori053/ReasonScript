@@ -1,0 +1,36 @@
+{
+  "data": {
+    "observational_only": true,
+    "preservation_metrics": {
+      "diagnostic_mismatch_count": 0,
+      "evidence_loss_count": 0,
+      "execution_result_mismatch_count": 0,
+      "golden_mismatch_count": 0,
+      "lifecycle_loss_count": 0,
+      "relation_loss_count": 0,
+      "semantic_roundtrip_loss_count": 0,
+      "state_loss_count": 0,
+      "unit_identity_loss_count": 0
+    },
+    "representation_metrics": {
+      "active_unit_ratio": {
+        "active": 2,
+        "ratio": 0.6666666666666666,
+        "total": 3
+      },
+      "compatibility_adapter_dependency": 1,
+      "compatibility_model_representation_ratio": 1.0,
+      "compatibility_query_categories": 11,
+      "invalidation_ratio": {
+        "invalidated": 1,
+        "ratio": 0.3333333333333333,
+        "total": 3
+      },
+      "ruo_c0_adapter_semantic_dependency": 10,
+      "ruo_c0_native_representation_ratio": 0.0,
+      "ruo_c0_query_categories": 3
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-baseline-comparison-report/1.0"
+}

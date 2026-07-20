@@ -1,0 +1,37 @@
+{
+  "data": {
+    "immutable_input": true,
+    "logical_path": "artifacts/reasonunit_baseline/ruo_c0/run_manifest.json",
+    "verification": {
+      "artifact_count": 20,
+      "issues": [],
+      "ok": true,
+      "profile_version": "reasonscript-reasonunit-baseline/1.0",
+      "run_manifest_sha256": "sha256:0ff252f4c5a507d788d15d9e0e4782ea607273f4da0f434d550d8a26417c6194",
+      "statuses": {
+        "cluster_baseline_status": "COMPLETE",
+        "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+        "evidence_baseline_status": "COMPLETE",
+        "execution_baseline_status": "COMPLETE",
+        "external_evidence_status": "VERIFIED",
+        "identity_baseline_status": "COMPLETE",
+        "implementation_status": "IMPLEMENTED",
+        "inventory_status": "COMPLETE",
+        "lifecycle_baseline_status": "COMPLETE",
+        "phase_status": "VALIDATED",
+        "protected_behavior_status": "UNCHANGED",
+        "relation_baseline_status": "COMPLETE",
+        "state_baseline_status": "COMPLETE",
+        "tensor_baseline_status": "COMPLETE",
+        "transition_decision": "PROCEED_TO_RUO-C1"
+      },
+      "summary": {
+        "failed": 0,
+        "passed": 40,
+        "total": 40
+      }
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-ruo-c0-input-manifest/1.0"
+}

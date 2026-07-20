@@ -1,0 +1,23 @@
+{
+  "data": {
+    "reference_mapping": [
+      {
+        "index": 0,
+        "unit_id": "unit:beta"
+      },
+      {
+        "index": 1,
+        "unit_id": "unit:alpha"
+      },
+      {
+        "index": 2,
+        "unit_id": "unit:suspended"
+      }
+    ],
+    "reordering_preserves_unit_ids": true,
+    "symbol_or_index_table_required": true,
+    "tensor_index_is_unit_identity": false
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-tensor-identity-mapping-contract/1.0"
+}

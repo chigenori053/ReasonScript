@@ -1,0 +1,138 @@
+{
+  "data": {
+    "fixtures": [
+      {
+        "fixture_id": "atomic_scalar",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "composite_heterogeneous",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "cross_payload",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "graph",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "tensor_reference",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "evidence",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "lifecycle",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "partial_loading",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "transaction",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "cluster_projection",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "molecular",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "vehicle_precursor",
+        "status": "valid"
+      },
+      {
+        "fixture_id": "extension",
+        "status": "valid"
+      }
+    ],
+    "invalid_fixtures": [
+      {
+        "fixture_id": "identity_collision",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "ownership_cycle",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "containment_cycle",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "multiple_owners",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "invalid_payload",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "mixed_reference_frames",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "dangling_resolved_endpoint",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "stale_derived_state",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "invalid_evidence",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "illegal_lifecycle_transition",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "stale_projection",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "transaction_conflict",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "tensor_index_identity_misuse",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "malformed_extension",
+        "rejected": true,
+        "status": "invalid"
+      },
+      {
+        "fixture_id": "resource_limit_breach",
+        "rejected": true,
+        "status": "invalid"
+      }
+    ],
+    "ordering": "fixture_id"
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-universal-fixture-manifest/1.0"
+}

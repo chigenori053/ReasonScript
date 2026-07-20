@@ -1,0 +1,14 @@
+{
+  "data": {
+    "canonical_nonfinite": "rejected",
+    "profile_id": "ruo.payload.scalar/1",
+    "values": [
+      "boolean",
+      "integer",
+      "finite_decimal",
+      "symbolic"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-scalar-payload-profile/1.0"
+}

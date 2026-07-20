@@ -1,0 +1,32 @@
+{
+  "data": {
+    "ordering": "stable_identity",
+    "queries": [
+      "entity_by_id",
+      "owner",
+      "containment",
+      "payloads",
+      "state",
+      "relations",
+      "evidence",
+      "dependency",
+      "lifecycle",
+      "knowledge_status",
+      "execution_eligible_units",
+      "tensor_mapping",
+      "revision_diff",
+      "extensions"
+    ],
+    "reference": {
+      "eligible": [
+        "ruo:unit:abstract",
+        "ruo:unit:numeric",
+        "ruo:unit:root",
+        "ruo:unit:text"
+      ],
+      "owner": "ruo:unit:text"
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-universal-query-contract/1.0"
+}

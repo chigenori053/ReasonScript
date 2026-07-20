@@ -1,0 +1,19 @@
+{
+  "data": {
+    "deduplication": "semantic_equality_only",
+    "distinct_provenance_merged": false,
+    "invalid_history_traceable": true,
+    "preserved_fields": [
+      "evidence_identity",
+      "source_reference",
+      "affected_entity",
+      "confidence",
+      "observation_or_inference",
+      "invalidation",
+      "explanation_links"
+    ],
+    "shared_registry": true
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-evidence-registry-contract/1.0"
+}
