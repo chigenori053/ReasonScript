@@ -1,0 +1,29 @@
+{
+  "data": {
+    "owner": "cluster_runtime_native",
+    "replacement": {
+      "failure": "diagnostic and no partial commit",
+      "identity": "original retained",
+      "revision": "atomic plan revision"
+    },
+    "states": [
+      "proposed",
+      "validated",
+      "active",
+      "suspended",
+      "reactivated",
+      "replaced",
+      "pruned",
+      "converged",
+      "terminated"
+    ],
+    "transition_evidence": {
+      "available": true,
+      "bytes": 2945,
+      "path": "ClusterRuntime/src/dynamic/lifecycle.rs",
+      "sha256": "sha256:6226d8d960e13352860dd4634de942b8ca646c8317c9cbce1d18bac80f68ef68"
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-lifecycle-baseline/1.0"
+}

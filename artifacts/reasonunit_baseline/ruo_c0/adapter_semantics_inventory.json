@@ -1,0 +1,37 @@
+{
+  "data": {
+    "groups": {
+      "evidence": 1,
+      "identity": 0,
+      "lifecycle": 0,
+      "ownership": 0,
+      "projection": 2,
+      "relations": 1,
+      "serialization": 2,
+      "state": 2,
+      "validation": 2
+    },
+    "rules": [
+      {
+        "evidence": "toolchain/reasoning_runtime.py",
+        "group": "state",
+        "id": "adapter-source-analysis",
+        "owner": "adapter_owned"
+      },
+      {
+        "evidence": "toolchain/cluster_runtime_cmd.py",
+        "group": "serialization",
+        "id": "adapter-cluster-envelope",
+        "owner": "adapter_owned"
+      },
+      {
+        "evidence": "RuntimeReal/tests/ru_obj_2d_*.rs",
+        "group": "relations",
+        "id": "project-relation-inference",
+        "owner": "project_local"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-adapter-semantics-inventory/1.0"
+}

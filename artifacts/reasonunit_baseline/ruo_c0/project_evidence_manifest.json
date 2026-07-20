@@ -1,0 +1,83 @@
+{
+  "data": {
+    "evidence": [
+      {
+        "artifact_id": "RUO-G1",
+        "claims": {
+          "tests": "26/26"
+        },
+        "content_digests": {
+          "run_manifest": "sha256:65643e037bb28e6d17661a5d13c691362f73303d949dd65b58d60b99d63fdea3",
+          "validation_summary": "sha256:bdaef35cb1e4c7b4e792a3aa50406c70bcc84fbe1127e07152dfbd6f86a5a4b5"
+        },
+        "project_id": "vehicle-silhouette-ruo-g1",
+        "schema_or_profile": "reasonscript-reasonunit-baseline/1.0",
+        "verified": true
+      },
+      {
+        "artifact_id": "RUO-G1E",
+        "claims": {
+          "components": 30,
+          "contours": 12,
+          "curves": 72,
+          "landmarks": 48,
+          "projections": [
+            "L0",
+            "L1",
+            "L2"
+          ],
+          "relations": 150,
+          "tests": "36/36"
+        },
+        "content_digests": {
+          "information_density_report": "sha256:60ef314c9357b70080854528fe8061d661ba309eff1ee8fcc9e609565eb0707f",
+          "run_manifest": "sha256:22a97d51b08a25e44f78b07364e615cd627c9d1b5560b35d3ded4a56dc26ff58",
+          "validation_summary": "sha256:077a6a5fe68767b480f3cb9dfb5536b36e88f6ef9e7b10fbcaffd5de70b309b9"
+        },
+        "project_id": "vehicle-silhouette-ruo-g1",
+        "schema_or_profile": "reasonscript-reasonunit-baseline/1.0",
+        "verified": true
+      },
+      {
+        "artifact_id": "molecular-structured",
+        "claims": {
+          "scenario": "molecular-dynamic"
+        },
+        "content_digests": {
+          "canonical_evidence": "sha256:f2c29c1f3d083f03806be3f7954fbe7c08d0a93a34097430f3dca57a65dc788b"
+        },
+        "project_id": "reasonscript",
+        "schema_or_profile": "reasonscript-reasonunit-baseline/1.0",
+        "verified": true
+      },
+      {
+        "artifact_id": "dynamic-cluster",
+        "claims": {
+          "scenario": "DRU-TM-001-013"
+        },
+        "content_digests": {
+          "canonical_evidence": "sha256:9209e99ed32c7b58e34ff6f5bdda0f05b962568c1a76136b50c782e8c12d1c85"
+        },
+        "project_id": "reasonscript",
+        "schema_or_profile": "reasonscript-reasonunit-baseline/1.0",
+        "verified": true
+      },
+      {
+        "artifact_id": "reasoning-runtime-golden",
+        "claims": {
+          "manifest": "golden/golden_manifest.json"
+        },
+        "content_digests": {
+          "canonical_evidence": "sha256:85a51c592f3eb716cfcd665dbc6c20624f1ab89de8ff0a05bbc26efa35701e5a"
+        },
+        "project_id": "reasonscript",
+        "schema_or_profile": "reasonscript-reasonunit-baseline/1.0",
+        "verified": true
+      }
+    ],
+    "external_complete": true,
+    "path_policy": "Local paths are non-canonical and excluded; IDs and digests are canonical."
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-project-evidence-manifest/1.0"
+}

@@ -1,0 +1,177 @@
+{
+  "data": {
+    "concept": "ExistingReasonUnit",
+    "domains": [
+      "language_surface",
+      "runtime",
+      "reasoning_runtime",
+      "dynamic_cluster_runtime",
+      "tensor_runtime",
+      "project_local"
+    ],
+    "fields": [
+      {
+        "field": "identity",
+        "observation": "Canonical Unit ID is content/seed-derived in Dynamic Cluster; other runtimes use local identities.",
+        "semantic_owner": "cluster_runtime_native"
+      },
+      {
+        "field": "type_or_role",
+        "observation": "RuntimeReal UnitType and cluster unit_kind are separate vocabularies.",
+        "semantic_owner": "runtime_native"
+      },
+      {
+        "field": "ownership_or_container",
+        "observation": "No repository-wide ownership contract exists.",
+        "semantic_owner": "undefined"
+      },
+      {
+        "field": "state",
+        "observation": "State shapes and transition contracts are runtime-specific.",
+        "semantic_owner": "runtime_native"
+      },
+      {
+        "field": "relations",
+        "observation": "Relation vocabularies are model/runtime local.",
+        "semantic_owner": "project_local"
+      },
+      {
+        "field": "constraints",
+        "observation": "Runtime and cluster proposal validators own constraints.",
+        "semantic_owner": "runtime_native"
+      },
+      {
+        "field": "evidence",
+        "observation": "Dynamic proposals retain sorted evidence_refs; coverage is not language-native.",
+        "semantic_owner": "cluster_runtime_native"
+      },
+      {
+        "field": "confidence",
+        "observation": "Confidence exists in selected reasoning runtimes, not a universal ReasonUnit field.",
+        "semantic_owner": "runtime_native"
+      },
+      {
+        "field": "lifecycle",
+        "observation": "Dynamic Cluster owns the explicit lifecycle state machine.",
+        "semantic_owner": "cluster_runtime_native"
+      },
+      {
+        "field": "revision",
+        "observation": "Atomic plan revisions and replacement are coordinator-owned.",
+        "semantic_owner": "cluster_runtime_native"
+      },
+      {
+        "field": "dependencies",
+        "observation": "Parent/input references and plan dependencies are cluster contracts.",
+        "semantic_owner": "cluster_runtime_native"
+      },
+      {
+        "field": "execution_contract",
+        "observation": "Authored source lowers through artifacts into runtime-specific plans.",
+        "semantic_owner": "runtime_native"
+      },
+      {
+        "field": "resource_policy",
+        "observation": "DynamicConfig budgets bound generation and execution.",
+        "semantic_owner": "cluster_runtime_native"
+      },
+      {
+        "field": "diagnostics",
+        "observation": "Diagnostics use versioned ReasonScript documents and subsystem codes.",
+        "semantic_owner": "standard_schema"
+      }
+    ],
+    "language_surface": {
+      "authored_data_patterns": [
+        "struct",
+        "model",
+        "module",
+        "function"
+      ],
+      "classification": "implicit_behavior",
+      "reasonunit_reserved_construct": false
+    },
+    "source_evidence": [
+      {
+        "available": true,
+        "bytes": 2857,
+        "path": "RuntimeReal/src/core/reason_unit.rs",
+        "sha256": "sha256:73e94f878f09b773a235d5f0db32a940c4594cb38bcfe51d269cdd22f5ae0086"
+      },
+      {
+        "available": true,
+        "bytes": 463,
+        "path": "RuntimeReal/src/core/state.rs",
+        "sha256": "sha256:d8ab75c5d26c30f37e501c5f877edca3f7f6d98774c2a742956513aaf16a6219"
+      },
+      {
+        "available": true,
+        "bytes": 4283,
+        "path": "HybridRuntime/src/state.rs",
+        "sha256": "sha256:4e4d0dd076e185659c8449c61d297ca46a3c615d1499fb8918e339323e9836fa"
+      },
+      {
+        "available": true,
+        "bytes": 15963,
+        "path": "Test/src/lib.rs",
+        "sha256": "sha256:1294b2e88bb51098eaf17df47f29e4d5d345a30cd487e9bf7df7580a5b6b244f"
+      },
+      {
+        "available": true,
+        "bytes": 30418,
+        "path": "ClusterRuntime/src/dynamic/runtime.rs",
+        "sha256": "sha256:0384dc39124d269c17b0451cef2a3d8e21b3c98ba3bcecaa80063e93e4b766b8"
+      },
+      {
+        "available": true,
+        "bytes": 2945,
+        "path": "ClusterRuntime/src/dynamic/lifecycle.rs",
+        "sha256": "sha256:6226d8d960e13352860dd4634de942b8ca646c8317c9cbce1d18bac80f68ef68"
+      },
+      {
+        "available": true,
+        "bytes": 10219,
+        "path": "ClusterRuntime/src/dynamic/artifacts.rs",
+        "sha256": "sha256:11ed7cf8ff219f7af4edf225bfb215292255bc03313e839dfe9d3cc961843bd3"
+      },
+      {
+        "available": true,
+        "bytes": 6323,
+        "path": "ClusterRuntime/src/dynamic/test_model.rs",
+        "sha256": "sha256:f2c29c1f3d083f03806be3f7954fbe7c08d0a93a34097430f3dca57a65dc788b"
+      },
+      {
+        "available": true,
+        "bytes": 28105,
+        "path": "toolchain/reasoning_runtime.py",
+        "sha256": "sha256:65b6d38626cf789542c9117a460a4cb1be5cb9bdb7f746e28e652da840ed913b"
+      },
+      {
+        "available": true,
+        "bytes": 4121,
+        "path": "artifacts/dynamic_reason_unit_cluster_v0_1/dynamic_unit_manifest.json",
+        "sha256": "sha256:9209e99ed32c7b58e34ff6f5bdda0f05b962568c1a76136b50c782e8c12d1c85"
+      },
+      {
+        "available": true,
+        "bytes": 3087,
+        "path": "artifacts/dynamic_reason_unit_cluster_v0_1/dynamic_unit_lifecycle.jsonl",
+        "sha256": "sha256:ae188a0c1506b665d904653667e176cb63b5f328f1784097c1c5b36d82c78097"
+      },
+      {
+        "available": true,
+        "bytes": 3117,
+        "path": "artifacts/phase_1r/tensor_inference_probe/tensor_metadata.json",
+        "sha256": "sha256:429e7c07e9d8e265af1e91541a7beaea9179abc004ff90b615c72ebb283945ba"
+      },
+      {
+        "available": true,
+        "bytes": 166,
+        "path": "golden/golden_manifest.json",
+        "sha256": "sha256:85a51c592f3eb716cfcd665dbc6c20624f1ab89de8ff0a05bbc26efa35701e5a"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-contract-inventory/1.0"
+}

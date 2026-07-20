@@ -253,6 +253,12 @@ def validate_artifact_directory(directory: Path, *, expected: tuple[str, ...] = 
 def unwrap_artifact(value: Any) -> Any:
     if isinstance(value, dict) and {"version", "schema", "generator", "generated_at", "data"}.issubset(value):
         return value.get("data")
+    if (
+        isinstance(value, dict)
+        and value.get("profile_version") == "reasonscript-reasonunit-baseline/1.0"
+        and isinstance(value.get("data"), dict)
+    ):
+        return value["data"]
     return value
 
 
