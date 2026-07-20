@@ -1,0 +1,25 @@
+{
+  "data": {
+    "selectors": [
+      "entity_ids",
+      "entity_kinds",
+      "containment_roots",
+      "payload_profiles",
+      "semantic_roles",
+      "relation_classes",
+      "evidence_closure",
+      "dependency_closure",
+      "lifecycle",
+      "extension_namespaces"
+    ],
+    "statuses": [
+      "physical_integrity_status",
+      "selected_record_schema_status",
+      "selected_view_semantic_status",
+      "complete_object_semantic_status",
+      "external_resource_status"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-partial-loading-contract/1.0"
+}

@@ -66,6 +66,8 @@ def test_render_and_path_confinement(table,tmp_path):
     if not backend.available(): pytest.skip("optional Matplotlib unavailable")
     first=visual.render_evaluation(spec,table,"eval1",project_root=tmp_path,backend=backend)
     second=visual.render_evaluation(spec,table,"eval2",project_root=tmp_path,backend=backend)
-    h=lambda result:{x["name"]:x.get("sha256") for x in result["artifacts"] if x["name"].endswith((".png",".svg"))}
-    assert first["status"]=="pass" and h(first)==h(second)
+    def artifact_hashes(result):
+        return {x["name"]: x.get("sha256") for x in result["artifacts"] if x["name"].endswith((".png", ".svg"))}
+
+    assert first["status"]=="pass" and artifact_hashes(first)==artifact_hashes(second)
     with pytest.raises(visual.EvaluationError,match="MLV-ART-003"): visual.render_evaluation(spec,table,"../escape",project_root=tmp_path,backend=backend)

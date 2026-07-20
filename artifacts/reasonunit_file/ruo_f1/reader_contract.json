@@ -1,0 +1,21 @@
+{
+  "data": {
+    "inspect_semantic_success": false,
+    "modes": [
+      "strict",
+      "preserve",
+      "inspect"
+    ],
+    "validation_order": [
+      "physical",
+      "limits",
+      "record_integrity",
+      "schema",
+      "references",
+      "seal",
+      "RUO-U1 semantics"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-reader-contract/1.0"
+}

@@ -341,8 +341,10 @@ def query_compatibility(value: dict[str, Any], query: str, identifier: str | int
         internal, external = [], []
         for relation in value.get("relation_registry", []):
             (internal if relation.get("source_id") in units and relation.get("target_id") in units else external).append(copy.deepcopy(relation))
-        key = lambda item: str(item.get("relation_id", ""))
-        return {"internal": sorted(internal, key=key), "external": sorted(external, key=key)}
+        def relation_key(item: dict[str, Any]) -> str:
+            return str(item.get("relation_id", ""))
+
+        return {"internal": sorted(internal, key=relation_key), "external": sorted(external, key=relation_key)}
     if query == "supporting_evidence":
         return sorted((copy.deepcopy(item) for item in value.get("evidence_registry", []) if str(identifier) in [str(target) for target in item.get("supports", [])]), key=lambda item: item["evidence_id"])
     if query == "lifecycle":

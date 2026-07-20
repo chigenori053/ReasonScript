@@ -74,7 +74,9 @@ def test_manifest_is_canonical_and_deterministic(tmp_path: Path) -> None:
     assert manifest["schema_version"] == PROVENANCE_MANIFEST_SCHEMA
     # PROV-TC-019: identical inputs serialize byte-identically apart from the timestamp.
     second = manifest_path.read_bytes()
-    strip = lambda data: b"\n".join(line for line in data.splitlines() if b"timestamp_utc" not in line)
+    def strip(data: bytes) -> bytes:
+        return b"\n".join(line for line in data.splitlines() if b"timestamp_utc" not in line)
+
     assert strip(first) == strip(second)
     assert sidecar.read_text(encoding="utf-8").strip() == sha256_bytes(second)
     assert canonical_manifest_sha256(manifest) == sha256_bytes(canonical_json(manifest).encode("utf-8"))

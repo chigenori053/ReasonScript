@@ -115,6 +115,10 @@ def main() -> int:
         from toolchain.reasonunit_object_cmd import run
         return run(args[1:], project_root)
 
+    if command == "reasonunit-file":
+        from toolchain.reasonunit_file_cmd import run
+        return run(args[1:], project_root)
+
     if command == "reasoning-model":
         from toolchain.reasoning_model_cmd import run
         return run(command, args[1:], project_root)
@@ -175,6 +179,7 @@ def _usage() -> None:
     print("  reasonunit-baseline Generate or validate the RUO-C0 compatibility baseline")
     print("  reasonunit-compatibility Generate or validate the RUO-C1 compatibility foundation")
     print("  reasonunit-object Generate or validate the RUO-U1 universal Object model")
+    print("  reasonunit-file Read, write, validate, inspect, select, and verify canonical .ruo files")
     print("  reasoning-model validate <file> Validate a Reasoning Model artifact")
     print("  reasoning-eval evaluate <file> Evaluate a Reasoning Model artifact")
     print("  reasoning-eval validate <file> Validate a Reasoning Evaluation Report")

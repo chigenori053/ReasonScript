@@ -1,7 +1,9 @@
 """Deterministic classification evaluation independent of rendering backends."""
 from __future__ import annotations
 from dataclasses import asdict
-import json, math, statistics
+import json
+import math
+import statistics
 from typing import Any, Iterable, Mapping, Sequence
 from runtime.data import Table, is_missing, stable_id
 from .model import (ClassificationEvaluation, ClassificationMetric, ClassMetric, ConfusionMatrix,

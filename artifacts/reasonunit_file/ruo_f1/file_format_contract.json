@@ -1,0 +1,12 @@
+{
+  "data": {
+    "encoding": "canonical UTF-8 JSON Lines",
+    "extension": ".ruo",
+    "format_version": "1.0",
+    "implementation_neutral": true,
+    "media_type": "application/vnd.reasonscript.ruo+jsonl",
+    "one_primary_object": true
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-file-format-contract/1.0"
+}

@@ -1,0 +1,62 @@
+{
+  "data": {
+    "immutable_input": true,
+    "verification": {
+      "artifact_count": 38,
+      "evidence": {
+        "c0": "40/40",
+        "c0_c1_focused": "83/83",
+        "c0_c1_phase_total": 96,
+        "c1": "56/56",
+        "protected_behavior": "unchanged",
+        "repository_tests": 1002,
+        "semantic_loss_count": 0,
+        "u1": "65/65",
+        "u1_c0_c1_focused": "94 passed",
+        "u1_focused": "10 passed"
+      },
+      "issues": [],
+      "ok": true,
+      "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+      "run_manifest_sha256": "sha256:6c7d3b1c299a491edf3d13031a2fb64a866e89dcd8c286925bf205cac94761bd",
+      "statuses": {
+        "artifact_validation_status": "COMPLETE",
+        "constraint_dependency_status": "COMPLETE",
+        "core_entity_status": "COMPLETE",
+        "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+        "evidence_registry_status": "COMPLETE",
+        "execution_projection_status": "COMPLETE",
+        "extension_registry_status": "COMPLETE",
+        "heterogeneous_payload_status": "COMPLETE",
+        "identity_status": "COMPLETE",
+        "implementation_status": "IMPLEMENTED",
+        "legacy_compatibility_status": "COMPLETE",
+        "lifecycle_status": "COMPLETE",
+        "ownership_containment_status": "COMPLETE",
+        "partial_loading_status": "COMPLETE",
+        "payload_envelope_status": "COMPLETE",
+        "payload_profile_registry_status": "COMPLETE",
+        "phase_status": "VALIDATED",
+        "prerequisite_count_reconciliation_status": "RECONCILED",
+        "protected_behavior_status": "UNCHANGED",
+        "relation_model_status": "COMPLETE",
+        "resource_limit_status": "COMPLETE",
+        "revision_transaction_status": "COMPLETE",
+        "ruo_c0_prerequisite_status": "VERIFIED",
+        "ruo_c1_prerequisite_status": "VERIFIED",
+        "semantic_roundtrip_status": "COMPLETE",
+        "state_model_status": "COMPLETE",
+        "transition_decision": "PROCEED_TO_RUO-F1",
+        "universal_object_contract_status": "COMPLETE",
+        "universal_query_status": "COMPLETE"
+      },
+      "summary": {
+        "failed": 0,
+        "passed": 65,
+        "total": 65
+      }
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-ruo-u1-input-manifest/1.0"
+}

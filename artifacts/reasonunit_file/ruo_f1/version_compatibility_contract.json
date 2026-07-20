@@ -1,0 +1,17 @@
+{
+  "data": {
+    "axes": [
+      "format",
+      "canonicalization",
+      "logical_model",
+      "record",
+      "payload",
+      "extension"
+    ],
+    "lossy_conversion": "fail",
+    "silent_downgrade": "prohibited",
+    "unknown_major": "reject"
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-version-compatibility-contract/1.0"
+}

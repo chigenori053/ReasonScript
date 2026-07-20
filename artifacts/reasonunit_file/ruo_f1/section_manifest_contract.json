@@ -1,0 +1,19 @@
+{
+  "data": {
+    "fields": [
+      "section",
+      "record_type",
+      "record_count",
+      "first_ordinal",
+      "last_ordinal",
+      "stable_sort_key",
+      "schema_version",
+      "required",
+      "critical",
+      "partial_loading_status"
+    ],
+    "stream_planning": true
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-section-manifest-contract/1.0"
+}

@@ -1,0 +1,14 @@
+{
+  "data": {
+    "offline": true,
+    "results": [
+      {
+        "resource_id": "ruo:resource:payload",
+        "status": "VERIFIED"
+      }
+    ],
+    "status": "VERIFIED"
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-external-resource-verification-report/1.0"
+}

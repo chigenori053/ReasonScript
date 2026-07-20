@@ -1,0 +1,26 @@
+{
+  "data": {
+    "ordinal_is_identity": false,
+    "sections": [
+      "file_header",
+      "section_manifest",
+      "object",
+      "unit",
+      "payload",
+      "state",
+      "relation",
+      "constraint",
+      "evidence",
+      "dependency",
+      "revision",
+      "transaction_summary",
+      "extension",
+      "projection_descriptor",
+      "external_resource",
+      "file_seal"
+    ],
+    "within_section": "stable entity identity"
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-record-order-contract/1.0"
+}

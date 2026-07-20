@@ -19,7 +19,7 @@ CORE_PREFIXES = {
 PAYLOAD_PROFILES = {
     "ruo.payload.scalar/1", "ruo.payload.text/1", "ruo.payload.numeric/1",
     "ruo.payload.temporal/1", "ruo.payload.spatial/1", "ruo.payload.graph/1",
-    "ruo.payload.tensor-ref/1", "ruo.payload.binary-ref/1", "ruo.payload.abstract/1",
+    "ruo.payload.tensor-ref/1", "ruo.payload.tensor/1", "ruo.payload.binary-ref/1", "ruo.payload.abstract/1",
 }
 STATE_CLASSES = {"unit_local", "object_shared", "derived", "external", "cached", "unknown"}
 RELATION_CLASSES = {"internal", "cross_payload", "cross_object", "external", "project_local"}

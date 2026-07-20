@@ -2,7 +2,8 @@
 from __future__ import annotations
 from dataclasses import asdict, is_dataclass
 from enum import Enum
-import json, math
+import json
+import math
 from pathlib import Path
 from typing import Any
 from .model import VisualizationError, VisualizationSpec

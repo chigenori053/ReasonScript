@@ -1,0 +1,21 @@
+{
+  "data": {
+    "chunk_coverage": "contiguous exact",
+    "network": "disabled",
+    "required": [
+      "resource_id",
+      "owner_payload_id",
+      "content_sha256",
+      "byte_size",
+      "media_type",
+      "payload_profile",
+      "profile_version",
+      "logical_role",
+      "locator_policy",
+      "availability_status",
+      "critical"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-external-resource-contract/1.0"
+}

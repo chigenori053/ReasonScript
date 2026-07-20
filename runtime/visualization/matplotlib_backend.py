@@ -2,7 +2,8 @@
 from __future__ import annotations
 from dataclasses import asdict
 from io import BytesIO
-import hashlib, importlib.util
+import hashlib
+import importlib.util
 from pathlib import Path
 from typing import Any
 from runtime.data import Table
@@ -73,7 +74,7 @@ class MatplotlibBackend(VisualizationBackend):
             ax.set_xticks(range(len(data["x"])), [str(x) for x in data["x"]]); ax.set_yticks(range(len(data["y"])), [str(y) for y in data["y"]])
             ax.figure.colorbar(image, ax=ax)
         elif kind == "pie":
-            series = data["series"][0];
+            series = data["series"][0]
             if any(v < 0 for v in series["y"]): raise VisualizationError("VSL-ENC-003", "Pie values must be non-negative")
             ax.pie(series["y"], labels=[str(x) for x in series["x"]], autopct="%1.1f%%")
         else:
