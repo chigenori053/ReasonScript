@@ -16,9 +16,18 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
+from .package_provenance import manifest_paths
+from .package_validator import (
+    FRESHNESS_DEVELOPMENT,
+    FRESHNESS_STALE,
+    PROVENANCE_DIAGNOSTICS,
+    ProvenanceReport,
+    validate_package_provenance,
+)
 from .platform import PlatformAdapter, current_adapter
 
 REPORT_SCHEMA = "reasonscript-update-report/1.0"
+TRANSACTION_SCHEMA = "reasonscript-update-transaction/1.1"
 MANIFEST_SCHEMA = "reasonscript-install-manifest/1.1"
 CHECKSUM_SCHEMA = "reasonscript-package-checksums/1.0"
 STATE_SCHEMA = "reasonscript-install-state/1.1"
@@ -47,6 +56,16 @@ DIAGNOSTICS = {
     "INS-UPD-019": (7, "Launcher update failed."),
     "INS-UPD-020": (1, "Configuration migration failed."),
 }
+
+_PROVENANCE_EXIT_CODES = {
+    "INS-PROV-001": 5, "INS-PROV-002": 5, "INS-PROV-003": 5, "INS-PROV-004": 5,
+    "INS-PROV-005": 4, "INS-PROV-006": 4, "INS-PROV-007": 4, "INS-PROV-008": 4,
+    "INS-PROV-009": 4, "INS-PROV-010": 5, "INS-PROV-011": 5, "INS-PROV-012": 5,
+    "INS-PROV-013": 4, "INS-PROV-014": 4, "INS-PROV-015": 4, "INS-PROV-016": 4,
+    "INS-PROV-017": 4, "INS-PROV-018": 5, "INS-PROV-019": 5, "INS-PROV-020": 4,
+}
+DIAGNOSTICS.update({code: (_PROVENANCE_EXIT_CODES[code], message)
+                    for code, message in PROVENANCE_DIAGNOSTICS.items()})
 
 
 class UpdateError(Exception):
@@ -116,10 +135,16 @@ class Package:
 
 class UpdateEngine:
     def __init__(self, root: Path | None = None, adapter: PlatformAdapter | None = None,
-                 validator: Callable[[Path], dict[str, str]] | None = None):
+                 validator: Callable[[Path], dict[str, str]] | None = None,
+                 *, expected_commit: str | None = None, allow_development_package: bool = False,
+                 allow_legacy_package: bool = False):
         self.adapter = adapter or current_adapter()
         self.root = (root or self.adapter.default_install_root()).expanduser().resolve()
         self.validator = validator or self._post_install_validation
+        self.expected_commit = expected_commit
+        self.allow_development_package = allow_development_package
+        self.allow_legacy_package = allow_legacy_package
+        self._provenance_report: ProvenanceReport | None = None
 
     @property
     def metadata(self) -> Path:
@@ -327,6 +352,7 @@ class UpdateEngine:
         maximum = package.manifest.get("maximum_previous_version")
         if (minimum and compare_versions(installed_version, minimum) < 0) or (maximum and compare_versions(installed_version, maximum) > 0):
             raise UpdateError("INS-UPD-014", phase="planning")
+        provenance = self._provenance_gate(package, expected_version=package_version)
         current_files = {item["path"].split(f"versions/{installed_version}/", 1)[-1]: item["sha256"] for item in inventory.get("files", [])}
         package_files = {item["path"].split("payload/", 1)[-1]: item["sha256"] for item in package.checksums["files"]}
         added = sorted(package_files.keys() - current_files.keys())
@@ -342,8 +368,41 @@ class UpdateEngine:
                      "migration_actions": [], "estimated_disk_usage": sum((package.root / item["path"]).stat().st_size for item in package.checksums["files"]),
                      "rollback_target": installed_version, "activation_method": "atomic_current_metadata_switch",
                      "modified_managed_files": modified},
+            "package_provenance": provenance["package"],
+            "freshness": provenance["freshness"],
             "diagnostics": [],
         }
+
+    def _provenance_gate(self, package: Package, *, expected_version: str) -> dict[str, Any]:
+        """Validate provenance before any payload is staged or activated (UPD-PROV-001..014)."""
+        archive_name = package.source.name if package.source.is_file() else None
+        report = validate_package_provenance(
+            package.root,
+            platform=self.adapter.name,
+            architecture=self.adapter.architecture,
+            expected_version=expected_version,
+            expected_commit=self.expected_commit,
+            archive_name=archive_name,
+            allow_development=self.allow_development_package,
+        )
+        self._provenance_report = report
+        if report.manifest is None:
+            if self.allow_legacy_package:
+                return {"package": None, "freshness": {"status": "legacy"}}
+            raise UpdateError("INS-PROV-020", phase="validating_provenance",
+                              detail="Package has no provenance manifest; legacy packages are rejected.",
+                              package_path=str(package.source))
+        if not report.valid or report.freshness == FRESHNESS_STALE or (
+                report.freshness == FRESHNESS_DEVELOPMENT and not self.allow_development_package):
+            issue = next((item for item in report.issues if item.severity == "fatal"), None)
+            code = issue.code if issue else "INS-PROV-018"
+            context = {key: value for key, value in (issue.to_dict() if issue else {}).items()
+                       if key in {"field", "expected", "actual"}}
+            raise UpdateError(code, phase="validating_provenance",
+                              detail=issue.message or PROVENANCE_DIAGNOSTICS.get(code) if issue else None,
+                              package_path=str(package.source),
+                              freshness=report.freshness, **context)
+        return {"package": report.summary(), "freshness": {"status": report.freshness}}
 
     def _compatibility(self, state: dict[str, Any], manifest: dict[str, Any]) -> None:
         if manifest["platform"] != state["platform"]:
@@ -355,6 +414,16 @@ class UpdateEngine:
         package = self.open_package(source)
         try:
             return self.plan(package, force)
+        except UpdateError as exc:
+            if exc.phase != "validating_provenance":
+                raise
+            report = self._provenance_report
+            return {
+                "schema_version": REPORT_SCHEMA, "status": "package_rejected", "action": "none",
+                "package_provenance": report.summary() if report and report.manifest else None,
+                "freshness": {"status": report.freshness if report and report.manifest else "unknown"},
+                "diagnostics": [exc.diagnostic()],
+            }
         finally:
             package.close()
 
@@ -363,6 +432,7 @@ class UpdateEngine:
         activated = False
         previous = None
         started = _timestamp()
+        transaction_id = f"txn-{started.replace(':', '').replace('-', '')}-{os.getpid()}"
         try:
             plan = self.plan(package, force)
             if plan["status"] != "update_available":
@@ -391,11 +461,17 @@ class UpdateEngine:
             validation = self.validator(final)
             if any(value != "passed" for value in validation.values()):
                 raise UpdateError("INS-UPD-010", phase="validating_active", validation=validation)
-            self._complete(package, plan, validation, started)
+            self._complete(package, plan, validation, started, transaction_id)
+            self._write_transaction(transaction_id, previous, version, "activated", started)
             return self._completed_report(package, plan, validation), 0
         except UpdateError as exc:
             if activated and previous:
+                self._write_transaction(transaction_id, previous, package.manifest.get("package_version"),
+                                        "rolled_back", started, error=exc)
                 return self._automatic_rollback(previous, package.manifest.get("package_version"), exc, started)
+            status = "rejected" if exc.phase == "validating_provenance" else "failed"
+            self._write_transaction(transaction_id, previous, package.manifest.get("package_version"),
+                                    status, started, error=exc)
             return self._failure_report(exc, package.source), exc.exit_code
         finally:
             shutil.rmtree(self.root / "staging" / str(package.manifest.get("package_version", "unknown")), ignore_errors=True)
@@ -455,7 +531,47 @@ class UpdateEngine:
                        "project_validation": "passed" if project.returncode == 0 else "failed"})
         return result
 
-    def _complete(self, package: Package, plan: dict[str, Any], validation: dict[str, str], started: str) -> None:
+    def _write_transaction(self, transaction_id: str, from_version: str | None, to_version: str | None,
+                           activation_status: str, started: str, error: "UpdateError | None" = None) -> None:
+        """Persist a provenance-bearing transaction Artifact (spec section 18). Best effort."""
+        try:
+            report = self._provenance_report
+            payload: dict[str, Any] = {
+                "schema_version": TRANSACTION_SCHEMA, "transaction_id": transaction_id,
+                "from_version": from_version, "to_version": to_version,
+                "started_at": started, "completed_at": _timestamp(),
+                "package_provenance": report.summary() if report and report.manifest else None,
+                "freshness": {"status": report.freshness if report and report.manifest else "unknown"},
+                "checks": ([{"code": code, "status": status} for code, status in sorted(report.checks.items())]
+                           if report else []),
+                "activation_status": activation_status,
+                "diagnostics": [error.diagnostic()] if error else [],
+            }
+            self.adapter.atomic_json_write(self.metadata / "transactions" / f"{transaction_id}.json", payload)
+        except OSError:
+            pass
+
+    def _persist_installed_provenance(self, package: Package, version: str, transaction_id: str, started: str) -> None:
+        """Keep the package provenance manifest inside the installed version (spec section 17)."""
+        manifest_path, sidecar_path = manifest_paths(package.root)
+        if not manifest_path.is_file():
+            return
+        destination = self.root / "versions" / version / "metadata"
+        destination.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(manifest_path, destination / manifest_path.name)
+        if sidecar_path.is_file():
+            shutil.copy2(sidecar_path, destination / sidecar_path.name)
+        report = self._provenance_report
+        self.adapter.atomic_json_write(destination / "installation_record.json", {
+            "schema_version": "reasonscript-installation-record/1.0",
+            "installed_version": version, "installed_at": _timestamp(), "started_at": started,
+            "transaction_id": transaction_id, "package_source": str(package.source),
+            "freshness": {"status": report.freshness if report and report.manifest else "unknown"},
+        })
+
+    def _complete(self, package: Package, plan: dict[str, Any], validation: dict[str, str], started: str,
+                  transaction_id: str = "") -> None:
+        self._persist_installed_provenance(package, plan["package_version"], transaction_id, started)
         state = self._read_json(self.metadata / "install_state.json")
         now = _timestamp()
         backup = self.root / "backup" / plan["installed_version"] / "metadata"

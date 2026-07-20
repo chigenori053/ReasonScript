@@ -140,7 +140,7 @@ def _usage() -> None:
     print("  doctor        Diagnose the installed environment")
     print("  install-info  Show the installation manifest")
     print("  install-validate Validate the installation contract")
-    print("  update         Check, install, validate, or roll back an update package")
+    print("  update         Check, install, validate, inspect, or roll back an update package")
     print("  install-foundation-report Generate Install Foundation validation summary")
     print("  version-validate Validate release version metadata")
     print("  build         Compile source files")

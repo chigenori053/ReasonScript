@@ -143,11 +143,38 @@ def doctor_command(args: list[str]) -> int:
     return {"healthy": 0, "degraded": 1, "unusable": 2}[payload["status"]]
 
 
+def _package_provenance_summary(install_root: Path, version: str) -> dict[str, Any] | None:
+    """Expose the provenance of the active installed package (spec section 17)."""
+    manifest_path_ = install_root / "versions" / version / "metadata/update_package_manifest.json"
+    if not manifest_path_.is_file():
+        return None
+    try:
+        manifest = json.loads(manifest_path_.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(manifest, dict):
+        return None
+    from toolchain.install_update.package_provenance import canonical_manifest_sha256
+    return {
+        "active_version": version,
+        "package_id": manifest.get("package_id"),
+        "package_class": manifest.get("package_class"),
+        "source_commit_sha": (manifest.get("source_commit") or {}).get("sha"),
+        "build_timestamp_utc": (manifest.get("build") or {}).get("timestamp_utc"),
+        "builder_version": (manifest.get("builder") or {}).get("version"),
+        "validation_profile_version": (manifest.get("validation_profile") or {}).get("profile_version"),
+        "source_tree_dirty": (manifest.get("source_tree") or {}).get("dirty"),
+        "manifest_sha256": canonical_manifest_sha256(manifest),
+        "payload_sha256": (manifest.get("integrity") or {}).get("payload_sha256"),
+    }
+
+
 def install_info_command(args: list[str]) -> int:
     path = manifest_path()
     if path.is_file():
         payload = json.loads(path.read_text(encoding="utf-8"))
-        current_path = Path(payload.get("install_root", default_home())) / "metadata/current.json"
+        install_root = Path(payload.get("install_root", default_home()))
+        current_path = install_root / "metadata/current.json"
         try:
             current = json.loads(current_path.read_text(encoding="utf-8"))
             active = current.get("active_version")
@@ -156,6 +183,9 @@ def install_info_command(args: list[str]) -> int:
                 payload["runtime_version"] = active
                 payload["install_foundation_version"] = FOUNDATION_VERSION
                 payload["active_installation"] = current
+                provenance = _package_provenance_summary(install_root, active)
+                if provenance is not None:
+                    payload["package_provenance"] = provenance
         except (OSError, json.JSONDecodeError):
             pass
     else:

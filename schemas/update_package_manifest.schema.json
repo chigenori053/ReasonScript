@@ -1,19 +1,121 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "reasonscript-install-manifest/1.1",
+  "$id": "reasonscript-update-package-manifest/1.0",
   "type": "object",
-  "required": ["schema_version", "package_version", "runtime_version", "install_foundation_version", "platform", "architecture", "package_type", "components"],
+  "required": [
+    "schema_version",
+    "package_id",
+    "package_class",
+    "release",
+    "repository",
+    "source_commit",
+    "source_tree",
+    "build",
+    "builder",
+    "validation_profile",
+    "target",
+    "integrity"
+  ],
   "properties": {
-    "schema_version": {"const": "reasonscript-install-manifest/1.1"},
-    "package_version": {"type": "string"},
-    "runtime_version": {"type": "string"},
-    "install_foundation_version": {"const": "1.1"},
-    "platform": {"enum": ["macos", "linux", "windows"]},
-    "architecture": {"type": "string"},
-    "minimum_previous_version": {"type": ["string", "null"]},
-    "maximum_previous_version": {"type": ["string", "null"]},
-    "package_type": {"const": "update_and_install"},
-    "components": {"type": "array", "minItems": 1}
+    "schema_version": {"const": "reasonscript-update-package-manifest/1.0"},
+    "package_id": {"type": "string", "pattern": "^reasonscript-"},
+    "package_class": {"enum": ["release", "development"]},
+    "release": {
+      "type": "object",
+      "required": ["expected_version"],
+      "properties": {
+        "expected_version": {"type": "string", "minLength": 1},
+        "expected_commit": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"}
+      }
+    },
+    "repository": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string"},
+        "branch": {"type": "string"}
+      }
+    },
+    "source_commit": {
+      "type": "object",
+      "required": ["sha", "short_sha"],
+      "properties": {
+        "sha": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
+        "short_sha": {"type": "string", "pattern": "^[0-9a-f]{7,}$"}
+      }
+    },
+    "source_tree": {
+      "type": "object",
+      "required": ["dirty"],
+      "properties": {
+        "dirty": {"type": "boolean"},
+        "tracked_changes": {"type": "boolean"},
+        "untracked_files": {"type": "boolean"},
+        "submodule_changes": {"type": "boolean"},
+        "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "build": {
+      "type": "object",
+      "required": ["timestamp_utc"],
+      "properties": {
+        "timestamp_utc": {"type": "string", "format": "date-time"},
+        "source_date_epoch": {"type": "integer"}
+      }
+    },
+    "builder": {
+      "type": "object",
+      "required": ["name", "version", "implementation_sha256", "runtime", "runtime_version"],
+      "properties": {
+        "name": {"type": "string"},
+        "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+        "implementation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "runtime": {"type": "string"},
+        "runtime_version": {"type": "string"}
+      }
+    },
+    "validation_profile": {
+      "type": "object",
+      "required": ["profile_id", "profile_version", "schema_version", "profile_sha256"],
+      "properties": {
+        "profile_id": {"type": "string"},
+        "profile_version": {"type": "string"},
+        "schema_version": {"type": "string"},
+        "profile_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "profile_path": {"type": "string"}
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": ["os", "architecture", "archive_format"],
+      "properties": {
+        "os": {"enum": ["macos", "linux", "windows"]},
+        "architecture": {"type": "string"},
+        "archive_format": {"enum": ["tar.gz", "zip", "directory"]}
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "required": ["hash_algorithm", "payload_sha256", "files"],
+      "properties": {
+        "hash_algorithm": {"const": "sha256"},
+        "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["path", "size_bytes", "sha256"],
+            "properties": {
+              "path": {"type": "string", "pattern": "^payload/"},
+              "size_bytes": {"type": "integer", "minimum": 0},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "executable": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

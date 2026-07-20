@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-install-manifest/1.1",
+  "type": "object",
+  "required": ["schema_version", "package_version", "runtime_version", "install_foundation_version", "platform", "architecture", "package_type", "components"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-install-manifest/1.1"},
+    "package_version": {"type": "string"},
+    "runtime_version": {"type": "string"},
+    "install_foundation_version": {"const": "1.1"},
+    "platform": {"enum": ["macos", "linux", "windows"]},
+    "architecture": {"type": "string"},
+    "minimum_previous_version": {"type": ["string", "null"]},
+    "maximum_previous_version": {"type": ["string", "null"]},
+    "package_type": {"const": "update_and_install"},
+    "components": {"type": "array", "minItems": 1}
+  },
+  "additionalProperties": true
+}

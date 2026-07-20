@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+### Added
+
+- Implemented the Update Package Provenance and Freshness Verification
+  Specification v0.1 (`reasonscript-update-package-manifest/1.0`):
+  - `scripts/build_update_package.py` now records the source commit, dirty
+    tree state, builder identity and hash, validation profile hash, and
+    per-file payload hashes into a canonical
+    `metadata/update_package_manifest.json` with a sidecar SHA-256, rejects
+    release builds from dirty source trees, stages packages under
+    `dist/.staging`, self-validates them with the install-side validator,
+    and emits archive/manifest sidecar hashes.
+  - `reason update` validates package provenance before staging or
+    activation (INS-PROV-001..020 diagnostics), classifies package
+    freshness (`fresh`/`stale`/`unknown`/`invalid`/`development`), rejects
+    stale, dirty, development-class, and legacy (manifest-less) packages by
+    default, and supports `--expected-commit`,
+    `--allow-development-package`, and `--allow-legacy-package`.
+  - Added `reason update package-inspect <archive>` and
+    `reason update package-validate <archive>`.
+  - Successful updates retain the package manifest and an installation
+    record under `versions/<v>/metadata/`, write
+    `reasonscript-update-transaction/1.1` artifacts under
+    `metadata/transactions/`, and `reason install-info --json` reports the
+    active package provenance; provenance survives rollback for every
+    installed version.
+  - Added `schemas/update_package_manifest.schema.json`
+    (provenance manifest) and `schemas/update_transaction.schema.json`;
+    the previous package-manifest schema moved to
+    `schemas/install_manifest_v1_1.schema.json`.
+
 ### Changed
 
 - Cleaned up repository documentation for the open-source release: removed
