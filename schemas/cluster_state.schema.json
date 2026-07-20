@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/cluster-state/0.1",
+  "title": "ReasonScript Cluster State 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "logical_step", "state_version", "worker_states", "shared_state", "completed_tasks", "pending_tasks", "checksum"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-cluster-state/0.1"},
+    "run_id": {"type": "string"},
+    "logical_step": {"type": "integer", "minimum": 0},
+    "state_version": {"type": "integer", "minimum": 1},
+    "worker_states": {"type": "object"},
+    "shared_state": {"type": "object"},
+    "completed_tasks": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "pending_tasks": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "checksum": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "data": {
+    "distinct_versions": [
+      "RUO-F1",
+      "tensor",
+      "dtype",
+      "layout",
+      "sparse",
+      "chunk",
+      "mask",
+      "mapping",
+      "extensions"
+    ],
+    "silent_downgrade": false,
+    "unknown_major": "reject",
+    "unknown_noncritical": "preserve"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-version-compatibility-contract/1.0"
+}

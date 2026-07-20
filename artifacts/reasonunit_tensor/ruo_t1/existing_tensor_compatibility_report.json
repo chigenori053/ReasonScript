@@ -1,0 +1,10 @@
+{
+  "data": {
+    "dtype_shape_values_preserved": true,
+    "legacy_profile": "ruo.payload.tensor-ref/1",
+    "semantic_loss_count": 0,
+    "standard_function_behavior": "unchanged"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-existing-tensor-compatibility-report/1.0"
+}

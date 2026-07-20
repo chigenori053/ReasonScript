@@ -1,0 +1,73 @@
+{
+  "activated_units": 2,
+  "convergence_reason": "quiescence",
+  "diagnostics": [],
+  "final_state": "Answer.state.result",
+  "generated_units": 1,
+  "pruned_branches": 0,
+  "registered_units": 2,
+  "retired_units": 0,
+  "run_id": "dynamic_run_876f40adb5c77c74",
+  "schema_version": "reasonscript-dynamic-execution-summary/0.1",
+  "semantic_result": {
+    "diagnostics": [],
+    "evaluation": {},
+    "final_state": "Answer.state.result",
+    "knowledge": {
+      "evidence_count": 1,
+      "generated_at": "1970-01-01T00:00:00+00:00",
+      "knowledge": [
+        {
+          "branch_id": null,
+          "confidence": 0.92,
+          "evidence": {
+            "path": [
+              "ScalarArithmeticStart",
+              "Answer.state.result"
+            ],
+            "transitions": [
+              "Answer-1-result"
+            ]
+          },
+          "evidence_path": [],
+          "from_simulation": true,
+          "id": "K001",
+          "path_length": 1,
+          "path_signature": "",
+          "relation": "ResultTransition",
+          "source": "ScalarArithmeticStart",
+          "target": "Answer.state.result"
+        }
+      ],
+      "knowledge_count": 1,
+      "schema_version": "knowledge-emergence/0.2"
+    },
+    "simulation": {
+      "confidence": 0.88,
+      "cost": 1.0,
+      "final_state": "Answer.state.result",
+      "goal_reached": true,
+      "path_signature": "",
+      "schema_version": "semantic-simulation/0.2",
+      "selected_branch": null,
+      "selected_branches": [],
+      "step_count": 1,
+      "success": true,
+      "trace": [
+        {
+          "event": "start",
+          "state": "ScalarArithmeticStart",
+          "step": 0
+        },
+        {
+          "event": "transition",
+          "state": "Answer.state.result",
+          "step": 1,
+          "transition": "Answer-1-result"
+        }
+      ],
+      "violations": []
+    }
+  },
+  "status": "converged"
+}

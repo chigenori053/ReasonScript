@@ -1,0 +1,11 @@
+{
+  "data": {
+    "chunk_digest": "SHA-256",
+    "coverage": "ordered contiguous exact",
+    "dense_axis": 0,
+    "empty_chunks": 0,
+    "rank_zero_split": false
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-chunking-contract/1.0"
+}

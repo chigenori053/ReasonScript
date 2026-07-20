@@ -1,0 +1,120 @@
+{
+  "barriers": [
+    {
+      "logical_step": 0,
+      "required_task_ids": [
+        "task_0001"
+      ]
+    },
+    {
+      "logical_step": 1,
+      "required_task_ids": [
+        "task_0002"
+      ]
+    }
+  ],
+  "diagnostics": [],
+  "partitions": [
+    {
+      "assigned_worker": "worker-0",
+      "logical_step": 0,
+      "partition_id": "partition_344f817e017b_0001",
+      "task_ids": [
+        "task_0001"
+      ]
+    },
+    {
+      "assigned_worker": "worker-1",
+      "logical_step": 1,
+      "partition_id": "partition_344f817e017b_0002",
+      "task_ids": [
+        "task_0002"
+      ]
+    }
+  ],
+  "plan_id": "cluster_plan_344f817e017bbbeb",
+  "schema_version": "reasonscript-cluster-plan/0.1",
+  "source_plan_hash": "sha256:344f817e017bbbebbb21318dfc93bf77b8934c2ac2ace7a8c18ef27506c67511",
+  "sync_policy": "barrier",
+  "tasks": [
+    {
+      "assigned_worker": "worker-0",
+      "dependency_depth": 0,
+      "dependency_ids": [],
+      "execution_policy": {
+        "atomic": false,
+        "deterministic": true,
+        "retriable": true
+      },
+      "input_refs": [
+        "CalculationChainStart"
+      ],
+      "logical_step": 0,
+      "output_contract": {
+        "merge_policy": "replace",
+        "state_refs": [
+          "A.state.result"
+        ]
+      },
+      "partition_id": "partition_344f817e017b_0001",
+      "reason_units": [
+        "A-1-result"
+      ],
+      "resource_hint": {
+        "cpu_weight": 1,
+        "memory_bytes": 0
+      },
+      "retry_policy": {
+        "max_retries": 1
+      },
+      "source_step": {
+        "source": "CalculationChainStart",
+        "step_id": "step-1",
+        "target": "A.state.result",
+        "transition_id": "A-1-result"
+      },
+      "task_id": "task_0001"
+    },
+    {
+      "assigned_worker": "worker-1",
+      "dependency_depth": 1,
+      "dependency_ids": [
+        "task_0001"
+      ],
+      "execution_policy": {
+        "atomic": false,
+        "deterministic": true,
+        "retriable": true
+      },
+      "input_refs": [
+        "A.state.result"
+      ],
+      "logical_step": 1,
+      "output_contract": {
+        "merge_policy": "replace",
+        "state_refs": [
+          "B.state.result"
+        ]
+      },
+      "partition_id": "partition_344f817e017b_0002",
+      "reason_units": [
+        "B-1-result"
+      ],
+      "resource_hint": {
+        "cpu_weight": 1,
+        "memory_bytes": 0
+      },
+      "retry_policy": {
+        "max_retries": 1
+      },
+      "source_step": {
+        "source": "A.state.result",
+        "step_id": "step-2",
+        "target": "B.state.result",
+        "transition_id": "B-1-result"
+      },
+      "task_id": "task_0002"
+    }
+  ],
+  "valid": true
+}

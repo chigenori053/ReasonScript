@@ -1,0 +1,17 @@
+{
+  "data": {
+    "partial_status": "not_loaded",
+    "required": [
+      "tensor_id",
+      "axis_ordinal",
+      "mapping_version",
+      "ordered_ids",
+      "uniqueness",
+      "source_object_revision",
+      "mapping_digest"
+    ],
+    "unit_id_preserved_on_reorder": true
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-unit-index-mapping-contract/1.0"
+}

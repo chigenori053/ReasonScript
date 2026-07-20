@@ -1,0 +1,14 @@
+{
+  "data": {
+    "canonical_nonfinite": "rejected",
+    "profile_id": "ruo.payload.text/1",
+    "requires": [
+      "text",
+      "language",
+      "offset_indexing",
+      "segments"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-text-payload-profile/1.0"
+}

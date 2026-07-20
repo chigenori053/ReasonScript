@@ -1,0 +1,13 @@
+{
+  "data": {
+    "canonical_owner_count": 1,
+    "containment_acyclic": true,
+    "containment_parent_maximum": 1,
+    "cross_object_use": "external_reference",
+    "ownership_acyclic": true,
+    "semantic_cycles_allowed": true,
+    "shared_data": "registry_reference"
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-ownership-containment-contract/1.0"
+}

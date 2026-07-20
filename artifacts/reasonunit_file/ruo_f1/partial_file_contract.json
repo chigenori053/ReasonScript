@@ -1,0 +1,19 @@
+{
+  "data": {
+    "distinctions": [
+      "omitted!=absent",
+      "not_loaded!=deleted",
+      "unresolved!=invalid"
+    ],
+    "partial_file_flag": true,
+    "requires": [
+      "selection_query_digest",
+      "included_entity_ids",
+      "omitted_entities",
+      "entity_status",
+      "source_complete_file_digest"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-partial-file-contract/1.0"
+}

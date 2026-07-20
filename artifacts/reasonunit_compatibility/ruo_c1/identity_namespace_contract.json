@@ -1,0 +1,26 @@
+{
+  "data": {
+    "domains": [
+      "ObjectIdentity",
+      "UnitIdentity",
+      "RelationIdentity",
+      "EvidenceIdentity",
+      "RevisionIdentity",
+      "TransactionIdentity",
+      "PayloadIdentity"
+    ],
+    "invariants": [
+      "unit_identity_not_declaration_order",
+      "unit_identity_not_tensor_index",
+      "unit_identity_not_worker_assignment",
+      "unit_identity_not_artifact_path",
+      "object_identity_not_unit_identity",
+      "projection_membership_not_ownership",
+      "revision_identity_not_object_identity"
+    ],
+    "legacy_unit_id_preserved": true,
+    "relocation_requires_revision": true
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-identity-namespace-contract/1.0"
+}

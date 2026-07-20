@@ -1,0 +1,16 @@
+{
+  "data": {
+    "absence_distinct": true,
+    "statuses": [
+      "loaded",
+      "not_loaded",
+      "unavailable",
+      "redacted",
+      "unknown",
+      "omitted_by_profile"
+    ],
+    "undecidable_result": "indeterminate"
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-partial-loading-contract/1.0"
+}

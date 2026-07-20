@@ -1,0 +1,410 @@
+{
+  "data": {
+    "statuses": {
+      "artifact_validation_status": "COMPLETE",
+      "byte_roundtrip_status": "COMPLETE",
+      "canonical_json_status": "COMPLETE",
+      "cli_status": "COMPLETE",
+      "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+      "entity_record_status": "COMPLETE",
+      "extension_retention_status": "COMPLETE",
+      "external_resource_status": "COMPLETE",
+      "file_header_status": "COMPLETE",
+      "file_identity_status": "COMPLETE",
+      "file_seal_status": "COMPLETE",
+      "implementation_status": "IMPLEMENTED",
+      "integrity_digest_status": "COMPLETE",
+      "partial_file_status": "COMPLETE",
+      "partial_loading_status": "COMPLETE",
+      "path_safety_status": "COMPLETE",
+      "phase_status": "VALIDATED",
+      "physical_encoding_status": "COMPLETE",
+      "protected_behavior_status": "UNCHANGED",
+      "reader_mode_status": "COMPLETE",
+      "record_envelope_status": "COMPLETE",
+      "record_order_status": "COMPLETE",
+      "reference_encoding_status": "COMPLETE",
+      "resource_limit_status": "COMPLETE",
+      "ruo_c0_prerequisite_status": "VERIFIED",
+      "ruo_c1_prerequisite_status": "VERIFIED",
+      "ruo_u1_compatibility_status": "COMPLETE",
+      "ruo_u1_prerequisite_status": "VERIFIED",
+      "section_manifest_status": "COMPLETE",
+      "semantic_roundtrip_status": "COMPLETE",
+      "streaming_reader_status": "COMPLETE",
+      "tamper_detection_status": "COMPLETE",
+      "transition_decision": "PROCEED_TO_RUO-T1",
+      "version_compatibility_status": "COMPLETE",
+      "writer_atomicity_status": "COMPLETE"
+    },
+    "summary": {
+      "failed": 0,
+      "passed": 72,
+      "total": 72
+    },
+    "tests": [
+      {
+        "requirement": "C0 C1 U1 prerequisites and digests",
+        "status": "pass",
+        "test_id": "RUO-F1-T001"
+      },
+      {
+        "requirement": "invalid U1 rejected",
+        "status": "pass",
+        "test_id": "RUO-F1-T002"
+      },
+      {
+        "requirement": "extension media magic version",
+        "status": "pass",
+        "test_id": "RUO-F1-T003"
+      },
+      {
+        "requirement": "complete format contract",
+        "status": "pass",
+        "test_id": "RUO-F1-T004"
+      },
+      {
+        "requirement": "identity distinctions",
+        "status": "pass",
+        "test_id": "RUO-F1-T005"
+      },
+      {
+        "requirement": "UTF-8 no BOM LF",
+        "status": "pass",
+        "test_id": "RUO-F1-T006"
+      },
+      {
+        "requirement": "one object per line final LF",
+        "status": "pass",
+        "test_id": "RUO-F1-T007"
+      },
+      {
+        "requirement": "physical invalid cases",
+        "status": "pass",
+        "test_id": "RUO-F1-T008"
+      },
+      {
+        "requirement": "JSON syntax and whitespace",
+        "status": "pass",
+        "test_id": "RUO-F1-T009"
+      },
+      {
+        "requirement": "key order NFC",
+        "status": "pass",
+        "test_id": "RUO-F1-T010"
+      },
+      {
+        "requirement": "string escapes Unicode",
+        "status": "pass",
+        "test_id": "RUO-F1-T011"
+      },
+      {
+        "requirement": "canonical integer decimal",
+        "status": "pass",
+        "test_id": "RUO-F1-T012"
+      },
+      {
+        "requirement": "nonfinite and noncanonical number rejection",
+        "status": "pass",
+        "test_id": "RUO-F1-T013"
+      },
+      {
+        "requirement": "array semantics",
+        "status": "pass",
+        "test_id": "RUO-F1-T014"
+      },
+      {
+        "requirement": "record envelope and digest",
+        "status": "pass",
+        "test_id": "RUO-F1-T015"
+      },
+      {
+        "requirement": "contiguous ordinals",
+        "status": "pass",
+        "test_id": "RUO-F1-T016"
+      },
+      {
+        "requirement": "section order",
+        "status": "pass",
+        "test_id": "RUO-F1-T017"
+      },
+      {
+        "requirement": "within-section order",
+        "status": "pass",
+        "test_id": "RUO-F1-T018"
+      },
+      {
+        "requirement": "header",
+        "status": "pass",
+        "test_id": "RUO-F1-T019"
+      },
+      {
+        "requirement": "section manifest",
+        "status": "pass",
+        "test_id": "RUO-F1-T020"
+      },
+      {
+        "requirement": "one Object",
+        "status": "pass",
+        "test_id": "RUO-F1-T021"
+      },
+      {
+        "requirement": "one entity record",
+        "status": "pass",
+        "test_id": "RUO-F1-T022"
+      },
+      {
+        "requirement": "local stable references",
+        "status": "pass",
+        "test_id": "RUO-F1-T023"
+      },
+      {
+        "requirement": "cross/external reference status",
+        "status": "pass",
+        "test_id": "RUO-F1-T024"
+      },
+      {
+        "requirement": "external identity media size digest",
+        "status": "pass",
+        "test_id": "RUO-F1-T025"
+      },
+      {
+        "requirement": "unsafe locator rejection",
+        "status": "pass",
+        "test_id": "RUO-F1-T026"
+      },
+      {
+        "requirement": "chunks",
+        "status": "pass",
+        "test_id": "RUO-F1-T027"
+      },
+      {
+        "requirement": "optional vs critical missing",
+        "status": "pass",
+        "test_id": "RUO-F1-T028"
+      },
+      {
+        "requirement": "noncritical extension retention",
+        "status": "pass",
+        "test_id": "RUO-F1-T029"
+      },
+      {
+        "requirement": "critical extension rejection",
+        "status": "pass",
+        "test_id": "RUO-F1-T030"
+      },
+      {
+        "requirement": "core override prevention",
+        "status": "pass",
+        "test_id": "RUO-F1-T031"
+      },
+      {
+        "requirement": "final seal",
+        "status": "pass",
+        "test_id": "RUO-F1-T032"
+      },
+      {
+        "requirement": "record counts",
+        "status": "pass",
+        "test_id": "RUO-F1-T033"
+      },
+      {
+        "requirement": "section digests",
+        "status": "pass",
+        "test_id": "RUO-F1-T034"
+      },
+      {
+        "requirement": "content digest",
+        "status": "pass",
+        "test_id": "RUO-F1-T035"
+      },
+      {
+        "requirement": "external manifest digest",
+        "status": "pass",
+        "test_id": "RUO-F1-T036"
+      },
+      {
+        "requirement": "logical digest",
+        "status": "pass",
+        "test_id": "RUO-F1-T037"
+      },
+      {
+        "requirement": "tamper detection",
+        "status": "pass",
+        "test_id": "RUO-F1-T038"
+      },
+      {
+        "requirement": "bounded streaming pass",
+        "status": "pass",
+        "test_id": "RUO-F1-T039"
+      },
+      {
+        "requirement": "publication after seal",
+        "status": "pass",
+        "test_id": "RUO-F1-T040"
+      },
+      {
+        "requirement": "partial selector",
+        "status": "pass",
+        "test_id": "RUO-F1-T041"
+      },
+      {
+        "requirement": "closures",
+        "status": "pass",
+        "test_id": "RUO-F1-T042"
+      },
+      {
+        "requirement": "partial statuses",
+        "status": "pass",
+        "test_id": "RUO-F1-T043"
+      },
+      {
+        "requirement": "false completeness rejection",
+        "status": "pass",
+        "test_id": "RUO-F1-T044"
+      },
+      {
+        "requirement": "separate partial statuses",
+        "status": "pass",
+        "test_id": "RUO-F1-T045"
+      },
+      {
+        "requirement": "indeterminate knowledge",
+        "status": "pass",
+        "test_id": "RUO-F1-T046"
+      },
+      {
+        "requirement": "invalid Object write rejection",
+        "status": "pass",
+        "test_id": "RUO-F1-T047"
+      },
+      {
+        "requirement": "atomic verified write",
+        "status": "pass",
+        "test_id": "RUO-F1-T048"
+      },
+      {
+        "requirement": "failed write preserves target",
+        "status": "pass",
+        "test_id": "RUO-F1-T049"
+      },
+      {
+        "requirement": "reader modes",
+        "status": "pass",
+        "test_id": "RUO-F1-T050"
+      },
+      {
+        "requirement": "inspect no semantic success",
+        "status": "pass",
+        "test_id": "RUO-F1-T051"
+      },
+      {
+        "requirement": "semantic roundtrip",
+        "status": "pass",
+        "test_id": "RUO-F1-T052"
+      },
+      {
+        "requirement": "byte roundtrip",
+        "status": "pass",
+        "test_id": "RUO-F1-T053"
+      },
+      {
+        "requirement": "noncanonical rejection",
+        "status": "pass",
+        "test_id": "RUO-F1-T054"
+      },
+      {
+        "requirement": "version rejection",
+        "status": "pass",
+        "test_id": "RUO-F1-T055"
+      },
+      {
+        "requirement": "nine profiles",
+        "status": "pass",
+        "test_id": "RUO-F1-T056"
+      },
+      {
+        "requirement": "molecular",
+        "status": "pass",
+        "test_id": "RUO-F1-T057"
+      },
+      {
+        "requirement": "vehicle",
+        "status": "pass",
+        "test_id": "RUO-F1-T058"
+      },
+      {
+        "requirement": "Tensor identity mapping",
+        "status": "pass",
+        "test_id": "RUO-F1-T059"
+      },
+      {
+        "requirement": "Cluster projection",
+        "status": "pass",
+        "test_id": "RUO-F1-T060"
+      },
+      {
+        "requirement": "six CLI operations",
+        "status": "pass",
+        "test_id": "RUO-F1-T061"
+      },
+      {
+        "requirement": "CLI JSON exits",
+        "status": "pass",
+        "test_id": "RUO-F1-T062"
+      },
+      {
+        "requirement": "resource limits",
+        "status": "pass",
+        "test_id": "RUO-F1-T063"
+      },
+      {
+        "requirement": "maximum boundary",
+        "status": "pass",
+        "test_id": "RUO-F1-T064"
+      },
+      {
+        "requirement": "38 artifacts",
+        "status": "pass",
+        "test_id": "RUO-F1-T065"
+      },
+      {
+        "requirement": "offline schemas",
+        "status": "pass",
+        "test_id": "RUO-F1-T066"
+      },
+      {
+        "requirement": "artifact fixture digests",
+        "status": "pass",
+        "test_id": "RUO-F1-T067"
+      },
+      {
+        "requirement": "three-run determinism",
+        "status": "pass",
+        "test_id": "RUO-F1-T068"
+      },
+      {
+        "requirement": "U1 queries projections",
+        "status": "pass",
+        "test_id": "RUO-F1-T069"
+      },
+      {
+        "requirement": "protected behavior",
+        "status": "pass",
+        "test_id": "RUO-F1-T070"
+      },
+      {
+        "requirement": "C0 C1 U1 tests",
+        "status": "pass",
+        "test_id": "RUO-F1-T071"
+      },
+      {
+        "requirement": "reason ci",
+        "status": "pass",
+        "test_id": "RUO-F1-T072"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-validation-summary/1.0"
+}

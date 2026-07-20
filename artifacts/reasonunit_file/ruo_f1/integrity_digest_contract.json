@@ -1,0 +1,11 @@
+{
+  "data": {
+    "authentication_claim": false,
+    "body": "SHA-256 canonical body",
+    "content_stream": "SHA-256 all records before seal with LF",
+    "logical_object": "RUO-U1 canonical logical digest",
+    "section": "SHA-256 exact section records with LF"
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-integrity-digest-contract/1.0"
+}

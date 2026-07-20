@@ -1,0 +1,92 @@
+{
+  "data": {
+    "entries": [
+      {
+        "affected_fixtures": [
+          "minimal-atomic",
+          "cluster-unit",
+          "tensor-unit"
+        ],
+        "deterministic": true,
+        "formalization_risk": "Compatibility loss if a new rule is inferred.",
+        "observed_behavior": "No unified contract was found.",
+        "owner_phase": "RUO-C1",
+        "question": "What is the repository-wide ReasonUnit identity namespace?",
+        "subsystem": "identity",
+        "undefined_id": "RUO-C0-U001"
+      },
+      {
+        "affected_fixtures": [
+          "minimal-atomic",
+          "cluster-unit",
+          "tensor-unit"
+        ],
+        "deterministic": true,
+        "formalization_risk": "Compatibility loss if a new rule is inferred.",
+        "observed_behavior": "No unified contract was found.",
+        "owner_phase": "RUO-C1",
+        "question": "Does containment or ownership contribute to identity?",
+        "subsystem": "ownership",
+        "undefined_id": "RUO-C0-U002"
+      },
+      {
+        "affected_fixtures": [
+          "minimal-atomic",
+          "cluster-unit",
+          "tensor-unit"
+        ],
+        "deterministic": true,
+        "formalization_risk": "Compatibility loss if a new rule is inferred.",
+        "observed_behavior": "No unified contract was found.",
+        "owner_phase": "RUO-C1",
+        "question": "How do relations map across RuntimeReal, HybridRuntime, Cluster, and projects?",
+        "subsystem": "relations",
+        "undefined_id": "RUO-C0-U003"
+      },
+      {
+        "affected_fixtures": [
+          "minimal-atomic",
+          "cluster-unit",
+          "tensor-unit"
+        ],
+        "deterministic": true,
+        "formalization_risk": "Compatibility loss if a new rule is inferred.",
+        "observed_behavior": "No unified contract was found.",
+        "owner_phase": "RUO-C1",
+        "question": "When does revision invalidate evidence across artifacts?",
+        "subsystem": "evidence",
+        "undefined_id": "RUO-C0-U004"
+      },
+      {
+        "affected_fixtures": [
+          "minimal-atomic",
+          "cluster-unit",
+          "tensor-unit"
+        ],
+        "deterministic": true,
+        "formalization_risk": "Compatibility loss if a new rule is inferred.",
+        "observed_behavior": "No unified contract was found.",
+        "owner_phase": "RUO-T1",
+        "question": "How does a ReasonUnit map to Tensor indexes without using the index as identity?",
+        "subsystem": "tensor",
+        "undefined_id": "RUO-C0-U005"
+      },
+      {
+        "affected_fixtures": [
+          "minimal-atomic",
+          "cluster-unit",
+          "tensor-unit"
+        ],
+        "deterministic": true,
+        "formalization_risk": "Compatibility loss if a new rule is inferred.",
+        "observed_behavior": "No unified contract was found.",
+        "owner_phase": "RUO-C1",
+        "question": "What is the atomic commit boundary outside Dynamic Cluster?",
+        "subsystem": "state",
+        "undefined_id": "RUO-C0-U006"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-undefined-semantics-register/1.0"
+}

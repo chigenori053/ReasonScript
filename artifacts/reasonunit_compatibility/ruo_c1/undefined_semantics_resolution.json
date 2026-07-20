@@ -1,0 +1,32 @@
+{
+  "data": {
+    "entries": [
+      {
+        "resolution": "Separate ObjectIdentity and UnitIdentity namespaces.",
+        "undefined_id": "RUO-C0-U001"
+      },
+      {
+        "resolution": "Ownership and containment never contribute to a retained legacy Unit ID.",
+        "undefined_id": "RUO-C0-U002"
+      },
+      {
+        "resolution": "Preserve runtime/project relation vocabulary as namespaced relation types.",
+        "undefined_id": "RUO-C0-U003"
+      },
+      {
+        "resolution": "Invalidate evidence only through affected dependency contracts.",
+        "undefined_id": "RUO-C0-U004"
+      },
+      {
+        "resolution": "Require a Tensor index table; indexes are never Unit identities.",
+        "undefined_id": "RUO-C0-U005"
+      },
+      {
+        "resolution": "Object Transaction is the multi-Unit atomic commit boundary.",
+        "undefined_id": "RUO-C0-U006"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-undefined-semantics-resolution/1.0"
+}

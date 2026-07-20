@@ -1,0 +1,25 @@
+{
+  "data": {
+    "c1_tests": "56/56",
+    "count_reconciliation": {
+      "authoritative_aggregate": 96,
+      "focused_regression_suite": 83,
+      "obsolete_claim": 84,
+      "resolution": "The authoritative phase matrices are 40 + 56 = 96; the final C1 report records the separate focused regression suite as 83/83. The earlier 84/84 statement is non-authoritative and superseded.",
+      "ruo_c0_mandatory": 40,
+      "ruo_c1_mandatory": 56
+    },
+    "preservation_loss_counts": {
+      "evidence": 0,
+      "execution": 0,
+      "golden": 0,
+      "identity": 0,
+      "lifecycle": 0,
+      "relation": 0,
+      "state": 0
+    },
+    "protected_behavior": "unchanged"
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-ruo-c1-compatibility-report/1.0"
+}

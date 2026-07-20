@@ -1,0 +1,70 @@
+{
+  "data": {
+    "adapter_semantic_dependency": {
+      "by_group": {
+        "evidence": 1,
+        "identity": 0,
+        "lifecycle": 0,
+        "ownership": 0,
+        "projection": 2,
+        "relations": 1,
+        "serialization": 2,
+        "state": 2,
+        "validation": 2
+      },
+      "total_rules": 10
+    },
+    "counting_method": "Fourteen baseline concept fields are meaning elements; directly language-native fields are counted as native.",
+    "invalidation": {
+      "fixture_value": {
+        "invalidated_units": 1,
+        "ratio": 0.5,
+        "total_units": 2
+      },
+      "supported_by": "dynamic_cluster replacement/pruning"
+    },
+    "native_representation_ratio": {
+      "native": 0,
+      "ratio": 0.0,
+      "total": 14
+    },
+    "query_expressiveness": {
+      "adapter_required": [
+        "cross-artifact inventory",
+        "project-local relations",
+        "projection"
+      ],
+      "reasonscript_alone": [
+        "authored declarations and functions"
+      ],
+      "runtime_required": [
+        "committed state",
+        "confidence",
+        "execution result"
+      ]
+    },
+    "selective_activation": {
+      "fixture_value": {
+        "active_units": 1,
+        "ratio": 0.5,
+        "total_units": 2
+      },
+      "formula": "active_units / total_units",
+      "supported_by": "dynamic_cluster"
+    },
+    "semantic_round_trip": {
+      "cross_runtime_losses": [
+        "ownership",
+        "unified lifecycle",
+        "unified evidence"
+      ],
+      "evidence": "preserved in dynamic proposal JSONL",
+      "identity": "preserved within each supported schema",
+      "lifecycle": "preserved in dynamic lifecycle JSONL",
+      "relations": "project/runtime-specific",
+      "state": "schema-specific"
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-reasoning-representation-metrics/1.0"
+}

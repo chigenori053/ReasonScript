@@ -1,0 +1,18 @@
+{
+  "data": {
+    "definition": "smallest boundary under the active compatibility profile",
+    "independently_selectable": true,
+    "maximum_owner_objects": 1,
+    "preserves": [
+      "canonical_unit_id",
+      "state",
+      "relations",
+      "evidence",
+      "lifecycle",
+      "revision",
+      "execution"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-atomic-reasonunit-contract/1.0"
+}

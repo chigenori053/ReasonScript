@@ -1,0 +1,23 @@
+{
+  "limits": {
+    "max_active_units": 32,
+    "max_branches": 64,
+    "max_generation_depth": 8,
+    "max_logical_steps": 500,
+    "max_messages": 100000,
+    "max_proposals_per_epoch": 256,
+    "max_reactivations_per_unit": 3,
+    "max_state_bytes": 67108864,
+    "max_total_units": 1000,
+    "max_units_per_branch": 128
+  },
+  "schema_version": "reasonscript-dynamic-budget-report/0.1",
+  "terminated": false,
+  "usage": {
+    "branches": 2,
+    "logical_steps": 2,
+    "messages": 18,
+    "state_bytes": 568,
+    "units": 2
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/cluster-plan/0.1",
+  "title": "ReasonScript Cluster Plan 0.1",
+  "type": "object",
+  "required": ["schema_version", "plan_id", "source_plan_hash", "sync_policy", "tasks", "partitions", "barriers", "diagnostics", "valid"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-cluster-plan/0.1"},
+    "plan_id": {"type": "string"},
+    "source_plan_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "sync_policy": {"enum": ["none", "barrier", "coordinator"]},
+    "tasks": {"type": "array", "items": {"type": "object", "required": ["task_id", "reason_units", "dependency_ids", "partition_id", "logical_step"]}},
+    "partitions": {"type": "array", "items": {"type": "object", "required": ["partition_id", "logical_step", "task_ids", "assigned_worker"]}},
+    "barriers": {"type": "array"},
+    "diagnostics": {"type": "array"},
+    "valid": {"type": "boolean"}
+  }
+}

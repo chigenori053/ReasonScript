@@ -2,11 +2,93 @@
 
 ## Unreleased
 
+### Added
+
+- Implemented the Update Package Provenance and Freshness Verification
+  Specification v0.1 (`reasonscript-update-package-manifest/1.0`):
+  - `scripts/build_update_package.py` now records the source commit, dirty
+    tree state, builder identity and hash, validation profile hash, and
+    per-file payload hashes into a canonical
+    `metadata/update_package_manifest.json` with a sidecar SHA-256, rejects
+    release builds from dirty source trees, stages packages under
+    `dist/.staging`, self-validates them with the install-side validator,
+    and emits archive/manifest sidecar hashes.
+  - `reason update` validates package provenance before staging or
+    activation (INS-PROV-001..020 diagnostics), classifies package
+    freshness (`fresh`/`stale`/`unknown`/`invalid`/`development`), rejects
+    stale, dirty, development-class, and legacy (manifest-less) packages by
+    default, and supports `--expected-commit`,
+    `--allow-development-package`, and `--allow-legacy-package`.
+  - Added `reason update package-inspect <archive>` and
+    `reason update package-validate <archive>`.
+  - Successful updates retain the package manifest and an installation
+    record under `versions/<v>/metadata/`, write
+    `reasonscript-update-transaction/1.1` artifacts under
+    `metadata/transactions/`, and `reason install-info --json` reports the
+    active package provenance; provenance survives rollback for every
+    installed version.
+  - Added `schemas/update_package_manifest.schema.json`
+    (provenance manifest) and `schemas/update_transaction.schema.json`;
+    the previous package-manifest schema moved to
+    `schemas/install_manifest_v1_1.schema.json`.
+
 ### Changed
 
 - Cleaned up repository documentation for the open-source release: removed
   internal validation reports, phase completion reports, and audit artifacts;
   added a documentation index at `docs/README.md`.
+
+## ReasonScript Dynamic ReasonUnit Cluster Execution v0.1 - 2026-07-18
+
+### Status
+
+VALIDATED
+
+### Added
+
+- Added the optional Rust Dynamic ReasonUnit Runtime under
+  `ClusterRuntime/src/dynamic`.
+- Added deterministic Dynamic Unit Proposal validation and canonical
+  ReasonUnit ID generation.
+- Added duplicate proposal and duplicate ReasonUnit elimination.
+- Added Coordinator-owned lifecycle management with terminal-state protection.
+- Added atomic, checksummed Dynamic Plan Revisions at logical-step and epoch
+  boundaries.
+- Added dynamic dependency validation and cyclic dependency rejection.
+- Added declared state access, state proposal validation, conflict detection,
+  and Coordinator-owned shared-state commits.
+- Added bounded branch management, global and branch budgets, pruning, and
+  explicit budget termination.
+- Added suspension, reactivation, replacement, retirement, and worker-failure
+  reassignment.
+- Added quiescence, state stability, convergence evaluation, and convergence
+  reporting.
+- Added the `reason cluster dynamic` plan, simulate, run, validate, compare,
+  and test-model commands through a thin Python CLI adapter.
+- Added nine Dynamic ReasonUnit JSON Schemas.
+- Added nine canonical Dynamic ReasonUnit artifacts and offline replay
+  validation.
+- Added DRU-TM-001 through DRU-TM-013 and molecular scenario DRU-TM-MOL-001.
+
+### Validation
+
+- Rust integration tests: PASS.
+- Dynamic and molecular acceptance scenarios: 14/14 PASS.
+- Dynamic CLI tests: 2 PASS.
+- Dynamic artifact validation: 9/9 PASS.
+- `reason ci --json`: PASS, 879 tests.
+- `reason agent-protocol --json`: PASS, AP-001 through AP-010.
+- Canonical agent report: COMPLETED.
+
+### Compatibility
+
+- ReasonScript grammar is unchanged.
+- Reason IR semantics are unchanged.
+- ExecutionPlan semantics are unchanged.
+- Single-node Runtime behavior is unchanged.
+- Static Cluster Runtime behavior is unchanged.
+- Static Cluster Runtime canonical artifacts are unchanged.
+- Python does not implement Dynamic Runtime semantics.
 
 ## ReasonScript Install Foundation v1.1 - 2026-07-14
 

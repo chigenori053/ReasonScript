@@ -152,7 +152,8 @@ def run_reproduction(destination: Path) -> dict[str, Any]:
     hooks = UpdateTestHooks(
         force_post_install_validation_failure=bool(manifest["test_hooks"]["force_post_install_validation_failure"])
     )
-    engine = UpdateEngine(install_root, adapter, validator=hooks.validate)
+    # The Phase R1 fixture predates provenance manifests; use the explicit legacy escape.
+    engine = UpdateEngine(install_root, adapter, validator=hooks.validate, allow_legacy_package=True)
     hooks.rollback_validator = engine._post_install_validation
     plan = engine.check(package_root)
     report, exit_code = engine.update(package_root)

@@ -1,0 +1,24 @@
+{
+  "data": {
+    "operations": [
+      "wrap_legacy_units",
+      "validate_wrapped_object",
+      "project_existing_runtime_view",
+      "unwrap_legacy_units",
+      "compare_semantics"
+    ],
+    "preservation": {
+      "existing_evidence_preserved": true,
+      "existing_execution_result_preserved": true,
+      "existing_lifecycle_preserved": true,
+      "existing_relations_preserved": true,
+      "existing_state_preserved": true,
+      "existing_unit_ids_preserved": true,
+      "new_object_fields_optional_for_legacy": true,
+      "semantic_loss_count": 0
+    },
+    "unsupported_field_policy": "namespaced_extension_or_diagnostic"
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-legacy-adapter-contract/1.0"
+}

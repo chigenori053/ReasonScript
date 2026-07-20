@@ -1,0 +1,80 @@
+{
+  "data": {
+    "resolutions": [
+      {
+        "blocking": false,
+        "category": "identity-ambiguity",
+        "classification": "resolved by normative C1 contract",
+        "risk_id": "RUO-C0-R001"
+      },
+      {
+        "blocking": false,
+        "category": "project-local-relations",
+        "classification": "retained as namespaced legacy behavior",
+        "risk_id": "RUO-C0-R002"
+      },
+      {
+        "blocking": false,
+        "category": "adapter-owned-normalization",
+        "classification": "resolved by normative C1 contract",
+        "risk_id": "RUO-C0-R003"
+      },
+      {
+        "blocking": false,
+        "category": "regex-rsn-extraction",
+        "classification": "deferred to RUO-U1",
+        "risk_id": "RUO-C0-R004"
+      },
+      {
+        "blocking": false,
+        "category": "evidence-loss",
+        "classification": "resolved by normative C1 contract",
+        "risk_id": "RUO-C0-R005"
+      },
+      {
+        "blocking": false,
+        "category": "tensor-index-identity",
+        "classification": "resolved by normative C1 contract",
+        "risk_id": "RUO-C0-R006"
+      },
+      {
+        "blocking": false,
+        "category": "lifecycle-divergence",
+        "classification": "retained as namespaced legacy behavior",
+        "risk_id": "RUO-C0-R007"
+      },
+      {
+        "blocking": false,
+        "category": "missing-ownership-boundary",
+        "classification": "resolved by normative C1 contract",
+        "risk_id": "RUO-C0-R008"
+      },
+      {
+        "blocking": false,
+        "category": "incomplete-atomicity-boundary",
+        "classification": "resolved by normative C1 contract",
+        "risk_id": "RUO-C0-R009"
+      },
+      {
+        "blocking": false,
+        "category": "artifact-ordering",
+        "classification": "deferred to RUO-U1",
+        "risk_id": "RUO-C0-R010"
+      },
+      {
+        "blocking": false,
+        "category": "host-path-contamination",
+        "classification": "resolved by normative C1 contract",
+        "risk_id": "RUO-C0-R011"
+      },
+      {
+        "blocking": false,
+        "category": "partial-loading-unsupported",
+        "classification": "deferred to RUO-U1",
+        "risk_id": "RUO-C0-R012"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-risk-register/1.0"
+}

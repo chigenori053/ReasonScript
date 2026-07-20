@@ -1,0 +1,49 @@
+{
+  "artifacts": [
+    {
+      "bytes": 2685,
+      "checksum": "sha256:dfe1ad954e7a8701c5b7dc9e6cfbb9d9a14684f78b4ba8466d82e13effc6a942",
+      "file": "cluster_plan.json"
+    },
+    {
+      "bytes": 508,
+      "checksum": "sha256:bc63769597b5a405f83d814f563610524549ab0d04642f2f65f8e52fcbee3d44",
+      "file": "cluster_nodes.json"
+    },
+    {
+      "bytes": 6820,
+      "checksum": "sha256:e0465fdf87ab71ac59f51946fbe533fda51bb08f3a1b184c0fa687ccd341d0aa",
+      "file": "cluster_messages.jsonl"
+    },
+    {
+      "bytes": 953,
+      "checksum": "sha256:2fb24f916b14277476b7251c23227a537f5c017fc97ba0070a18c11b98a8861e",
+      "file": "cluster_trace.json"
+    },
+    {
+      "bytes": 2260,
+      "checksum": "sha256:8bfa15409cf5ee1b13cbf962c8db125a53a30406e13c215c05b4c68cdd613ae4",
+      "file": "cluster_state.json"
+    },
+    {
+      "bytes": 128,
+      "checksum": "sha256:8fb1cff4fac69fdfefeaa3f9868abb2bf82b3e2e0d073b0c9d6bbaed14d61e61",
+      "file": "cluster_diagnostics.json"
+    },
+    {
+      "bytes": 851,
+      "checksum": "sha256:e6f61d8f46889957ef859b59bd2e25b2bf4c574fb50e76b8b568653667537f8b",
+      "file": "cluster_evaluation_report.json"
+    },
+    {
+      "bytes": 2621,
+      "checksum": "sha256:ba3a582fe0703b3f4f5732d4dc295be95aecd49186aec346657cfe6d3f56f3c3",
+      "file": "cluster_run_summary.json"
+    }
+  ],
+  "cluster_id": "local_cluster",
+  "mode": "local_process",
+  "run_id": "cluster_run_344f817e017bbbeb",
+  "schema_version": "reasonscript-cluster-manifest/0.1",
+  "status": "completed"
+}

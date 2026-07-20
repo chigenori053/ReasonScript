@@ -1,0 +1,16 @@
+{
+  "data": {
+    "selector": "contiguous range per axis",
+    "statuses": [
+      "metadata_status",
+      "selected_resource_integrity_status",
+      "selected_tensor_semantic_status",
+      "complete_resource_integrity_status",
+      "complete_tensor_semantic_status",
+      "mapping_status"
+    ],
+    "unloaded": "not_loaded"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-partial-loading-contract/1.0"
+}

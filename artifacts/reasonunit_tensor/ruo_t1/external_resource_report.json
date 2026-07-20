@@ -1,0 +1,23 @@
+{
+  "data": {
+    "media_type": "application/vnd.reasonscript.ruo-tensor",
+    "offline": true,
+    "result": {
+      "diagnostics": [],
+      "dtype": "float32",
+      "integrity_status": "VALID",
+      "logical_digest": "sha256:9ff03833ab7c47beddb6365710ac901b42290dea9f95bfe3f477c0b7a85e5c0c",
+      "mapping_status": "VALID",
+      "ok": true,
+      "representation": "dense_resource",
+      "resource_sha256": "sha256:8e628779e6a74ee0b36991c10158f63cafec7d340ad4e075592502c8708524dd",
+      "semantic_status": "VALID",
+      "shape": [
+        3
+      ],
+      "tensor_id": "ruo:payload:tensor"
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-external-resource-report/1.0"
+}

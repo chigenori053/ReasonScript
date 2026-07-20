@@ -1,0 +1,33 @@
+{
+  "data": {
+    "atomic_fixture": {
+      "commit": "atomic",
+      "partial_commit_count": 0,
+      "post_state": "active",
+      "pre_state": "ready",
+      "proposal": "active",
+      "validation": "accepted"
+    },
+    "categories": [
+      "input",
+      "committed",
+      "proposed",
+      "derived",
+      "cached",
+      "external_environment",
+      "tensor_backed",
+      "invalid_or_unknown"
+    ],
+    "invalid_fixture": {
+      "partial_commit_count": 0,
+      "post_state": "ready",
+      "pre_state": "ready",
+      "proposal": "unknown",
+      "result": "rollback",
+      "validation": "rejected"
+    },
+    "runtime_variation": "State categories are observational; no unified schema is asserted."
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-state-baseline/1.0"
+}

@@ -1,0 +1,13 @@
+{
+  "data": {
+    "mapping_loss_count": 0,
+    "source_ids": [
+      "ruo:unit:abstract",
+      "ruo:unit:numeric",
+      "ruo:unit:text"
+    ],
+    "unit_identity_changes": 0
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-mapping-stability-report/1.0"
+}

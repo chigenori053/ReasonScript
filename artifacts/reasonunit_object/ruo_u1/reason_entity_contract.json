@@ -1,0 +1,15 @@
+{
+  "data": {
+    "required": [
+      "entity_id",
+      "entity_kind",
+      "schema_version",
+      "created_revision",
+      "last_modified_revision",
+      "lifecycle_state",
+      "extensions"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-reason-entity-contract/1.0"
+}

@@ -1,0 +1,56 @@
+{
+  "data": {
+    "derived_without_mutation": true,
+    "reference_projection": {
+      "dependency_closure": [
+        "ruo:unit:abstract",
+        "ruo:unit:numeric",
+        "ruo:unit:root",
+        "ruo:unit:text"
+      ],
+      "excluded_entities": [],
+      "mutates_object": false,
+      "ordering": "stable_identity",
+      "profile": "ruo.execution/1",
+      "projection_id": "ruo:projection:69ff29e8df0b14d32a242448",
+      "relation_subset": [],
+      "selected_payloads": [
+        "ruo:payload:abstract",
+        "ruo:payload:numeric",
+        "ruo:payload:temporal",
+        "ruo:payload:text"
+      ],
+      "selected_units": [
+        "ruo:unit:abstract",
+        "ruo:unit:numeric",
+        "ruo:unit:root",
+        "ruo:unit:text"
+      ],
+      "source_object_id": "ruo:object:universal-fixture",
+      "source_revision": "ruo:revision:0",
+      "state_snapshot_digest": "sha256:29b92de5bb66516ba2b407cad4d4064619aaa9a7eb1aa7facd3bc04fb908a22f",
+      "tensor_index_table": [
+        {
+          "entity_id": "ruo:unit:abstract",
+          "index": 0
+        },
+        {
+          "entity_id": "ruo:unit:numeric",
+          "index": 1
+        },
+        {
+          "entity_id": "ruo:unit:root",
+          "index": 2
+        },
+        {
+          "entity_id": "ruo:unit:text",
+          "index": 3
+        }
+      ]
+    },
+    "stale_rejected": true,
+    "storage_view_equals_execution_projection": false
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-execution-projection-contract/1.0"
+}

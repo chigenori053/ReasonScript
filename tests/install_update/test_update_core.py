@@ -10,6 +10,8 @@ import pytest
 from toolchain.install_update.core import UpdateEngine, UpdateError, compare_versions
 from toolchain.install_update.platform import PlatformAdapter
 
+from tests.install_update.provenance_test_support import attach_provenance, write_validation_profile
+
 
 PASS_VALIDATION = {
     "version": "passed", "doctor": "passed", "install_info": "passed", "install_validate": "passed",
@@ -71,6 +73,7 @@ def package(tmp_path: Path, *, version: str = "0.5.1", platform: str = "macos",
     for relative in ("reason", "VERSION", "bin/reason-runtime", "runtime/__init__.py", "toolchain/__init__.py",
                      "schemas/base.json", "standard_library/base.rsn", "metadata/release_manifest.json"):
         _write(payload / relative, f"{version}\n" if relative == "VERSION" else f"new:{relative}")
+    write_validation_profile(payload, version)
     files = [{"path": f"payload/{path.relative_to(payload).as_posix()}", "sha256": _sha(path)}
              for path in sorted(payload.rglob("*")) if path.is_file()]
     (root / "manifest.json").write_text(json.dumps({
@@ -84,6 +87,7 @@ def package(tmp_path: Path, *, version: str = "0.5.1", platform: str = "macos",
     (root / "checksums.json").write_text(json.dumps({
         "schema_version": "reasonscript-package-checksums/1.0", "algorithm": "sha256", "files": files,
     }), encoding="utf-8")
+    attach_provenance(root, version=version, platform=platform, architecture=architecture)
     return root
 
 

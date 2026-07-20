@@ -1,0 +1,9 @@
+{
+  "data": {
+    "byte_roundtrip_retained": true,
+    "unknown_critical_rejected": true,
+    "unknown_noncritical_loss_count": 0
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-extension-retention-report/1.0"
+}

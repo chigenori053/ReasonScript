@@ -1,0 +1,20 @@
+{
+  "data": {
+    "dtype_conversion": "deferred computation",
+    "loss_counts": [
+      "semantic",
+      "identity",
+      "mapping",
+      "validity"
+    ],
+    "supported": [
+      "inline/resource",
+      "dense/COO",
+      "dense/CSR-rank2",
+      "reordering",
+      "rechunking"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-conversion-contract/1.0"
+}

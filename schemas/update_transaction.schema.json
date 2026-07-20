@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-update-transaction/1.1",
+  "type": "object",
+  "required": ["schema_version", "transaction_id", "from_version", "to_version", "checks", "activation_status"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-update-transaction/1.1"},
+    "transaction_id": {"type": "string", "minLength": 1},
+    "from_version": {"type": ["string", "null"]},
+    "to_version": {"type": ["string", "null"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "package_provenance": {
+      "type": ["object", "null"],
+      "properties": {
+        "package_id": {"type": ["string", "null"]},
+        "package_class": {"type": ["string", "null"]},
+        "expected_version": {"type": ["string", "null"]},
+        "source_commit_sha": {"type": ["string", "null"]},
+        "build_timestamp_utc": {"type": ["string", "null"]},
+        "builder_version": {"type": ["string", "null"]},
+        "validation_profile_version": {"type": ["string", "null"]},
+        "dirty": {"type": ["boolean", "null"]},
+        "manifest_sha256": {"type": ["string", "null"]},
+        "payload_sha256": {"type": ["string", "null"]}
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["fresh", "stale", "unknown", "invalid", "development", "legacy"]}
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "status"],
+        "properties": {
+          "code": {"type": "string"},
+          "status": {"enum": ["pass", "fail", "skipped"]}
+        }
+      }
+    },
+    "activation_status": {"enum": ["activated", "rejected", "failed", "rolled_back"]},
+    "diagnostics": {"type": "array"}
+  },
+  "additionalProperties": true
+}

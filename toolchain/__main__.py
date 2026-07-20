@@ -103,6 +103,26 @@ def main() -> int:
         from toolchain.phase1r_validation_cmd import run
         return run(args[1:], project_root)
 
+    if command == "reasonunit-baseline":
+        from toolchain.reasonunit_baseline_cmd import run
+        return run(args[1:], project_root)
+
+    if command == "reasonunit-compatibility":
+        from toolchain.reasonunit_compatibility_cmd import run
+        return run(args[1:], project_root)
+
+    if command == "reasonunit-object":
+        from toolchain.reasonunit_object_cmd import run
+        return run(args[1:], project_root)
+
+    if command == "reasonunit-file":
+        from toolchain.reasonunit_file_cmd import run
+        return run(args[1:], project_root)
+
+    if command == "reasonunit-tensor":
+        from toolchain.reasonunit_tensor_cmd import run
+        return run(args[1:], project_root)
+
     if command == "reasoning-model":
         from toolchain.reasoning_model_cmd import run
         return run(command, args[1:], project_root)
@@ -113,6 +133,10 @@ def main() -> int:
 
     if command == "reasoning-runtime":
         from toolchain.reasoning_runtime_cmd import run
+        return run(command, args[1:], project_root)
+
+    if command == "cluster":
+        from toolchain.cluster_runtime_cmd import run
         return run(command, args[1:], project_root)
 
     if command == "phase8-golden":
@@ -132,7 +156,7 @@ def _usage() -> None:
     print("  doctor        Diagnose the installed environment")
     print("  install-info  Show the installation manifest")
     print("  install-validate Validate the installation contract")
-    print("  update         Check, install, validate, or roll back an update package")
+    print("  update         Check, install, validate, inspect, or roll back an update package")
     print("  install-foundation-report Generate Install Foundation validation summary")
     print("  version-validate Validate release version metadata")
     print("  build         Compile source files")
@@ -156,10 +180,16 @@ def _usage() -> None:
     print("  ci-entry      Validate the canonical CI entry point contract")
     print("  project-validate Validate a standalone ReasonScript project")
     print("  phase1r-validate Generate and validate Phase 1R probes")
+    print("  reasonunit-baseline Generate or validate the RUO-C0 compatibility baseline")
+    print("  reasonunit-compatibility Generate or validate the RUO-C1 compatibility foundation")
+    print("  reasonunit-object Generate or validate the RUO-U1 universal Object model")
+    print("  reasonunit-file Read, write, validate, inspect, select, and verify canonical .ruo files")
+    print("  reasonunit-tensor Encode, validate, inspect, decode, select, convert, and verify Tensor payloads")
     print("  reasoning-model validate <file> Validate a Reasoning Model artifact")
     print("  reasoning-eval evaluate <file> Evaluate a Reasoning Model artifact")
     print("  reasoning-eval validate <file> Validate a Reasoning Evaluation Report")
     print("  reasoning-runtime run <source.rsn> Generate a Reasoning Runtime Result")
+    print("  cluster       Plan, run, simulate, validate, and compare cluster execution")
     print("  phase8-golden validate Run Phase 8 golden validation")
 
 

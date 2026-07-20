@@ -1,0 +1,176 @@
+{
+  "data": {
+    "risks": [
+      {
+        "blocks_ruo_c1": true,
+        "category": "identity-ambiguity",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-C1",
+        "risk_id": "RUO-C0-R001",
+        "severity": "high",
+        "subsystem": "runtime"
+      },
+      {
+        "blocks_ruo_c1": true,
+        "category": "project-local-relations",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-C1",
+        "risk_id": "RUO-C0-R002",
+        "severity": "high",
+        "subsystem": "projects"
+      },
+      {
+        "blocks_ruo_c1": false,
+        "category": "adapter-owned-normalization",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-C1",
+        "risk_id": "RUO-C0-R003",
+        "severity": "high",
+        "subsystem": "toolchain"
+      },
+      {
+        "blocks_ruo_c1": false,
+        "category": "regex-rsn-extraction",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-C1",
+        "risk_id": "RUO-C0-R004",
+        "severity": "medium",
+        "subsystem": "projects"
+      },
+      {
+        "blocks_ruo_c1": true,
+        "category": "evidence-loss",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-C1",
+        "risk_id": "RUO-C0-R005",
+        "severity": "high",
+        "subsystem": "runtime"
+      },
+      {
+        "blocks_ruo_c1": true,
+        "category": "tensor-index-identity",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-T1",
+        "risk_id": "RUO-C0-R006",
+        "severity": "high",
+        "subsystem": "tensor"
+      },
+      {
+        "blocks_ruo_c1": true,
+        "category": "lifecycle-divergence",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-C1",
+        "risk_id": "RUO-C0-R007",
+        "severity": "high",
+        "subsystem": "runtime"
+      },
+      {
+        "blocks_ruo_c1": true,
+        "category": "missing-ownership-boundary",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-C1",
+        "risk_id": "RUO-C0-R008",
+        "severity": "high",
+        "subsystem": "language"
+      },
+      {
+        "blocks_ruo_c1": false,
+        "category": "incomplete-atomicity-boundary",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-C1",
+        "risk_id": "RUO-C0-R009",
+        "severity": "medium",
+        "subsystem": "runtime"
+      },
+      {
+        "blocks_ruo_c1": false,
+        "category": "artifact-ordering",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-F1",
+        "risk_id": "RUO-C0-R010",
+        "severity": "medium",
+        "subsystem": "artifacts"
+      },
+      {
+        "blocks_ruo_c1": false,
+        "category": "host-path-contamination",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-F1",
+        "risk_id": "RUO-C0-R011",
+        "severity": "medium",
+        "subsystem": "artifacts"
+      },
+      {
+        "blocks_ruo_c1": false,
+        "category": "partial-loading-unsupported",
+        "evidence_refs": [
+          "reasonunit_contract_inventory.json"
+        ],
+        "future_requirement": "Preserve observed behavior and make the boundary explicit.",
+        "likelihood": "medium",
+        "observed_behavior": "Contract is absent, subsystem-local, or adapter-owned.",
+        "owner_phase": "RUO-U1",
+        "risk_id": "RUO-C0-R012",
+        "severity": "medium",
+        "subsystem": "runtime"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-compatibility-risk-register/1.0"
+}

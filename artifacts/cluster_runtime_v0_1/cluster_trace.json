@@ -1,0 +1,48 @@
+{
+  "events": [
+    {
+      "attempt": 1,
+      "event": "task_start",
+      "logical_step": 0,
+      "task_id": "task_0001",
+      "worker_id": "worker-0"
+    },
+    {
+      "attempt": 1,
+      "event": "task_complete",
+      "logical_step": 0,
+      "task_id": "task_0001",
+      "worker_id": "worker-0"
+    },
+    {
+      "event": "barrier_release",
+      "logical_step": 0,
+      "task_ids": [
+        "task_0001"
+      ]
+    },
+    {
+      "attempt": 1,
+      "event": "task_start",
+      "logical_step": 1,
+      "task_id": "task_0002",
+      "worker_id": "worker-0"
+    },
+    {
+      "attempt": 1,
+      "event": "task_complete",
+      "logical_step": 1,
+      "task_id": "task_0002",
+      "worker_id": "worker-0"
+    },
+    {
+      "event": "barrier_release",
+      "logical_step": 1,
+      "task_ids": [
+        "task_0002"
+      ]
+    }
+  ],
+  "run_id": "cluster_run_344f817e017bbbeb",
+  "schema_version": "reasonscript-cluster-trace/0.1"
+}

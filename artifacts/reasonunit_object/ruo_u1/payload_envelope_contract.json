@@ -1,0 +1,25 @@
+{
+  "data": {
+    "presence": [
+      "present",
+      "not_loaded",
+      "unknown",
+      "redacted",
+      "external"
+    ],
+    "required": [
+      "payload_id",
+      "profile_id",
+      "profile_version",
+      "owner_id",
+      "semantic_role",
+      "value_presence",
+      "value_or_value_ref",
+      "constraints",
+      "provenance_refs",
+      "extensions"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-payload-envelope-contract/1.0"
+}

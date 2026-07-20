@@ -1,0 +1,191 @@
+{
+  "data": {
+    "canonical_commands": [
+      "reason reasonunit-baseline generate",
+      "reason reasonunit-baseline validate",
+      "reason golden",
+      "reason ci"
+    ],
+    "environment_metadata": {
+      "node": "v25.6.0",
+      "operating_system": "darwin",
+      "python": "3.14.0",
+      "reason_executable": "repository://reason",
+      "rust": "rustc 1.93.1 (01f6ddf75 2026-02-11)"
+    },
+    "language_version": "0.7",
+    "launcher": {
+      "available": true,
+      "bytes": 383,
+      "path": "reason",
+      "sha256": "sha256:56de6ba0635e9f11fdb4512de786e6341b28833b1151ce246473c9772af8a1a5"
+    },
+    "profiles": [
+      "reasonscript-reasonunit-baseline/1.0",
+      "reasonscript-artifacts/1.0",
+      "reasonscript-diagnostics/1.0"
+    ],
+    "protected_target_digests": [
+      {
+        "available": true,
+        "bytes": 4662,
+        "path": "frontend/language_surface/lexer.py",
+        "sha256": "sha256:07bd70e598b9d726c17ae9afba8f9cd026ca5345a6031087324b048e06e7e844"
+      },
+      {
+        "available": true,
+        "bytes": 39287,
+        "path": "frontend/language_surface/parser.py",
+        "sha256": "sha256:d9883f0ddc3bd1d1a2750ff728a2c34e9f86b1d908b40c85d63bc138f55fdb9b"
+      },
+      {
+        "available": true,
+        "bytes": 1510,
+        "path": "frontend/compiler/compiler.py",
+        "sha256": "sha256:1e03c3ffdd19736b35c78790915d8df359d45bf65e4e6a6fd466b86ac1d4d409"
+      },
+      {
+        "available": true,
+        "bytes": 2857,
+        "path": "RuntimeReal/src/core/reason_unit.rs",
+        "sha256": "sha256:73e94f878f09b773a235d5f0db32a940c4594cb38bcfe51d269cdd22f5ae0086"
+      },
+      {
+        "available": true,
+        "bytes": 463,
+        "path": "RuntimeReal/src/core/state.rs",
+        "sha256": "sha256:d8ab75c5d26c30f37e501c5f877edca3f7f6d98774c2a742956513aaf16a6219"
+      },
+      {
+        "available": true,
+        "bytes": 30418,
+        "path": "ClusterRuntime/src/dynamic/runtime.rs",
+        "sha256": "sha256:0384dc39124d269c17b0451cef2a3d8e21b3c98ba3bcecaa80063e93e4b766b8"
+      },
+      {
+        "available": true,
+        "bytes": 2945,
+        "path": "ClusterRuntime/src/dynamic/lifecycle.rs",
+        "sha256": "sha256:6226d8d960e13352860dd4634de942b8ca646c8317c9cbce1d18bac80f68ef68"
+      },
+      {
+        "available": true,
+        "bytes": 1032,
+        "path": "ClusterRuntime/src/diagnostics.rs",
+        "sha256": "sha256:0a67402516188982515b6e9dfcca8ec512492711246b1a3fb2a795acf4d85aa8"
+      },
+      {
+        "available": true,
+        "bytes": 28105,
+        "path": "toolchain/reasoning_runtime.py",
+        "sha256": "sha256:65b6d38626cf789542c9117a460a4cb1be5cb9bdb7f746e28e652da840ed913b"
+      },
+      {
+        "available": true,
+        "bytes": 1101,
+        "path": "schemas/dynamic_unit_proposal.schema.json",
+        "sha256": "sha256:3410c2cb8d2d555c8e5a2958c52803fe261a167b3b6b86ddeb0fc978541b4aae"
+      },
+      {
+        "available": true,
+        "bytes": 4121,
+        "path": "artifacts/dynamic_reason_unit_cluster_v0_1/dynamic_unit_manifest.json",
+        "sha256": "sha256:9209e99ed32c7b58e34ff6f5bdda0f05b962568c1a76136b50c782e8c12d1c85"
+      },
+      {
+        "available": true,
+        "bytes": 166,
+        "path": "golden/golden_manifest.json",
+        "sha256": "sha256:85a51c592f3eb716cfcd665dbc6c20624f1ab89de8ff0a05bbc26efa35701e5a"
+      }
+    ],
+    "reason_version": "0.5.1",
+    "repository_revision": "a27f662becb72c23604c62a5ad43399d3d525748",
+    "repository_state": {
+      "branch": "chore/modernize-stale-examples"
+    },
+    "runtime_version": "0.5.1",
+    "source_digests": [
+      {
+        "available": true,
+        "bytes": 2857,
+        "path": "RuntimeReal/src/core/reason_unit.rs",
+        "sha256": "sha256:73e94f878f09b773a235d5f0db32a940c4594cb38bcfe51d269cdd22f5ae0086"
+      },
+      {
+        "available": true,
+        "bytes": 463,
+        "path": "RuntimeReal/src/core/state.rs",
+        "sha256": "sha256:d8ab75c5d26c30f37e501c5f877edca3f7f6d98774c2a742956513aaf16a6219"
+      },
+      {
+        "available": true,
+        "bytes": 4283,
+        "path": "HybridRuntime/src/state.rs",
+        "sha256": "sha256:4e4d0dd076e185659c8449c61d297ca46a3c615d1499fb8918e339323e9836fa"
+      },
+      {
+        "available": true,
+        "bytes": 15963,
+        "path": "Test/src/lib.rs",
+        "sha256": "sha256:1294b2e88bb51098eaf17df47f29e4d5d345a30cd487e9bf7df7580a5b6b244f"
+      },
+      {
+        "available": true,
+        "bytes": 30418,
+        "path": "ClusterRuntime/src/dynamic/runtime.rs",
+        "sha256": "sha256:0384dc39124d269c17b0451cef2a3d8e21b3c98ba3bcecaa80063e93e4b766b8"
+      },
+      {
+        "available": true,
+        "bytes": 2945,
+        "path": "ClusterRuntime/src/dynamic/lifecycle.rs",
+        "sha256": "sha256:6226d8d960e13352860dd4634de942b8ca646c8317c9cbce1d18bac80f68ef68"
+      },
+      {
+        "available": true,
+        "bytes": 10219,
+        "path": "ClusterRuntime/src/dynamic/artifacts.rs",
+        "sha256": "sha256:11ed7cf8ff219f7af4edf225bfb215292255bc03313e839dfe9d3cc961843bd3"
+      },
+      {
+        "available": true,
+        "bytes": 6323,
+        "path": "ClusterRuntime/src/dynamic/test_model.rs",
+        "sha256": "sha256:f2c29c1f3d083f03806be3f7954fbe7c08d0a93a34097430f3dca57a65dc788b"
+      },
+      {
+        "available": true,
+        "bytes": 28105,
+        "path": "toolchain/reasoning_runtime.py",
+        "sha256": "sha256:65b6d38626cf789542c9117a460a4cb1be5cb9bdb7f746e28e652da840ed913b"
+      },
+      {
+        "available": true,
+        "bytes": 4121,
+        "path": "artifacts/dynamic_reason_unit_cluster_v0_1/dynamic_unit_manifest.json",
+        "sha256": "sha256:9209e99ed32c7b58e34ff6f5bdda0f05b962568c1a76136b50c782e8c12d1c85"
+      },
+      {
+        "available": true,
+        "bytes": 3087,
+        "path": "artifacts/dynamic_reason_unit_cluster_v0_1/dynamic_unit_lifecycle.jsonl",
+        "sha256": "sha256:ae188a0c1506b665d904653667e176cb63b5f328f1784097c1c5b36d82c78097"
+      },
+      {
+        "available": true,
+        "bytes": 3117,
+        "path": "artifacts/phase_1r/tensor_inference_probe/tensor_metadata.json",
+        "sha256": "sha256:429e7c07e9d8e265af1e91541a7beaea9179abc004ff90b615c72ebb283945ba"
+      },
+      {
+        "available": true,
+        "bytes": 166,
+        "path": "golden/golden_manifest.json",
+        "sha256": "sha256:85a51c592f3eb716cfcd665dbc6c20624f1ab89de8ff0a05bbc26efa35701e5a"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-environment-manifest/1.0"
+}

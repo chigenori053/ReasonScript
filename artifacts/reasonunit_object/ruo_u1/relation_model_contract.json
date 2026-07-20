@@ -1,0 +1,15 @@
+{
+  "data": {
+    "classes": [
+      "internal",
+      "cross_payload",
+      "cross_object",
+      "external",
+      "project_local"
+    ],
+    "ownership_is_structural": true,
+    "resolved_local_endpoints_must_exist": true
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-relation-model-contract/1.0"
+}

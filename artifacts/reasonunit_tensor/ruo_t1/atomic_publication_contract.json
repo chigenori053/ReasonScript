@@ -1,0 +1,16 @@
+{
+  "data": {
+    "recommended_locator": "content-addressed immutable",
+    "rollback": true,
+    "sequence": [
+      "logical_validate",
+      "temporary_encode",
+      "size_digest_verify",
+      "chunk_logical_verify",
+      "resource_publish",
+      "ruo_publish"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-atomic-publication-contract/1.0"
+}

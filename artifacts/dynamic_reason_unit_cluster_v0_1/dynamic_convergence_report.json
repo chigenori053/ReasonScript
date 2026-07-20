@@ -1,0 +1,16 @@
+{
+  "checks": [
+    {
+      "policy": "quiescence",
+      "satisfied": true
+    },
+    {
+      "policy": "state_stable",
+      "satisfied": true,
+      "stable_epochs": 3
+    }
+  ],
+  "global_convergence": true,
+  "schema_version": "reasonscript-dynamic-convergence-report/0.1",
+  "termination_reason": "quiescence"
+}

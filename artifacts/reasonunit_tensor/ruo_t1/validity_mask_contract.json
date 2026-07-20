@@ -1,0 +1,16 @@
+{
+  "data": {
+    "bytes_per_element": 1,
+    "nonvalid_writer_normalization": "zero",
+    "sentinels": "prohibited",
+    "states": {
+      "invalid": 0,
+      "not_loaded": 3,
+      "redacted": 4,
+      "unknown": 2,
+      "valid": 1
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-validity-mask-contract/1.0"
+}

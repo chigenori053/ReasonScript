@@ -1,0 +1,10 @@
+{
+  "data": {
+    "bounded": true,
+    "chunk_count": 3,
+    "provisional_published": false,
+    "status": "VALID"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-streaming-validation-report/1.0"
+}

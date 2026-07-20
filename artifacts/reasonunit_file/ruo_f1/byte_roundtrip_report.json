@@ -1,0 +1,13 @@
+{
+  "data": {
+    "byte_identical": true,
+    "procedure": [
+      "canonical_bytes",
+      "read",
+      "write",
+      "canonical_bytes"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-byte-roundtrip-report/1.0"
+}

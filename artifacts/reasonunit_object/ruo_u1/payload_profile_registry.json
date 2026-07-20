@@ -1,0 +1,18 @@
+{
+  "data": {
+    "count": 9,
+    "profiles": [
+      "ruo.payload.scalar/1",
+      "ruo.payload.text/1",
+      "ruo.payload.numeric/1",
+      "ruo.payload.temporal/1",
+      "ruo.payload.spatial/1",
+      "ruo.payload.graph/1",
+      "ruo.payload.tensor-ref/1",
+      "ruo.payload.binary-ref/1",
+      "ruo.payload.abstract/1"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-payload-profile-registry/1.0"
+}

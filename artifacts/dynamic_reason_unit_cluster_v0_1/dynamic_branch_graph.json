@@ -1,0 +1,61 @@
+{
+  "branches": [
+    {
+      "branch_id": "branch_b735f9b6124a3f80_0001",
+      "parent_branch_id": "branch_root_0001",
+      "state": "active",
+      "unit_ids": [
+        "dynamic_unit_b735f9b6124a3f80_0001"
+      ]
+    },
+    {
+      "branch_id": "branch_root_0001",
+      "parent_branch_id": null,
+      "state": "active",
+      "unit_ids": [
+        "seed_unit_0001"
+      ]
+    }
+  ],
+  "schema_version": "reasonscript-dynamic-branch-graph/0.1",
+  "units": [
+    {
+      "branch_id": "branch_b735f9b6124a3f80_0001",
+      "generation_depth": 1,
+      "parent_unit_ids": [
+        "seed_unit_0001"
+      ],
+      "priority": 20,
+      "reason_unit_id": "dynamic_unit_b735f9b6124a3f80_0001",
+      "replaced_by": null,
+      "state": "completed",
+      "state_access": {
+        "append": [],
+        "read": [
+          "state.input.0"
+        ],
+        "reduce": [],
+        "write": [
+          "state.output.0"
+        ]
+      },
+      "unit_kind": "derived"
+    },
+    {
+      "branch_id": "branch_root_0001",
+      "generation_depth": 0,
+      "parent_unit_ids": [],
+      "priority": 0,
+      "reason_unit_id": "seed_unit_0001",
+      "replaced_by": null,
+      "state": "completed",
+      "state_access": {
+        "append": [],
+        "read": [],
+        "reduce": [],
+        "write": []
+      },
+      "unit_kind": "seed"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "data": {
+    "execution_assumed": false,
+    "relationship": {
+      "ReasonEntity": [
+        "AtomicReasonUnit",
+        "CompositeReasonUnit",
+        "ReasonUnitObject"
+      ]
+    },
+    "views": [
+      "identity",
+      "type_and_role",
+      "state",
+      "relations",
+      "evidence",
+      "lifecycle",
+      "revision",
+      "validation"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-reason-entity-contract/1.0"
+}

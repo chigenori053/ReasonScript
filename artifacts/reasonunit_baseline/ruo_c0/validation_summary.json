@@ -1,0 +1,230 @@
+{
+  "data": {
+    "statuses": {
+      "cluster_baseline_status": "COMPLETE",
+      "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+      "evidence_baseline_status": "COMPLETE",
+      "execution_baseline_status": "COMPLETE",
+      "external_evidence_status": "VERIFIED",
+      "identity_baseline_status": "COMPLETE",
+      "implementation_status": "IMPLEMENTED",
+      "inventory_status": "COMPLETE",
+      "lifecycle_baseline_status": "COMPLETE",
+      "phase_status": "VALIDATED",
+      "protected_behavior_status": "UNCHANGED",
+      "relation_baseline_status": "COMPLETE",
+      "state_baseline_status": "COMPLETE",
+      "tensor_baseline_status": "COMPLETE",
+      "transition_decision": "PROCEED_TO_RUO-C1"
+    },
+    "summary": {
+      "failed": 0,
+      "passed": 40,
+      "total": 40
+    },
+    "tests": [
+      {
+        "requirement": "environment and profiles recorded",
+        "status": "pass",
+        "test_id": "RUO-C0-T001"
+      },
+      {
+        "requirement": "contract domains inventoried",
+        "status": "pass",
+        "test_id": "RUO-C0-T002"
+      },
+      {
+        "requirement": "semantic owners classified",
+        "status": "pass",
+        "test_id": "RUO-C0-T003"
+      },
+      {
+        "requirement": "undefined semantics recorded",
+        "status": "pass",
+        "test_id": "RUO-C0-T004"
+      },
+      {
+        "requirement": "protected digests recorded",
+        "status": "pass",
+        "test_id": "RUO-C0-T005"
+      },
+      {
+        "requirement": "atomic identity frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T006"
+      },
+      {
+        "requirement": "three-run identity stable",
+        "status": "pass",
+        "test_id": "RUO-C0-T007"
+      },
+      {
+        "requirement": "round-trip identity stable",
+        "status": "pass",
+        "test_id": "RUO-C0-T008"
+      },
+      {
+        "requirement": "worker reassignment identity stable",
+        "status": "pass",
+        "test_id": "RUO-C0-T009"
+      },
+      {
+        "requirement": "duplicates deterministic",
+        "status": "pass",
+        "test_id": "RUO-C0-T010"
+      },
+      {
+        "requirement": "ownership observed without inference",
+        "status": "pass",
+        "test_id": "RUO-C0-T011"
+      },
+      {
+        "requirement": "dangling relation recorded",
+        "status": "pass",
+        "test_id": "RUO-C0-T012"
+      },
+      {
+        "requirement": "valid transition frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T013"
+      },
+      {
+        "requirement": "invalid rollback frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T014"
+      },
+      {
+        "requirement": "zero partial commit",
+        "status": "pass",
+        "test_id": "RUO-C0-T015"
+      },
+      {
+        "requirement": "evidence references frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T016"
+      },
+      {
+        "requirement": "evidence invalidation recorded",
+        "status": "pass",
+        "test_id": "RUO-C0-T017"
+      },
+      {
+        "requirement": "lifecycle frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T018"
+      },
+      {
+        "requirement": "replacement behavior frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T019"
+      },
+      {
+        "requirement": "conflict detection frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T020"
+      },
+      {
+        "requirement": "reasoning runtime artifacts frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T021"
+      },
+      {
+        "requirement": "dynamic plan frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T022"
+      },
+      {
+        "requirement": "suspend/reactivate/prune/replace frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T023"
+      },
+      {
+        "requirement": "worker recovery frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T024"
+      },
+      {
+        "requirement": "tensor metadata frozen",
+        "status": "pass",
+        "test_id": "RUO-C0-T025"
+      },
+      {
+        "requirement": "tensor mapping absence recorded",
+        "status": "pass",
+        "test_id": "RUO-C0-T026"
+      },
+      {
+        "requirement": "adapter steps inventoried",
+        "status": "pass",
+        "test_id": "RUO-C0-T027"
+      },
+      {
+        "requirement": "RUO-G1 evidence verified",
+        "status": "pass",
+        "test_id": "RUO-C0-T028"
+      },
+      {
+        "requirement": "RUO-G1E and RUO-G1 counts verified",
+        "status": "pass",
+        "test_id": "RUO-C0-T029"
+      },
+      {
+        "requirement": "molecular evidence verified",
+        "status": "pass",
+        "test_id": "RUO-C0-T030"
+      },
+      {
+        "requirement": "dynamic cluster evidence verified",
+        "status": "pass",
+        "test_id": "RUO-C0-T031"
+      },
+      {
+        "requirement": "reasoning runtime Golden verified",
+        "status": "pass",
+        "test_id": "RUO-C0-T032"
+      },
+      {
+        "requirement": "native ratio calculated",
+        "status": "pass",
+        "test_id": "RUO-C0-T033"
+      },
+      {
+        "requirement": "adapter dependency calculated",
+        "status": "pass",
+        "test_id": "RUO-C0-T034"
+      },
+      {
+        "requirement": "query expressiveness recorded",
+        "status": "pass",
+        "test_id": "RUO-C0-T035"
+      },
+      {
+        "requirement": "activation and invalidation metrics recorded",
+        "status": "pass",
+        "test_id": "RUO-C0-T036"
+      },
+      {
+        "requirement": "three isolated outputs generated",
+        "status": "pass",
+        "test_id": "RUO-C0-T037"
+      },
+      {
+        "requirement": "canonical bytes identical",
+        "status": "pass",
+        "test_id": "RUO-C0-T038"
+      },
+      {
+        "requirement": "offline tamper detected",
+        "status": "pass",
+        "test_id": "RUO-C0-T039"
+      },
+      {
+        "requirement": "protected targets unchanged",
+        "status": "pass",
+        "test_id": "RUO-C0-T040"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-validation-summary/1.0"
+}
