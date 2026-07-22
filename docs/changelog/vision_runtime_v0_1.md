@@ -17,3 +17,8 @@ Compatibility: programs that do not use `vision.*` retain their existing AST,
 IR, plan, Runtime, RUO identity, and RUO-T1 behavior. No production model is
 bundled and no inference output is fabricated; the explicit conformance backend
 verifies authored test observations and unsupported backends fail closed.
+
+Installation and update packages now include the Rust `VisionRuntime` source and
+the target-platform `reason-vision` executable. Staged-distribution validation
+checks the isolated Vision import closure and native safe-Rust smoke result before
+activation; installed regression tests execute the full Vision-to-RUO pipeline.

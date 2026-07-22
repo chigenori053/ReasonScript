@@ -96,6 +96,19 @@ def _write_payload(package: Path, target_platform: str) -> Path:
         encoding="utf-8",
     )
     runtime_launcher.chmod(0o755)
+    cargo = shutil.which("cargo")
+    if not cargo:
+        raise BuildRejected("cargo is required to build the native VisionRuntime")
+    vision_build = subprocess.run(
+        [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisionRuntime/Cargo.toml")],
+        text=True,
+        capture_output=True,
+    )
+    if vision_build.returncode:
+        raise BuildRejected(f"VisionRuntime build failed: {vision_build.stderr.strip()}")
+    vision_name = "reason-vision.exe" if target_platform == "windows" else "reason-vision"
+    shutil.copy2(ROOT / "VisionRuntime" / "target" / "release" / vision_name, payload / "bin" / vision_name)
+    (payload / "bin" / vision_name).chmod(0o755)
     updater_name = "reason-updater.exe" if target_platform == "windows" else "reason-updater"
     native_updater = payload / "bin" / updater_name
     rustc = shutil.which("rustc")

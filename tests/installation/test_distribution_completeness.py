@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -31,6 +32,9 @@ def test_dc_001_to_003_distribution_import_closure(tmp_path):
     assert result.returncode == 0, result.stderr  # DC-002/DC-003
     assert str(installed.resolve()) in str(Path(result.stdout.strip()).resolve())
     assert str(ROOT.resolve()) not in result.stdout
+    native = subprocess.run([str(home / "bin/reason"), "vision", "verify-native", "--json"], cwd=tmp_path, env={**os.environ, "PYTHONPATH": "", "REASONSCRIPT_HOME": str(home)}, text=True, capture_output=True)
+    assert native.returncode == 0, native.stdout + native.stderr
+    assert json.loads(native.stdout)["unsafe_blocks"] == 0
 
 
 def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
@@ -54,6 +58,9 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     assert finalized["distribution_validation"]["status"] == "pass"
     ids = {item["id"] for item in manifest["components"]}
     assert {item[0] for item in COMPONENTS} <= ids
+    assert "vision-runtime-v0.1" in ids
+    assert (home / "current/VisionRuntime/Cargo.toml").is_file()
+    assert (home / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
     for item in manifest["files"]:
         path = home / item["path"]
         assert hashlib.sha256(path.read_bytes()).hexdigest() == item["sha256"]
@@ -81,3 +88,55 @@ def test_installed_ml_evaluation_external_project(tmp_path):
     payload = json.loads(result.stdout)
     mlv = [check for check in payload["checks"] if check["id"].startswith("MLV-INSTALL-")]
     assert len(mlv) == 10 and all(check["status"] == "pass" for check in mlv)
+
+
+def test_installed_vision_language_pipeline_publishes_ruo_tensors(tmp_path):
+    home, _ = _install(tmp_path)
+    project = tmp_path / "vision-project"
+    shutil.copytree(ROOT / "tests/fixtures/vision_language", project)
+    env = os.environ.copy(); env.update({"PYTHONPATH": "", "REASONSCRIPT_HOME": str(home)})
+    result = subprocess.run(
+        [str(home / "bin/reason"), "run", "vision_pipeline.rsn", "--allow-read", "--allow-write", "--json"],
+        cwd=project,
+        env=env,
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["runtime_result"]["result"]["status"] == "committed"
+    assert (project / "output/solar-observation.ruo").is_file()
+
+
+def test_development_update_package_contains_native_vision_runtime(tmp_path):
+    output = tmp_path / "dist"
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/build_update_package.py"), "--out", str(output),
+         "--format", "directory", "--package-class", "development", "--allow-dirty", "--json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    package = Path(json.loads(result.stdout)["path"])
+    assert (package / "payload/VisionRuntime/Cargo.toml").is_file()
+    assert (package / "payload/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
+    manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
+    assert "vision-runtime-v0.1" in {item["name"] for item in manifest["components"]}
+    assert manifest["package_version"] == "0.5.2"
+
+    fresh = tmp_path / "fresh-install"
+    environment = os.environ.copy()
+    environment["PATH"] = ""  # packaged install must not resolve Cargo or rustc
+    installed = subprocess.run(
+        [sys.executable, str(package / "payload/scripts/install_common.py"), "--prefix", str(fresh),
+         "--non-interactive", "--json"],
+        cwd=tmp_path,
+        env=environment,
+        text=True,
+        capture_output=True,
+    )
+    assert installed.returncode in {0, 1}, installed.stdout + installed.stderr
+    report = json.loads(installed.stdout)
+    assert report["status"] == "success" and report["reason_version"] == "0.5.2"
+    assert (fresh / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()

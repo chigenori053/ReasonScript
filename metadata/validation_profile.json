@@ -1,8 +1,8 @@
 {
   "schema_version": "reasonscript-validation-profile-declaration/1.0",
-  "reason_version": "0.5.1",
+  "reason_version": "0.5.2",
   "install_foundation_version": "1.1",
-  "runtime_version": "0.5.1",
+  "runtime_version": "0.5.2",
   "commands": [
     "--version",
     "doctor",
@@ -99,6 +99,21 @@
       "schemas": [
         "update_report"
       ]
+    },
+    "vision_runtime": {
+      "required_level": "required",
+      "command": "vision",
+      "fixtures": [
+        "vision_runtime"
+      ],
+      "components": [
+        "vision-runtime-v0.1",
+        "frontend-core",
+        "schemas"
+      ],
+      "schemas": [
+        "vision_observation"
+      ]
     }
   },
   "fixtures": {
@@ -110,6 +125,14 @@
         "iterative_state_probe.rsn",
         "tensor_integration_probe.rsn",
         "tensor_namespace_probe.rsn"
+      ]
+    },
+    "vision_runtime": {
+      "path": "canonical_fixtures/vision_runtime",
+      "path_type": "directory",
+      "required": true,
+      "required_files": [
+        "solar_observation.json"
       ]
     }
   },
@@ -137,6 +160,14 @@
     "metadata": {
       "path": "metadata",
       "required": true
+    },
+    "frontend-core": {
+      "path": "frontend",
+      "required": true
+    },
+    "vision-runtime-v0.1": {
+      "path": "VisionRuntime",
+      "required": true
     }
   },
   "schemas": {
@@ -147,6 +178,10 @@
     "update_report": {
       "path": "schemas/update_report.schema.json",
       "required": false
+    },
+    "vision_observation": {
+      "path": "schemas/vision_observation.schema.json",
+      "required": true
     }
   }
 }

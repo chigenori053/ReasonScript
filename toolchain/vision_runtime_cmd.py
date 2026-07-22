@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -26,15 +27,20 @@ def _path(value: str) -> Path:
 
 
 def _invoke(root: Path, args: list[str]) -> dict[str, Any]:
-    crate = root / "VisionRuntime"
-    binary = crate / "target" / "debug" / "reason-vision"
+    distribution_root = Path(__file__).resolve().parents[1]
+    crate = distribution_root / "VisionRuntime"
+    binary_name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
+    installed_binary = distribution_root / "bin" / binary_name
+    release_binary = crate / "target" / "release" / binary_name
+    debug_binary = crate / "target" / "debug" / binary_name
+    binary = installed_binary if installed_binary.is_file() else (release_binary if release_binary.is_file() else debug_binary)
     sources = [crate / "Cargo.toml", *(crate / "src").glob("*.rs")]
-    binary_current = binary.is_file() and binary.stat().st_mtime_ns >= max(path.stat().st_mtime_ns for path in sources)
+    binary_current = installed_binary.is_file() or (binary.is_file() and binary.stat().st_mtime_ns >= max(path.stat().st_mtime_ns for path in sources))
     command = [str(binary), *args] if binary_current else [
         "cargo", "run", "--offline", "--quiet", "--manifest-path", str(crate / "Cargo.toml"),
         "--bin", "reason-vision", "--", *args,
     ]
-    completed = subprocess.run(command, cwd=root, capture_output=True, text=True, check=False)
+    completed = subprocess.run(command, cwd=distribution_root, capture_output=True, text=True, check=False)
     try:
         result = json.loads(completed.stdout)
     except json.JSONDecodeError:
@@ -120,7 +126,7 @@ def run(args: list[str], root: Path) -> int:
         return 1
     if operation == "generate":
         output = _path(_option(args, "--output") or "artifacts/vision_runtime/v0_1")
-        fixture = root / "tests/fixtures/vision_runtime/solar_observation.json"
+        fixture = Path(__file__).resolve().parents[1] / "canonical_fixtures/vision_runtime/solar_observation.json"
         result = _invoke(root, ["build-ruo", str(fixture), "--output", str(output)])
         if result.get("ok"):
             _write_language_profile(output)

@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "Vision Runtime Language Integration v0.1",
-  "tests_passed": 1083,
+  "task": "ReasonScript v0.5.2 Install Package",
+  "tests_passed": 1085,
   "version": "1.0"
 }

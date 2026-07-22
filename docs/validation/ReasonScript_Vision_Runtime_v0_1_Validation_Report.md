@@ -18,6 +18,11 @@ canonical repository pipeline.
 - Rust backend dispatch and provenance verification.
 - Atomic RUO-F1 publication with checksum-verified Tensor resources.
 - LSP and Monaco completion/type highlighting.
+- Source-installer and update-package VisionRuntime distribution.
+- Platform-native `reason-vision` packaging and staged smoke validation.
+- Installed external-project Vision-to-RUO execution.
+- ReasonScript 0.5.2 macOS arm64 update-and-install bundle.
+- Cargo-free fresh installation from the packaged native executables.
 
 ## Validation Results
 
@@ -28,7 +33,12 @@ canonical repository pipeline.
 - `reason vision validate-phase --output artifacts/vision_runtime/v0_1 --json`: VALIDATED.
 - RUO-U1 Object diagnostics: 0.
 - RUO-T1 detections and embeddings resources: VALID.
-- `reason ci --json`: PASS, 1083 tests; Workspace, Diagnostics, Artifacts,
+- Install/update/Vision focused tests: PASS, 102 tests.
+- `reason install-validate --json`: PASS, 36 checks.
+- Development update-package build and self-validation: PASS.
+- 0.5.2 version consistency: PASS, 6 checks.
+- 0.5.2 empty-prefix fresh installation: PASS.
+- `reason ci --json`: PASS, 1085 tests; Workspace, Diagnostics, Artifacts,
   Golden, Agent Protocol, Compatibility, and Tests all passed.
 
 ## Generated Artifacts
@@ -39,9 +49,10 @@ Generated through `reason vision generate` under
 ## Compatibility Notes
 
 The feature is additive and does not change existing execution semantics.
-All 16 compatibility targets passed, including
+All 17 compatibility targets passed, including
 `reasonscript-vision-runtime/0.1` and
-`reasonscript-vision-language-integration/0.1`.
+`reasonscript-vision-language-integration/0.1`, plus
+`reasonscript-vision-install-distribution/0.1`.
 
 ## Remaining Work
 

@@ -56,7 +56,7 @@ def install(prefix: Path, json_output: bool) -> int:
         temp.mkdir()
         for name in DISTRIBUTION_TARGETS:
             source = ROOT / name
-            shutil.copytree(source, temp / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".venv", "node_modules", ".git"))
+            shutil.copytree(source, temp / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".venv", "node_modules", ".git", "target"))
         for name in ("reason", "VERSION", "pyproject.toml"):
             if (ROOT / name).is_file():
                 shutil.copy2(ROOT / name, temp / name)
@@ -70,6 +70,24 @@ def install(prefix: Path, json_output: bool) -> int:
             encoding="utf-8",
         )
         runtime_launcher.chmod(0o755)
+        vision_name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
+        vision_binary = temp / "bin" / vision_name
+        packaged_vision = ROOT / "bin" / vision_name
+        if packaged_vision.is_file():
+            shutil.copy2(packaged_vision, vision_binary)
+        else:
+            cargo = shutil.which("cargo")
+            if not cargo:
+                raise RuntimeError("cargo is required to build the native VisionRuntime from source")
+            vision_build = subprocess.run(
+                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisionRuntime/Cargo.toml")],
+                text=True,
+                capture_output=True,
+            )
+            if vision_build.returncode:
+                raise RuntimeError(f"VisionRuntime build failed: {vision_build.stderr.strip()}")
+            shutil.copy2(ROOT / "VisionRuntime" / "target" / "release" / vision_name, vision_binary)
+        vision_binary.chmod(0o755)
         validate_staged_distribution(temp, ROOT)
         file_inventory = inventory(temp)
         if final.exists():
@@ -86,8 +104,12 @@ def install(prefix: Path, json_output: bool) -> int:
         bin_dir.mkdir(exist_ok=True)
         native_source = ROOT / "InstallFoundationUpdater/src/main.rs"
         native_updater = bin_dir / ("reason-updater.exe" if os.name == "nt" else "reason-updater")
+        packaged_updater = ROOT / "bin" / native_updater.name
         rustc = shutil.which("rustc")
-        if rustc and native_source.is_file():
+        if packaged_updater.is_file():
+            shutil.copy2(packaged_updater, native_updater)
+            native_updater.chmod(0o755)
+        elif rustc and native_source.is_file():
             compiled = subprocess.run([rustc, "-O", str(native_source), "-o", str(native_updater)], text=True, capture_output=True)
             if compiled.returncode:
                 raise RuntimeError(f"Native updater build failed: {compiled.stderr.strip()}")

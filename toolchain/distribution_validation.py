@@ -13,9 +13,12 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
+VISION_DISTRIBUTION_PROFILE = "reasonscript-vision-install-distribution/0.1"
+
 DISTRIBUTION_TARGETS = (
     "toolchain", "scripts", "schemas", "frontend", "runtime", "examples",
     "standard_library", "metadata", "playground", "conformance", "canonical_fixtures",
+    "VisionRuntime",
 )
 
 COMPONENTS = (
@@ -32,6 +35,7 @@ COMPONENTS = (
     ("conformance-core", "conformance"),
     ("canonical-fixtures", "canonical_fixtures"),
     ("ml-evaluation-visualization-v0.2", "runtime/visualization/evaluation"),
+    ("vision-runtime-v0.1", "VisionRuntime"),
 )
 
 EVALUATION_IMPORTS = (
@@ -39,7 +43,10 @@ EVALUATION_IMPORTS = (
     "runtime.visualization.evaluation.model", "runtime.visualization.evaluation.metrics",
     "runtime.visualization.evaluation.operations", "runtime.visualization.evaluation.artifacts",
 )
-REQUIRED_IMPORTS = ("toolchain", "scripts.reason_cli", "playground.backend.main", *EVALUATION_IMPORTS)
+REQUIRED_IMPORTS = (
+    "toolchain", "scripts.reason_cli", "playground.backend.main",
+    "frontend.vision.contracts", "frontend.vision.runtime", *EVALUATION_IMPORTS,
+)
 EVALUATION_PUBLIC_API = (
     "evaluate_classification", "confusion_matrix", "normalized_confusion_matrix",
     "classification_metrics", "roc_curve", "precision_recall_curve", "rule_coverage",
@@ -57,6 +64,8 @@ EVALUATION_SCHEMAS = (
 INTEGRITY_ENTRY_POINTS = (
     "reason", "VERSION", "scripts/reason_cli.py", "toolchain/__main__.py",
     "playground/backend/main.py", "metadata/release_manifest.json",
+    "VisionRuntime/Cargo.toml", "frontend/vision/contracts.py",
+    "schemas/vision_observation.schema.json",
 )
 
 
@@ -112,7 +121,30 @@ def validate_staged_distribution(root: Path, repository_root: Path | None = None
     for schema in EVALUATION_SCHEMAS:
         if not (root / "schemas" / schema).is_file():
             raise DistributionError("IF-DC-006", "Required ML Evaluation schema is missing.", "ml-evaluation", f"schemas/{schema}")
+    vision_binary = _vision_binary(root)
+    if vision_binary is None:
+        raise DistributionError("IF-DC-001", "Required VisionRuntime native executable is missing.", "vision-runtime", "bin/reason-vision")
+    proc = subprocess.run([str(vision_binary), "verify-native"], cwd=tempfile.gettempdir(), text=True, capture_output=True)
+    try:
+        native = json.loads(proc.stdout)
+    except json.JSONDecodeError as error:
+        raise DistributionError("IF-DC-003", "VisionRuntime native smoke output is invalid.", "vision-runtime", str(vision_binary)) from error
+    if proc.returncode or native.get("ok") is not True or native.get("unsafe_blocks") != 0 or native.get("profile") != "reasonscript-vision-runtime/0.1":
+        raise DistributionError("IF-DC-003", "VisionRuntime native smoke validation failed.", "vision-runtime", str(vision_binary))
+    if not (root / "schemas/vision_observation.schema.json").is_file():
+        raise DistributionError("IF-DC-006", "Vision observation schema is missing.", "vision-runtime", "schemas/vision_observation.schema.json")
+    payload["vision_runtime"] = {"path": str(vision_binary), "profile": native.get("profile"), "unsafe_blocks": 0}
     return payload
+
+
+def _vision_binary(root: Path) -> Path | None:
+    name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
+    candidates = (
+        root / "bin" / name,
+        root / "VisionRuntime" / "target" / "release" / name,
+        root / "VisionRuntime" / "target" / "debug" / name,
+    )
+    return next((path for path in candidates if path.is_file()), None)
 
 
 def import_from_distribution(root: Path, name: str):

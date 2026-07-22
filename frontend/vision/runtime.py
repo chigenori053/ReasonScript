@@ -128,9 +128,13 @@ class VisionRuntimeBridge:
     def _native(self, arguments: list[str]) -> dict[str, Any]:
         repository = Path(__file__).resolve().parents[2]
         crate = repository / "VisionRuntime"
-        binary = crate / "target/debug/reason-vision"
+        binary_name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
+        installed_binary = repository / "bin" / binary_name
+        release_binary = crate / "target" / "release" / binary_name
+        debug_binary = crate / "target" / "debug" / binary_name
+        binary = installed_binary if installed_binary.is_file() else (release_binary if release_binary.is_file() else debug_binary)
         sources = [crate / "Cargo.toml", *(crate / "src").glob("*.rs")]
-        current = binary.is_file() and binary.stat().st_mtime_ns >= max(path.stat().st_mtime_ns for path in sources)
+        current = installed_binary.is_file() or (binary.is_file() and binary.stat().st_mtime_ns >= max(path.stat().st_mtime_ns for path in sources))
         command = [str(binary), *arguments] if current else ["cargo", "run", "--offline", "--quiet", "--manifest-path", str(crate / "Cargo.toml"), "--bin", "reason-vision", "--", *arguments]
         completed = subprocess.run(command, cwd=repository, capture_output=True, text=True, timeout=60, check=False)
         try: result = json.loads(completed.stdout)
@@ -139,4 +143,3 @@ class VisionRuntimeBridge:
             diagnostic = next(iter(result.get("diagnostics", [])), {})
             raise VisionRuntimeError(str(diagnostic.get("code", "VIS-RUN-005")), str(diagnostic.get("message", "native Vision operation failed")), stage=str(diagnostic.get("stage", "runtime")))
         return result
-
