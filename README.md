@@ -1,129 +1,94 @@
 # ReasonScript
 
 ReasonScript is a reasoning-first language for proofable AI workflows,
-deterministic execution, and rollback-safe systems.
+deterministic execution, and rollback-safe systems. It compiles source
+through a deterministic pipeline — Surface AST, Semantic AST, Reason IR,
+and ExecutionPlan — into a validated, reproducible runtime result.
 
-# Semantic Language v0.2 Core
+Current release: **v0.5.2**. See [`CHANGELOG.md`](CHANGELOG.md) for the
+detailed history and [`docs/roadmap.md`](docs/roadmap.md) for what's next.
 
-ReasonScript Semantic Language v0.2 Core was frozen on 2026-06-15 as:
+## What it does
 
-```text
-A Deterministic Semantic State Transition Language
-with Validated Knowledge Emergence
-```
+- **Deterministic execution** — every run produces a reproducible,
+  validated `ExecutionPlan` and `InferenceResult`.
+- **Reasoning artifacts** — `ReasoningModel`, `ReasoningEvaluationReport`,
+  and `ReasoningRuntimeResult` give an inspectable, versioned record of how
+  a result was reached.
+- **ReasonUnit Objects** — a canonical, portable object format (`RUO`) with
+  a native runtime type, CLI integration, and a migration path from legacy
+  formats.
+- **Cross-language DTO bindings** — Rust, Python, TypeScript, Go, and Java
+  bindings share one normative contract (`docs/specifications/Common_DTO_Specification_v0.1.md`).
+- **Tooling** — a CLI (`reason`), an IDE (`apps/reasonscript-ide`), a VS
+  Code extension (`vscode-extension/`), and a browser playground
+  (`playground/`).
 
-Its canonical pipeline is:
+## Installation
 
-```text
-SemanticUnit
-  -> SemanticRelation
-  -> Reasoning Space
-  -> SemanticPlan
-  -> SemanticSimulation
-  -> SimulationResult
-  -> Knowledge
-```
+Platform-specific installers and requirements:
 
-The normative specification is
-`docs/ReasonScript_Semantic_Language_Core_v0.2.md`.
+- [Linux](docs/installation/linux.md)
+- [macOS](docs/installation/macos.md)
+- [Windows](docs/installation/windows.md)
+- [Uninstall](docs/installation/uninstall.md) /
+  [Troubleshooting](docs/installation/troubleshooting.md)
 
-Run the Core freeze gate with:
-
-```sh
-python3 release/semantic-language-v0.2/run_release_validation.py
-```
-
-# Platform v0.1 Alpha
-
-The current platform release is `0.1.0-alpha` (2026-06-13). It integrates:
-
-```text
-ReasonScript Source
-  -> parser/0.1
-  -> reasonscript-ast/0.1
-  -> compiler/0.1
-  -> reason-ir/0.1
-  -> common-dto/0.1
-  -> Runtime
-  -> InferenceResult
-```
-
-Release documentation:
-
-- `docs/ReasonScript_Platform_v0.1_Alpha_Release_Specification.md`
-- `docs/ReasonScript_Language_Specification_v0.1.md`
-- `docs/ReasonScript_Operational_Semantics_v0.1.md`
-- `release/v0.1-alpha/manifest.json`
-- `CHANGELOG.md`
-
-See `docs/README.md` for the full documentation index.
-
-Run the integrated release gate with:
+For local development from source:
 
 ```sh
-python3 release/v0.1-alpha/run_release_validation.py
+git clone git@github.com:chigenori053/ReasonScript.git
+cd ReasonScript
+pip install -e .
 ```
 
-# Language Surface v0.1
-
-ReasonScript Language Surface v0.1 was released on 2026-06-14. It fixes the
-deterministic path:
-
-```text
-ReasonScript Source
-  -> Surface AST
-  -> Semantic AST
-  -> Reason IR
-  -> ExecutionPlan
-```
-
-Run its release gate with:
+## Quickstart
 
 ```sh
-python3 release/language-surface-v0.1/run_release_validation.py
+./reason ci --json
+./reason reasoning-runtime run examples/v0_8/reasoning_runtime/animal_isa.rsn --json
 ```
 
-The normative release specification is
-`docs/specifications/ReasonScript_Language_Surface_v0.1_Release_Specification.md`.
+The full walkthrough, including generating and validating `ReasoningModel`
+and `ReasoningEvaluationReport` artifacts, is in the
+[v0.5 Quickstart guide](docs/guides/ReasonScript_v0_5_Quickstart.md). CLI
+usage is documented in the
+[CLI Reference](docs/reference/ReasonScript_v0_5_CLI_Reference.md).
 
-# Reason IR schema and validator
+## Documentation
 
-The versioned Reason IR 0.1 contract is defined in
-`schemas/reason_ir.schema.json`. Validate one or more documents with:
+[`docs/README.md`](docs/README.md) is the full documentation index —
+language specifications, platform contracts, development guides, and
+release reports. Highlights:
 
-```sh
-cargo run --manifest-path HybridRuntime/Cargo.toml \
-  --bin reason-ir-validator -- fixtures/valid/dog_to_animal.json
-```
+- [Language Specification v0.1](docs/specifications/ReasonScript_Language_Specification_v0.1.md)
+- [Semantic Language Core v0.2](docs/specifications/ReasonScript_Semantic_Language_Core_v0.2.md)
+  (frozen 2026-06-15)
+- [Operational Semantics v0.1](docs/specifications/ReasonScript_Operational_Semantics_v0.1.md)
+- [Reason IR schema](schemas/reason_ir.schema.json), validated with:
 
-Conformance fixtures are stored under `fixtures/valid` and
-`fixtures/invalid`.
+  ```sh
+  cargo run --manifest-path HybridRuntime/Cargo.toml \
+    --bin reason-ir-validator -- fixtures/valid/dog_to_animal.json
+  ```
 
-Common DTO bindings for Rust, Python, TypeScript, Go, and Java are stored under
-`dto/`. The normative DTO contract is
-`docs/Common_DTO_Specification_v0.1.md`.
+## Conformance
 
-The Phase 3 conformance framework is under `conformance/`. Run every layer and
-refresh the certification report with:
+The conformance framework under `conformance/` runs every validation layer
+and refreshes the certification report:
 
 ```sh
 python3 conformance/run_conformance.py
 ```
 
-Validate the Language v0.1 core model and module system with:
+## Contributing
 
-```sh
-python3 -m unittest discover \
-  -s language_spec_validation_tests -p 'test_*.py' -v
-```
+Issues and pull requests are welcome. There is no formal contribution
+guide yet — for anything beyond a small fix, please open an issue first to
+discuss the change.
 
-Validate Operational Semantics v0.1 and the Runtime contract with:
+## License
 
-```sh
-python3 -m unittest discover \
-  -s operational_semantics_tests -p 'test_*.py' -v
-python3 -m unittest discover \
-  -s runtime_semantics_validation_tests -p 'test_*.py' -v
-cargo test --manifest-path HybridRuntime/Cargo.toml \
-  --test operational_semantics_validation
-```
+A repository-wide `LICENSE` has not been finalized yet. The
+`vscode-extension/` package is MIT-licensed; treat the rest of the
+repository as all-rights-reserved until a root `LICENSE` file is added.
