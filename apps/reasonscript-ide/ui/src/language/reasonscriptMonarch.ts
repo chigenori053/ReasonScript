@@ -40,6 +40,7 @@ const TYPE_IDENTIFIERS = [
   "Event", "Snapshot", "SceneTemplate", "SimulationTrace",
   "Planner", "Plan", "PlanStep", "PlanResult",
   "Agent", "Task", "Decision", "Action", "Tool", "AgentResult",
+  "VisionModel", "VisionObservation", "VisionBuildResult",
 ];
 
 export const monarchTokenizer: monaco.languages.IMonarchLanguage = {

@@ -127,6 +127,10 @@ def main() -> int:
         from toolchain.reasonunit_runtime_cmd import run
         return run(args[1:], project_root)
 
+    if command == "vision":
+        from toolchain.vision_runtime_cmd import run
+        return run(args[1:], project_root)
+
     if command == "object":
         from toolchain.object_cmd import run
         return run(args[1:], project_root)
@@ -194,6 +198,7 @@ def _usage() -> None:
     print("  reasonunit-file Read, write, validate, inspect, select, and verify canonical .ruo files")
     print("  reasonunit-tensor Encode, validate, inspect, decode, select, convert, and verify Tensor payloads")
     print("  reasonunit-runtime Load, query, revise, project, and validate native ReasonUnit Objects")
+    print("  vision        Validate observations and construct RUO/Tensor vision artifacts")
     print("  object        Check, run, inspect, query, transact, select, project, tensor, and save ReasonUnit Objects")
     print("  reasoning-model validate <file> Validate a Reasoning Model artifact")
     print("  reasoning-eval evaluate <file> Evaluate a Reasoning Model artifact")

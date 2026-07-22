@@ -97,6 +97,11 @@ from frontend.tensor.integration import (
     tensor_execution_plan,
     tensor_operations,
 )
+from frontend.vision.integration import (
+    public_registry as vision_public_registry,
+    vision_execution_plan,
+    vision_operations,
+)
 
 
 def project_program(program: ProgramNode) -> tuple[semantic.ModuleNode, ...]:
@@ -124,6 +129,7 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
     surface_goals = [node for node in module.body if isinstance(node, GoalNode)]
     goal_target = surface_goals[0].name if surface_goals else f"{module.name}Result"
     module_tensor_operations = tensor_operations(module)
+    module_vision_operations = vision_operations(module)
     reason_object_bindings = _reason_object_bindings(module, namespace)
     reason_object_operations = _reason_object_operations(module)
     declarations.append(
@@ -346,6 +352,27 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                     ),
                 )
                 if module_tensor_operations
+                else ()
+            ),
+            *(
+                (
+                    semantic.MetadataNode(
+                        f"{namespace}-vision-registry",
+                        "vision_function_registry",
+                        list(vision_public_registry()),
+                    ),
+                    semantic.MetadataNode(
+                        f"{namespace}-vision-operations",
+                        "vision_operations",
+                        module_vision_operations,
+                    ),
+                    semantic.MetadataNode(
+                        f"{namespace}-vision-execution-plan",
+                        "vision_execution_plan",
+                        vision_execution_plan(module_vision_operations),
+                    ),
+                )
+                if module_vision_operations
                 else ()
             ),
             semantic.MetadataNode(
@@ -2438,6 +2465,9 @@ def execution_plan_for(reason_ir: dict[str, Any]) -> dict[str, Any]:
             "resource_limits_required": True,
             "operations": reason_ir.get("metadata", {}).get("reason_object_operations", []),
         }
+    vision_plan = reason_ir.get("metadata", {}).get("vision_execution_plan")
+    if vision_plan:
+        result["vision_plan"] = vision_plan
     return result
 
 

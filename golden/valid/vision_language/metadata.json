@@ -1,0 +1,7 @@
+{
+  "category": "ExecutionPlan",
+  "expected": "pass",
+  "id": "GT-VISION-001",
+  "language_version": "0.5",
+  "name": "vision_language"
+}

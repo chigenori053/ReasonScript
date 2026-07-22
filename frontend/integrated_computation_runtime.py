@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from pathlib import Path
 
 from frontend.language_surface.nodes import (
     ArrayLiteralNode,
@@ -39,6 +40,8 @@ from frontend.language_surface.nodes import (
 )
 from frontend.tensor.integration import LOWERINGS, tensor_call_name
 from frontend.tensor.runtime import TensorError, TensorRuntime, TensorValueRef
+from frontend.vision.integration import vision_call_name
+from frontend.vision.runtime import VisionRuntimeBridge
 
 
 class _Break(Exception):
@@ -64,6 +67,7 @@ class IntegratedComputationResult:
     runtime: TensorRuntime
     loop_trace: list[dict[str, Any]]
     calculation_results: dict[str, Any]
+    vision_runtime: VisionRuntimeBridge | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -76,6 +80,7 @@ class IntegratedComputationResult:
             ],
             "tensor_trace": [_stable_trace(item) for item in self.runtime.trace],
             "loop_trace": list(self.loop_trace),
+            "vision_trace": list(self.vision_runtime.trace) if self.vision_runtime is not None else [],
             "calculations": {
                 name: _plain(value, self.runtime)
                 for name, value in sorted(self.calculation_results.items())
@@ -84,9 +89,13 @@ class IntegratedComputationResult:
 
 
 def execute_program(
-    program: ProgramNode, *, max_loop_iterations: int = 10_000
+    program: ProgramNode, *, max_loop_iterations: int = 10_000,
+    resource_root: Path | None = None,
+    filesystem_read: bool = False,
+    filesystem_write: bool = False,
 ) -> IntegratedComputationResult:
     runtime = TensorRuntime()
+    vision_runtime = VisionRuntimeBridge(resource_root or Path.cwd(), filesystem_read=filesystem_read, filesystem_write=filesystem_write)
     loop_trace: list[dict[str, Any]] = []
     calculations: dict[str, Any] = {}
     for module in program.modules:
@@ -102,11 +111,12 @@ def execute_program(
                     loop_trace,
                     max_loop_iterations,
                     calculation.name,
+                    vision_runtime,
                 )
             except _Result as result:
                 calculations[calculation.name] = result.value
     value = next(reversed(calculations.values()), None) if calculations else None
-    return IntegratedComputationResult(value, runtime, loop_trace, calculations)
+    return IntegratedComputationResult(value, runtime, loop_trace, calculations, vision_runtime)
 
 
 def _statements(
@@ -116,22 +126,23 @@ def _statements(
     trace: list[dict[str, Any]],
     limit: int,
     scope: str,
+    vision_runtime: VisionRuntimeBridge,
 ) -> None:
     for statement in statements:
         if isinstance(statement, (LetStatementNode, ConstStatementNode)):
-            env[statement.identifier] = _expression(statement.expression, env, runtime)
+            env[statement.identifier] = _expression(statement.expression, env, runtime, vision_runtime)
         elif isinstance(statement, AssignmentStatementNode):
-            env[statement.target] = _expression(statement.expression, env, runtime)
+            env[statement.target] = _expression(statement.expression, env, runtime, vision_runtime)
         elif isinstance(statement, ResultStatementNode):
-            raise _Result(_expression(statement.expression, env, runtime))
+            raise _Result(_expression(statement.expression, env, runtime, vision_runtime))
         elif isinstance(statement, ExpressionStatementNode):
-            _expression(statement.expression, env, runtime)
+            _expression(statement.expression, env, runtime, vision_runtime)
         elif isinstance(statement, BreakStatementNode):
             raise _Break()
         elif isinstance(statement, ContinueStatementNode):
             raise _Continue()
         elif isinstance(statement, ForStatementNode):
-            values = _expression(statement.iterable, env, runtime)
+            values = _expression(statement.iterable, env, runtime, vision_runtime)
             _loop(
                 statement.body,
                 env,
@@ -141,9 +152,10 @@ def _statements(
                 f"{scope}.for.{statement.iterator}",
                 list(values),
                 statement.iterator,
+                vision_runtime,
             )
         elif isinstance(statement, WhileStatementNode):
-            _while_loop(statement, env, runtime, trace, limit, scope)
+            _while_loop(statement, env, runtime, trace, limit, scope, vision_runtime)
         elif isinstance(statement, LoopStatementNode):
             _loop(
                 statement.body,
@@ -154,20 +166,21 @@ def _statements(
                 f"{scope}.loop",
                 None,
                 None,
+                vision_runtime,
             )
         elif isinstance(statement, IfStatementNode):
             selected = None
-            if _expression(statement.condition, env, runtime):
+            if _expression(statement.condition, env, runtime, vision_runtime):
                 selected = statement.body
             else:
                 for branch in statement.elif_branches:
-                    if _expression(branch.condition, env, runtime):
+                    if _expression(branch.condition, env, runtime, vision_runtime):
                         selected = branch.body
                         break
                 if selected is None and statement.else_branch is not None:
                     selected = statement.else_branch.body
             if selected is not None:
-                _statements(selected, env, runtime, trace, limit, scope)
+                _statements(selected, env, runtime, trace, limit, scope, vision_runtime)
 
 
 def _while_loop(
@@ -177,10 +190,11 @@ def _while_loop(
     trace: list[dict[str, Any]],
     limit: int,
     scope: str,
+    vision_runtime: VisionRuntimeBridge,
 ) -> None:
     iteration = 0
     loop_id = f"{scope}.while"
-    while _expression(statement.condition, env, runtime):
+    while _expression(statement.condition, env, runtime, vision_runtime):
         if iteration >= limit:
             raise LoopLimitError(f"loop iteration limit exceeded: {limit}")
         iteration += 1
@@ -188,7 +202,7 @@ def _while_loop(
         broke = False
         continued = False
         try:
-            _statements(statement.body, env, runtime, trace, limit, scope)
+            _statements(statement.body, env, runtime, trace, limit, scope, vision_runtime)
         except _Continue:
             continued = True
         except _Break:
@@ -207,6 +221,7 @@ def _loop(
     loop_id: str,
     values: list[Any] | None,
     iterator: str | None,
+    vision_runtime: VisionRuntimeBridge,
 ) -> None:
     iteration = 0
     while values is None or iteration < len(values):
@@ -219,7 +234,7 @@ def _loop(
         broke = False
         continued = False
         try:
-            _statements(body, env, runtime, trace, limit, loop_id)
+            _statements(body, env, runtime, trace, limit, loop_id, vision_runtime)
         except _Continue:
             continued = True
         except _Break:
@@ -229,21 +244,21 @@ def _loop(
             break
 
 
-def _expression(value: Any, env: dict[str, Any], runtime: TensorRuntime) -> Any:
+def _expression(value: Any, env: dict[str, Any], runtime: TensorRuntime, vision_runtime: VisionRuntimeBridge) -> Any:
     value = value.expression if isinstance(value, ExpressionNode) else value
     if isinstance(value, (IntegerLiteralNode, FloatLiteralNode, BooleanLiteralNode, StringLiteralNode)):
         return value.value
     if isinstance(value, IdentifierNode):
         return env[value.name]
     if isinstance(value, ArrayLiteralNode):
-        return [_expression(item, env, runtime) for item in value.elements]
+        return [_expression(item, env, runtime, vision_runtime) for item in value.elements]
     if isinstance(value, ParenthesizedExpressionNode):
-        return _expression(value.expression, env, runtime)
+        return _expression(value.expression, env, runtime, vision_runtime)
     if isinstance(value, UnaryExpressionNode):
-        operand = _expression(value.operand, env, runtime)
+        operand = _expression(value.operand, env, runtime, vision_runtime)
         return -operand if value.operator == UnaryOperator.NEGATE else not operand
     if isinstance(value, BinaryExpressionNode):
-        left, right = _expression(value.left, env, runtime), _expression(value.right, env, runtime)
+        left, right = _expression(value.left, env, runtime, vision_runtime), _expression(value.right, env, runtime, vision_runtime)
         return {
             BinaryOperator.ADD: lambda: left + right,
             BinaryOperator.SUBTRACT: lambda: left - right,
@@ -252,7 +267,7 @@ def _expression(value: Any, env: dict[str, Any], runtime: TensorRuntime) -> Any:
             BinaryOperator.MODULO: lambda: left % right,
         }[value.operator]()
     if isinstance(value, ComparisonExpressionNode):
-        left, right = _expression(value.left, env, runtime), _expression(value.right, env, runtime)
+        left, right = _expression(value.left, env, runtime, vision_runtime), _expression(value.right, env, runtime, vision_runtime)
         return {
             ComparisonOperator.EQUAL: lambda: left == right,
             ComparisonOperator.NOT_EQUAL: lambda: left != right,
@@ -262,16 +277,20 @@ def _expression(value: Any, env: dict[str, Any], runtime: TensorRuntime) -> Any:
             ComparisonOperator.LESS_THAN_OR_EQUAL: lambda: left <= right,
         }[value.operator]()
     if isinstance(value, LogicalExpressionNode):
-        left = bool(_expression(value.left, env, runtime))
+        left = bool(_expression(value.left, env, runtime, vision_runtime))
         return (
-            left and bool(_expression(value.right, env, runtime))
+            left and bool(_expression(value.right, env, runtime, vision_runtime))
             if value.operator == LogicalOperator.AND
-            else left or bool(_expression(value.right, env, runtime))
+            else left or bool(_expression(value.right, env, runtime, vision_runtime))
         )
     if isinstance(value, CallExpressionNode):
+        vision_function = vision_call_name(value)
+        if vision_function is not None:
+            arguments = [_expression(argument, env, runtime, vision_runtime) for argument in value.arguments]
+            return vision_runtime.call(vision_function, *arguments)
         function = tensor_call_name(value)
         if function is not None:
-            arguments = [_expression(argument, env, runtime) for argument in value.arguments]
+            arguments = [_expression(argument, env, runtime, vision_runtime) for argument in value.arguments]
             result = runtime.call(function, *arguments)
             runtime.trace[-1].update(
                 {

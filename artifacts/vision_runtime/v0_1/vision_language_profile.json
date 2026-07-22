@@ -1,0 +1,38 @@
+{
+  "functions": [
+    {
+      "capabilities": [
+        "filesystem_read"
+      ],
+      "determinism": "verified-input",
+      "input_type": "Path,Path",
+      "native_operation": "vision_infer",
+      "output_type": "VisionObservation",
+      "qualified_name": "vision.infer",
+      "version": "0.1"
+    },
+    {
+      "capabilities": [
+        "filesystem_write"
+      ],
+      "determinism": "verified-input",
+      "input_type": "VisionObservation,Path",
+      "native_operation": "vision_build_ruo",
+      "output_type": "VisionBuildResult",
+      "qualified_name": "vision.build_ruo",
+      "version": "0.1"
+    }
+  ],
+  "lowering": [
+    "vision_infer",
+    "vision_build_ruo"
+  ],
+  "profile": "reasonscript-vision-language-integration/0.1",
+  "publication_policy": "atomic_ruo_f1",
+  "schema_version": "reasonscript-vision-language-profile/0.1",
+  "types": [
+    "VisionModel",
+    "VisionObservation",
+    "VisionBuildResult"
+  ]
+}

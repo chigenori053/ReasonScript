@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/vision-observation-0.1.json",
+  "title": "ReasonScript VisionObservation 0.1",
+  "type": "object",
+  "required": ["schema_version", "observation_id", "session_id", "source", "model", "detections"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-vision-observation/0.1"},
+    "observation_id": {"type": "string", "minLength": 1},
+    "session_id": {"type": "string", "minLength": 1},
+    "source": {
+      "type": "object",
+      "required": ["image_digest", "frame_id", "frame_time"],
+      "properties": {
+        "image_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "frame_id": {"type": "string", "minLength": 1},
+        "frame_time": {"type": "number"},
+        "artifact_ref": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "model": {
+      "type": "object",
+      "required": ["model_id", "model_digest", "backend", "preprocessing_profile"],
+      "properties": {
+        "model_id": {"type": "string", "minLength": 1},
+        "model_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "backend": {"type": "string", "minLength": 1},
+        "preprocessing_profile": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "detections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["detection_id", "track_id", "class_label", "class_index", "confidence", "bounding_box", "image_center"],
+        "properties": {
+          "detection_id": {"type": "string", "minLength": 1},
+          "track_id": {"type": "string", "minLength": 1},
+          "class_label": {"type": "string", "minLength": 1},
+          "class_index": {"type": "integer", "minimum": 0},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "bounding_box": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+          "image_center": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}},
+          "embedding": {"type": "array", "items": {"type": "number"}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "input_tensor": {
+      "type": "object",
+      "required": ["shape", "values"],
+      "properties": {
+        "shape": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+        "values": {"type": "array", "items": {"type": "number"}},
+        "layout": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+

@@ -65,6 +65,8 @@ def _build_parser() -> argparse.ArgumentParser:
             sub.add_argument("--out")
         if name == "run":
             sub.add_argument("--trace", action="store_true")
+            sub.add_argument("--allow-read", action="store_true")
+            sub.add_argument("--allow-write", action="store_true")
         sub.set_defaults(handler={
             "check": cmd_check,
             "analyze": cmd_analyze,
@@ -150,7 +152,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace or args.json)
+    result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace or args.json, allow_read=args.allow_read, allow_write=args.allow_write)
     if args.out:
         _write_out(Path(args.out), result)
     if args.json:
@@ -377,7 +379,7 @@ def _analyze_result(path: Path, compiler_mode: str) -> dict[str, Any]:
     }
 
 
-def _run_result(path: Path, compiler_mode: str, *, include_trace: bool) -> dict[str, Any]:
+def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_read: bool = False, allow_write: bool = False) -> dict[str, Any]:
     analyze = _analyze_result(path, compiler_mode)
     simulation = analyze["artifacts"].get("simulation") if isinstance(analyze.get("artifacts"), dict) else {}
     knowledge = analyze["artifacts"].get("knowledge") if isinstance(analyze.get("artifacts"), dict) else {}
@@ -407,7 +409,7 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool) -> dict[
         from frontend.tensor import TensorError
 
         try:
-            integrated = execute_program(parse(source))
+            integrated = execute_program(parse(source), resource_root=_resolve_input_path(path).resolve().parent, filesystem_read=allow_read, filesystem_write=allow_write)
             runtime_result = integrated.to_dict()
             result["runtime_result"] = runtime_result
             result["runtime_output"] = [runtime_result["result"]]
@@ -415,7 +417,7 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool) -> dict[
             result["artifacts"]["runtime_result"] = runtime_result
             result["artifacts"]["tensor_metadata"] = runtime_result["tensor_metadata"]
             if include_trace:
-                result["trace"] = runtime_result["tensor_trace"] + runtime_result["loop_trace"]
+                result["trace"] = runtime_result["tensor_trace"] + runtime_result["loop_trace"] + runtime_result["vision_trace"]
         except TensorError as error:
             diagnostic = error.diagnostic.to_dict()
             diagnostic.update({"stage": "runtime", "source_file": _display_path(path)})
@@ -433,6 +435,15 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool) -> dict[
                 "stage": "runtime",
                 "source_file": _display_path(path),
             })
+        except Exception as error:
+            from frontend.vision.runtime import VisionRuntimeError
+            if not isinstance(error, VisionRuntimeError):
+                raise
+            diagnostic = error.diagnostic()
+            diagnostic["source_file"] = _display_path(path)
+            result["ok"] = False
+            result["goal_reached"] = False
+            result["diagnostics"].append(diagnostic)
     return result
 
 
@@ -445,7 +456,12 @@ def _requires_integrated_runtime(source: str, analyze: dict[str, Any]) -> bool:
         for item in modules
     )
     has_loop = any(token in source for token in ("for ", "while ", "loop {"))
-    return has_tensor or has_loop
+    has_vision = any(
+        isinstance(item, dict)
+        and bool(item.get("metadata", {}).get("vision_operations"))
+        for item in modules
+    )
+    return has_tensor or has_loop or has_vision
 
 
 def _analyze_endpoint_response(path: Path, compiler_mode: str) -> dict[str, Any]:

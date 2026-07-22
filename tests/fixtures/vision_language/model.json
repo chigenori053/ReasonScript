@@ -1,0 +1,8 @@
+{
+  "schema_version": "reasonscript-vision-model/0.1",
+  "model_id": "solar-language-test-model",
+  "model_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "backend": "observation-json-test",
+  "preprocessing_profile": "solar-vision-input/1",
+  "observation_path": "observation.json"
+}

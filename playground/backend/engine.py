@@ -119,6 +119,9 @@ def build_execution_plan(ir: dict[str, Any]) -> dict[str, Any]:
     if isinstance(tensor_plan, dict):
         result["tensor_operations"] = list(tensor_plan.get("operations", []))
         result["tensor_backend"] = tensor_plan.get("backend", "abstract")
+    vision_plan = ir.get("metadata", {}).get("vision_execution_plan")
+    if isinstance(vision_plan, dict):
+        result["vision_plan"] = copy.deepcopy(vision_plan)
     if selected_or_pattern is not None:
         result.update(selected_or_pattern)
     if pattern_identity is not None:

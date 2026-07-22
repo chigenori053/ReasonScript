@@ -48,4 +48,36 @@ export function registerReasonScriptLanguage(monaco: typeof Monaco): void {
       decreaseIndentPattern: /^\s*\}/,
     },
   });
+
+  monaco.languages.registerCompletionItemProvider(REASONSCRIPT_LANGUAGE_ID, {
+    provideCompletionItems: (model, position) => {
+      const word = model.getWordUntilPosition(position);
+      const range = new monaco.Range(
+        position.lineNumber,
+        word.startColumn,
+        position.lineNumber,
+        word.endColumn,
+      );
+      return {
+      suggestions: [
+        {
+          label: "vision.infer",
+          kind: monaco.languages.CompletionItemKind.Function,
+          insertText: 'vision.infer("${1:model.json}", "${2:image.png}")',
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          documentation: "Run the configured Rust Vision backend and return VisionObservation.",
+          range,
+        },
+        {
+          label: "vision.build_ruo",
+          kind: monaco.languages.CompletionItemKind.Function,
+          insertText: 'vision.build_ruo(${1:observation}, "${2:output.ruo}")',
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          documentation: "Build and atomically publish a canonical ReasonUnitObject.",
+          range,
+        },
+      ],
+    };
+    },
+  });
 }

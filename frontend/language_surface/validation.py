@@ -124,6 +124,11 @@ from frontend.tensor.integration import (
     tensor_call_name,
     validate_tensor_call,
 )
+from frontend.vision.integration import (
+    VisionSemanticError,
+    validate_vision_call,
+    vision_call_name,
+)
 from .semantic_patterns import StructPatternSemanticError, resolve_struct_pattern
 
 
@@ -1544,7 +1549,7 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"tensor", "ruo"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"tensor", "ruo", "vision"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1584,6 +1589,14 @@ def _validate_calculation_expression(
                 return
             if _ruo_call_name(value) is not None:
                 _validate_ruo_call(value)
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if vision_call_name(value) is not None:
+                try:
+                    validate_vision_call(value)
+                except VisionSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
                 for argument in value.arguments:
                     visit(argument)
                 return
@@ -1923,6 +1936,12 @@ def _expression_type(
             except TensorSemanticError as error:
                 raise SurfaceValidationError(str(error)) from error
             return NamedTypeNode("Tensor")
+        if vision_call_name(value) is not None:
+            try:
+                validate_vision_call(value)
+            except VisionSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            return NamedTypeNode("VisionObservation" if vision_call_name(value) == "vision.infer" else "VisionBuildResult")
         if isinstance(value.callee, IdentifierNode):
             if value.callee.name == _CURRENT_FUNCTION:
                 raise SurfaceValidationError("FN-007 recursive function calls are rejected")

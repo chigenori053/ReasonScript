@@ -77,7 +77,7 @@
       "diagnostics": [],
       "id": "diagnostics",
       "metadata": {
-        "checked": 4
+        "checked": 12
       },
       "status": "PASS"
     },
@@ -94,7 +94,7 @@
       "id": "golden",
       "metadata": {
         "failed": 0,
-        "passed": 1,
+        "passed": 2,
         "phase8_golden_validation": {
           "scenarios": 6,
           "status": "PASS",
@@ -102,7 +102,7 @@
         },
         "schema": "reasonscript-golden-summary/1.0",
         "skipped": 0,
-        "total": 1,
+        "total": 2,
         "version": "1.0"
       },
       "status": "PASS"
@@ -116,7 +116,7 @@
       "diagnostics": [],
       "id": "compatibility",
       "metadata": {
-        "targets": 14
+        "targets": 16
       },
       "status": "PASS"
     },
@@ -124,7 +124,7 @@
       "diagnostics": [],
       "id": "tests",
       "metadata": {
-        "tests_passed": 873
+        "tests_passed": 1083
       },
       "status": "PASS"
     }

@@ -1,0 +1,545 @@
+{
+  "constraints": [],
+  "current_revision": "ruo:revision:0",
+  "dependency_cycle_policy": null,
+  "dependency_graph": [],
+  "evidence_registry": [
+    {
+      "confidence": 0.996999979019165,
+      "confidence_contract": "closed_interval_0_1",
+      "created_revision": "ruo:revision:0",
+      "entity_kind": "evidence",
+      "evidence_id": "ruo:evidence:vision:a74c78d21f0587c71de8b7af",
+      "extensions": {},
+      "invalidated_by_revision": null,
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "observation_or_inference": "observation",
+      "provenance": {
+        "backend": "burn",
+        "detection_id": "det:sun:42",
+        "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "model_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "model_id": "solar-object-detector",
+        "observation_id": "obs:solar:frame-42",
+        "preprocessing_profile": "solar-vision-input/1"
+      },
+      "schema_version": "1.0"
+    },
+    {
+      "confidence": 0.9819999933242798,
+      "confidence_contract": "closed_interval_0_1",
+      "created_revision": "ruo:revision:0",
+      "entity_kind": "evidence",
+      "evidence_id": "ruo:evidence:vision:3c192861b4bb9a10016f4db4",
+      "extensions": {},
+      "invalidated_by_revision": null,
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "observation_or_inference": "observation",
+      "provenance": {
+        "backend": "burn",
+        "detection_id": "det:earth:42",
+        "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "model_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "model_id": "solar-object-detector",
+        "observation_id": "obs:solar:frame-42",
+        "preprocessing_profile": "solar-vision-input/1"
+      },
+      "schema_version": "1.0"
+    }
+  ],
+  "extension_registry": [
+    {
+      "authority": "reasonscript-vision-runtime/0.1",
+      "canonical_ordering": "stable_identity",
+      "compatibility": "retain",
+      "entity_kinds": [
+        "payload",
+        "state",
+        "relation",
+        "evidence"
+      ],
+      "namespace": "reasonscript.vision",
+      "opaque_retention": true,
+      "version": "0.1"
+    }
+  ],
+  "extensions": {
+    "reasonscript.vision": {
+      "critical": false,
+      "observation_id": "obs:solar:frame-42",
+      "observation_profile": "reasonscript-vision-observation/0.1"
+    }
+  },
+  "external_resources": [
+    {
+      "availability_status": "available",
+      "byte_size": 48,
+      "chunks": [],
+      "content_sha256": "87df8fe59b4364f49ac58fedeebf790dd8baa636dc7871f2d219453353cb891e",
+      "critical": true,
+      "dtype": "float32",
+      "evidence_refs": [
+        "ruo:evidence:vision:a74c78d21f0587c71de8b7af",
+        "ruo:evidence:vision:3c192861b4bb9a10016f4db4"
+      ],
+      "locator": "resources/detections.ruot",
+      "locator_policy": "relative-resource-root",
+      "logical_role": "reasonscript.vision:detections",
+      "media_type": "application/vnd.reasonscript.ruo-tensor",
+      "owner_payload_id": "ruo:payload:tensor:vision:detections:b5f2fce2d2d46a7c020a5200",
+      "payload_profile": "ruo.payload.tensor/1",
+      "profile_version": "1",
+      "provenance_refs": [
+        "ruo:evidence:vision:a74c78d21f0587c71de8b7af",
+        "ruo:evidence:vision:3c192861b4bb9a10016f4db4"
+      ],
+      "representation": "dense_resource",
+      "resource_id": "ruo:resource:vision:detections:b5f2fce2d2d46a7c020a5200",
+      "shape_digest": "sha256:46db845fb3aac34a6e10e6f237ce4cdd7f5e1fdd50eec86b09264da9cad0e356"
+    },
+    {
+      "availability_status": "available",
+      "byte_size": 24,
+      "chunks": [],
+      "content_sha256": "047973852c03421d99bccd027b29e0decda1253e515c7a0abaa51192c136d203",
+      "critical": true,
+      "dtype": "float32",
+      "evidence_refs": [
+        "ruo:evidence:vision:a74c78d21f0587c71de8b7af",
+        "ruo:evidence:vision:3c192861b4bb9a10016f4db4"
+      ],
+      "locator": "resources/embeddings.ruot",
+      "locator_policy": "relative-resource-root",
+      "logical_role": "reasonscript.vision:embeddings",
+      "media_type": "application/vnd.reasonscript.ruo-tensor",
+      "owner_payload_id": "ruo:payload:tensor:vision:embeddings:b5f2fce2d2d46a7c020a5200",
+      "payload_profile": "ruo.payload.tensor/1",
+      "profile_version": "1",
+      "provenance_refs": [
+        "ruo:evidence:vision:a74c78d21f0587c71de8b7af",
+        "ruo:evidence:vision:3c192861b4bb9a10016f4db4"
+      ],
+      "representation": "dense_resource",
+      "resource_id": "ruo:resource:vision:embeddings:b5f2fce2d2d46a7c020a5200",
+      "shape_digest": "sha256:18b058689d010062a25cd7fb949b2abfea1757d2de45ca3abdda17db956e506b"
+    }
+  ],
+  "lifecycle_state": "active",
+  "model_version": "reasonscript-reasonunit-object/1.0",
+  "object_identity": {
+    "created_revision": "ruo:revision:0",
+    "entity_id": "ruo:object:vision-session:1177805456bbafd6fb00bca2",
+    "entity_kind": "reasonunit_object",
+    "extensions": {},
+    "last_modified_revision": "ruo:revision:0",
+    "lifecycle_state": "active",
+    "schema_version": "1.0"
+  },
+  "object_type": "reasonscript.vision:observation-session/1",
+  "partial_loading": {
+    "entity_status": {},
+    "is_partial": false,
+    "unattached_retained_entities": []
+  },
+  "payloads": [
+    {
+      "created_revision": "ruo:revision:0",
+      "entity_kind": "payload",
+      "evidence_refs": [],
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "owner_id": "ruo:unit:vision-frame:785d0fd396ebe31d46b5d4cd",
+      "payload_id": "ruo:payload:image:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "profile_id": "ruo.payload.binary-ref/1",
+      "schema_version": "1.0",
+      "value_presence": "external",
+      "value_ref": {
+        "artifact_ref": "frames/frame-42.png",
+        "media_type": "image/*",
+        "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "created_revision": "ruo:revision:0",
+      "entity_kind": "payload",
+      "evidence_refs": [
+        "ruo:evidence:vision:a74c78d21f0587c71de8b7af",
+        "ruo:evidence:vision:3c192861b4bb9a10016f4db4"
+      ],
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "owner_id": "ruo:unit:vision-frame:785d0fd396ebe31d46b5d4cd",
+      "payload_id": "ruo:payload:tensor:vision:detections:b5f2fce2d2d46a7c020a5200",
+      "profile_id": "ruo.payload.tensor/1",
+      "schema_version": "1.0",
+      "value": {
+        "axes": [
+          {
+            "duplicate_policy": "forbidden",
+            "identity_mapping": {
+              "mapping_version": "1",
+              "ordered_ids": [
+                "ruo:unit:vision-track:4c0125b9a16aa99db4d3be5e",
+                "ruo:unit:vision-track:b1a8db1a6eb2dc50b1aa853d"
+              ],
+              "partial": false,
+              "source_object_revision": "ruo:revision:0",
+              "uniqueness": "unique"
+            },
+            "ordering": "ordered",
+            "ordinal": 0,
+            "partial_loading_status": "complete",
+            "size": 2
+          },
+          {
+            "duplicate_policy": "forbidden",
+            "extensions": {
+              "reasonscript.vision:column_labels": [
+                "x",
+                "y",
+                "width",
+                "height",
+                "confidence",
+                "class_index"
+              ]
+            },
+            "ordering": "ordered",
+            "ordinal": 1,
+            "partial_loading_status": "complete",
+            "size": 6
+          }
+        ],
+        "dtype": "float32",
+        "element_count": 12,
+        "evidence_refs": [
+          "ruo:evidence:vision:a74c78d21f0587c71de8b7af",
+          "ruo:evidence:vision:3c192861b4bb9a10016f4db4"
+        ],
+        "extensions": {
+          "reasonscript.vision": {
+            "critical": false,
+            "role": "detections"
+          }
+        },
+        "logical_digest": "sha256:6a0dd1c8a1b8847b933e8d6d564df683df4957cbe2ba09ee2dd1cb7aa7e2a361",
+        "payload_id": "ruo:payload:tensor:vision:detections:b5f2fce2d2d46a7c020a5200",
+        "rank": 2,
+        "representation": "dense_resource",
+        "shape": [
+          2,
+          6
+        ],
+        "storage": {
+          "byte_order": "little",
+          "byte_size": 48,
+          "chunks": [],
+          "contiguous": true,
+          "layout": "row_major",
+          "locator": "resources/detections.ruot",
+          "media_type": "application/vnd.reasonscript.ruo-tensor",
+          "offset_bytes": 0,
+          "resource_id": "ruo:resource:vision:detections:b5f2fce2d2d46a7c020a5200",
+          "sha256": "sha256:87df8fe59b4364f49ac58fedeebf790dd8baa636dc7871f2d219453353cb891e"
+        },
+        "tensor_profile": "ruo.tensor/1.0",
+        "validity": {
+          "states": [
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            "valid"
+          ],
+          "status": "complete"
+        },
+        "value_presence": "present"
+      },
+      "value_presence": "present"
+    },
+    {
+      "created_revision": "ruo:revision:0",
+      "entity_kind": "payload",
+      "evidence_refs": [
+        "ruo:evidence:vision:a74c78d21f0587c71de8b7af",
+        "ruo:evidence:vision:3c192861b4bb9a10016f4db4"
+      ],
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "owner_id": "ruo:unit:vision-frame:785d0fd396ebe31d46b5d4cd",
+      "payload_id": "ruo:payload:tensor:vision:embeddings:b5f2fce2d2d46a7c020a5200",
+      "profile_id": "ruo.payload.tensor/1",
+      "schema_version": "1.0",
+      "value": {
+        "axes": [
+          {
+            "duplicate_policy": "forbidden",
+            "identity_mapping": {
+              "mapping_version": "1",
+              "ordered_ids": [
+                "ruo:unit:vision-track:4c0125b9a16aa99db4d3be5e",
+                "ruo:unit:vision-track:b1a8db1a6eb2dc50b1aa853d"
+              ],
+              "partial": false,
+              "source_object_revision": "ruo:revision:0",
+              "uniqueness": "unique"
+            },
+            "ordering": "ordered",
+            "ordinal": 0,
+            "partial_loading_status": "complete",
+            "size": 2
+          },
+          {
+            "duplicate_policy": "forbidden",
+            "ordering": "ordered",
+            "ordinal": 1,
+            "partial_loading_status": "complete",
+            "size": 3
+          }
+        ],
+        "dtype": "float32",
+        "element_count": 6,
+        "evidence_refs": [
+          "ruo:evidence:vision:a74c78d21f0587c71de8b7af",
+          "ruo:evidence:vision:3c192861b4bb9a10016f4db4"
+        ],
+        "extensions": {
+          "reasonscript.vision": {
+            "critical": false,
+            "role": "embeddings"
+          }
+        },
+        "logical_digest": "sha256:84bbfdf785eb4d00189282a9e91d65801abdeaaca8672177a7cb97536895c768",
+        "payload_id": "ruo:payload:tensor:vision:embeddings:b5f2fce2d2d46a7c020a5200",
+        "rank": 2,
+        "representation": "dense_resource",
+        "shape": [
+          2,
+          3
+        ],
+        "storage": {
+          "byte_order": "little",
+          "byte_size": 24,
+          "chunks": [],
+          "contiguous": true,
+          "layout": "row_major",
+          "locator": "resources/embeddings.ruot",
+          "media_type": "application/vnd.reasonscript.ruo-tensor",
+          "offset_bytes": 0,
+          "resource_id": "ruo:resource:vision:embeddings:b5f2fce2d2d46a7c020a5200",
+          "sha256": "sha256:047973852c03421d99bccd027b29e0decda1253e515c7a0abaa51192c136d203"
+        },
+        "tensor_profile": "ruo.tensor/1.0",
+        "validity": {
+          "states": [
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            "valid",
+            "valid"
+          ],
+          "status": "complete"
+        },
+        "value_presence": "present"
+      },
+      "value_presence": "present"
+    }
+  ],
+  "projection_descriptors": [],
+  "relations": [
+    {
+      "created_revision": "ruo:revision:0",
+      "directionality": "directed",
+      "endpoint_resolution": "resolved",
+      "entity_kind": "relation",
+      "evidence_refs": [
+        "ruo:evidence:vision:a74c78d21f0587c71de8b7af"
+      ],
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "multiplicity": "one-to-many",
+      "relation_class": "internal",
+      "relation_id": "ruo:relation:observed:88f28239007bdc98ab89f2e3",
+      "relation_type": "reasonscript.vision:observed_in/1",
+      "schema_version": "1.0",
+      "source_id": "ruo:unit:vision-frame:785d0fd396ebe31d46b5d4cd",
+      "target_id": "ruo:unit:vision-track:4c0125b9a16aa99db4d3be5e"
+    },
+    {
+      "created_revision": "ruo:revision:0",
+      "directionality": "directed",
+      "endpoint_resolution": "resolved",
+      "entity_kind": "relation",
+      "evidence_refs": [
+        "ruo:evidence:vision:3c192861b4bb9a10016f4db4"
+      ],
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "multiplicity": "one-to-many",
+      "relation_class": "internal",
+      "relation_id": "ruo:relation:observed:7a9c5a3fb4bd496c3b52707a",
+      "relation_type": "reasonscript.vision:observed_in/1",
+      "schema_version": "1.0",
+      "source_id": "ruo:unit:vision-frame:785d0fd396ebe31d46b5d4cd",
+      "target_id": "ruo:unit:vision-track:b1a8db1a6eb2dc50b1aa853d"
+    }
+  ],
+  "revisions": [
+    {
+      "changed_entities": [],
+      "revision_id": "ruo:revision:0",
+      "source_revision": null,
+      "transaction_id": "ruo:transaction:vision-initial"
+    }
+  ],
+  "root_units": [
+    "ruo:unit:vision-session:1177805456bbafd6fb00bca2"
+  ],
+  "states": [
+    {
+      "created_revision": "ruo:revision:0",
+      "dependency_refs": [],
+      "entity_kind": "state",
+      "evidence_refs": [
+        "ruo:evidence:vision:a74c78d21f0587c71de8b7af"
+      ],
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_eligibility": [
+        "active"
+      ],
+      "lifecycle_state": "active",
+      "owner_id": "ruo:unit:vision-track:4c0125b9a16aa99db4d3be5e",
+      "schema_version": "1.0",
+      "source_revision": "ruo:revision:0",
+      "source_revisions": {},
+      "state_class": "unit_local",
+      "state_id": "ruo:state:vision:a74c78d21f0587c71de8b7af",
+      "validity": "current",
+      "value": {
+        "bounding_box_xywh": [
+          290.0,
+          190.0,
+          100.0,
+          100.0
+        ],
+        "class_index": 0,
+        "class_label": "sun",
+        "confidence": 0.996999979019165,
+        "frame_time": 42.0,
+        "image_center_xy": [
+          340.0,
+          240.0
+        ],
+        "knowledge_status": "observed"
+      }
+    },
+    {
+      "created_revision": "ruo:revision:0",
+      "dependency_refs": [],
+      "entity_kind": "state",
+      "evidence_refs": [
+        "ruo:evidence:vision:3c192861b4bb9a10016f4db4"
+      ],
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_eligibility": [
+        "active"
+      ],
+      "lifecycle_state": "active",
+      "owner_id": "ruo:unit:vision-track:b1a8db1a6eb2dc50b1aa853d",
+      "schema_version": "1.0",
+      "source_revision": "ruo:revision:0",
+      "source_revisions": {},
+      "state_class": "unit_local",
+      "state_id": "ruo:state:vision:3c192861b4bb9a10016f4db4",
+      "validity": "current",
+      "value": {
+        "bounding_box_xywh": [
+          412.0,
+          218.0,
+          42.0,
+          42.0
+        ],
+        "class_index": 3,
+        "class_label": "earth",
+        "confidence": 0.9819999933242798,
+        "frame_time": 42.0,
+        "image_center_xy": [
+          433.0,
+          239.0
+        ],
+        "knowledge_status": "observed"
+      }
+    }
+  ],
+  "units": [
+    {
+      "children": [
+        "ruo:unit:vision-frame:785d0fd396ebe31d46b5d4cd"
+      ],
+      "created_revision": "ruo:revision:0",
+      "entity_id": "ruo:unit:vision-session:1177805456bbafd6fb00bca2",
+      "entity_kind": "composite_reasonunit",
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "owner_object_id": "ruo:object:vision-session:1177805456bbafd6fb00bca2",
+      "schema_version": "1.0",
+      "unit_kind": "composite"
+    },
+    {
+      "children": [
+        "ruo:unit:vision-track:4c0125b9a16aa99db4d3be5e",
+        "ruo:unit:vision-track:b1a8db1a6eb2dc50b1aa853d"
+      ],
+      "created_revision": "ruo:revision:0",
+      "entity_id": "ruo:unit:vision-frame:785d0fd396ebe31d46b5d4cd",
+      "entity_kind": "composite_reasonunit",
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "owner_object_id": "ruo:object:vision-session:1177805456bbafd6fb00bca2",
+      "schema_version": "1.0",
+      "unit_kind": "composite"
+    },
+    {
+      "children": [],
+      "created_revision": "ruo:revision:0",
+      "entity_id": "ruo:unit:vision-track:4c0125b9a16aa99db4d3be5e",
+      "entity_kind": "atomic_reasonunit",
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "owner_object_id": "ruo:object:vision-session:1177805456bbafd6fb00bca2",
+      "schema_version": "1.0",
+      "unit_kind": "atomic"
+    },
+    {
+      "children": [],
+      "created_revision": "ruo:revision:0",
+      "entity_id": "ruo:unit:vision-track:b1a8db1a6eb2dc50b1aa853d",
+      "entity_kind": "atomic_reasonunit",
+      "extensions": {},
+      "last_modified_revision": "ruo:revision:0",
+      "lifecycle_state": "active",
+      "owner_object_id": "ruo:object:vision-session:1177805456bbafd6fb00bca2",
+      "schema_version": "1.0",
+      "unit_kind": "atomic"
+    }
+  ]
+}

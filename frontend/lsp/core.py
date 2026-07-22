@@ -77,6 +77,8 @@ KEYWORD_COMPLETIONS = (
     # world / system / component are reserved — must NOT appear here (v0.6-D §6.3)
 )
 RUNTIME_APIS = ("runtime.search", "runtime.plan", "runtime.predict", "runtime.simulate")
+VISION_APIS = ("vision.infer", "vision.build_ruo")
+VISION_TYPES = ("VisionModel", "VisionObservation", "VisionBuildResult")
 WORLD_TYPES = (
     "World",
     "Scene",
@@ -97,7 +99,7 @@ BUILTIN_SYMBOLS = tuple(
         name=name,
         kind=(
             "RuntimeAPI"
-            if name.startswith("runtime.")
+            if name.startswith("runtime.") or name.startswith("vision.")
             else "PlanningType"
             if name in PLANNING_TYPES
             else "AgentType"
@@ -105,7 +107,9 @@ BUILTIN_SYMBOLS = tuple(
             else "WorldType"
         ),
         module=(
-            "runtime"
+            "vision"
+            if name.startswith("vision.")
+            else "runtime"
             if name.startswith("runtime.")
             else "planning"
             if name in PLANNING_TYPES
@@ -117,7 +121,7 @@ BUILTIN_SYMBOLS = tuple(
         location=Location("builtin://reasonscript-lsp", point_range(0, 0)),
         detail="ReasonScript built-in symbol",
     )
-    for name in (*RUNTIME_APIS, *WORLD_TYPES, *PLANNING_TYPES, *AGENT_TYPES)
+    for name in (*RUNTIME_APIS, *VISION_APIS, *VISION_TYPES, *WORLD_TYPES, *PLANNING_TYPES, *AGENT_TYPES)
 )
 
 
@@ -302,6 +306,8 @@ class ReasonScriptLanguageServer:
             [
                 *(CompletionItem(label, "Keyword") for label in KEYWORD_COMPLETIONS),
                 *(CompletionItem(label, "RuntimeAPI") for label in RUNTIME_APIS),
+                *(CompletionItem(label, "VisionAPI") for label in VISION_APIS),
+                *(CompletionItem(label, "VisionType") for label in VISION_TYPES),
                 *(CompletionItem(label, "WorldType") for label in WORLD_TYPES),
                 *(CompletionItem(label, "PlanningType") for label in PLANNING_TYPES),
                 *(CompletionItem(label, "AgentType") for label in AGENT_TYPES),

@@ -73,6 +73,8 @@ COMPATIBILITY_TARGETS = {
     "reasonscript-reasoning-runtime-prototype/1.0": lambda: REASONING_RUNTIME_SCHEMA == "reasonscript-reasoning-runtime-prototype/1.0",
     "reasonscript-playground-reasoning-overview/1.0": lambda: REASONING_OVERVIEW_SCHEMA == "reasonscript-playground-reasoning-overview/1.0",
     "reasonscript-phase8-golden-validation/1.0": lambda: PHASE8_GOLDEN_SCHEMA == "reasonscript-phase8-golden-validation/1.0",
+    "reasonscript-vision-runtime/0.1": lambda: __import__("toolchain.vision_runtime_cmd", fromlist=["PROFILE"]).PROFILE == "reasonscript-vision-runtime/0.1",
+    "reasonscript-vision-language-integration/0.1": lambda: __import__("frontend.vision.contracts", fromlist=["PROFILE"]).PROFILE == "reasonscript-vision-language-integration/0.1",
 }
 
 DEFAULT_TEST_COMMAND = (sys.executable, "-m", "pytest", "tests", "-q")
