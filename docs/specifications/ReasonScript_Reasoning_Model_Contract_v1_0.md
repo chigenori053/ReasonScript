@@ -1007,7 +1007,7 @@ tests/reasoning_model/test_reasoning_model_contract.py
 tests/fixtures/reasoning_model/valid_minimal.json
 tests/fixtures/reasoning_model/invalid_missing_model_id.json
 tests/fixtures/reasoning_model/invalid_duplicate_step_id.json
-docs/changelogs/ReasonScript_Phase_8A_Reasoning_Model_Contract.md
+docs/changelog/phase8a_reasoning_model_contract.md
 ```
 
 ---

@@ -72,7 +72,7 @@ others). Additional versioned specifications live in `specifications/`.
 - `development/` — Development environment and workspace contracts.
 - `reference/` — Reference material.
 - `releases/` — Release notes.
-- `changelogs/` — Component changelogs.
+- `changelog/` — Component changelogs.
 - `reports/` — Feature validation reports.
 
 ## Roadmap
