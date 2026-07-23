@@ -7,6 +7,9 @@ and ExecutionPlan — into a validated, reproducible runtime result.
 
 Current release: **v0.5.2.2**. See [`CHANGELOG.md`](CHANGELOG.md) for the
 detailed history and [`docs/roadmap.md`](docs/roadmap.md) for what's next.
+Use
+[`docs/installation/ReasonScript_v0_5_2_2_Installation.md`](docs/installation/ReasonScript_v0_5_2_2_Installation.md)
+for the official macOS arm64 package update procedure.
 
 ## What it does
 
