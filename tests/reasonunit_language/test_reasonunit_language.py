@@ -104,6 +104,39 @@ def test_consolidated_cli_check_run_query_select_and_save(generated: Path, tmp_p
     assert json.loads(capsys.readouterr().out)["canonical_byte_identical"]
 
 
+def test_object_cli_native_resolution_is_independent_of_project_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    native = tmp_path / "distribution/bin/reasonunit-runtime-native"
+    native.parent.mkdir(parents=True)
+    native.write_text(
+        "#!/bin/sh\n"
+        "printf '%s' '{\"ok\":true,\"object_id\":\"ruo:object:test\","
+        "\"revision_id\":\"ruo:revision:0\",\"snapshot_generation\":1,"
+        "\"logical_object_digest\":\"sha256:test\"}'\n",
+        encoding="utf-8",
+    )
+    native.chmod(0o755)
+    calls: list[tuple[object, ...]] = []
+
+    def resolve(*args: object) -> Path:
+        calls.append(args)
+        return native
+
+    monkeypatch.setattr("toolchain.object_cmd.resolve_native_reasonunit_runtime", resolve)
+    project = tmp_path / "unrelated-project"
+    project.mkdir()
+    object_path = project / "object.ruo"
+    object_path.write_text("native fixture", encoding="utf-8")
+
+    assert cli_run(["inspect", str(object_path), "--json"], project) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result["ok"] and result["object_id"] == "ruo:object:test"
+    assert calls == [()]
+
+
 def test_phase_generates_56_artifacts_and_67_tests(generated: Path) -> None:
     assert len(CANONICAL_ARTIFACTS) == 56 and all((generated / name).is_file() for name in CANONICAL_ARTIFACTS)
     summary = json.loads((generated / "validation_summary.json").read_text())["data"]

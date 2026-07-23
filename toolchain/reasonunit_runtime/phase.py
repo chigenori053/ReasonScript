@@ -94,7 +94,7 @@ def verify_ruo_t1(root: Path, directory: Path | None = None) -> dict[str, Any]:
 
 
 def _native_binary(root: Path) -> Path:
-    return resolve_native_reasonunit_runtime(root)
+    return resolve_native_reasonunit_runtime()
 
 
 def _native_probe(root: Path, fixture: Path) -> dict[str, Any]:

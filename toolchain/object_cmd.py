@@ -36,7 +36,7 @@ def _result(command: str, ok: bool, **values: Any) -> dict[str, Any]:
 
 def _native(root: Path, operation: str, path: Path) -> dict[str, Any]:
     import subprocess
-    completed = subprocess.run([str(resolve_native_reasonunit_runtime(root)), operation, str(path)], cwd=root, capture_output=True, text=True, timeout=30, check=False)
+    completed = subprocess.run([str(resolve_native_reasonunit_runtime()), operation, str(path)], cwd=root, capture_output=True, text=True, timeout=30, check=False)
     return json.loads(completed.stdout)
 
 

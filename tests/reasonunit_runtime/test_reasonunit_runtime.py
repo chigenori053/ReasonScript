@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from toolchain.reasonunit_file import write_file
+from toolchain.reasonunit_object.universal import reference_object
 from toolchain.reasonunit_runtime import CANONICAL_ARTIFACTS, generate_runtime_profile, validate_runtime_profile, verify_ruo_t1
 from toolchain.reasonunit_runtime.phase import INVALID_CASES, NATIVE_TYPES, PROFILE
 from toolchain.reasonunit_runtime_cmd import run as cli_run
@@ -45,6 +47,50 @@ def test_native_loader_exposes_stable_sorted_ids(generated: Path) -> None:
     assert all(":" in entity_id for entity_id in result["entity_ids"])
 
 
+def test_python_writer_exponent_numbers_load_in_native_runtime(tmp_path: Path) -> None:
+    logical = reference_object()
+    numeric = next(
+        item for item in logical["payloads"]
+        if item["profile_id"] == "ruo.payload.numeric/1"
+    )
+    numeric["value"]["values"] = [1e-7, -2.5e-9, 3.25e20]
+    target = tmp_path / "python-written-exponents.ruo"
+    assert write_file(logical, target)["ok"]
+
+    completed = subprocess.run(
+        [
+            "cargo", "run", "--offline", "--quiet",
+            "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml",
+            "--bin", "reasonunit-runtime-native", "--", "load", str(target),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    result = json.loads(completed.stdout)
+    assert completed.returncode == 0, completed.stderr
+    assert result["ok"] and result["object_id"] == logical["object_identity"]["entity_id"]
+
+
+def test_native_reader_rejects_tampered_raw_body(tmp_path: Path) -> None:
+    target = tmp_path / "tampered.ruo"
+    write_file(reference_object(), target)
+    payload = target.read_bytes().replace(b"universal", b"UniversaL", 1)
+    target.write_bytes(payload)
+    binary = ROOT / "NativeReasonUnitRuntime/target/debug/reasonunit-runtime-native"
+    completed = subprocess.run(
+        [str(binary), "load", str(target)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    result = json.loads(completed.stdout)
+    assert completed.returncode == 1
+    assert result["diagnostics"][0]["code"] == "RUO-N1-007"
+    assert result["diagnostics"][0]["message"] == "record digest mismatch"
+
+
 def test_cli_native_provenance_and_phase_json(generated: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert cli_run(["snapshot", str(generated / "fixtures/complete.ruo"), "--json"], ROOT) == 0
     result = json.loads(capsys.readouterr().out)
@@ -74,4 +120,3 @@ def test_artifact_envelopes_and_manifest_inventory(generated: Path) -> None:
 
 def test_three_run_determinism_and_offline_validation(generated: Path) -> None:
     assert validate_runtime_profile(ROOT, generated, verify_determinism=True)["ok"]
-

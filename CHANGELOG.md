@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.5.2.2 — 2026-07-24
+
+### Fixed
+
+- Corrected RUO native runtime discovery so installed `reason object` and
+  `reasonunit-runtime` commands resolve binaries from the active distribution
+  rather than the caller's project directory.
+- Corrected Python/Rust RUO-F1 interoperability by hashing the canonical raw
+  record body in the native reader instead of a re-serialized JSON value.
+- Added exponent-number, VisionRuntime-to-RUO, arbitrary-working-directory,
+  and record-tamper regression coverage.
+
+### Validation
+
+- Focused RUO-F1/N1/N2/Vision regression: 54 PASS.
+- Native Rust tests, Clippy, and rustfmt: PASS.
+- `reason ci --json`: PASS, 1092 tests.
+
 ## v0.5.2.1 — 2026-07-23
 
 ### Fixed

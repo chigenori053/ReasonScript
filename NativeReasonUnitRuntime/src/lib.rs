@@ -4,6 +4,7 @@
 //! semantic identity never depends on an address, slot, worker, or tensor index.
 
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -12,6 +13,13 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 pub const PROFILE: &str = "reasonscript-reasonunit-native-runtime/1.0";
+
+#[derive(Deserialize)]
+struct RawEnvelope {
+    body: Box<RawValue>,
+    body_sha256: String,
+    record_type: String,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct StableId(String);
@@ -519,30 +527,27 @@ pub fn load_ruo(path: &Path) -> Result<NativeReasonUnitObject, NativeError> {
     let mut logical_object = None;
     let mut sealed_digest = None;
     for line in bytes.split(|b| *b == b'\n').filter(|line| !line.is_empty()) {
-        let envelope: Value = serde_json::from_slice(line).map_err(|_| {
+        let envelope: RawEnvelope = serde_json::from_slice(line).map_err(|_| {
             NativeError::new(
                 "RUO-N1-007",
                 FailureClass::Integrity,
                 "invalid JSONL record",
             )
         })?;
-        let body = envelope.get("body").ok_or_else(|| {
-            NativeError::new("RUO-N1-007", FailureClass::Integrity, "record body missing")
-        })?;
-        let body_bytes = serde_json::to_vec(body)
-            .map_err(|_| NativeError::internal("record encoding failed"))?;
-        if envelope.get("body_sha256").and_then(Value::as_str)
-            != Some(sha256_hex(&body_bytes).as_str())
-        {
+        let body_bytes = envelope.body.get().as_bytes();
+        if envelope.body_sha256 != sha256_hex(body_bytes) {
             return Err(NativeError::new(
                 "RUO-N1-007",
                 FailureClass::Integrity,
                 "record digest mismatch",
             ));
         }
-        match envelope.get("record_type").and_then(Value::as_str) {
-            Some("object") => logical_object = Some(body.clone()),
-            Some("file_seal") => {
+        let body: Value = serde_json::from_str(envelope.body.get()).map_err(|_| {
+            NativeError::new("RUO-N1-007", FailureClass::Integrity, "invalid record body")
+        })?;
+        match envelope.record_type.as_str() {
+            "object" => logical_object = Some(body),
+            "file_seal" => {
                 sealed_digest = body
                     .get("logical_object_digest")
                     .and_then(Value::as_str)

@@ -10,10 +10,17 @@ def native_reasonunit_runtime_name() -> str:
     return "reasonunit-runtime-native.exe" if os.name == "nt" else "reasonunit-runtime-native"
 
 
-def native_reasonunit_runtime_candidates(root: Path | None = None) -> tuple[Path, ...]:
+def native_reasonunit_runtime_candidates(
+    distribution_root: Path | None = None,
+) -> tuple[Path, ...]:
+    """Return candidates below the executing ReasonScript distribution.
+
+    A caller's project root must never be supplied here. The optional argument
+    exists only for explicit distribution-layout tests.
+    """
     distribution_root = (
-        root.resolve()
-        if root is not None
+        distribution_root.resolve()
+        if distribution_root is not None
         else Path(__file__).resolve().parents[1]
     )
     name = native_reasonunit_runtime_name()
@@ -24,12 +31,15 @@ def native_reasonunit_runtime_candidates(root: Path | None = None) -> tuple[Path
     )
 
 
-def resolve_native_reasonunit_runtime(root: Path | None = None) -> Path:
-    for candidate in native_reasonunit_runtime_candidates(root):
+def resolve_native_reasonunit_runtime(
+    distribution_root: Path | None = None,
+) -> Path:
+    for candidate in native_reasonunit_runtime_candidates(distribution_root):
         if candidate.is_file():
             return candidate
     searched = ", ".join(
-        str(candidate) for candidate in native_reasonunit_runtime_candidates(root)
+        str(candidate)
+        for candidate in native_reasonunit_runtime_candidates(distribution_root)
     )
     raise FileNotFoundError(
         "RUO-N1-029 native ReasonUnit Runtime executable is missing; "

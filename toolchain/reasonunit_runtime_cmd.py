@@ -31,7 +31,7 @@ def run(args: list[str], root: Path) -> int:
         ok = raw.get("phase_status") == "VALIDATED" if operation == "generate" else bool(raw.get("ok"))
         result = {"ok": ok, "exit_status": 0 if ok else 1, "operation": operation, "native_execution_provenance": PROFILE, "phase_status": raw.get("phase_status", "VALIDATED" if ok else "NOT_VALIDATED"), "artifact_count": raw.get("artifact_count", 0), "file_count": raw.get("file_count", 0), "diagnostics": raw.get("issues", [])}
     else:
-        binary = resolve_native_reasonunit_runtime(root)
+        binary = resolve_native_reasonunit_runtime()
         native_args = [str(binary), operation]
         if operation != "verify-native":
             if len(args) < 2: print("OBJECT.ruo is required"); return 1

@@ -4,6 +4,7 @@ import json
 import subprocess
 from pathlib import Path
 
+from toolchain.reasonunit_file import write_file
 from toolchain.reasonunit_object.model import validate_object
 from toolchain.reasonunit_tensor import validate_tensor
 
@@ -42,6 +43,27 @@ def test_generated_vision_object_is_valid_u1_and_t1(tmp_path: Path) -> None:
     for payload in tensors:
         resource = (tmp_path / payload["value"]["storage"]["locator"]).read_bytes()
         assert validate_tensor(payload, resource_bytes=resource)["ok"] is True
+
+
+def test_vision_object_python_ruo_writer_to_native_reader(tmp_path: Path) -> None:
+    status, result = run_reason("generate", "--output", str(tmp_path))
+    assert status == 0 and result["phase_status"] == "VALIDATED"
+    object_value = json.loads(
+        (tmp_path / "vision_object.json").read_text(encoding="utf-8")
+    )
+    object_path = tmp_path / "earth_surface.ruo"
+    assert write_file(object_value, object_path)["ok"]
+    binary = ROOT / "NativeReasonUnitRuntime/target/debug/reasonunit-runtime-native"
+    completed = subprocess.run(
+        [str(binary), "load", str(object_path)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    native = json.loads(completed.stdout)
+    assert completed.returncode == 0, completed.stderr
+    assert native["ok"] and native["object_id"] == object_value["object_identity"]["entity_id"]
 
 
 def test_tensor_axis_mapping_uses_stable_ruo_identity(tmp_path: Path) -> None:
