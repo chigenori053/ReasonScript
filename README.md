@@ -3,6 +3,14 @@
 ReasonScript is a reasoning-first language for proofable AI workflows,
 deterministic execution, and rollback-safe systems.
 
+# Guide
+
+New to ReasonScript? Start with `docs/guide/` for an organized,
+senior-engineer-level introduction, available in English and Japanese:
+
+- `docs/guide/concepts.en.md` / `docs/guide/concepts.ja.md` — core concepts
+- `docs/guide/basic-usage.en.md` / `docs/guide/basic-usage.ja.md` — basic usage and specification
+
 # Semantic Language v0.2 Core
 
 ReasonScript Semantic Language v0.2 Core was frozen on 2026-06-15 as:
