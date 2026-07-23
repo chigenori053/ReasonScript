@@ -60,7 +60,7 @@ criterion depends on that adapter.
 
 ## 4. Release Artifacts
 
-- `docs/ReasonScript_Language_Surface_v0.1_Release_Specification.md`
+- `docs/specifications/ReasonScript_Language_Surface_v0.1_Release_Specification.md`
 - `release/language-surface-v0.1/manifest.json`
 - `release/language-surface-v0.1/run_release_validation.py`
 - `release/language-surface-v0.1/reports/release_validation_results.json`

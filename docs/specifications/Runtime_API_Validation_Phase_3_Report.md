@@ -53,8 +53,8 @@ HybridRuntime/tests/runtime_api_phase_3_transaction_validation.rs
 規範仕様:
 
 ```text
-docs/Transaction_Protocol_Specification_v0.1.md
-docs/ReasonScript_ABI_Specification_v0.1.md
+docs/specifications/Transaction_Protocol_Specification_v0.1.md
+docs/specifications/ReasonScript_ABI_Specification_v0.1.md
 ```
 
 ## 3. Evaluation

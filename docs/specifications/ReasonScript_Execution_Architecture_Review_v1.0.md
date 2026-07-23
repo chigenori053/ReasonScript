@@ -90,7 +90,7 @@ Current evidence:
   history, timestamp, dynamics context, and trace events.
 - `RuntimeReal/src/runtime_binding.rs` defines RuntimeValue for language-visible
   runtime values.
-- `docs/ReasonScript_Operational_Semantics_v0.1.md` defines frozen Context and
+- `docs/specifications/specifications/ReasonScript_Operational_Semantics_v0.1.md` defines frozen Context and
   immutable State boundaries.
 
 Classification by question:

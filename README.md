@@ -1,130 +1,205 @@
 # ReasonScript
 
-ReasonScript is a reasoning-first language for proofable AI workflows,
-deterministic execution, and rollback-safe systems.
+ReasonScript is a reasoning-first programming language for proofable AI
+workflows, deterministic execution, and rollback-safe systems. It is
+currently at **`0.1.0-alpha`** — an early, working platform with frozen
+core interfaces, not yet a Beta-ready product. See
+[COMPATIBILITY.md](COMPATIBILITY.md) before depending on it in production.
 
-# Semantic Language v0.2 Core
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-ReasonScript Semantic Language v0.2 Core was frozen on 2026-06-15 as:
+## 1. What is ReasonScript?
 
-```text
-A Deterministic Semantic State Transition Language
-with Validated Knowledge Emergence
-```
+ReasonScript is a language and runtime pair built around one idea: **a
+program is a typed graph of states and transitions, and every execution
+step is validated before it commits.** Instead of running arbitrary
+imperative code, a ReasonScript program declares a `Goal`, an initial
+`State`, and a set of candidate `Transition`s and `Constraint`s; the
+compiler and runtime deterministically plan and execute a path between
+them, producing a fully traceable, reversible history.
 
-Its canonical pipeline is:
+This makes it suited to workloads where you need to *prove* what happened
+and why — AI-assisted planning, simulation, and any system where silent,
+unauditable state mutation is unacceptable.
 
-```text
-SemanticUnit
-  -> SemanticRelation
-  -> Reasoning Space
-  -> SemanticPlan
-  -> SemanticSimulation
-  -> SimulationResult
-  -> Knowledge
-```
+## 2. Design Goals
 
-The normative specification is
-`docs/ReasonScript_Semantic_Language_Core_v0.2.md`.
+- **Determinism** — identical input (Reason IR + policies) always produces
+  the same plan and the same result.
+- **Auditability** — every committed change is traceable back to the
+  `Goal` and `Constraint`s that justified it.
+- **Rollback-safety** — failure reverts through a traced reverse delta, not
+  a silent discard; history is never edited.
+- **Layered, versioned interfaces** — the Compiler, Runtime, and IR are
+  independently frozen and versioned so tooling can depend on a stable
+  contract even while the language surface evolves. See
+  [COMPATIBILITY.md](COMPATIBILITY.md).
+- **No special-cased escape hatches** — even mathematical computation is
+  ordinary `State --Transition--> State`, not a separate evaluator.
 
-Run the Core freeze gate with:
+## 3. Key Features
 
-```sh
-python3 release/semantic-language-v0.2/run_release_validation.py
-```
+- A module/function/struct/enum language surface with pattern matching
+  (or-patterns, guards, struct destructuring) — see
+  [docs/language/syntax.md](docs/language/syntax.md).
+- A validation-only type system covering primitives (`Int`, `Float`,
+  `Bool`, `String`) and Reason State types (`Concept`, `Object`, `Event`,
+  `Action`, `Attribute`, `Goal`, `Constraint`) — see
+  [docs/language/type-system.md](docs/language/type-system.md).
+- A deterministic compiler pipeline: Source -> Surface AST -> Semantic AST
+  -> Reason IR -> ExecutionPlan — see
+  [docs/architecture/compiler.md](docs/architecture/compiler.md).
+- Two Rust execution engines (`RuntimeReal`, `HybridRuntime`) implementing
+  a Prepare -> Validate -> Commit -> StateDelta transaction protocol — see
+  [docs/architecture/runtime.md](docs/architecture/runtime.md).
+- A WorldModel SDK for building, validating, and simulating spatial/
+  semantic scenes on top of the runtime — see
+  [docs/architecture/worldmodel.md](docs/architecture/worldmodel.md).
+- A versioned Reason IR JSON ABI with DTO bindings for Rust, Python,
+  TypeScript, Go, and Java (`dto/`), plus a layered conformance framework
+  (`conformance/`).
+- A `reason` CLI (`init`/`build`/`run`/`test`/`check`), a VS Code
+  extension, an LSP, and an early desktop IDE — see
+  [docs/guides/ide.md](docs/guides/ide.md).
 
-# Platform v0.1 Alpha
-
-The current platform release is `0.1.0-alpha` (2026-06-13). It integrates:
-
-```text
-ReasonScript Source
-  -> parser/0.1
-  -> reasonscript-ast/0.1
-  -> compiler/0.1
-  -> reason-ir/0.1
-  -> common-dto/0.1
-  -> Runtime
-  -> InferenceResult
-```
-
-Release documentation:
-
-- `docs/ReasonScript_Platform_v0.1_Alpha_Release_Specification.md`
-- `docs/ReasonScript_Platform_v0.1_Alpha_Release_Report.md`
-- `docs/ReasonScript_Language_Specification_v0.1.md`
-- `docs/ReasonScript_Language_Phase_1_Validation_Report.md`
-- `docs/ReasonScript_Operational_Semantics_v0.1.md`
-- `Operational_Semantics_Validation_Report.md`
-- `release/v0.1-alpha/manifest.json`
-- `CHANGELOG.md`
-
-Run the integrated release gate with:
-
-```sh
-python3 release/v0.1-alpha/run_release_validation.py
-```
-
-# Language Surface v0.1
-
-ReasonScript Language Surface v0.1 was released on 2026-06-14. It fixes the
-deterministic path:
+## 4. Architecture Overview
 
 ```text
-ReasonScript Source
-  -> Surface AST
-  -> Semantic AST
-  -> Reason IR
-  -> ExecutionPlan
+ReasonScript Source (.rsn)
+  -> Surface AST            (frontend/language_surface/)
+  -> Semantic AST           (frontend/ast/)
+  -> Reason IR              (reason-ir/0.1)
+  -> ExecutionPlan          (immutable)
+  -> Runtime execution      (RuntimeReal / HybridRuntime)
+  -> StateDelta + InferenceResult
 ```
 
-Run its release gate with:
+Full breakdown, including the ReasonUnit graph model, the WorldModel SDK,
+and what's explicitly *not* implemented (Cluster Runtime, a standalone
+Tensor Runtime): [docs/architecture/overview.md](docs/architecture/overview.md).
+
+## 5. Installation
 
 ```sh
-python3 release/language-surface-v0.1/run_release_validation.py
+git clone https://github.com/chigenori053/reasonscript.git
+cd reasonscript
+./reason --help
 ```
 
-The normative release specification is
-`docs/ReasonScript_Language_Surface_v0.1_Release_Specification.md`.
+The `reason` CLI needs only Python 3.11+. Building the Rust runtimes
+(`RuntimeReal`, `HybridRuntime`) additionally needs `cargo`. Full
+requirements and verification steps:
+[docs/guides/installation.md](docs/guides/installation.md).
 
-# Reason IR schema and validator
-
-The versioned Reason IR 0.1 contract is defined in
-`schemas/reason_ir.schema.json`. Validate one or more documents with:
+## 6. Quick Start
 
 ```sh
-cargo run --manifest-path HybridRuntime/Cargo.toml \
-  --bin reason-ir-validator -- fixtures/valid/dog_to_animal.json
+./reason init hello_world
+cd hello_world
+./reason build
+./reason run
 ```
 
-Conformance fixtures are stored under `fixtures/valid` and
-`fixtures/invalid`.
+Full 10-minute walkthrough: [docs/guides/quick-start.md](docs/guides/quick-start.md).
+A fuller worked example with structs, enums, and pattern matching:
+[docs/guides/first-project.md](docs/guides/first-project.md).
 
-Common DTO bindings for Rust, Python, TypeScript, Go, and Java are stored under
-`dto/`. The normative DTO contract is
-`docs/Common_DTO_Specification_v0.1.md`.
+## 7. Example
 
-The Phase 3 conformance framework is under `conformance/`. Run every layer and
-refresh the certification report with:
+```reasonscript
+package scorer
+module main {
 
-```sh
-python3 conformance/run_conformance.py
+    enum Tier {
+        Bronze
+        Silver
+        Gold
+    }
+
+    struct Player {
+        wins: int
+        tier: Tier
+    }
+
+    fn TierBonus(tier: Tier) -> int {
+        match tier {
+            Tier.Bronze => return 0
+            Tier.Silver => return 5
+            Tier.Gold => return 10
+        }
+    }
+
+    fn Score(player: Player) -> int {
+        match player {
+            Player { wins } when wins > 100 => return 100 + TierBonus(player.tier)
+            Player { } => return player.wins + TierBonus(player.tier)
+        }
+    }
+
+    calculation Result {
+        result = Score(Player { wins: 42, tier: Tier.Silver })
+    }
+}
 ```
 
-Validate the Language v0.1 core model and module system with:
+More syntax: [docs/language/syntax.md](docs/language/syntax.md).
 
-```sh
-python3 -m unittest discover \
-  -s language_spec_validation_tests -p 'test_*.py' -v
-```
+## 8. Current Status
 
-Validate Operational Semantics v0.1 and the Runtime contract with:
+ReasonScript is **`0.1.0-alpha`**, architecturally coherent but explicitly
+**not Beta-ready**. Subsystem maturity (from the Platform Architecture
+Review):
 
-```sh
-python3 -m unittest discover \
-  -s operational_semantics_tests -p 'test_*.py' -v
-python3 -m unittest discover \
-  -s runtime_semantics_validation_tests -p 'test_*.py' -v
-cargo test --manifest-path HybridRuntime/Cargo.toml \
-  --test operational_semantics_validation
-```
+| Subsystem | Status |
+| --- | --- |
+| Language, Runtime, Execution Architecture, Toolchain, SDK, World Model SDK, LSP, IDE | Partially Complete |
+| Cross-Layer Architecture, Versioning | Requires Refactoring |
+| ReasoningTrace | Missing (proposal only) |
+| Cluster Runtime | Not implemented |
+
+Frozen interfaces (`reason-ir/0.1`, `parser/0.1`, `compiler/0.1`,
+`reasonscript-language-surface/0.1`, `reasonscript-semantic-language/0.2`,
+and more) are safe to build tooling against; everything else can change
+without notice. Full detail, known limitations, and what Beta requires:
+[COMPATIBILITY.md](COMPATIBILITY.md).
+
+## 9. Documentation
+
+Documentation is organized into three layers:
+
+1. **Users** — [Guides](docs/guides/): installation, quick start, first
+   project, IDE setup, migration.
+2. **Developers** — [Language](docs/language/) (syntax, semantics, type
+   system) and [Reference](docs/references/) (CLI, diagnostics, glossary).
+3. **System architects / researchers** —
+   [Architecture](docs/architecture/) (compiler, runtime, ReasonUnit,
+   WorldModel, and the honest status of Cluster Runtime and Tensor) and
+   [Specifications](docs/specifications/) (every normative spec and
+   validation report).
+
+Also see [ROADMAP.md](ROADMAP.md), [COMPATIBILITY.md](COMPATIBILITY.md),
+and [CHANGELOG.md](CHANGELOG.md).
+
+## 10. Roadmap
+
+Current focus is Beta readiness: platform diagnostics, a `ReasoningTrace`
+contract, a Toolchain package graph, and `ExecutionScope`/`CallStack`
+semantics. Full roadmap, including completed phases:
+[ROADMAP.md](ROADMAP.md).
+
+## 11. Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for
+development setup, build/test commands, and how to propose changes to a
+frozen interface. Please also read
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Project decision-making is
+described in [GOVERNANCE.md](GOVERNANCE.md); for help, see
+[SUPPORT.md](SUPPORT.md); to report a vulnerability, see
+[SECURITY.md](SECURITY.md).
+
+## 12. License
+
+Licensed under the [Apache License, Version 2.0](LICENSE). See
+[NOTICE](NOTICE) for attribution.
+
+Copyright 2026 ReasonScript Contributors.

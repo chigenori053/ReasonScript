@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Apache License 2.0 `LICENSE` and `NOTICE` for OSS release.
+- OSS governance docs: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
+  `SECURITY.md`, `SUPPORT.md`, `GOVERNANCE.md`, `COMPATIBILITY.md`.
+- Three-layer documentation structure under `docs/`: `architecture/`
+  (system architects/researchers), `language/` and `references/`
+  (developers), `guides/` (new users), and `specifications/` (existing
+  normative specs, consolidated).
+- Rewrote `README.md` as the project's OSS front door.
+
+### Changed
+
+- Moved `docs/roadmap.md` to `ROADMAP.md` at the repository root.
+- Consolidated the existing specification documents in `docs/` into
+  `docs/specifications/`.
+
 ## reasonscript-semantic-language/0.2 - 2026-06-15
 
 ReasonScript Semantic Language v0.2 Core freeze.

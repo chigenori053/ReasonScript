@@ -13,7 +13,7 @@ Executed: 2026-06-13
 | Structured error model | `frontend/parser/errors.py` | Complete |
 | Parser fixtures | `frontend/parser_fixtures/` | 6 valid + 6 invalid |
 | Parser conformance | `frontend/parser_conformance/` | Five layers |
-| Normative specification | `docs/Parser_Validation_Specification_v0.1.md` | Complete |
+| Normative specification | `docs/specifications/Parser_Validation_Specification_v0.1.md` | Complete |
 
 ## Conformance Results
 

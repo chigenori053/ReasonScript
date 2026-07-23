@@ -12,7 +12,7 @@ Executed: 2026-06-13
 | AST validator | `frontend/ast_validator/` | Complete |
 | Valid and invalid fixtures | `frontend/fixtures/` | 6 + 6 |
 | AST conformance | `frontend/conformance/` | Five layers |
-| Normative specification | `docs/AST_Schema_Validation_Specification_v0.1.md` | Complete |
+| Normative specification | `docs/specifications/AST_Schema_Validation_Specification_v0.1.md` | Complete |
 
 ## Conformance Results
 

@@ -40,7 +40,7 @@ unchanged.
 
 | Artifact | Result |
 |---|---|
-| `docs/ReasonScript_Language_Surface_AST_Mapping_v0.1.md` | CREATED |
+| `docs/specifications/ReasonScript_Language_Surface_AST_Mapping_v0.1.md` | CREATED |
 | `frontend/language_surface/lexer.py` | CREATED |
 | `frontend/language_surface/nodes.py` | CREATED |
 | `frontend/language_surface/parser.py` | CREATED |

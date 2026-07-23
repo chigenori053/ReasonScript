@@ -20,7 +20,7 @@ explicit `ResultTransition`.
 
 | Artifact | Result |
 |---|---|
-| `docs/ReasonScript_Language_Surface_Calculation_Integration_v0.1.md` | CREATED |
+| `docs/specifications/ReasonScript_Language_Surface_Calculation_Integration_v0.1.md` | CREATED |
 | Calculation visibility and serialization | COMPLETED |
 | Calculation scope and Result validation | COMPLETED |
 | Goal annotation resolution | COMPLETED |

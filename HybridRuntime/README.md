@@ -75,4 +75,4 @@ cargo test --offline --test reason_graph_validation
 ```
 
 検証結果の詳細は
-`../docs/ReasonGraph_Validation_Phase_0_Report.md`を参照。
+`../docs/specifications/ReasonGraph_Validation_Phase_0_Report.md`を参照。

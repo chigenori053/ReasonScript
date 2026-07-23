@@ -67,8 +67,8 @@ imported symbols, rejects missing modules, and rejects cycles before lowering.
 
 Two existing documents describe different layers:
 
-- `docs/grammar.md` is the legacy runtime grammar and excludes imports.
-- `docs/Parser_Validation_Specification_v0.1.md` is the current frontend syntax
+- `docs/specifications/specifications/grammar.md` is the legacy runtime grammar and excludes imports.
+- `docs/specifications/specifications/Parser_Validation_Specification_v0.1.md` is the current frontend syntax
   and supports imports.
 
 Language v0.1 treats the semantic AST and current frontend pipeline as
@@ -82,7 +82,7 @@ module graph step for future compiler integration.
 
 ## 4. Deliverables
 
-- `docs/ReasonScript_Language_Specification_v0.1.md`
+- `docs/specifications/specifications/ReasonScript_Language_Specification_v0.1.md`
 - `frontend/language/module_system.py`
 - `language_spec_validation_tests/test_core_language_spec.py`
 - this report

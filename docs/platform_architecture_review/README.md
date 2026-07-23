@@ -43,4 +43,4 @@ gaps, risks, and the Beta roadmap.
 | PAR-012 Architecture Classification | Complete | `platform_architecture_v1.md` |
 | PAR-013 Risk Assessment | Complete | `platform_architecture_v1.md` |
 | PAR-014 Beta Readiness Assessment | Complete | `platform_architecture_v1.md` |
-| PAR-015 Roadmap Update | Complete | `docs/roadmap.md` |
+| PAR-015 Roadmap Update | Complete | `ROADMAP.md` |

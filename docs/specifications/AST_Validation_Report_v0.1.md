@@ -12,7 +12,7 @@ use cases, and the seven AST invariants.
 - Semantic AST definitions in `frontend/ast/`
 - Deterministic lowering to `reason-ir/0.1`
 - Validation suite in `ast_validation_tests/`
-- Normative draft in `docs/AST_Validation_Specification_v0.1.md`
+- Normative draft in `docs/specifications/AST_Validation_Specification_v0.1.md`
 
 ## Validation Matrix
 

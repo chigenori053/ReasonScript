@@ -59,7 +59,7 @@ HybridRuntime/tests/runtime_api_phase_2_reason_ir_validation.rs
 仕様:
 
 ```text
-docs/ReasonScript_ABI_Specification_v0.1.md
+docs/specifications/ReasonScript_ABI_Specification_v0.1.md
 ```
 
 本レポートは次を統合する。

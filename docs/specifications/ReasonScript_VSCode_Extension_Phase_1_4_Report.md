@@ -207,7 +207,7 @@ All four log statements verified in `extension.ts` in the correct order.
 | `.vscodeignore` | `vscode-extension/.vscodeignore` | ✅ Updated |
 | `vscode_extension_phase1_4_tests/` | `vscode_extension_phase1_4_tests/` | ✅ Created (23 tests) |
 | `reasonscript-0.1.7.vsix` | `vscode-extension/reasonscript-0.1.7.vsix` | ✅ Packaged |
-| This report | `docs/ReasonScript_VSCode_Extension_Phase_1_4_Report.md` | ✅ Created |
+| This report | `docs/specifications/ReasonScript_VSCode_Extension_Phase_1_4_Report.md` | ✅ Created |
 
 ---
 

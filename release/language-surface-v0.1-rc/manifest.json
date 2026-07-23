@@ -17,7 +17,7 @@
     "Language_Surface_Phase_1_3_Statement_Validation_Report.md",
     "Language_Surface_Phase_1_6_Calculation_Integration_Validation_Report.md"
   ],
-  "normative_specification": "docs/ReasonScript_Language_Surface_Core_v0.1_RC.md",
+  "normative_specification": "docs/specifications/ReasonScript_Language_Surface_Core_v0.1_RC.md",
   "conformance_suite": "language_surface_core_conformance_tests",
   "release_gate": "release/language-surface-v0.1-rc/run_release_validation.py"
 }

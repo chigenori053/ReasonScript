@@ -19,7 +19,7 @@ Compiler optimization, macros, type checking, and language server protocols
 are outside Phase 2.
 
 This minimal frontend syntax is separate from the pre-existing legacy runtime
-grammar documented in `docs/grammar.md`.
+grammar documented in `docs/specifications/grammar.md`.
 
 ## Minimal Grammar
 

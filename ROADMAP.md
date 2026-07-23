@@ -1,5 +1,15 @@
 # ReasonScript Roadmap
 
+This roadmap tracks ReasonScript's progress from the early language prototype
+through the current `0.1.0-alpha` platform release toward Beta. It is a
+living document: completed phases are kept for history, and the current
+focus is the **Beta Planning** section at the bottom.
+
+For the architectural state behind these milestones, see
+[`docs/platform_architecture_review/platform_architecture_v1.md`](docs/platform_architecture_review/platform_architecture_v1.md)
+and the classification table in
+[COMPATIBILITY.md](COMPATIBILITY.md).
+
 ## Phase 1
 - core semantics
 - grammar draft

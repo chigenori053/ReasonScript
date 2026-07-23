@@ -116,7 +116,7 @@ after changing constraint timing and passed.
 
 ## 5. Deliverables
 
-- `docs/ReasonScript_Operational_Semantics_v0.1.md`
+- `docs/specifications/ReasonScript_Operational_Semantics_v0.1.md`
 - `operational_semantics_tests/`
 - `runtime_semantics_validation_tests/`
 - `HybridRuntime/tests/operational_semantics_validation.rs`

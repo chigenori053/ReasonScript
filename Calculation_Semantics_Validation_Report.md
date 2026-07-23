@@ -21,7 +21,7 @@ schemas are unchanged.
 
 | Required artifact | Result |
 |---|---|
-| `docs/ReasonScript_Calculation_Semantics_v0.1.md` | CREATED |
+| `docs/specifications/ReasonScript_Calculation_Semantics_v0.1.md` | CREATED |
 | `calculation_semantics_tests/` | CREATED |
 | `binding_lowering_tests/` | CREATED |
 | `expression_lowering_tests/` | CREATED |

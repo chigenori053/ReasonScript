@@ -59,7 +59,7 @@ No existing platform interface version is changed.
 
 ## 5. Release Artifacts
 
-- `docs/ReasonScript_Language_Surface_Core_v0.1_RC.md`;
+- `docs/specifications/ReasonScript_Language_Surface_Core_v0.1_RC.md`;
 - `language_surface_core_conformance_tests/`;
 - `release/language-surface-v0.1-rc/manifest.json`;
 - `release/language-surface-v0.1-rc/run_release_validation.py`;

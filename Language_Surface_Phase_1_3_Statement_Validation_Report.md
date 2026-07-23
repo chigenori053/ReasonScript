@@ -39,7 +39,7 @@ Existing semantic AST, compiler, and Reason IR interfaces are unchanged.
 
 | Artifact | Result |
 |---|---|
-| `docs/ReasonScript_Language_Surface_Statement_v0.1.md` | CREATED |
+| `docs/specifications/ReasonScript_Language_Surface_Statement_v0.1.md` | CREATED |
 | Statement hierarchy in `frontend/language_surface/nodes.py` | COMPLETED |
 | Placement-aware parser | COMPLETED |
 | Statement validation and reference resolution | COMPLETED |

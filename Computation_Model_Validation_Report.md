@@ -32,7 +32,7 @@ finite test evidence can establish.
 
 | Required artifact | Result |
 |---|---|
-| `docs/ReasonScript_Computation_Model_v0.1.md` | CREATED |
+| `docs/specifications/ReasonScript_Computation_Model_v0.1.md` | CREATED |
 | `computation_model_tests/` | CREATED |
 | `advanced_algebra_tests/` | CREATED |
 | `calculus_tests/` | CREATED |

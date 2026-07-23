@@ -10,7 +10,7 @@ Executed: 2026-06-13
 | Compiler pipeline | `frontend/compiler/` | Complete |
 | AST and expected IR fixtures | `frontend/compiler_fixtures/` | 6 + 6 + 6 invalid |
 | Six-layer conformance | `frontend/compiler_conformance/` | Complete |
-| Specification | `docs/Compiler_Validation_Specification_v0.1.md` | Complete |
+| Specification | `docs/specifications/Compiler_Validation_Specification_v0.1.md` | Complete |
 
 ## Conformance Results
 

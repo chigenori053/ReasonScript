@@ -22,7 +22,7 @@ and compile to schema-valid `reason-ir/0.1` without interface changes.
 
 | Artifact | Result |
 |---|---|
-| `docs/ReasonScript_Language_Surface_Expression_Pattern_v0.1.md` | CREATED |
+| `docs/specifications/ReasonScript_Language_Surface_Expression_Pattern_v0.1.md` | CREATED |
 | `frontend/language_surface/expressions.py` | CREATED |
 | Expression hierarchy in `frontend/language_surface/nodes.py` | COMPLETED |
 | Pattern hierarchy in `frontend/language_surface/nodes.py` | COMPLETED |

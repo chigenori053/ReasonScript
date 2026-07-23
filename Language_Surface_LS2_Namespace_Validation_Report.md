@@ -3,7 +3,7 @@
 Status: PASS
 
 Specification:
-`docs/ReasonScript_Language_Surface_Namespace_Import_Resolution_v0.1.md`
+`docs/specifications/ReasonScript_Language_Surface_Namespace_Import_Resolution_v0.1.md`
 
 ## Validation Matrix
 
