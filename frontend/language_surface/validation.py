@@ -766,7 +766,7 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
             visit(item.expression)
             return
         if isinstance(item, MemberAccessNode):
-            if isinstance(item.object, IdentifierNode) and item.object.name in {"tensor", "ruo"}:
+            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo"}:
                 return
             visit(item.object)
             return
@@ -1549,7 +1549,7 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"tensor", "ruo", "vision"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1579,6 +1579,11 @@ def _validate_calculation_expression(
                 return
             visit(value.object)
         elif isinstance(value, CallExpressionNode):
+            if _array_call_name(value) is not None:
+                _validate_array_call(value)
+                for argument in value.arguments:
+                    visit(argument)
+                return
             if tensor_call_name(value) is not None:
                 try:
                     validate_tensor_call(value)
@@ -1645,6 +1650,25 @@ def _ruo_call_name(value: CallExpressionNode) -> str | None:
     if isinstance(callee, MemberAccessNode) and isinstance(callee.object, IdentifierNode) and callee.object.name == "ruo":
         return callee.member
     return None
+
+
+def _array_call_name(value: CallExpressionNode) -> str | None:
+    callee = value.callee
+    if (
+        isinstance(callee, MemberAccessNode)
+        and isinstance(callee.object, IdentifierNode)
+        and callee.object.name == "array"
+    ):
+        return callee.member
+    return None
+
+
+def _validate_array_call(value: CallExpressionNode) -> None:
+    method = _array_call_name(value)
+    if method != "append":
+        raise SurfaceValidationError("COLL-001 unknown array standard function")
+    if len(value.arguments) != 2:
+        raise SurfaceValidationError("COLL-001 array.append argument count mismatch")
 
 
 def _validate_ruo_call(value: CallExpressionNode) -> None:
@@ -1930,6 +1954,35 @@ def _expression_type(
             return _UNKNOWN_TYPE
         raise SurfaceValidationError("CV5-7 index access requires collection type")
     if isinstance(value, CallExpressionNode):
+        if _array_call_name(value) == "append":
+            if len(value.arguments) != 2:
+                raise SurfaceValidationError(
+                    "COLL-001 array.append argument count mismatch"
+                )
+            collection_type = _expression_type(
+                value.arguments[0].expression
+                if isinstance(value.arguments[0], ExpressionNode)
+                else value.arguments[0],
+                symbols,
+                bindings,
+            )
+            item_type = _expression_type(
+                value.arguments[1].expression
+                if isinstance(value.arguments[1], ExpressionNode)
+                else value.arguments[1],
+                symbols,
+                bindings,
+            )
+            if not isinstance(collection_type, ArrayTypeNode):
+                raise SurfaceValidationError(
+                    "COLL-002 array.append first argument must be an array"
+                )
+            _require_type_equal(
+                collection_type.element_type,
+                item_type,
+                "COLL-003 array.append element type mismatch",
+            )
+            return collection_type
         if tensor_call_name(value) is not None:
             try:
                 validate_tensor_call(value)

@@ -18,3 +18,7 @@ check SOURCE.rsn` for static validation and `reason object run SOURCE.rsn
 --allow-read` for verified native loading. Network and shell-expanded paths are
 not supported.
 
+`reason object` does not evaluate numerical physics expressions. Use
+`reason run SOURCE.rsn` for scalar, array, Tensor, loop, function, and struct
+computation. Object inspection reports structural validity; numerical semantic
+evaluation is not applicable to that operation.

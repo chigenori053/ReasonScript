@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from toolchain.reasonunit_file import read_file, validate_file, write_file
+from toolchain.native_runtime import resolve_native_reasonunit_runtime
 from toolchain.reasonunit_object.model import canonical_digest, validate_object
 from toolchain.reasonunit_object.universal import reference_object
 from toolchain.reasonunit_language import bind_source_objects
@@ -202,7 +203,7 @@ def validate(plan_path: Path, staging: Path) -> dict[str, Any]:
         for payload in logical.get("payloads", []):
             if payload.get("profile_id") == PAYLOAD_PROFILE:
                 body = payload["value"]; resource = (path.parent / body["storage"]["locator"]).read_bytes(); tensor_checks.append(validate_tensor(body, resource_bytes=resource))
-        native = subprocess.run([str(Path(__file__).resolve().parents[2] / "NativeReasonUnitRuntime/target/debug/reasonunit-runtime-native"), "load", str(path)], capture_output=True, text=True, timeout=30, check=False)
+        native = subprocess.run([str(resolve_native_reasonunit_runtime()), "load", str(path)], capture_output=True, text=True, timeout=30, check=False)
         try: native_result = json.loads(native.stdout)
         except json.JSONDecodeError: native_result = {"ok": False}
         binding_source = f'model MigrationValidation {{\n reason_object migrated from "objects/{spec["project_id"]}.ruo" mode strict as "{spec["object_id"]}";\n}}\n'

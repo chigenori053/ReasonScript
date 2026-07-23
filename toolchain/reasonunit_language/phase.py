@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from toolchain.reasonunit_file import validate_file, verify_resources
+from toolchain.native_runtime import resolve_native_reasonunit_runtime
 from toolchain.reasonunit_runtime import validate_runtime_profile
 from .language import (
     DEFAULT_LIMITS, NATIVE_PROFILE, PRESENCE_STATES, PROFILE, RUO_TYPES,
@@ -64,7 +65,7 @@ def verify_ruo_n1(root: Path, directory: Path | None = None) -> dict[str, Any]:
     data = summary.get("data", {}); statuses = data.get("statuses", {})
     if data.get("summary") != {"passed": 74, "failed": 0, "total": 74} or statuses.get("phase_status") != "VALIDATED" or statuses.get("transition_decision") != "PROCEED_TO_RUO-N2" or manifest.get("data", {}).get("artifact_count") != 54:
         issues.append({"code": "RUO-N2-001", "message": "RUO-N1 must be 74/74 VALIDATED with 54 artifacts and PROCEED_TO_RUO-N2."})
-    native = subprocess.run([str(root / "NativeReasonUnitRuntime/target/debug/reasonunit-runtime-native"), "verify-native"], cwd=root, capture_output=True, text=True, check=False)
+    native = subprocess.run([str(resolve_native_reasonunit_runtime(root)), "verify-native"], cwd=root, capture_output=True, text=True, check=False)
     try: native_result = json.loads(native.stdout)
     except json.JSONDecodeError: native_result = {"ok": False}
     if not native_result.get("ok") or native_result.get("unsafe_blocks") != 0: issues.append({"code": "RUO-N2-001", "message": "RUO-N1 native provenance or safety evidence failed."})
@@ -216,4 +217,3 @@ def validate_language_profile(root: Path, directory: Path, *, verify_determinism
             current = {str(path.relative_to(directory)): path.read_bytes() for path in sorted(directory.rglob("*")) if path.is_file()}
             if len(snapshots) == 3 and (not all(snapshot == snapshots[0] for snapshot in snapshots[1:]) or snapshots[0] != current): issues.append({"code": "RUO-N2-024", "message": "Canonical artifacts differ across isolated runs."})
     return {"ok": not issues, "issues": sorted(issues, key=lambda item: (item.get("artifact", ""), item.get("code", ""), item.get("message", ""))), "mandatory_failures": failures, "artifact_count": 56, "file_count": body.get("file_count", 0)}
-

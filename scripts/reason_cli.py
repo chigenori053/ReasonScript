@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import tempfile
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -67,6 +69,7 @@ def _build_parser() -> argparse.ArgumentParser:
             sub.add_argument("--trace", action="store_true")
             sub.add_argument("--allow-read", action="store_true")
             sub.add_argument("--allow-write", action="store_true")
+            sub.add_argument("--result-output")
         sub.set_defaults(handler={
             "check": cmd_check,
             "analyze": cmd_analyze,
@@ -153,6 +156,13 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
 def cmd_run(args: argparse.Namespace) -> int:
     result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace or args.json, allow_read=args.allow_read, allow_write=args.allow_write)
+    if args.result_output and result.get("ok"):
+        runtime_result = result.get("runtime_result")
+        if not isinstance(runtime_result, dict) or "result" not in runtime_result:
+            raise CliFileSystemError(
+                "--result-output requires an integrated numerical result"
+            )
+        _write_result_file(Path(args.result_output), runtime_result["result"])
     if args.out:
         _write_out(Path(args.out), result)
     if args.json:
@@ -396,12 +406,14 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
         "knowledge": knowledge,
         "project_state": analyze["project_state"],
         "artifacts": analyze["artifacts"],
+        "execution_mode": "symbolic",
     }
     if include_trace:
         result["trace"] = simulation.get("trace", []) if isinstance(simulation, dict) else []
     source = _read_source(path)
     if analyze["ok"] and _requires_integrated_runtime(source, analyze):
         from frontend.integrated_computation_runtime import (
+            IntegratedRuntimeError,
             LoopLimitError,
             execute_program,
         )
@@ -412,6 +424,7 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
             integrated = execute_program(parse(source), resource_root=_resolve_input_path(path).resolve().parent, filesystem_read=allow_read, filesystem_write=allow_write)
             runtime_result = integrated.to_dict()
             result["runtime_result"] = runtime_result
+            result["execution_mode"] = "integrated"
             result["runtime_output"] = [runtime_result["result"]]
             result["goal_reached"] = True
             result["artifacts"]["runtime_result"] = runtime_result
@@ -435,6 +448,18 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
                 "stage": "runtime",
                 "source_file": _display_path(path),
             })
+        except IntegratedRuntimeError as error:
+            result["ok"] = False
+            result["goal_reached"] = False
+            result["execution_mode"] = "integrated"
+            result["diagnostics"].append({
+                "code": error.code,
+                "severity": "error",
+                "category": "runtime",
+                "message": str(error),
+                "stage": "runtime",
+                "source_file": _display_path(path),
+            })
         except Exception as error:
             from frontend.vision.runtime import VisionRuntimeError
             if not isinstance(error, VisionRuntimeError):
@@ -448,20 +473,50 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
 
 
 def _requires_integrated_runtime(source: str, analyze: dict[str, Any]) -> bool:
-    reason_ir = analyze.get("artifacts", {}).get("reason_ir")
-    modules = reason_ir.get("modules", []) if isinstance(reason_ir, dict) and "modules" in reason_ir else [reason_ir]
-    has_tensor = any(
-        isinstance(item, dict)
-        and bool(item.get("metadata", {}).get("tensor_operations"))
-        for item in modules
+    from frontend.language_surface.nodes import CalculationNode
+    from frontend.language_surface.parser import parse
+
+    program = parse(source)
+    return any(
+        isinstance(item, CalculationNode)
+        for module in program.modules
+        for item in module.body
     )
-    has_loop = any(token in source for token in ("for ", "while ", "loop {"))
-    has_vision = any(
-        isinstance(item, dict)
-        and bool(item.get("metadata", {}).get("vision_operations"))
-        for item in modules
-    )
-    return has_tensor or has_loop or has_vision
+
+
+def _write_result_file(path: Path, value: Any) -> None:
+    target = path if path.is_absolute() else Path.cwd() / path
+    target = target.resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ) + "\n"
+    temporary: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            prefix=f".{target.name}.",
+            dir=target.parent,
+            delete=False,
+        ) as handle:
+            temporary = handle.name
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target)
+        temporary = None
+    except (OSError, ValueError) as error:
+        raise CliFileSystemError(
+            f"cannot write runtime result {target}: {error}"
+        ) from error
+    finally:
+        if temporary and Path(temporary).exists():
+            Path(temporary).unlink()
 
 
 def _analyze_endpoint_response(path: Path, compiler_mode: str) -> dict[str, Any]:

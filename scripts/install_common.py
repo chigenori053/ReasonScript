@@ -88,6 +88,48 @@ def install(prefix: Path, json_output: bool) -> int:
                 raise RuntimeError(f"VisionRuntime build failed: {vision_build.stderr.strip()}")
             shutil.copy2(ROOT / "VisionRuntime" / "target" / "release" / vision_name, vision_binary)
         vision_binary.chmod(0o755)
+        reasonunit_name = (
+            "reasonunit-runtime-native.exe"
+            if os.name == "nt"
+            else "reasonunit-runtime-native"
+        )
+        reasonunit_binary = temp / "bin" / reasonunit_name
+        packaged_reasonunit = ROOT / "bin" / reasonunit_name
+        if packaged_reasonunit.is_file():
+            shutil.copy2(packaged_reasonunit, reasonunit_binary)
+        else:
+            cargo = shutil.which("cargo")
+            if not cargo:
+                raise RuntimeError(
+                    "cargo is required to build the native "
+                    "NativeReasonUnitRuntime from source"
+                )
+            reasonunit_build = subprocess.run(
+                [
+                    cargo,
+                    "build",
+                    "--offline",
+                    "--release",
+                    "--manifest-path",
+                    str(ROOT / "NativeReasonUnitRuntime/Cargo.toml"),
+                ],
+                text=True,
+                capture_output=True,
+            )
+            if reasonunit_build.returncode:
+                raise RuntimeError(
+                    "NativeReasonUnitRuntime build failed: "
+                    f"{reasonunit_build.stderr.strip()}"
+                )
+            shutil.copy2(
+                ROOT
+                / "NativeReasonUnitRuntime"
+                / "target"
+                / "release"
+                / reasonunit_name,
+                reasonunit_binary,
+            )
+        reasonunit_binary.chmod(0o755)
         validate_staged_distribution(temp, ROOT)
         file_inventory = inventory(temp)
         if final.exists():

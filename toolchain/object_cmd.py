@@ -11,6 +11,7 @@ from typing import Any
 
 from toolchain.reasonunit_file import read_file, select_file, validate_file
 from toolchain.reasonunit_language.language import PROFILE, bind_source_objects, compile_reason_object_source
+from toolchain.native_runtime import resolve_native_reasonunit_runtime
 
 CLI_VERSION = "reason-object-cli/1.0"
 
@@ -35,7 +36,7 @@ def _result(command: str, ok: bool, **values: Any) -> dict[str, Any]:
 
 def _native(root: Path, operation: str, path: Path) -> dict[str, Any]:
     import subprocess
-    completed = subprocess.run([str(root / "NativeReasonUnitRuntime/target/debug/reasonunit-runtime-native"), operation, str(path)], cwd=root, capture_output=True, text=True, timeout=30, check=False)
+    completed = subprocess.run([str(resolve_native_reasonunit_runtime(root)), operation, str(path)], cwd=root, capture_output=True, text=True, timeout=30, check=False)
     return json.loads(completed.stdout)
 
 
@@ -57,7 +58,12 @@ def run(args: list[str], root: Path) -> int:
             result = _result(operation, ok, phase_status=raw.get("phase_status", "VALIDATED" if ok else "NOT_VALIDATED"), artifact_count=raw.get("artifact_count", 0), file_count=raw.get("file_count", 0), diagnostics=raw.get("issues", []))
         elif len(args) < 2: raise ValueError("RUO-N2-019 input path is required")
         elif operation in {"check", "run", "save"}:
-            source_path = _path(args[1]); source = source_path.read_text(encoding="utf-8"); compiled = compile_reason_object_source(source)
+            source_path = _path(args[1])
+            if source_path.suffix != ".rsn":
+                raise ValueError(
+                    "RUO-N2-019 check/run/save require ReasonScript SOURCE.rsn input"
+                )
+            source = source_path.read_text(encoding="utf-8"); compiled = compile_reason_object_source(source)
             if operation == "check": result = _result(operation, True, source=str(source_path), bindings=compiled["bindings"], ast_digest="sha256:" + hashlib.sha256(json.dumps(compiled["surface_ast"], sort_keys=True, separators=(",", ":")).encode()).hexdigest(), capability_decisions=["compile:allowed", "filesystem:not_opened"])
             else:
                 bound = bind_source_objects(source, source_path, source_path.parent, filesystem_read="--allow-read" in args, load_profile=_option(args, "--load-profile") or "lazy_verified")
@@ -81,7 +87,12 @@ def run(args: list[str], root: Path) -> int:
                     if not verified["ok"]: raise ValueError("RUO-N2-016 saved Object verification failed")
                     result = _result(operation, True, binding_name=name, object_id=verified.get("object_id"), revision_id=verified.get("object_revision_id"), output_path=str(target), canonical_byte_identical=payload == target.read_bytes(), capability_decisions=["filesystem_read:allowed", "filesystem_write:allowed"])
         else:
-            object_path = _path(args[1]); native_operation = "load" if operation in {"query", "transact", "select", "tensor"} else operation
+            object_path = _path(args[1])
+            if object_path.suffix != ".ruo":
+                raise ValueError(
+                    f"RUO-N2-019 object {operation} requires canonical OBJECT.ruo input"
+                )
+            native_operation = "load" if operation in {"query", "transact", "select", "tensor"} else operation
             native = _native(root, native_operation, object_path)
             if not native.get("ok"): raise ValueError(f"RUO-N2-013 native operation failed: {native.get('diagnostics', [])}")
             extra: dict[str, Any] = {"object_id": native.get("object_id"), "revision_id": native.get("revision_id"), "snapshot_generation": native.get("snapshot_generation"), "logical_object_digest": native.get("logical_object_digest"), "capability_decisions": ["filesystem_read:allowed"]}
@@ -108,7 +119,10 @@ def run(args: list[str], root: Path) -> int:
                 extra.update({"output_path": str(target), "transaction_outcome": "committed_noop", "partial_commit_count": 0})
             elif operation == "tensor": extra.update({"tensor_id": _option(args, "--tensor-id"), "tensor_view_status": "MATERIALIZED", "stable_id_mapping_preserved": True})
             result = _result(operation, True, **extra)
-            if operation == "inspect": result["operation_status"] = "NOT_EVALUATED"
+            if operation == "inspect":
+                result["operation_status"] = "VALID"
+                result["semantic_status"] = "NOT_APPLICABLE"
+                result["evaluation_scope"] = "structural_object_inspection"
     except (OSError, ValueError, PermissionError, json.JSONDecodeError) as error:
         message = str(error); code = next((token for token in message.split() if token.startswith("RUO-N2-")), "RUO-N2-019")
         result = _result(operation, False, diagnostics=[{"code": code, "severity": "ERROR", "stage": "cli", "message": message}])

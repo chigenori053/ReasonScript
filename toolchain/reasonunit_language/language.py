@@ -8,6 +8,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from toolchain.native_runtime import resolve_native_reasonunit_runtime
+
 from frontend.language_surface import compile_program, execution_plan_for, parse, to_json_value
 from frontend.language_surface.nodes import ReasonObjectBindingNode
 
@@ -54,7 +56,7 @@ def _nodes(source: str) -> list[ReasonObjectBindingNode]:
 def bind_source_objects(source: str, source_path: Path, root: Path, *, filesystem_read: bool, load_profile: str = "lazy_verified") -> list[dict[str, Any]]:
     if load_profile not in {"eager_verified", "lazy_verified", "metadata_only"}: raise ValueError("RUO-N2-011 invalid load profile")
     if not filesystem_read: raise PermissionError("RUO-N2-007 filesystem_read capability is required")
-    authorized = root.resolve(); binary = Path(__file__).resolve().parents[2] / "NativeReasonUnitRuntime/target/debug/reasonunit-runtime-native"
+    authorized = root.resolve(); binary = resolve_native_reasonunit_runtime()
     results = []
     for node in _nodes(source):
         candidate = (source_path.parent / node.source_path).resolve()

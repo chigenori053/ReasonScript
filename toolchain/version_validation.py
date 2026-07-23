@@ -8,7 +8,11 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = "reasonscript-version-validation/1.0"
-SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$")
+SEMVER = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:\.(0|[1-9]\d*))?"
+    r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
+)
 
 
 def validate_version(root: Path, *, tag: str | None = None) -> dict[str, Any]:
@@ -27,7 +31,11 @@ def validate_version(root: Path, *, tag: str | None = None) -> dict[str, Any]:
     _add(checks, "VER-004", str(release.get("runtime_version", "")), canonical)
     _add(checks, "VER-005", str(release.get("cli_version", "")), canonical)
     parts = canonical.split(".")
-    compatibility = f">={parts[0]}.{parts[1]}.0,<{parts[0]}.{int(parts[1]) + 1}.0" if len(parts) == 3 and parts[1].isdigit() else ""
+    compatibility = (
+        f">={parts[0]}.{parts[1]}.0,<{parts[0]}.{int(parts[1]) + 1}.0"
+        if len(parts) in {3, 4} and parts[1].isdigit()
+        else ""
+    )
     _add(checks, "VER-006", str(release.get("runtime_compatibility", "")), compatibility)
     if tag is not None:
         _add(checks, "VER-010", tag.removeprefix("v"), canonical)

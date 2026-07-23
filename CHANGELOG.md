@@ -1,8 +1,19 @@
 # Changelog
 
-## Unreleased
+## v0.5.2.1 — 2026-07-23
 
 ### Added
+
+- Implemented Integrated Runtime Completeness v0.2:
+  - Scalar-only calculations now use the integrated numerical runtime without
+    requiring Tensor, Vision, or loop trigger syntax.
+  - Added array index access/assignment, user functions, struct values/member
+    access/field assignment, deterministic `array.append`, and atomic
+    `reason run --result-output PATH`.
+  - Added installed/development resolution, packaging, and staged smoke
+    validation for `reasonunit-runtime-native`.
+  - Clarified that `reason object` owns canonical Object operations rather than
+    numerical physics evaluation.
 
 - Implemented ReasonScript Phase RUO-M1 Legacy ReasonUnit Migration v1.0:
   - Added deterministic read-only discovery and classification, SHA-256 source

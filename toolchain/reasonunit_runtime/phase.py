@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from toolchain.reasonunit_file import read_file, validate_file, verify_resources
+from toolchain.native_runtime import resolve_native_reasonunit_runtime
 from toolchain.reasonunit_tensor import validate_tensor_profile
 
 PROFILE = "reasonscript-reasonunit-native-runtime/1.0"
@@ -93,7 +94,7 @@ def verify_ruo_t1(root: Path, directory: Path | None = None) -> dict[str, Any]:
 
 
 def _native_binary(root: Path) -> Path:
-    return root / "NativeReasonUnitRuntime/target/debug/reasonunit-runtime-native"
+    return resolve_native_reasonunit_runtime(root)
 
 
 def _native_probe(root: Path, fixture: Path) -> dict[str, Any]:

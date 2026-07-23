@@ -59,8 +59,24 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     ids = {item["id"] for item in manifest["components"]}
     assert {item[0] for item in COMPONENTS} <= ids
     assert "vision-runtime-v0.1" in ids
+    assert "reasonunit-runtime-v1.0" in ids
     assert (home / "current/VisionRuntime/Cargo.toml").is_file()
+    assert (home / "current/NativeReasonUnitRuntime/Cargo.toml").is_file()
     assert (home / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
+    reasonunit_binary = home / "current/bin" / (
+        "reasonunit-runtime-native.exe"
+        if os.name == "nt"
+        else "reasonunit-runtime-native"
+    )
+    assert reasonunit_binary.is_file()
+    native_result = subprocess.run(
+        [str(reasonunit_binary), "verify-native"],
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+    )
+    assert native_result.returncode == 0
+    assert json.loads(native_result.stdout)["unsafe_blocks"] == 0
     for item in manifest["files"]:
         path = home / item["path"]
         assert hashlib.sha256(path.read_bytes()).hexdigest() == item["sha256"]
@@ -120,10 +136,17 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     package = Path(json.loads(result.stdout)["path"])
     assert (package / "payload/VisionRuntime/Cargo.toml").is_file()
+    assert (package / "payload/NativeReasonUnitRuntime/Cargo.toml").is_file()
     assert (package / "payload/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
+    reasonunit_name = (
+        "reasonunit-runtime-native.exe"
+        if os.name == "nt"
+        else "reasonunit-runtime-native"
+    )
+    assert (package / "payload/bin" / reasonunit_name).is_file()
     manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
     assert "vision-runtime-v0.1" in {item["name"] for item in manifest["components"]}
-    assert manifest["package_version"] == "0.5.2"
+    assert manifest["package_version"] == "0.5.2.1"
 
     fresh = tmp_path / "fresh-install"
     environment = os.environ.copy()
@@ -138,5 +161,6 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     )
     assert installed.returncode in {0, 1}, installed.stdout + installed.stderr
     report = json.loads(installed.stdout)
-    assert report["status"] == "success" and report["reason_version"] == "0.5.2"
+    assert report["status"] == "success" and report["reason_version"] == "0.5.2.1"
     assert (fresh / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
+    assert (fresh / "current/bin" / reasonunit_name).is_file()

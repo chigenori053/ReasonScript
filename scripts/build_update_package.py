@@ -109,6 +109,33 @@ def _write_payload(package: Path, target_platform: str) -> Path:
     vision_name = "reason-vision.exe" if target_platform == "windows" else "reason-vision"
     shutil.copy2(ROOT / "VisionRuntime" / "target" / "release" / vision_name, payload / "bin" / vision_name)
     (payload / "bin" / vision_name).chmod(0o755)
+    reasonunit_build = subprocess.run(
+        [
+            cargo,
+            "build",
+            "--offline",
+            "--release",
+            "--manifest-path",
+            str(ROOT / "NativeReasonUnitRuntime/Cargo.toml"),
+        ],
+        text=True,
+        capture_output=True,
+    )
+    if reasonunit_build.returncode:
+        raise BuildRejected(
+            "NativeReasonUnitRuntime build failed: "
+            f"{reasonunit_build.stderr.strip()}"
+        )
+    reasonunit_name = (
+        "reasonunit-runtime-native.exe"
+        if target_platform == "windows"
+        else "reasonunit-runtime-native"
+    )
+    shutil.copy2(
+        ROOT / "NativeReasonUnitRuntime" / "target" / "release" / reasonunit_name,
+        payload / "bin" / reasonunit_name,
+    )
+    (payload / "bin" / reasonunit_name).chmod(0o755)
     updater_name = "reason-updater.exe" if target_platform == "windows" else "reason-updater"
     native_updater = payload / "bin" / updater_name
     rustc = shutil.which("rustc")
