@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "ReasonScript v0.5.2.1 Install Package",
-  "tests_passed": 1085,
+  "task": "Update ZIP Executable Restoration v0.1",
+  "tests_passed": 1088,
   "version": "1.0"
 }

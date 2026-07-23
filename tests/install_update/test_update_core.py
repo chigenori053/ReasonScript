@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import zipfile
 from pathlib import Path
 
@@ -9,6 +10,7 @@ import pytest
 
 from toolchain.install_update.core import UpdateEngine, UpdateError, compare_versions
 from toolchain.install_update.platform import PlatformAdapter
+from toolchain.installed_permissions import restore_runtime_executables
 
 from tests.install_update.provenance_test_support import attach_provenance, write_validation_profile
 
@@ -162,7 +164,79 @@ def test_post_install_failure_rolls_back(tmp_path: Path) -> None:
     report, code = UpdateEngine(root, adapter, validator=validator).update(package(tmp_path))
     assert code == 9
     assert report["status"] == "rolled_back"
+    assert report["post_install_validation"]["tensor_smoke"] == "failed"
+    assert report["validation_details"] == {}
     assert json.loads((root / "metadata/current.json").read_text())["active_version"] == "0.5.0"
+
+
+def test_zip_update_restores_all_provenance_executables(tmp_path: Path) -> None:
+    root, adapter = installed(tmp_path)
+    candidate = package(tmp_path)
+    helper = candidate / "payload/bin/package-helper"
+    _write(helper, "#!/bin/sh\nexit 0\n")
+    helper.chmod(0o755)
+    files = [
+        {"path": f"payload/{path.relative_to(candidate / 'payload').as_posix()}", "sha256": _sha(path)}
+        for path in sorted((candidate / "payload").rglob("*")) if path.is_file()
+    ]
+    (candidate / "checksums.json").write_text(json.dumps({
+        "schema_version": "reasonscript-package-checksums/1.0",
+        "algorithm": "sha256",
+        "files": files,
+    }), encoding="utf-8")
+    attach_provenance(candidate, version="0.5.1")
+    archive = tmp_path / "reasonscript-0.5.1-macos-arm64.zip"
+    package_name = "reasonscript-0.5.1-macos-arm64"
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as stream:
+        for path in sorted(candidate.rglob("*")):
+            if path.is_file():
+                stream.write(path, f"{package_name}/{path.relative_to(candidate).as_posix()}")
+
+    report, code = engine(root, adapter).update(archive)
+
+    assert code == 0 and report["status"] == "completed"
+    assert os.access(root / "versions/0.5.1/bin/package-helper", os.X_OK)
+
+
+def test_native_preflight_fails_before_activation(tmp_path: Path) -> None:
+    root, adapter = installed(tmp_path)
+    candidate = package(tmp_path)
+    native = candidate / "payload/bin/reason-vision"
+    _write(native, "#!/bin/sh\nprintf 'not-json'\n")
+    native.chmod(0o755)
+    manifest = json.loads((candidate / "manifest.json").read_text(encoding="utf-8"))
+    manifest["components"].append({"name": "vision-runtime-v0.1", "version": "0.5.1"})
+    (candidate / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    files = [
+        {"path": f"payload/{path.relative_to(candidate / 'payload').as_posix()}", "sha256": _sha(path)}
+        for path in sorted((candidate / "payload").rglob("*")) if path.is_file()
+    ]
+    (candidate / "checksums.json").write_text(json.dumps({
+        "schema_version": "reasonscript-package-checksums/1.0",
+        "algorithm": "sha256",
+        "files": files,
+    }), encoding="utf-8")
+    attach_provenance(candidate, version="0.5.1")
+
+    report, code = engine(root, adapter).update(candidate)
+
+    assert code == 1
+    assert report["diagnostics"][0]["code"] == "INS-UPD-008"
+    assert report["diagnostics"][0]["component"] == "vision-runtime-v0.1"
+    assert json.loads((root / "metadata/current.json").read_text())["active_version"] == "0.5.0"
+
+
+def test_packaged_cli_repairs_native_modes_for_legacy_updater(tmp_path: Path) -> None:
+    distribution = tmp_path / "distribution"
+    _write(distribution / "metadata/validation_profile.json", "{}")
+    for relative in ("bin/reason-vision", "bin/reasonunit-runtime-native"):
+        _write(distribution / relative, "native")
+        (distribution / relative).chmod(0o644)
+
+    restored = restore_runtime_executables(distribution)
+
+    assert restored == ["bin/reason-vision", "bin/reasonunit-runtime-native"]
+    assert all(os.access(distribution / relative, os.X_OK) for relative in restored)
 
 
 def test_explicit_rollback_restores_metadata_inventory(tmp_path: Path) -> None:

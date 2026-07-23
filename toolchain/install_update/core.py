@@ -145,6 +145,7 @@ class UpdateEngine:
         self.allow_development_package = allow_development_package
         self.allow_legacy_package = allow_legacy_package
         self._provenance_report: ProvenanceReport | None = None
+        self._validation_details: dict[str, Any] = {}
 
     @property
     def metadata(self) -> Path:
@@ -458,9 +459,15 @@ class UpdateEngine:
                 activated = True
             except OSError as exc:
                 raise UpdateError("INS-UPD-009", phase="activating", detail=str(exc)) from exc
+            self._validation_details = {}
             validation = self.validator(final)
             if any(value != "passed" for value in validation.values()):
-                raise UpdateError("INS-UPD-010", phase="validating_active", validation=validation)
+                raise UpdateError(
+                    "INS-UPD-010",
+                    phase="validating_active",
+                    validation=validation,
+                    validation_details=dict(self._validation_details),
+                )
             self._complete(package, plan, validation, started, transaction_id)
             self._write_transaction(transaction_id, previous, version, "activated", started)
             return self._completed_report(package, plan, validation), 0
@@ -488,8 +495,118 @@ class UpdateEngine:
             raise UpdateError("INS-UPD-008", phase="validating_staging", detail="Required release components are missing.")
         if (staging / "VERSION").read_text(encoding="utf-8").strip() != package.manifest["package_version"]:
             raise UpdateError("INS-UPD-016", phase="validating_staging")
-        self.adapter.ensure_executable(staging / "reason")
-        self.adapter.ensure_executable(staging / "bin/reason-runtime")
+        self._restore_executable_permissions(staging)
+        self._validate_native_staging(staging, package)
+
+    def _restore_executable_permissions(self, staging: Path) -> None:
+        """Restore executable intent lost by portable ZIP extraction."""
+        report = self._provenance_report
+        records = (
+            report.manifest.get("integrity", {}).get("files", [])
+            if report and report.manifest else []
+        )
+        executable_paths = [
+            item.get("path") for item in records
+            if isinstance(item, dict) and item.get("executable") is True
+        ]
+        if not executable_paths:
+            executable_paths = ["payload/reason", "payload/bin/reason-runtime"]
+        staging_root = staging.resolve()
+        for packaged_path in executable_paths:
+            if not isinstance(packaged_path, str) or not packaged_path.startswith("payload/"):
+                raise UpdateError(
+                    "INS-UPD-008",
+                    phase="validating_staging",
+                    detail="Executable provenance contains an unsafe payload path.",
+                    staged_file=packaged_path,
+                )
+            relative = packaged_path.removeprefix("payload/")
+            if not relative or not _safe_member(relative):
+                raise UpdateError(
+                    "INS-UPD-008",
+                    phase="validating_staging",
+                    detail="Executable provenance contains an unsafe payload path.",
+                    staged_file=packaged_path,
+                )
+            target = (staging / relative).resolve()
+            if staging_root not in target.parents or not target.is_file():
+                raise UpdateError(
+                    "INS-UPD-008",
+                    phase="validating_staging",
+                    detail="A provenance-declared executable is missing from staging.",
+                    staged_file=relative,
+                )
+            try:
+                self.adapter.ensure_executable(target)
+            except OSError as exc:
+                raise UpdateError(
+                    "INS-UPD-008",
+                    phase="validating_staging",
+                    detail=f"Could not restore executable permission: {exc}",
+                    staged_file=relative,
+                ) from exc
+
+    def _validate_native_staging(self, staging: Path, package: Package) -> None:
+        components = {
+            item.get("name") for item in package.manifest.get("components", [])
+            if isinstance(item, dict)
+        }
+        suffix = ".exe" if self.adapter.name == "windows" else ""
+        probes = []
+        if "vision-runtime-v0.1" in components:
+            probes.append((
+                "vision-runtime-v0.1",
+                staging / "bin" / f"reason-vision{suffix}",
+                "profile",
+                "reasonscript-vision-runtime/0.1",
+            ))
+        if "reasonunit-runtime-v1.0" in components:
+            probes.append((
+                "reasonunit-runtime-v1.0",
+                staging / "bin" / f"reasonunit-runtime-native{suffix}",
+                "native_execution_provenance",
+                "reasonscript-reasonunit-native-runtime/1.0",
+            ))
+        for component, binary, provenance_field, expected_provenance in probes:
+            if not binary.is_file() or (self.adapter.name != "windows" and not os.access(binary, os.X_OK)):
+                raise UpdateError(
+                    "INS-UPD-008",
+                    phase="validating_staging",
+                    detail=f"{component} executable is missing or not executable.",
+                    component=component,
+                    staged_file=str(binary.relative_to(staging)),
+                )
+            try:
+                proc = subprocess.run(
+                    [str(binary), "verify-native"],
+                    cwd=tempfile.gettempdir(),
+                    text=True,
+                    capture_output=True,
+                )
+                payload = json.loads(proc.stdout)
+            except (OSError, json.JSONDecodeError) as exc:
+                raise UpdateError(
+                    "INS-UPD-008",
+                    phase="validating_staging",
+                    detail=f"{component} native preflight could not run: {exc}",
+                    component=component,
+                    staged_file=str(binary.relative_to(staging)),
+                ) from exc
+            if (
+                proc.returncode != 0
+                or payload.get("ok") is not True
+                or payload.get("unsafe_blocks") != 0
+                or payload.get(provenance_field) != expected_provenance
+            ):
+                raise UpdateError(
+                    "INS-UPD-008",
+                    phase="validating_staging",
+                    detail=f"{component} native preflight failed.",
+                    component=component,
+                    staged_file=str(binary.relative_to(staging)),
+                    exit_status=proc.returncode,
+                    stderr=proc.stderr.strip()[-2000:],
+                )
 
     def _post_install_validation(self, root: Path) -> dict[str, str]:
         cli = root / "reason"
@@ -503,8 +620,14 @@ class UpdateEngine:
             "install_validate": [sys.executable, str(cli), "install-validate", "--json"],
         }
         result = {}
+        self._validation_details = {}
         for name, command in commands.items():
-            proc = subprocess.run(command, cwd=tempfile.gettempdir(), env=env, text=True, capture_output=True)
+            try:
+                proc = subprocess.run(command, cwd=tempfile.gettempdir(), env=env, text=True, capture_output=True)
+            except OSError as exc:
+                result[name] = "failed"
+                self._validation_details[name] = {"error": str(exc)}
+                continue
             try:
                 payload = json.loads(proc.stdout)
             except json.JSONDecodeError:
@@ -513,6 +636,29 @@ class UpdateEngine:
             version_ok = payload.get("reason_version", expected_version) == expected_version
             status_ok = payload.get("status") not in {"fail", "failed", "unusable"}
             result[name] = "passed" if code_ok and version_ok and status_ok else "failed"
+            checks = payload.get("checks", [])
+            if not isinstance(checks, list):
+                checks = []
+            failed_checks = [
+                item.get("id") or item.get("check")
+                for item in checks
+                if isinstance(item, dict) and item.get("status") in {"fail", "failed"}
+            ]
+            diagnostics = payload.get("diagnostics", [])
+            if not isinstance(diagnostics, list):
+                diagnostics = []
+            self._validation_details[name] = {
+                "exit_status": proc.returncode,
+                "reported_status": payload.get("status"),
+                "reason_version": payload.get("reason_version"),
+                "failed_checks": [item for item in failed_checks if item],
+                "diagnostic_codes": [
+                    item.get("code") for item in diagnostics
+                    if isinstance(item, dict) and item.get("code")
+                ],
+                "stdout": proc.stdout.strip()[-2000:] if not payload else "",
+                "stderr": proc.stderr.strip()[-2000:],
+            }
         # Run Phase 1R and project probes in an isolated user-owned temporary workspace.
         with tempfile.TemporaryDirectory(prefix="reason-update-smoke-") as directory:
             work = Path(directory)
@@ -529,6 +675,16 @@ class UpdateEngine:
         result.update({"scalar_smoke": "passed" if scalar.returncode == 0 else "failed", "tensor_smoke": "passed" if phase1r_ok else "failed",
                        "loop_smoke": "passed" if phase1r_ok else "failed",
                        "project_validation": "passed" if project.returncode == 0 else "failed"})
+        for name, proc in (
+            ("scalar_smoke", scalar),
+            ("tensor_smoke", phase1r),
+            ("loop_smoke", phase1r),
+            ("project_validation", project),
+        ):
+            self._validation_details[name] = {
+                "exit_status": proc.returncode,
+                "stderr": proc.stderr.strip()[-2000:],
+            }
         return result
 
     def _write_transaction(self, transaction_id: str, from_version: str | None, to_version: str | None,
@@ -625,6 +781,7 @@ class UpdateEngine:
                             explicit: bool = False) -> tuple[dict[str, Any], int]:
         try:
             self.adapter.restore_version(self.root, previous, attempted)
+            self._validation_details = {}
             validation = self.validator(self.root / "versions" / previous)
             healthy = all(value == "passed" for value in validation.values())
             if not healthy:
@@ -647,6 +804,8 @@ class UpdateEngine:
                 self.adapter.atomic_json_write(self.metadata / "install_state.json", state)
             report = {"schema_version": REPORT_SCHEMA, "status": "rolled_back", "attempted_version": attempted,
                       "restored_version": previous, "reason_code": cause.code, "previous_installation_healthy": True,
+                      "post_install_validation": cause.context.get("validation"),
+                      "validation_details": cause.context.get("validation_details"),
                       "rollback": {"performed": True, "status": "passed"}, "diagnostics": [
                           {**UpdateError("INS-UPD-011", phase="rolling_back").diagnostic(), "cause": cause.code}]}
             return report, 0 if explicit else 9
@@ -658,10 +817,12 @@ class UpdateEngine:
     def validate_active(self) -> tuple[dict[str, Any], int]:
         installation = self.discover()
         version = installation["current"]["active_version"]
+        self._validation_details = {}
         validation = self.validator(self.root / "versions" / version)
         passed = all(value == "passed" for value in validation.values())
         return {"schema_version": REPORT_SCHEMA, "status": "validated" if passed else "validation_failed",
-                "installed_version": version, "post_install_validation": validation, "diagnostics": []}, 0 if passed else 8
+                "installed_version": version, "post_install_validation": validation,
+                "validation_details": dict(self._validation_details), "diagnostics": []}, 0 if passed else 8
 
     def _completed_report(self, package: Package, plan: dict[str, Any], validation: dict[str, str]) -> dict[str, Any]:
         return {"schema_version": REPORT_SCHEMA, "status": "completed", "platform": self.adapter.name,
@@ -671,7 +832,8 @@ class UpdateEngine:
                 "staging": {"status": "passed"}, "activation": {"status": "passed", "atomic": True},
                 "preservation": {"config_preserved": True, "projects_untouched": True, "artifacts_untouched": True},
                 "managed_file_overrides": plan["plan"]["modified_managed_files"],
-                "post_install_validation": validation, "rollback": {"performed": False}, "diagnostics": []}
+                "post_install_validation": validation, "validation_details": dict(self._validation_details),
+                "rollback": {"performed": False}, "diagnostics": []}
 
     def _failure_report(self, error: UpdateError, package: Path | None) -> dict[str, Any]:
         return {"schema_version": REPORT_SCHEMA, "status": "failed", "platform": self.adapter.name,

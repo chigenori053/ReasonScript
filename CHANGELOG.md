@@ -2,6 +2,16 @@
 
 ## v0.5.2.1 — 2026-07-23
 
+### Fixed
+
+- Restored every provenance-declared executable after ZIP extraction and added
+  pre-activation native runtime probes, preventing `reason-vision` and
+  `reasonunit-runtime-native` from reaching validation with mode `0644`.
+- Added a bounded packaged-CLI permission bootstrap so the v0.5.1 updater can
+  activate v0.5.2.1 without requiring a prior updater hotfix.
+- Preserved per-command post-install diagnostics in update, validation, and
+  automatic rollback reports.
+
 ### Added
 
 - Implemented Integrated Runtime Completeness v0.2:
