@@ -30,12 +30,16 @@ transition IDs, and multiline typed parameter lists parse successfully.
 - `agent_report.json` records the task as `VALIDATED` with 1095 tests passed.
 - Existing golden baselines were not changed because the new regression cases
   do not alter established fixtures.
+- The correction ships in the official v0.5.2.3 macOS arm64 update package.
 
 ## Compatibility Notes
 
 Canonical function return transition IDs remain
 `<function>.return[.<path>]`. Existing single-call branch evidence and
 language-surface v0.5 compatibility behavior are unchanged.
+
+The locally active ReasonScript installation was updated from 0.5.2.2 to
+0.5.2.3 and passed both reported reproductions.
 
 ## Remaining Work
 

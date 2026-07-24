@@ -3,6 +3,16 @@
 This directory contains the normative specifications and reference
 documentation for the ReasonScript language and platform.
 
+## Current Release
+
+- `specifications/ReasonScript_v0_5_2_3_Release_Definition.md` — normative
+  v0.5.2.3 release scope and acceptance criteria.
+- `installation/ReasonScript_v0_5_2_3_Installation.md` — official macOS arm64
+  package update and validation procedure.
+- `reports/ReasonScript_v0_5_2_3_Release_Report.md` — package provenance,
+  validation, and local installation results.
+- `changelog/reasonscript_v0_5_2_3.md` — concise language-fix changelog.
+
 ## Language
 
 - `specifications/ReasonScript_Language_Specification_v0.1.md` — Language

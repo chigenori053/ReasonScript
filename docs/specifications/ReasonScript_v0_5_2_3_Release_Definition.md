@@ -1,7 +1,7 @@
 # ReasonScript v0.5.2.3 Release Definition
 
 Specification ID: `reasonscript-release/0.5.2.3`
-Status: IN_PROGRESS
+Status: VALIDATED
 Date: 2026-07-25
 
 ReasonScript 0.5.2.3 is the maintenance release for the two compiler and

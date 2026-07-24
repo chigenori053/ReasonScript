@@ -13,10 +13,11 @@ evidence, Reason IR compatibility, and runtime compatibility
 
 ## Official package
 
-The official macOS arm64 update-and-install artifact will be:
+The official macOS arm64 update-and-install artifact is:
 
 `dist/v0.5.2.3/reasonscript-0.5.2.3-macos-arm64.zip`
 
-It must be release-class, built from a clean committed source tree,
-accompanied by SHA-256 and provenance sidecars, and validated through the
-0.5.2.2-to-0.5.2.3 update workflow.
+It is release-class, built from clean source commit
+`2c0df336dc137a8b43fffbf94294766a7e08e7bd`, accompanied by SHA-256 and
+provenance sidecars, and validated through the 0.5.2.2-to-0.5.2.3 update
+workflow.
