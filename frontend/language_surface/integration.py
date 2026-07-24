@@ -45,6 +45,7 @@ from .nodes import (
     LetStatementNode,
     LiteralPatternNode,
     LogicalExpressionNode,
+    LogicalOperator,
     LoopStatementNode,
     MapLiteralNode,
     MatchStatementNode,
@@ -82,6 +83,7 @@ from .nodes import (
     TransitionNode,
     TupleLiteralNode,
     UnaryExpressionNode,
+    UnaryOperator,
     Visibility,
     WhileStatementNode,
     WildcardPatternNode,
@@ -431,13 +433,44 @@ def _project_calculations(
                 statement, index
             )
             expression = _statement_expression(statement)
-            for function_name in _expression_function_calls(expression):
+            for call_index, function_name in enumerate(
+                _expression_function_calls(expression),
+                1,
+            ):
                 function = functions.get(function_name)
                 if function is None or function_name in emitted_function_returns:
                     continue
+                if len(current_sources) > 1:
+                    merge_target = (
+                        f"{node.name}.state.call.{index}.{call_index}.{function_name}"
+                    )
+                    for source_index, source in enumerate(current_sources, 1):
+                        transition_index += 1
+                        declarations.append(
+                            semantic.TransitionNode(
+                                f"{namespace}-function-{transition_index}",
+                                (
+                                    f"{node.name}-{index}-call-{call_index}-"
+                                    f"merge-{source_index}"
+                                ),
+                                source,
+                                "FunctionCallMergeTransition",
+                                merge_target,
+                                effect={
+                                    "calculation": node.name,
+                                    "function": f"{namespace}.{function_name}",
+                                    "source_return": source,
+                                },
+                            )
+                        )
+                    current_sources = [merge_target]
                 return_paths = _function_return_paths(function, module)
                 arguments = _function_call_arguments(expression, function_name)
-                evaluation_context = _function_evaluation_context(function, arguments)
+                evaluation_context = _function_evaluation_context(
+                    function,
+                    arguments,
+                    functions,
+                )
                 next_sources: list[str] = []
                 for source in current_sources:
                     for return_path in return_paths:
@@ -1862,11 +1895,205 @@ def _condition_operand_name(value: Any) -> str:
 def _function_evaluation_context(
     function: FunctionDeclarationNode,
     arguments: tuple[Any, ...],
+    functions: dict[str, FunctionDeclarationNode] | None = None,
 ) -> dict[str, Any]:
     context: dict[str, Any] = {}
     for parameter, argument in zip(function.parameters, arguments):
-        context[_function_parameter_name(parameter)] = _literal_value(argument)
+        value = _compile_time_value(argument, {}, functions or {}, ())
+        context[_function_parameter_name(parameter)] = (
+            _literal_value(argument) if value is _UNKNOWN_VALUE else value
+        )
     return context
+
+
+_UNKNOWN_VALUE = object()
+_NO_RETURN = object()
+
+
+def _compile_time_value(
+    expression: Any,
+    context: dict[str, Any],
+    functions: dict[str, FunctionDeclarationNode],
+    active_calls: tuple[str, ...],
+) -> Any:
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    if isinstance(value, BooleanLiteralNode):
+        return value.value
+    if isinstance(value, (IntegerLiteralNode, FloatLiteralNode)):
+        return value.value
+    if isinstance(value, IdentifierNode):
+        return context.get(value.name, _UNKNOWN_VALUE)
+    if isinstance(value, ParenthesizedExpressionNode):
+        return _compile_time_value(value.expression, context, functions, active_calls)
+    if isinstance(value, UnaryExpressionNode):
+        operand = _compile_time_value(value.operand, context, functions, active_calls)
+        if operand is _UNKNOWN_VALUE:
+            return _UNKNOWN_VALUE
+        if value.operator == UnaryOperator.NEGATE and isinstance(operand, (int, float)):
+            return -operand
+        if value.operator == UnaryOperator.NOT and isinstance(operand, bool):
+            return not operand
+        return _UNKNOWN_VALUE
+    if isinstance(value, BinaryExpressionNode):
+        left = _compile_time_value(value.left, context, functions, active_calls)
+        right = _compile_time_value(value.right, context, functions, active_calls)
+        return _compile_time_binary(value.operator, left, right)
+    if isinstance(value, ComparisonExpressionNode):
+        left = _compile_time_value(value.left, context, functions, active_calls)
+        right = _compile_time_value(value.right, context, functions, active_calls)
+        return _compile_time_comparison(value.operator, left, right)
+    if isinstance(value, LogicalExpressionNode):
+        left = _compile_time_value(value.left, context, functions, active_calls)
+        right = _compile_time_value(value.right, context, functions, active_calls)
+        if not isinstance(left, bool) or not isinstance(right, bool):
+            return _UNKNOWN_VALUE
+        return left and right if value.operator == LogicalOperator.AND else left or right
+    if (
+        isinstance(value, CallExpressionNode)
+        and isinstance(value.callee, IdentifierNode)
+        and value.callee.name in functions
+        and value.callee.name not in active_calls
+    ):
+        function = functions[value.callee.name]
+        arguments = [
+            _compile_time_value(argument, context, functions, active_calls)
+            for argument in value.arguments
+        ]
+        if any(argument is _UNKNOWN_VALUE for argument in arguments):
+            return _UNKNOWN_VALUE
+        call_context = {
+            _function_parameter_name(parameter): argument
+            for parameter, argument in zip(function.parameters, arguments)
+        }
+        result = _compile_time_function_body(
+            function.body,
+            call_context,
+            functions,
+            (*active_calls, function.name),
+        )
+        return _UNKNOWN_VALUE if result is _NO_RETURN else result
+    return _UNKNOWN_VALUE
+
+
+def _compile_time_function_body(
+    statements: tuple[Any, ...],
+    context: dict[str, Any],
+    functions: dict[str, FunctionDeclarationNode],
+    active_calls: tuple[str, ...],
+) -> Any:
+    local_context = dict(context)
+    for statement in statements:
+        if isinstance(statement, ReturnStatementNode):
+            return _compile_time_value(
+                statement.expression,
+                local_context,
+                functions,
+                active_calls,
+            )
+        if isinstance(statement, (LetStatementNode, ConstStatementNode)):
+            value = _compile_time_value(
+                statement.expression,
+                local_context,
+                functions,
+                active_calls,
+            )
+            if value is _UNKNOWN_VALUE:
+                return _UNKNOWN_VALUE
+            local_context[statement.identifier] = value
+            continue
+        if isinstance(statement, AssignmentStatementNode):
+            value = _compile_time_value(
+                statement.expression,
+                local_context,
+                functions,
+                active_calls,
+            )
+            if value is _UNKNOWN_VALUE:
+                return _UNKNOWN_VALUE
+            local_context[statement.target] = value
+            continue
+        if isinstance(statement, IfStatementNode):
+            branches = (
+                (statement.condition, statement.body),
+                *((branch.condition, branch.body) for branch in statement.elif_branches),
+            )
+            selected_body = None
+            for condition, body in branches:
+                selected = _compile_time_value(
+                    condition,
+                    local_context,
+                    functions,
+                    active_calls,
+                )
+                if not isinstance(selected, bool):
+                    return _UNKNOWN_VALUE
+                if selected:
+                    selected_body = body
+                    break
+            if selected_body is None and statement.else_branch is not None:
+                selected_body = statement.else_branch.body
+            if selected_body is not None:
+                result = _compile_time_function_body(
+                    selected_body,
+                    local_context,
+                    functions,
+                    active_calls,
+                )
+                if result is not _NO_RETURN:
+                    return result
+    return _NO_RETURN
+
+
+def _compile_time_binary(operator: BinaryOperator, left: Any, right: Any) -> Any:
+    if (
+        left is _UNKNOWN_VALUE
+        or right is _UNKNOWN_VALUE
+        or isinstance(left, bool)
+        or isinstance(right, bool)
+        or not isinstance(left, (int, float))
+        or not isinstance(right, (int, float))
+    ):
+        return _UNKNOWN_VALUE
+    if operator == BinaryOperator.ADD:
+        return left + right
+    if operator == BinaryOperator.SUBTRACT:
+        return left - right
+    if operator == BinaryOperator.MULTIPLY:
+        return left * right
+    if operator == BinaryOperator.DIVIDE and right != 0:
+        return left / right
+    if operator == BinaryOperator.MODULO and right != 0:
+        return left % right
+    return _UNKNOWN_VALUE
+
+
+def _compile_time_comparison(
+    operator: ComparisonOperator,
+    left: Any,
+    right: Any,
+) -> Any:
+    if left is _UNKNOWN_VALUE or right is _UNKNOWN_VALUE:
+        return _UNKNOWN_VALUE
+    if operator == ComparisonOperator.EQUAL:
+        return left == right
+    if operator == ComparisonOperator.NOT_EQUAL:
+        return left != right
+    if (
+        isinstance(left, bool)
+        or isinstance(right, bool)
+        or not isinstance(left, (int, float))
+        or not isinstance(right, (int, float))
+    ):
+        return _UNKNOWN_VALUE
+    if operator == ComparisonOperator.GREATER_THAN:
+        return left > right
+    if operator == ComparisonOperator.GREATER_THAN_OR_EQUAL:
+        return left >= right
+    if operator == ComparisonOperator.LESS_THAN:
+        return left < right
+    if operator == ComparisonOperator.LESS_THAN_OR_EQUAL:
+        return left <= right
+    return _UNKNOWN_VALUE
 
 
 def _evaluation_context_for_return_path(
@@ -2300,11 +2527,11 @@ def _expression_function_calls(expression: ExpressionNode | Any | None) -> list[
 
     def visit(item: Any) -> None:
         if isinstance(item, CallExpressionNode):
-            if isinstance(item.callee, IdentifierNode) and item.callee.name not in found:
-                found.append(item.callee.name)
-            visit(item.callee)
             for argument in item.arguments:
                 visit(argument)
+            visit(item.callee)
+            if isinstance(item.callee, IdentifierNode) and item.callee.name not in found:
+                found.append(item.callee.name)
             return
         if isinstance(item, ExpressionNode):
             visit(item.expression)

@@ -228,3 +228,108 @@ def test_fsi_006_duplicate_function_is_fn_001():
             }
             """
         )
+
+
+def test_fsi_007_nested_call_is_lowered_inner_first_and_selects_outer_branch():
+    result = _pipeline(
+        """
+        module NestedOuterBranch {
+            fn Inner(value: int) -> int {
+                return value + 1
+            }
+            fn Outer(value: int) -> int {
+                if value > 0 {
+                    return 2
+                }
+                return 0
+            }
+            calculation Probe {
+                result = Outer(Inner(1))
+            }
+        }
+        """
+    )
+
+    function_transitions = [
+        item
+        for item in result["ir"]["transitions"]
+        if item["relation"] == "FunctionReturnTransition"
+    ]
+    assert [item["transition_id"] for item in function_transitions] == [
+        "Inner.return",
+        "Outer.return.true",
+        "Outer.return.false",
+    ]
+    assert function_transitions[1]["effect"]["evaluation_context"] == {"value": 2}
+    assert function_transitions[1]["effect"]["return"]["expression"]["value"] == 2
+    selected_ids = [
+        item["transition_id"] for item in result["plan"]["selected_steps"]
+    ]
+    assert "Outer.return.true" in selected_ids
+    assert "Outer.return.false" not in selected_ids
+
+
+def test_fsi_008_nested_branching_calls_use_a_merge_without_duplicate_ids():
+    result = _pipeline(
+        """
+        module NestedBranches {
+            fn Inner(value: int) -> int {
+                if value > 0 {
+                    return value + 1
+                }
+                return 0
+            }
+            fn Outer(value: int) -> int {
+                if value > 1 {
+                    return 2
+                }
+                return 0
+            }
+            calculation Probe {
+                result = Outer(Inner(1))
+            }
+        }
+        """
+    )
+
+    transitions = result["ir"]["transitions"]
+    transition_ids = [item["transition_id"] for item in transitions]
+    assert len(transition_ids) == len(set(transition_ids))
+    assert sum(
+        item["relation"] == "FunctionCallMergeTransition" for item in transitions
+    ) == 2
+    selected_ids = [
+        item["transition_id"] for item in result["plan"]["selected_steps"]
+    ]
+    assert "Inner.return.true" in selected_ids
+    assert "Outer.return.true" in selected_ids
+    assert "Outer.return.false" not in selected_ids
+
+
+def test_fsi_009_multiline_typed_parameter_list_is_supported():
+    result = _pipeline(
+        """
+        module MultilineSignature {
+            fn Add(
+                left: int,
+                right: int
+            ) -> int {
+                return left + right
+            }
+            calculation Probe {
+                result = Add(1, 2)
+            }
+        }
+        """
+    )
+
+    assert result["ir"]["metadata"]["function_symbols"][0]["parameters"] == [
+        {"name": "left", "type": "int"},
+        {"name": "right", "type": "int"},
+    ]
+    function_return = next(
+        item
+        for item in result["ir"]["transitions"]
+        if item["transition_id"] == "Add.return"
+    )
+    assert function_return["effect"]["return_value"] == 3

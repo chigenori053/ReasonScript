@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.2.3 — 2026-07-25
+
+### Fixed
+
+- Corrected nested function-call lowering to evaluate inner calls before
+  branching outer calls, merge alternative inner return states without
+  duplicate transition IDs, and pass literal inner results into outer branch
+  evaluation.
+- Added multiline typed function parameter-list parsing.
+
 ## v0.5.2.2 — 2026-07-24
 
 ### Fixed

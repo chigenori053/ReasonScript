@@ -673,10 +673,11 @@ def _parse_enum(cursor: _Cursor) -> EnumDeclarationNode:
 
 
 def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
+    signature = _collect_function_signature(cursor)
     match = re.fullmatch(
         r"(?:(pub|export)\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)"
         r"(?:\s*(?:->|:)\s*(.+?))?\s*\{",
-        cursor.take(),
+        signature,
     )
     if not match:
         raise SurfaceSyntaxError("invalid function declaration")
@@ -690,6 +691,22 @@ def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
         visibility,
         _type_annotation(match.group(4)) if match.group(4) else None,
     )
+
+
+def _collect_function_signature(cursor: _Cursor) -> str:
+    parts = [cursor.take()]
+    balance = _parenthesis_balance(parts[0])
+    while balance > 0 and cursor.index < len(cursor.lines):
+        next_line = cursor.take()
+        parts.append(next_line)
+        balance += _parenthesis_balance(next_line)
+    if balance != 0:
+        raise SurfaceSyntaxError("invalid function declaration")
+    return " ".join(parts)
+
+
+def _parenthesis_balance(line: str) -> int:
+    return line.count("(") - line.count(")")
 
 
 def _parse_for(cursor: _Cursor, *, context: str) -> ForStatementNode:

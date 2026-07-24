@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "RUO Native Interoperability Correction v0.1",
-  "tests_passed": 1092,
+  "task": "ReasonScript v0.5.2.3 release",
+  "tests_passed": 1095,
   "version": "1.0"
 }
