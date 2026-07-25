@@ -1,7 +1,7 @@
 # ReasonScript v0.5.2.4 Release Definition
 
 Specification ID: `reasonscript-release/0.5.2.4`
-Status: IN_PROGRESS
+Status: VALIDATED
 Date: 2026-07-25
 
 ReasonScript 0.5.2.4 is the maintenance release for the three defects reported

@@ -45,6 +45,12 @@ Successful completion requires `installed_version: 0.5.2.4`, no fatal
 diagnostics, and passing version, doctor, install-info, install-validate,
 scalar, Tensor, loop, project, and RS-GSR-001 through RS-GSR-003 probes.
 
+The official archive SHA-256 is:
+
+```text
+7878427a9b2d8b81a5d14ac333417aff51d368cb79dba8dffd92c109ad8f63a4
+```
+
 ## Recovery
 
 Activation is atomic. If post-install validation fails, the updater restores

@@ -17,5 +17,7 @@ The official macOS arm64 update-and-install artifact is:
 
 `dist/v0.5.2.4/reasonscript-0.5.2.4-macos-arm64.zip`
 
-Release provenance, SHA-256 values, and local update results are recorded after
-the clean-source package build.
+It is release-class, built from clean source commit
+`a5efd93cef592d19d720732dfb00c41a81b86b78`, accompanied by SHA-256 and
+provenance sidecars, and validated through the 0.5.2.3-to-0.5.2.4 local update
+workflow.
