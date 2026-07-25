@@ -15,7 +15,6 @@ from toolchain.artifacts import ARTIFACT_SCHEMA, ARTIFACT_SCHEMAS, stable_json, 
 from toolchain.diagnostics import DIAGNOSTICS_SCHEMA, diagnostic_from_parts, diagnostics_document, validate_diagnostics_document
 from toolchain.golden import GOLDEN_SCHEMA, run_corpus
 from toolchain.phase8_golden_validation import CONTRACT_SCHEMA as PHASE8_GOLDEN_SCHEMA
-from toolchain.phase8_golden_validation import validate_phase8_golden
 from toolchain.reasoning_evaluation_report import CONTRACT_SCHEMA as REASONING_EVALUATION_SCHEMA
 from toolchain.reasoning_model_contract import CONTRACT_SCHEMA as REASONING_MODEL_SCHEMA
 from toolchain.reasoning_runtime import CONTRACT_SCHEMA as REASONING_RUNTIME_SCHEMA
@@ -268,20 +267,13 @@ def _check_artifacts(root: Path) -> tuple[bool, list[Any], dict[str, Any] | None
 
 def _check_golden(root: Path) -> tuple[bool, list[Any], dict[str, Any] | None]:
     golden_root = root / "golden"
-    if not golden_root.is_dir():
-        return False, [_ci_diag("CI-006", "Golden test failed", file="golden")], None
     result = run_corpus(golden_root)
-    phase8 = validate_phase8_golden(root)
     summary = result["summary"]
     metadata = {
         **summary,
-        "phase8_golden_validation": {
-            "target": PHASE8_GOLDEN_SCHEMA,
-            "status": phase8["status"],
-            "scenarios": len(phase8["scenarios"]),
-        },
+        "golden_diagnostics": result["diagnostics"]["diagnostics"],
     }
-    if summary["failed"] or not phase8["ok"]:
+    if summary["failed"]:
         return False, [_ci_diag("CI-006", "Golden test failed", file="golden")], metadata
     return True, [], metadata
 

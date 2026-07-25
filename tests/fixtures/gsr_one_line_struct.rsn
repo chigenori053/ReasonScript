@@ -1,0 +1,8 @@
+module OneLineStructReproduction {
+  struct Point { x: int y: int }
+
+  calculation Probe {
+    let point = Point { x: 1, y: 2 }
+    result = point.x + point.y
+  }
+}

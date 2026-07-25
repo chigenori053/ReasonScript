@@ -627,12 +627,23 @@ def _parse_calculation(cursor: _Cursor) -> CalculationNode:
 
 
 def _parse_struct(cursor: _Cursor) -> StructDeclarationNode:
+    declaration = cursor.take()
+    compact = re.fullmatch(
+        r"(?:(export)\s+)?struct\s+([A-Za-z_]\w*)\s*\{(.*)\}",
+        declaration,
+    )
+    if compact:
+        return StructDeclarationNode(
+            compact.group(2),
+            _parse_compact_struct_fields(compact.group(3)),
+            Visibility.PUBLIC if compact.group(1) else Visibility.PRIVATE,
+        )
     match = re.fullmatch(
         r"(?:(export)\s+)?struct\s+([A-Za-z_]\w*)\s*\{",
-        cursor.take(),
+        declaration,
     )
     if not match:
-        raise SurfaceSyntaxError("invalid struct declaration")
+        raise SurfaceSyntaxError("PARSE-001 invalid struct declaration")
     fields: list[StructFieldNode] = []
     while cursor.index < len(cursor.lines):
         line = cursor.take()
@@ -647,6 +658,53 @@ def _parse_struct(cursor: _Cursor) -> StructDeclarationNode:
             raise SurfaceSyntaxError("TV-4 FieldTypeRequired")
         fields.append(StructFieldNode(field.group(1), _type_annotation(field.group(2))))
     raise SurfaceSyntaxError("unterminated struct declaration")
+
+
+def _parse_compact_struct_fields(body: str) -> tuple[StructFieldNode, ...]:
+    text = body.strip()
+    if not text:
+        return ()
+
+    markers: list[tuple[int, int, str]] = []
+    depth = 0
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char in "([<":
+            depth += 1
+        elif char in ")]>":
+            depth -= 1
+            if depth < 0:
+                raise SurfaceSyntaxError(
+                    "PARSE-001 invalid compact struct field type"
+                )
+        elif depth == 0 and (char.isalpha() or char == "_"):
+            field = re.match(r"([A-Za-z_]\w*)\s*:(?!:)", text[index:])
+            if field:
+                markers.append(
+                    (index, index + field.end(), field.group(1))
+                )
+                index += field.end()
+                continue
+        index += 1
+
+    if depth != 0 or not markers or text[:markers[0][0]].strip(" ,;"):
+        raise SurfaceSyntaxError("PARSE-001 invalid compact struct declaration")
+
+    fields: list[StructFieldNode] = []
+    for marker_index, (_, value_start, name) in enumerate(markers):
+        value_end = (
+            markers[marker_index + 1][0]
+            if marker_index + 1 < len(markers)
+            else len(text)
+        )
+        field_type = text[value_start:value_end].strip().rstrip(",;").strip()
+        if not field_type:
+            raise SurfaceSyntaxError(
+                f"PARSE-001 compact struct field requires a type: {name}"
+            )
+        fields.append(StructFieldNode(name, _type_annotation(field_type)))
+    return tuple(fields)
 
 
 def _parse_enum(cursor: _Cursor) -> EnumDeclarationNode:

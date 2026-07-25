@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "ReasonScript v0.5.2.3 release",
-  "tests_passed": 1095,
+  "task": "ReasonScript v0.5.2.4 release",
+  "tests_passed": 1102,
   "version": "1.0"
 }

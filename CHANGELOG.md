@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.5.2.4 — 2026-07-25
+
+### Fixed
+
+- Unified standalone and canonical CI Golden corpus results, retained
+  actionable underlying diagnostics, and added `GT-011` for a missing corpus.
+- Added compact single-line `struct` declarations with nested composite type
+  support and `PARSE-001` diagnostics for malformed declarations.
+- Added successful global `reason --help`, `reason -h`, and `reason help`
+  discovery.
+
 ## v0.5.2.3 — 2026-07-25
 
 ### Fixed

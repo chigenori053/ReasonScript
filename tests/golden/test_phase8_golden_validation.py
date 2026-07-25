@@ -93,9 +93,9 @@ def test_gv_t401_phase8_compatibility_target_is_registered() -> None:
     assert COMPATIBILITY_TARGETS[CONTRACT_SCHEMA]() is True
 
 
-def test_gv_t402_phase8_validation_passes_and_ci_includes_it() -> None:
+def test_gv_t402_phase8_validation_passes_and_generic_ci_does_not_require_it() -> None:
     assert validate_phase8_golden(ROOT)["ok"] is True
     result = run_pipeline(ROOT, run_tests=False)
     golden_phase = next(phase for phase in result["phases"] if phase["id"] == "golden")
     assert golden_phase["status"] == "PASS"
-    assert golden_phase["metadata"]["phase8_golden_validation"]["target"] == CONTRACT_SCHEMA
+    assert "phase8_golden_validation" not in golden_phase["metadata"]

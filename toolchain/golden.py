@@ -61,6 +61,10 @@ def load_manifest(corpus_root: str | Path) -> dict[str, Any]:
 def validate_corpus(corpus_root: str | Path) -> dict[str, Any]:
     root = Path(corpus_root)
     diagnostics: list[Any] = []
+    if not root.is_dir():
+        return diagnostics_document([
+            _gt_diag("GT-011", "Golden corpus directory not found", file=str(root))
+        ])
     manifest = load_manifest(root)
     cases = discover_cases(root)
     if manifest.get("version") != GOLDEN_VERSION or manifest.get("total_cases") != len(cases):

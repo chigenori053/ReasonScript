@@ -1,8 +1,8 @@
 {
   "schema_version": "reasonscript-validation-profile-declaration/1.0",
-  "reason_version": "0.5.2.3",
+  "reason_version": "0.5.2.4",
   "install_foundation_version": "1.1",
-  "runtime_version": "0.5.2.3",
+  "runtime_version": "0.5.2.4",
   "commands": [
     "--version",
     "doctor",

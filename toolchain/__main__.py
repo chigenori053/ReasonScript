@@ -11,6 +11,9 @@ def main() -> int:
     if args and args[0] in {"--version", "-V"}:
         from toolchain.install_foundation import version_command
         return version_command(args[1:])
+    if args and args[0] in {"--help", "-h", "help"}:
+        _usage()
+        return 0
     if not args:
         _usage()
         return 1
@@ -164,6 +167,7 @@ def _usage() -> None:
     print("Usage: reason <command> [args]")
     print()
     print("Commands:")
+    print("  help          Show this help")
     print("  init <name>   Create a new ReasonScript project")
     print("  doctor        Diagnose the installed environment")
     print("  install-info  Show the installation manifest")

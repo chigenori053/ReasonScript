@@ -146,7 +146,7 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     assert (package / "payload/bin" / reasonunit_name).is_file()
     manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
     assert "vision-runtime-v0.1" in {item["name"] for item in manifest["components"]}
-    assert manifest["package_version"] == "0.5.2.3"
+    assert manifest["package_version"] == "0.5.2.4"
 
     fresh = tmp_path / "fresh-install"
     environment = os.environ.copy()
@@ -161,6 +161,6 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     )
     assert installed.returncode in {0, 1}, installed.stdout + installed.stderr
     report = json.loads(installed.stdout)
-    assert report["status"] == "success" and report["reason_version"] == "0.5.2.3"
+    assert report["status"] == "success" and report["reason_version"] == "0.5.2.4"
     assert (fresh / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
     assert (fresh / "current/bin" / reasonunit_name).is_file()
