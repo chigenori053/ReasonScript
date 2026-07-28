@@ -5,9 +5,9 @@ documentation for the ReasonScript language and platform.
 
 ## Current Release
 
-- `specifications/ReasonScript_v0_5_2_4_Release_Definition.md` — normative
-  v0.5.2.4 release scope and acceptance criteria.
-- `installation/ReasonScript_v0_5_2_4_Installation.md` — official macOS arm64
+- `specifications/ReasonScript_v0_5_4_2_Release_Definition.md` — normative
+  v0.5.4.2 release scope and acceptance criteria.
+- `installation/ReasonScript_v0_5_4_2_Installation.md` — official macOS arm64
   package update and validation procedure.
 - `reports/ReasonScript_v0_5_2_4_Release_Report.md` — package provenance,
   validation, and local installation results.

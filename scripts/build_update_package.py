@@ -109,6 +109,15 @@ def _write_payload(package: Path, target_platform: str) -> Path:
     vision_name = "reason-vision.exe" if target_platform == "windows" else "reason-vision"
     shutil.copy2(ROOT / "VisionRuntime" / "target" / "release" / vision_name, payload / "bin" / vision_name)
     (payload / "bin" / vision_name).chmod(0o755)
+    visualization_build = subprocess.run(
+        [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisualizationRuntime/Cargo.toml")],
+        text=True, capture_output=True,
+    )
+    if visualization_build.returncode:
+        raise BuildRejected(f"VisualizationRuntime build failed: {visualization_build.stderr.strip()}")
+    visualization_name = "reason-visualization.exe" if target_platform == "windows" else "reason-visualization"
+    shutil.copy2(ROOT / "VisualizationRuntime" / "target" / "release" / visualization_name, payload / "bin" / visualization_name)
+    (payload / "bin" / visualization_name).chmod(0o755)
     reasonunit_build = subprocess.run(
         [
             cargo,

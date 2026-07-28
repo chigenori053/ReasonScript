@@ -88,6 +88,24 @@ def install(prefix: Path, json_output: bool) -> int:
                 raise RuntimeError(f"VisionRuntime build failed: {vision_build.stderr.strip()}")
             shutil.copy2(ROOT / "VisionRuntime" / "target" / "release" / vision_name, vision_binary)
         vision_binary.chmod(0o755)
+        visualization_name = "reason-visualization.exe" if os.name == "nt" else "reason-visualization"
+        visualization_binary = temp / "bin" / visualization_name
+        packaged_visualization = ROOT / "bin" / visualization_name
+        if packaged_visualization.is_file():
+            shutil.copy2(packaged_visualization, visualization_binary)
+        else:
+            cargo = shutil.which("cargo")
+            if not cargo:
+                raise RuntimeError("cargo is required to build the native VisualizationRuntime from source")
+            visualization_build = subprocess.run(
+                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisualizationRuntime/Cargo.toml")],
+                text=True,
+                capture_output=True,
+            )
+            if visualization_build.returncode:
+                raise RuntimeError(f"VisualizationRuntime build failed: {visualization_build.stderr.strip()}")
+            shutil.copy2(ROOT / "VisualizationRuntime" / "target" / "release" / visualization_name, visualization_binary)
+        visualization_binary.chmod(0o755)
         reasonunit_name = (
             "reasonunit-runtime-native.exe"
             if os.name == "nt"

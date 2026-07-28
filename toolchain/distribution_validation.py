@@ -18,7 +18,7 @@ VISION_DISTRIBUTION_PROFILE = "reasonscript-vision-install-distribution/0.1"
 DISTRIBUTION_TARGETS = (
     "toolchain", "scripts", "schemas", "frontend", "runtime", "examples",
     "standard_library", "metadata", "playground", "conformance", "canonical_fixtures",
-    "VisionRuntime", "NativeReasonUnitRuntime",
+    "VisionRuntime", "VisualizationRuntime", "NativeReasonUnitRuntime",
 )
 
 COMPONENTS = (
@@ -36,6 +36,7 @@ COMPONENTS = (
     ("canonical-fixtures", "canonical_fixtures"),
     ("ml-evaluation-visualization-v0.2", "runtime/visualization/evaluation"),
     ("vision-runtime-v0.1", "VisionRuntime"),
+    ("semantic-visualization-runtime-v0.1", "VisualizationRuntime"),
     ("reasonunit-runtime-v1.0", "NativeReasonUnitRuntime"),
 )
 
@@ -66,6 +67,7 @@ INTEGRITY_ENTRY_POINTS = (
     "reason", "VERSION", "scripts/reason_cli.py", "toolchain/__main__.py",
     "playground/backend/main.py", "metadata/release_manifest.json",
     "VisionRuntime/Cargo.toml", "frontend/vision/contracts.py",
+    "VisualizationRuntime/Cargo.toml",
     "NativeReasonUnitRuntime/Cargo.toml",
     "schemas/vision_observation.schema.json",
 )
@@ -136,6 +138,17 @@ def validate_staged_distribution(root: Path, repository_root: Path | None = None
     if not (root / "schemas/vision_observation.schema.json").is_file():
         raise DistributionError("IF-DC-006", "Vision observation schema is missing.", "vision-runtime", "schemas/vision_observation.schema.json")
     payload["vision_runtime"] = {"path": str(vision_binary), "profile": native.get("profile"), "unsafe_blocks": 0}
+    visualization_binary = _visualization_binary(root)
+    if visualization_binary is None:
+        raise DistributionError("IF-DC-001", "Required Semantic Visualization Runtime executable is missing.", "semantic-visualization-runtime", "bin/reason-visualization")
+    proc = subprocess.run([str(visualization_binary), "verify-native"], cwd=tempfile.gettempdir(), text=True, capture_output=True)
+    try:
+        visualization_native = json.loads(proc.stdout)
+    except json.JSONDecodeError as error:
+        raise DistributionError("IF-DC-003", "Semantic Visualization Runtime native smoke output is invalid.", "semantic-visualization-runtime", str(visualization_binary)) from error
+    if proc.returncode or visualization_native.get("ok") is not True or visualization_native.get("unsafe_blocks") != 0 or visualization_native.get("profile") != "reasonscript-semantic-visualization-runtime/0.1":
+        raise DistributionError("IF-DC-003", "Semantic Visualization Runtime native smoke validation failed.", "semantic-visualization-runtime", str(visualization_binary))
+    payload["semantic_visualization_runtime"] = {"path": str(visualization_binary), "profile": visualization_native.get("profile"), "unsafe_blocks": 0}
     reasonunit_binary = _reasonunit_binary(root)
     if reasonunit_binary is None:
         raise DistributionError(
@@ -201,6 +214,12 @@ def _reasonunit_binary(root: Path) -> Path | None:
         root / "NativeReasonUnitRuntime" / "target" / "release" / name,
         root / "NativeReasonUnitRuntime" / "target" / "debug" / name,
     )
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def _visualization_binary(root: Path) -> Path | None:
+    name = "reason-visualization.exe" if os.name == "nt" else "reason-visualization"
+    candidates = (root / "bin" / name, root / "VisualizationRuntime" / "target" / "release" / name, root / "VisualizationRuntime" / "target" / "debug" / name)
     return next((path for path in candidates if path.is_file()), None)
 
 

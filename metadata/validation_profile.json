@@ -1,8 +1,8 @@
 {
   "schema_version": "reasonscript-validation-profile-declaration/1.0",
-  "reason_version": "0.5.2.4",
+  "reason_version": "0.5.4.2",
   "install_foundation_version": "1.1",
-  "runtime_version": "0.5.2.4",
+  "runtime_version": "0.5.4.2",
   "commands": [
     "--version",
     "doctor",
@@ -114,6 +114,17 @@
       "schemas": [
         "vision_observation"
       ]
+    },
+    "semantic_visualization_runtime": {
+      "required_level": "required",
+      "command": "visualization",
+      "fixtures": [
+        "semantic_visualization_runtime"
+      ],
+      "components": [
+        "semantic-visualization-runtime-v0.1",
+        "toolchain"
+      ]
     }
   },
   "fixtures": {
@@ -133,6 +144,14 @@
       "required": true,
       "required_files": [
         "solar_observation.json"
+      ]
+    },
+    "semantic_visualization_runtime": {
+      "path": "canonical_fixtures/visualization_runtime",
+      "path_type": "directory",
+      "required": true,
+      "required_files": [
+        "person_structure.json"
       ]
     }
   },
@@ -167,6 +186,10 @@
     },
     "vision-runtime-v0.1": {
       "path": "VisionRuntime",
+      "required": true
+    },
+    "semantic-visualization-runtime-v0.1": {
+      "path": "VisualizationRuntime",
       "required": true
     },
     "reasonunit-runtime-v1.0": {

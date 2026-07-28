@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.4.2 — 2026-07-28
+
+### Added
+
+- Added the Safe-Rust Semantic Visualization Runtime v0.1 with deterministic
+  2D Semantic Scene projection, validation, transactions, SVG output, and
+  canonical evidence-bearing artifacts.
+- Added `reason visualization` and packaged `reason-visualization` native
+  runtime support, including staged and installed distribution validation.
+
 ## v0.5.2.4 — 2026-07-25
 
 ### Fixed

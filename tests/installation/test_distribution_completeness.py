@@ -35,6 +35,9 @@ def test_dc_001_to_003_distribution_import_closure(tmp_path):
     native = subprocess.run([str(home / "bin/reason"), "vision", "verify-native", "--json"], cwd=tmp_path, env={**os.environ, "PYTHONPATH": "", "REASONSCRIPT_HOME": str(home)}, text=True, capture_output=True)
     assert native.returncode == 0, native.stdout + native.stderr
     assert json.loads(native.stdout)["unsafe_blocks"] == 0
+    visualization = subprocess.run([str(home / "bin/reason"), "visualization", "verify-native", "--json"], cwd=tmp_path, env={**os.environ, "PYTHONPATH": "", "REASONSCRIPT_HOME": str(home)}, text=True, capture_output=True)
+    assert visualization.returncode == 0, visualization.stdout + visualization.stderr
+    assert json.loads(visualization.stdout)["profile"] == "reasonscript-semantic-visualization-runtime/0.1"
 
 
 def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
@@ -59,10 +62,13 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     ids = {item["id"] for item in manifest["components"]}
     assert {item[0] for item in COMPONENTS} <= ids
     assert "vision-runtime-v0.1" in ids
+    assert "semantic-visualization-runtime-v0.1" in ids
     assert "reasonunit-runtime-v1.0" in ids
     assert (home / "current/VisionRuntime/Cargo.toml").is_file()
     assert (home / "current/NativeReasonUnitRuntime/Cargo.toml").is_file()
+    assert (home / "current/VisualizationRuntime/Cargo.toml").is_file()
     assert (home / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
+    assert (home / "current/bin" / ("reason-visualization.exe" if os.name == "nt" else "reason-visualization")).is_file()
     reasonunit_binary = home / "current/bin" / (
         "reasonunit-runtime-native.exe"
         if os.name == "nt"
@@ -137,7 +143,9 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     package = Path(json.loads(result.stdout)["path"])
     assert (package / "payload/VisionRuntime/Cargo.toml").is_file()
     assert (package / "payload/NativeReasonUnitRuntime/Cargo.toml").is_file()
+    assert (package / "payload/VisualizationRuntime/Cargo.toml").is_file()
     assert (package / "payload/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
+    assert (package / "payload/bin" / ("reason-visualization.exe" if os.name == "nt" else "reason-visualization")).is_file()
     reasonunit_name = (
         "reasonunit-runtime-native.exe"
         if os.name == "nt"
@@ -146,7 +154,7 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     assert (package / "payload/bin" / reasonunit_name).is_file()
     manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
     assert "vision-runtime-v0.1" in {item["name"] for item in manifest["components"]}
-    assert manifest["package_version"] == "0.5.2.4"
+    assert manifest["package_version"] == "0.5.4.2"
 
     fresh = tmp_path / "fresh-install"
     environment = os.environ.copy()
@@ -161,6 +169,6 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     )
     assert installed.returncode in {0, 1}, installed.stdout + installed.stderr
     report = json.loads(installed.stdout)
-    assert report["status"] == "success" and report["reason_version"] == "0.5.2.4"
+    assert report["status"] == "success" and report["reason_version"] == "0.5.4.2"
     assert (fresh / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
     assert (fresh / "current/bin" / reasonunit_name).is_file()

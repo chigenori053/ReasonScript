@@ -560,6 +560,13 @@ class UpdateEngine:
                 "profile",
                 "reasonscript-vision-runtime/0.1",
             ))
+        if "semantic-visualization-runtime-v0.1" in components:
+            probes.append((
+                "semantic-visualization-runtime-v0.1",
+                staging / "bin" / f"reason-visualization{suffix}",
+                "profile",
+                "reasonscript-semantic-visualization-runtime/0.1",
+            ))
         if "reasonunit-runtime-v1.0" in components:
             probes.append((
                 "reasonunit-runtime-v1.0",
