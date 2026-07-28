@@ -1,6 +1,6 @@
 {
   "build": {
-    "timestamp_utc": "2026-07-28T08:38:35.608922Z"
+    "timestamp_utc": "2026-07-28T08:41:05.560874Z"
   },
   "builder": {
     "implementation_sha256": "703d5663e0b7a0c749d52b72c2c85d559cb7a0ee88f5cbad01b045a09a79e9be",
@@ -2703,10 +2703,10 @@
     "hash_algorithm": "sha256",
     "payload_sha256": "0128ffda7e49a4070c2f7f5cb7b8bb871b8b67dba930d9f8b121b381c196b738"
   },
-  "package_class": "development",
+  "package_class": "release",
   "package_id": "reasonscript-0.5.4.2-macos-arm64",
   "release": {
-    "expected_commit": "1563c43975e854973d46ac2419950b8b3ae6c457",
+    "expected_commit": "ef8f7e37cc12758fc0526857784ea3f400ccc581",
     "expected_version": "0.5.4.2"
   },
   "repository": {
@@ -2715,14 +2715,14 @@
   },
   "schema_version": "reasonscript-update-package-manifest/1.0",
   "source_commit": {
-    "sha": "1563c43975e854973d46ac2419950b8b3ae6c457",
-    "short_sha": "1563c43"
+    "sha": "ef8f7e37cc12758fc0526857784ea3f400ccc581",
+    "short_sha": "ef8f7e3"
   },
   "source_tree": {
-    "dirty": true,
+    "dirty": false,
     "submodule_changes": false,
-    "tracked_changes": true,
-    "untracked_files": true
+    "tracked_changes": false,
+    "untracked_files": false
   },
   "target": {
     "architecture": "arm64",
