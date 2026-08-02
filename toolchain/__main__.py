@@ -58,6 +58,10 @@ def main() -> int:
         from scripts.reason_cli import main as reason_main
         return reason_main(args)
 
+    if command == "view":
+        from toolchain.code_viewer_cmd import run
+        return run(args[1:], project_root)
+
     if command == "build":
         from toolchain.build_cmd import run
         return run(project_root, package=package)
@@ -183,6 +187,7 @@ def _usage() -> None:
     print("  run           Execute the compiled program")
     print("  test          Run test suites")
     print("  check         Validate sources without building")
+    print("  view          Browse .rsn source alongside its compiled representations")
     print("  workspace     Show workspace foundation summary")
     print("  summary       Show machine-readable project summary")
     print("  index         Generate workspace JSON artifacts")

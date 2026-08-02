@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.5.4.3 — 2026-08-02
+
+### Added
+
+- Added `reason view`, a terminal CodeViewer that browses a `.rsn` source
+  file alongside its compiled Surface AST, Semantic AST, Reason IR, and
+  ExecutionPlan, correlating the declaration under the cursor with the
+  stage nodes derived from it. Supports `--json` and `--plain` output for
+  CI/agent use, and an interactive curses UI (search, stage-node JSON
+  pointer copy, an all-stages diagnostics summary) when attached to a real
+  terminal. Non-interactive environments automatically get `--plain`
+  output. On Windows, the interactive UI requires the new optional
+  `windows-curses` dependency (`pip install 'reasonscript[viewer]'`);
+  without it, `reason view` still works via the `--plain` fallback.
+  See `docs/development/code_viewer_design.md` and
+  `docs/reference/ReasonScript_v0_5_CLI_Reference.md`.
+
 ## v0.5.4.2 — 2026-07-28
 
 ### Added

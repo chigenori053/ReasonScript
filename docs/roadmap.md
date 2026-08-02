@@ -65,4 +65,7 @@ P2 ecosystem:
 
 - Add editor adapters over the editor-agnostic IDE core
 - Add read-only ReasonGraph, ExecutionPlan, World, and trace viewers
+  — partially delivered by `reason view` (source, Surface AST, Semantic
+  AST, Reason IR, ExecutionPlan; see `docs/development/code_viewer_design.md`).
+  ReasonGraph and World remain open.
 - Begin package registry design
