@@ -17,7 +17,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
+from .filetree import flatten_file_tree
 from .model import Anchor, Stage, StageView, ViewerDocument, ViewerState
 
 
@@ -67,6 +69,8 @@ def render(state: ViewerState, width: int, height: int) -> Frame:
         return _render_help(width, height)
     if state.show_diagnostics:
         return _render_diagnostics(state.document, width, height)
+    if state.show_file_tree:
+        return _render_file_tree(state, width, height)
 
     content_height = height - _HEADER_ROWS - _FOOTER_ROWS
 
@@ -110,6 +114,8 @@ _HELP_LINES = (
     "  Esc                    clear an active search, else return focus to source",
     "  y                      copy the selected stage node's JSON pointer",
     "  d                      toggle the all-stages diagnostics summary",
+    "  e                      toggle the file tree",
+    "         (while open: j/k move, l/Enter open or expand, h collapse)",
     "  ?                      toggle this help",
     "  q, Ctrl-c              quit",
     "",
@@ -150,6 +156,49 @@ def _render_diagnostics(document: ViewerDocument, width: int, height: int) -> Fr
     while len(rows) < height:
         rows.append((Span(_fit("", width)),))
     return tuple(rows[:height])
+
+
+def _render_file_tree(state: ViewerState, width: int, height: int) -> Frame:
+    """Full-screen file picker, toggled by `e` (design doc §17.8) — the same
+    overlay pattern as `_render_help`/`_render_diagnostics`, so it needs no
+    changes to the normal two-pane layout or its goldens."""
+    root_label = str(state.tree_root) if state.tree_root is not None else "(no project root)"
+    header = (Span(_fit(f"File Tree — {root_label}", width), StyleRole.HEADER),)
+    footer = (
+        Span(_fit("j/k:move  l/Enter:open or expand  h:collapse  Esc:cancel  ?:help", width), StyleRole.STATUS),
+    )
+    content_height = max(height - 2, 0)
+    body = _file_tree_rows(state, content_height, width)
+    return (header, *body, footer)
+
+
+def _file_tree_rows(state: ViewerState, content_height: int, width: int) -> tuple[Line, ...]:
+    all_rows = flatten_file_tree(state.tree, state.tree_expanded)
+    if not all_rows:
+        lines: list[Line] = [(Span(_fit("(no .rsn files found)", width)),)]
+    else:
+        current_path = Path(state.document.source_path).resolve()
+        visible = all_rows[state.tree_scroll : state.tree_scroll + content_height]
+        lines = []
+        for local_index, row in enumerate(visible):
+            absolute_index = state.tree_scroll + local_index
+            is_cursor = absolute_index == state.tree_cursor
+            is_current_file = not row.is_directory and row.path == current_path
+            if row.is_directory:
+                label = f"{'▾' if row.expanded else '▸'} {row.name}/"
+            else:
+                label = f"  {row.name}"
+            text = f"{'  ' * row.depth}{label}"
+            if is_cursor:
+                style = StyleRole.CURSOR
+            elif is_current_file:
+                style = StyleRole.CORRELATED
+            else:
+                style = StyleRole.DEFAULT
+            lines.append((Span(_fit(text, width), style),))
+    while len(lines) < content_height:
+        lines.append((Span(_fit("", width)),))
+    return tuple(lines[:content_height])
 
 
 def _header_row(document: ViewerDocument, state: ViewerState, left_width: int, right_width: int) -> Line:

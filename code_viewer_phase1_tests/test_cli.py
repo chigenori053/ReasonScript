@@ -80,9 +80,10 @@ def test_view_launches_tui_when_attached_to_a_real_terminal(monkeypatch):
     monkeypatch.setattr("sys.stdout.isatty", lambda: True)
     calls: dict[str, Any] = {}
 
-    def fake_run_tui(document, *, initial_stage):
+    def fake_run_tui(document, *, initial_stage, **_tree_kwargs):
         calls["document"] = document
         calls["initial_stage"] = initial_stage
+        calls["tree_kwargs"] = _tree_kwargs
         return 0
 
     monkeypatch.setattr("toolchain.code_viewer.tui.run_tui", fake_run_tui)
@@ -92,6 +93,10 @@ def test_view_launches_tui_when_attached_to_a_real_terminal(monkeypatch):
     assert exit_code == 0
     assert calls["initial_stage"] == Stage.IR
     assert calls["document"].ok is True
+    # An explicit file still gets the tree scanned (so `e` works right
+    # away), just closed by default (design doc §17.4).
+    assert calls["tree_kwargs"]["show_file_tree"] is False
+    assert calls["tree_kwargs"]["tree_root"] == ROOT
 
 
 def test_view_falls_back_to_plain_when_tui_cannot_be_imported(monkeypatch, capsys):
@@ -143,3 +148,121 @@ def test_view_plain_on_failing_stage_shows_the_diagnostic(tmp_path, capsys):
 
     assert exit_code == 2
     assert "SyntaxError" in captured.out
+
+
+# --- file tree browsing (design doc §17) -----------------------------------
+
+
+def _project_dir(tmp_path):
+    (tmp_path / "models").mkdir()
+    (tmp_path / "models" / "water.rsn").write_text("module Water {}\n", encoding="utf-8")
+    (tmp_path / "rules").mkdir()
+    (tmp_path / "rules" / "decay.rsn").write_text("module Decay {}\n", encoding="utf-8")
+    return tmp_path
+
+
+def _capture_run_tui(monkeypatch):
+    calls: dict[str, Any] = {}
+
+    def fake_run_tui(document, *, initial_stage, **tree_kwargs):
+        calls["document"] = document
+        calls["initial_stage"] = initial_stage
+        calls.update(tree_kwargs)
+        return 0
+
+    monkeypatch.setattr("toolchain.code_viewer.tui.run_tui", fake_run_tui)
+    return calls
+
+
+def test_view_on_a_directory_launches_tui_with_the_tree_open(tmp_path, monkeypatch):
+    project = _project_dir(tmp_path)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+    calls = _capture_run_tui(monkeypatch)
+
+    exit_code = run([str(project)], ROOT)
+
+    assert exit_code == 0
+    assert calls["show_file_tree"] is True
+    assert calls["tree_root"] == project
+    assert calls["tree"] is not None
+    # first_file() picks the shallowest file — both models/ and rules/ are
+    # equally shallow here, so either is a valid, deterministic choice.
+    assert calls["document"].source_path in {
+        str((project / "models" / "water.rsn").resolve()),
+        str((project / "rules" / "decay.rsn").resolve()),
+    }
+
+
+def test_view_with_no_arguments_browses_cwd_when_attached_to_a_tty(tmp_path, monkeypatch):
+    project = _project_dir(tmp_path)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+    calls = _capture_run_tui(monkeypatch)
+
+    exit_code = run([], project)
+
+    assert exit_code == 0
+    assert calls["show_file_tree"] is True
+    assert calls["tree_root"] == project
+
+
+def test_view_with_no_arguments_still_prints_usage_when_not_a_tty(capsys):
+    # capsys makes isatty() False — a script that forgot to pass a file
+    # should get the old, unambiguous error, not silently start browsing.
+    exit_code = run([], ROOT)
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "Usage" in captured.out
+
+
+def test_view_on_a_directory_with_json_reports_cv_007(tmp_path, capsys):
+    project = _project_dir(tmp_path)
+    exit_code = run([str(project), "--json"], ROOT)
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "CV-007" in captured.out
+
+
+def test_view_on_a_directory_with_plain_reports_cv_007(tmp_path, capsys):
+    project = _project_dir(tmp_path)
+    exit_code = run([str(project), "--plain"], ROOT)
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "CV-007" in captured.out
+
+
+def test_view_on_a_directory_with_no_rsn_files_reports_cv_008(tmp_path, monkeypatch, capsys):
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+
+    exit_code = run([str(empty)], ROOT)
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "CV-008" in captured.out
+
+
+def test_view_root_option_widens_the_tree_beyond_a_single_file(tmp_path, monkeypatch):
+    project = _project_dir(tmp_path)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+    calls = _capture_run_tui(monkeypatch)
+
+    exit_code = run([str(project / "models" / "water.rsn"), "--root", str(project)], ROOT)
+
+    assert exit_code == 0
+    assert calls["show_file_tree"] is False  # explicit file: tree available but closed
+    assert calls["tree_root"] == project
+    assert calls["tree"] is not None
+
+
+def test_view_explicit_file_without_root_defaults_tree_to_project_root(monkeypatch):
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+    calls = _capture_run_tui(monkeypatch)
+
+    exit_code = run([DEPENDENCY_SOURCE], ROOT)
+
+    assert exit_code == 0
+    assert calls["tree_root"] == ROOT

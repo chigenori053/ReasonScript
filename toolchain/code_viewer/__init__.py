@@ -1,11 +1,14 @@
 """ReasonScript CodeViewer — browse .rsn source alongside its compiled stages.
 
-Phase 1 (see docs/development/code_viewer_design.md §14): `project()` only.
-Rendering (render.py) and the interactive TUI (tui.py) land in later phases.
+`reason view` (see docs/development/code_viewer_design.md). tui.py is
+deliberately not imported here — it's the only module allowed to `import
+curses`, and code_viewer_cmd.py needs importing it to be able to fail with
+a catchable ImportError on platforms without curses (design doc §11).
 """
 
 from __future__ import annotations
 
+from .filetree import FileTreeNode, FileTreeRow, ancestor_directories, first_file, flatten_file_tree, scan_project_tree
 from .model import (
     SCHEMA,
     Anchor,
@@ -23,6 +26,8 @@ from .serialize import to_json_value
 __all__ = [
     "SCHEMA",
     "Anchor",
+    "FileTreeNode",
+    "FileTreeRow",
     "Frame",
     "Line",
     "ProjectionError",
@@ -34,8 +39,12 @@ __all__ = [
     "TokenSpan",
     "ViewerDocument",
     "ViewerState",
+    "ancestor_directories",
+    "first_file",
+    "flatten_file_tree",
     "project",
     "render",
+    "scan_project_tree",
     "to_json_value",
     "to_plain_text",
 ]

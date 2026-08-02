@@ -1,10 +1,10 @@
-# ReasonScript CodeViewer 設計案 v0.1
+# ReasonScript CodeViewer 設計案
 
 対象コマンド: `reason view`
-ステータス: **VALIDATED**（`AGENTS.md` のタスク状態に準拠。P1〜P4実装済み、`reason ci` 全通過）
+ステータス: **VALIDATED**（`AGENTS.md` のタスク状態に準拠。v0.1・v0.2ともに実装済み、`reason ci` 全通過）
 15章の4論点は解決済み。決定内容を本文へ反映済み。
 
-## 実装状況（§14 フェーズ表に対応）
+## 実装状況
 
 | フェーズ | 状態 |
 |---|---|
@@ -12,18 +12,22 @@
 | P2（`stages.py`/`render.py`、`--plain`） | ✅ 完了 |
 | P3（`tui.py`/`theme.py`、対話TUI基本操作） | ✅ 完了 |
 | P4（検索`/`・`y`コピー・診断ペイン`d`・最小サイズ縮退CV-004） | ✅ 完了 |
-| P5（ドキュメント） | ✅ 完了（本ファイル・CLIリファレンス・CHANGELOG・roadmap） |
+| P5（ドキュメント） | ✅ 完了 |
+| FT1〜FT3（§17: ファイルツリー機能 v0.2） | ✅ 完了 |
+| FT4（ツリー内ファジー検索・`--root`の任意拡張、巨大ツリー上限） | ⬜ 未着手（任意） |
 
 実装は `toolchain/code_viewer/`（`model.py` / `anchors.py` / `stages.py` /
-`projection.py` / `render.py` / `theme.py` / `tui.py` / `serialize.py`）と
-`toolchain/code_viewer_cmd.py`。テストは `code_viewer_phase1_tests/`
-（65件）、ゴールデンは `golden/code_viewer/`、スキーマは
-`schemas/code_viewer_document.schema.json`。
+`projection.py` / `render.py` / `theme.py` / `tui.py` / `filetree.py` /
+`serialize.py`）と `toolchain/code_viewer_cmd.py`。テストは
+`code_viewer_phase1_tests/`（106件）、ゴールデンは `golden/code_viewer/`、
+スキーマは `schemas/code_viewer_document.schema.json`。
 
 未着手・別タスク:
 - §16 の AST スパン導入（S1〜S4）— S1（`ReasonObjectBindingNode.source_span`
   の物理行修正）は別セッションで着手済み。CodeViewer 自体は字句索引
   （`anchors.py`）で完結しており、この作業の完了を待たない。
+- §17.10 の FT4（任意）— ツリー内ファジー検索、`--root`のさらなる拡張、
+  巨大ツリーの走査上限。
 
 ---
 
@@ -542,6 +546,8 @@ schemas/
 - `CV-004`: 端末サイズが最小要件（40x10）未満
 - `CV-005`: `--json` 出力がスキーマ検証に失敗
 - `CV-006`: TUI が利用できないため `--plain` へ縮退（Windows で `windows-curses` 未導入 等）
+- `CV-007`: `--json`/`--plain` にディレクトリまたは省略パスが渡された（§17.7）
+- `CV-008`: ツリーのルート配下に `.rsn` ファイルが1つも見つからない（§17）
 
 ---
 
@@ -708,6 +714,333 @@ S1 は次の順序で進める:
 1. 現行の誤った行番号を**テストで固定**し、欠陥として明示する
 2. 修正を入れる
 3. 仕様変更として CHANGELOG に記載し、そのうえで基準線を更新する
+
+---
+
+## 17. v0.2: ファイルツリー機能
+
+対象コマンド: `reason view`（既存コマンドの拡張）
+ステータス: **VALIDATED**（FT1〜FT3実装済み、`reason ci` 全通過。FT4は任意・未着手）
+
+実装は `toolchain/code_viewer/filetree.py`（`scan_project_tree` /
+`flatten_file_tree` / `first_file` / `ancestor_directories`）、
+`render.py`の`_render_file_tree`、`tui.py`の`e`キー・ツリーナビゲーション・
+`pending_open`/`_apply_pending_open`/`_reveal_path`、`code_viewer_cmd.py`の
+ディレクトリ/省略パス分岐（`_run_browse`）。テストは
+`code_viewer_phase1_tests/test_filetree.py`ほか既存3ファイルへの追加、
+計30件。実端末(pty)で `reason view`（引数なし）起動→ツリー展開→別ファイル
+選択→本編復帰の一連の流れを確認済み。
+
+実装中に見つけた修正: ディレクトリ起動時、自動選択されたファイルが
+ツリー上でハイライト（相関スタイル）される一方でカーソル位置がそのファイル
+の行に合っていない不整合を発見。`e`キーでの再オープン時と同じロジック
+（`_reveal_path`）に統一して解決した。
+
+### 17.1 要求
+
+- CodeViewer にファイルツリーを表示する能力を追加する
+- プロジェクト内のディレクトリ・ファイルをツリー上で選択できるようにする
+
+### 17.2 現状の制約（v0.1）
+
+v0.1 は「1回の起動につき1ファイル」を前提に設計されている:
+
+- CLI: `reason view <source.rsn> [options]` — 位置引数の `.rsn` ファイルが必須
+  （[code_viewer_cmd.py:33](../../toolchain/code_viewer_cmd.py)、`_positional_args()` で解決）
+- `ViewerState.document: ViewerDocument` は単一ファイルの `project()` 結果を
+  保持する**固定フィールド**（[model.py:89](../../toolchain/code_viewer/model.py)）
+- `render()` は `state.show_help` / `state.show_diagnostics` の2つの
+  真偽値でオーバーレイ画面へ分岐する既存パターンを持つ
+  （[render.py:66-69](../../toolchain/code_viewer/render.py)）
+
+この最後の点（オーバーレイ分岐パターン）が、ファイルツリーを最小の変更量で
+統合できる土台になる。
+
+### 17.3 UI設計判断 ★設計の核心
+
+**常設の3カラムレイアウト（Tree | Source | Stage）ではなく、
+`?`（ヘルプ）・`d`（診断ペイン）と同じ「トグル式オーバーレイ」として実装する。**
+
+検討した2案:
+
+| 案 | 内容 | 判定 |
+|---|---|---|
+| A. 常設3カラム | 左にツリー、中央にSource、右にStageを常時表示 | ❌ 不採用 |
+| B. トグル式オーバーレイ（採用） | `e` キーでファイルツリー全画面に切替、選択したら元の2カラム画面に戻る | ✅ 採用 |
+
+不採用理由（案A）:
+
+1. **幅予算が壊れる。** v0.1 は既に「幅80で2カラムがぎりぎり」という制約の
+   上に成り立っている（§7の`_fit`によるレイアウト、MIN_WIDTH=40）。3カラムに
+   すると各カラムがさらに狭くなり、MIN_WIDTH以下の端末での扱いが破綻する。
+2. **既存ゴールデン・テストへの影響が大きい。** `render()`の出力形状が
+   恒久的に変わり、`golden/code_viewer/calculation_dependency.plain.txt`を
+   含む既存の全レイアウトテストを作り直す必要がある。
+3. CodeViewerの主用途は「1ファイルを選んで4段をじっくり見る」ことであり、
+   ツリーを常時表示し続ける必要性は薄い（IDEのサイドバーとは利用頻度の
+   性質が異なる）。
+
+採用理由（案B）:
+
+1. **既存アーキテクチャへの追加が加算的で済む。** `render()`に
+   `if state.show_file_tree: return _render_file_tree(...)`を1行足すだけで、
+   既存の2カラム描画コード・既存ゴールデンは一切変更不要。
+2. `--plain`/`--json`の出力（CI・エージェント用）にも影響しない
+   （後述17.7の通り、これらのモードはツリーを使わない）。
+3. fzf・ranger・netrw など、キーボード駆動ツールで広く使われる
+   「オーバーレイ式ファイルピッカー」の慣習に合致し、学習コストが低い。
+
+### 17.4 CLI表面の拡張
+
+現状「位置引数は`.rsn`ファイル必須」を、「ファイル・ディレクトリ・省略」の
+3通りを受け付けるよう拡張する:
+
+```sh
+reason view                      # カレントディレクトリをツリーで開く（TTYのみ）
+reason view .                    # 同上、明示的に指定
+reason view src/                 # src/ 配下をツリーのルートにする
+reason view models/water.rsn     # 既存通り：このファイルを直接開く（ツリーは閉じた状態で起動）
+reason view models/water.rsn --root .   # ツリーのルートを明示的に広げる
+```
+
+判定ルール:
+
+- 引数が既存ファイル（`.rsn`）→ **v0.1と完全に同じ挙動**。ツリーは閉じた
+  状態で起動する（既存ユーザーの体験を変えない）
+- 引数がディレクトリ、または引数省略 → ツリーを**開いた状態**で起動し、
+  ファイル選択待ちにする（開くべきファイルが無いので自然な既定動作）
+- `--root <dir>` → ツリーのルートを明示指定。ファイル引数と併用可能
+  （例: 深い階層のファイルを開きつつ、ツリーはプロジェクト全体を見せたい場合）
+
+**ツリーのルート解決はシンプルに「指定されたディレクトリ（既定はCWD）を
+そのまま使う」。** `reason.toml`/Manifestを遡って自動的にプロジェクトルートを
+探す（`toolchain/manifest.py`の`Manifest.load()`のような動作）方式も検討したが、
+採用しない。深い階層で実行したときに「意図しない広い範囲」が急に表示される
+方が、`ls`/`tree`/`code .`的な「指定した場所がそのまま起点になる」という
+予測可能な挙動より驚きが大きいと判断した。`--root`で明示的に広げる方を
+既定の挙動とする。
+
+**引数を省略した場合の挙動変更に注意。** 現状 `reason view`（引数なし）は
+使い方を表示してexit 1する。TTY接続時のみ「CWDをツリーで開く」に変更し、
+非TTY（パイプ・CI）では現状の「使い方を表示してexit 1」を維持する
+（スクリプトが誤ってファイル引数を渡し忘れた場合を誤動作させないため）。
+
+### 17.5 データモデル
+
+新規ファイル `toolchain/code_viewer/filetree.py`:
+
+```python
+@dataclass(frozen=True)
+class FileTreeNode:
+    """走査済みのディレクトリツリー。.rsn を持たない枝は含まれない。"""
+    path: Path            # 絶対パス
+    name: str
+    is_directory: bool
+    children: tuple["FileTreeNode", ...] = ()  # ファイルは空タプル
+
+
+def scan_project_tree(root: Path) -> FileTreeNode:
+    """root 配下を走査し、.rsn ファイルとその祖先ディレクトリだけの
+    ツリーを構築する。.git/__pycache__/.venv 等は最初から降りない。"""
+```
+
+**フィルタ方針**: 固定の無視リストと「空の枝を刈り取る」の2段構え。
+
+- 走査そのものを避ける無視リスト: `scripts/build_update_package.py`が
+  既に使っている `shutil.ignore_patterns("__pycache__", "*.pyc", ".venv",
+  "node_modules", ".git", "target", ".DS_Store", ".pytest_cache",
+  ".mypy_cache", ".ruff_cache")` をそのまま再利用する（新しい規約を
+  作らない）。
+- そのうえで **`.rsn`を1つも含まない部分木は結果から除外**する
+  （`docs/`・`schemas/`・`.venv/`のような無関係なディレクトリを、
+  無視リストを都度メンテせずに自動的に隠すため）。
+
+`FileTreeNode`から実際の描画行への変換は、既存の`stages.flatten()`
+（[stages.py](../../toolchain/code_viewer/stages.py)）と同じ「木構造→
+depth付きフラットリスト」パターンを踏襲する:
+
+```python
+@dataclass(frozen=True)
+class FileTreeRow:
+    path: Path
+    name: str
+    is_directory: bool
+    depth: int
+    expanded: bool  # ディレクトリのみ意味を持つ
+
+
+def flatten_file_tree(root: FileTreeNode, expanded: frozenset[Path]) -> tuple[FileTreeRow, ...]:
+    """expanded に含まれるディレクトリの子だけを再帰的に展開する。"""
+```
+
+`ViewerState`への追加（[model.py](../../toolchain/code_viewer/model.py)、
+すべて既定値付きなので既存フィールドとの後方互換は保たれる）:
+
+```python
+show_file_tree: bool = False
+tree_root: Path | None = None          # 起動時に決定、以後不変
+tree_expanded: frozenset[Path] = frozenset()
+tree_cursor: int = 0                   # flatten_file_tree() の行インデックス
+tree_scroll: int = 0
+pending_open: Path | None = None       # ★17.6参照
+```
+
+### 17.6 ファイル切替の実現方法 ★設計の核心（2つ目）
+
+ツリーで別ファイルを選択する操作は、これまでのキー操作と**性質が異なる**。
+`j`/`k`やタブ切替は既存の`ViewerDocument`の中で完結する純粋な状態遷移だが、
+ファイル選択は**新しいファイルを読み、コンパイルパイプラインを再度回して
+新しい`ViewerDocument`を作る**という、本質的にI/Oを伴う操作である。
+
+一方で`tui.py`の`_handle_key(state, key, content_height) -> ViewerState`は
+意図的に純粋関数として設計されており（curses呼び出しもファイルI/Oも
+持たない。だからこそキー入力→状態遷移を実端末なしで単体テストできる —
+既存の44件のテストがこの前提の上に成り立っている）、この前提を壊したくない。
+
+**解決策: `pending_open`フィールドに「開きたいパス」を積むだけに留め、
+実際のファイル読み込みは`_main`のループ側で行う。**
+
+```python
+# _handle_key 内、ツリーオーバーレイでファイル行に Enter した場合
+if row.is_directory:
+    return _toggle_expand(state, row.path)
+return replace(state, pending_open=row.path, show_file_tree=False)
+```
+
+```python
+# tui.py の _main ループ側（新規）
+def _apply_pending_open(state: ViewerState) -> ViewerState:
+    if state.pending_open is None:
+        return state
+    path = state.pending_open
+    try:
+        source = path.read_text(encoding="utf-8")
+        document = project(source, path)
+    except OSError as error:
+        return replace(state, pending_open=None, status_message=f"could not open {path}: {error}")
+    # active_stage はユーザーが見ていた段を維持する。カーソル/スクロールは
+    # 別ファイルのものなので意味を持たず、リセットする。
+    return replace(
+        state, document=document, pending_open=None,
+        cursor_line=1, source_scroll=0, stage_scroll=0, stage_cursor=0,
+        focus="source", status_message=None,
+    )
+```
+
+`_main`のループは、`_handle_key`を呼んだ直後にこの関数を1回通すだけでよい:
+
+```python
+state = _handle_key(state, key, content_height)
+state = _apply_pending_open(state)   # 新規追加、1行
+```
+
+この設計の利点:
+
+- `_handle_key`自体は**依然として純粋関数のまま**（I/Oを持たない）。
+  ツリー内の移動・展開・折りたたみの単体テストは、既存のキー操作テストと
+  全く同じ書き方でできる。
+- 実際のファイル読み込み(`_apply_pending_open`)は`project()`を直接呼ぶだけの
+  薄い関数なので、これも実ファイルを使った単体テストがしやすい
+  （`tmp_path`フィクスチャで`.rsn`を書いて`project()`できることを確認済みの
+  既存パターンをそのまま使える）。
+- 読み込み失敗（権限エラー・選択直後にファイルが消えた等の競合）は
+  例外を伝播させず`status_message`に落とすため、**TUIがクラッシュしない**
+  （§9で確立した「壊れたコードでも落ちない」という設計原則の延長）。
+
+### 17.7 `--plain` / `--json` との関係
+
+ツリーは**対話的な選択機構**であり、非対話モードには存在意義がない
+（スクリプト・エージェントは最初からファイルパスを直接渡せばよい）。
+したがって:
+
+- `--json` または `--plain` が指定された状態でディレクトリ・省略パスが
+  渡された場合は、ツリーを開かずに**エラーで終了**する:
+
+  ```
+  Error:
+
+  CV-007
+
+  --json/--plain requires a specific .rsn file, not a directory.
+  Pass a file, or omit --json/--plain to browse interactively.
+  ```
+
+- これにより、v0.1で確立した「`--plain`/`--json`は常に決定論的な単一ファイル
+  の出力である」という性質（§10・§13のゴールデン戦略の前提）を壊さない。
+
+### 17.8 画面設計
+
+`?`ヘルプ・`d`診断ペインと同じ「全画面オーバーレイ」として`_render_file_tree`
+を実装する（[render.py](../../toolchain/code_viewer/render.py)の
+`_render_help`/`_render_diagnostics`と同型）:
+
+```
+File Tree — /Users/chigenori/ReasonScriptProjects/VisonWorldModel
+
+▾ models/
+▸   hydrogen.rsn
+    helium.rsn
+▸ water.rsn                    ← 選択行（StyleRole.CURSOR）
+    water_initial_state.rsn
+▾ rules/
+    decay_rules.rsn
+    boundary_rules.rsn
+    convergence_rules.rsn
+▸ src/  (162 files)
+
+j/k:move  l/Enter:open or expand  h:collapse  Esc:cancel  ?:help
+```
+
+- ディレクトリ: `▾`（展開済み）/ `▸`（折りたたみ）+ ディレクトリ名
+- ファイル: マーカーなし、インデントのみ。**現在開いているファイル**は
+  既存の`StyleRole.CORRELATED`（黄色太字）を再利用して常時ハイライトする
+  （ツリーを開き直したときに「今どこを見ているか」が一目でわかる）
+- カーソル行: 既存の`StyleRole.CURSOR`（反転表示）を再利用
+- 子孫ファイル数が多いディレクトリ（目安50件以上）は折りたたみ時に
+  `(162 files)`のように件数を添えて、展開前の見通しを助ける
+
+### 17.9 キー操作
+
+ツリーオーバーレイ内でのみ有効なキー（`?`ヘルプの一覧にも追記する）:
+
+| キー | 動作 |
+|---|---|
+| `e` | ファイルツリーの表示切替（`?`/`d`と同様、既存画面から独立） |
+| `j`/`k`, `↓`/`↑` | カーソル移動 |
+| `l`/`→`, `Enter` | ディレクトリなら展開、ファイルなら選択して開く（オーバーレイを閉じる） |
+| `h`/`←` | ディレクトリを折りたたむ（既に折りたたみ済みなら親へ移動） |
+| `Esc` | ツリーを閉じる（選択せずキャンセル） |
+| `?` | ヘルプへ切替（`d`と同じ排他ルール） |
+| `q`, `Ctrl-c` | 終了（ツリー表示中でも常に有効） |
+
+`e`は"explorer"のニーモニック。VSCodeの「エクスプローラー」に倣う。
+既存キーと衝突しない（現行の使用キー一覧: `1`-`5`, `Tab`, `j`/`k`, 矢印,
+`Ctrl-d`/`Ctrl-u`, `n`/`p`, `/`, `Enter`, `Esc`, `y`, `d`, `?`, `q`,
+`Ctrl-c`）。
+
+### 17.10 実装フェーズ分割
+
+既存のP1〜P5に続く形で、同じ「段階ごとに`reason ci`が通る状態を保つ」
+方針で分割する。
+
+| フェーズ | 内容 | 完了判定 |
+|---|---|---|
+| **FT1** | `filetree.py`（`scan_project_tree`/`flatten_file_tree`）+ 単体テスト | 実ディレクトリ構造に対する走査・フィルタ・展開ロジックがテストで検証済み |
+| **FT2** | `render.py`に`_render_file_tree`追加、CLI側でファイル/ディレクトリ/省略の3分岐実装、`--plain`/`--json`側のCV-007 | ツリー画面のレンダリングがゴールデン/単体テストで安定 |
+| **FT3** | `tui.py`に`e`キー・ナビゲーション・`pending_open`/`_apply_pending_open`を実装 | 実端末(pty)でツリー表示→展開→ファイル選択→本編に戻る一連の流れを確認 |
+| **FT4（任意）** | ツリー内`/`によるファジー絞り込み、`--root`フラグ、巨大ツリーの走査上限 | 上記の単体テスト |
+
+FT1・FT2はcursesを一切必要とせず、既存のP1・P2と同じ理由（端末なしで
+検証できる）で先行させられる。
+
+### 17.11 未解決の論点
+
+| # | 論点 | 提案 | 備考 |
+|---|---|---|---|
+| 1 | ツリーの初期展開状態 | 起点ファイルの祖先ディレクトリだけを自動展開し、他は折りたたみ | ファイル指定時に「今どこにいるか」を見せつつツリー全体を圧迫しない |
+| 2 | `.rsn`以外のファイルも見せるか | 見せない（v0.1同様、CodeViewerは`.rsn`専用） | 将来`.ruo`等を扱うなら別途拡張 |
+| 3 | ツリーの展開状態をファイル切替後も保持するか | 保持する（`tree_expanded`はツリー全体に紐づき、`pending_open`の処理で消さない） | ユーザーが同じ階層を何度も開閉し直す手間を省く |
+| 4 | シンボリックリンクの扱い | 追わない（無限ループ防止、既存の`shutil.ignore_patterns`ベースの走査にも前例なし） | — |
 
 ---
 

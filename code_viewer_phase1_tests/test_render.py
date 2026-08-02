@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from toolchain.code_viewer import Stage, ViewerState, project, render, to_plain_text
+from toolchain.code_viewer.filetree import ancestor_directories, scan_project_tree
 from toolchain.code_viewer.render import MIN_HEIGHT, MIN_WIDTH, StyleRole
 
 
@@ -76,9 +77,9 @@ def test_render_matches_golden_layout():
 def test_render_help_overlay_replaces_the_normal_layout():
     document = _document()
     state = ViewerState(document=document, show_help=True)
-    frame = render(state, width=80, height=15)
+    frame = render(state, width=80, height=20)
 
-    assert len(frame) == 15
+    assert len(frame) == 20
     text = to_plain_text(frame)
     assert "keybindings" in text
     assert "q, Ctrl-c" in text
@@ -167,3 +168,98 @@ def test_render_footer_shows_status_message_and_active_search_query():
     footer = to_plain_text(render(state, width=140, height=24)).splitlines()[-1]
     assert "2 match(es) for 'Base'" in footer
     assert "search 'Base' (n/p)" in footer
+
+
+# --- file tree overlay (design doc §17) -----------------------------------
+
+
+def _tree_project(tmp_path):
+    (tmp_path / "models").mkdir()
+    (tmp_path / "models" / "water.rsn").write_text("module Water {}\n", encoding="utf-8")
+    (tmp_path / "models" / "hydrogen.rsn").write_text("module Hydrogen {}\n", encoding="utf-8")
+    (tmp_path / "rules").mkdir()
+    (tmp_path / "rules" / "decay.rsn").write_text("module Decay {}\n", encoding="utf-8")
+    return tmp_path
+
+
+def test_render_file_tree_replaces_the_normal_layout(tmp_path):
+    root = _tree_project(tmp_path)
+    tree = scan_project_tree(root)
+    document = _document()
+    state = ViewerState(document=document, show_file_tree=True, tree_root=root, tree=tree)
+
+    # tmp_path can be long (especially under macOS's default temp dir), so
+    # use a wide render here — the header-truncation budget is already
+    # covered by the shared _fit() tests elsewhere.
+    frame = render(state, width=160, height=15)
+
+    assert len(frame) == 15
+    text = to_plain_text(frame)
+    assert "File Tree" in text
+    assert str(root) in text
+    assert "models/" in text
+    assert "rules/" in text
+    # Collapsed by default: children aren't shown until expanded.
+    assert "water.rsn" not in text
+    assert "module:" not in text  # main layout must not leak through
+
+
+def test_render_file_tree_expands_only_the_expanded_directory(tmp_path):
+    root = _tree_project(tmp_path)
+    tree = scan_project_tree(root)
+    document = _document()
+    models_path = (root / "models").resolve()
+    state = ViewerState(
+        document=document, show_file_tree=True, tree_root=root, tree=tree,
+        tree_expanded=frozenset({models_path}),
+    )
+
+    text = to_plain_text(render(state, width=80, height=15))
+
+    assert "water.rsn" in text
+    assert "hydrogen.rsn" in text
+    assert "decay.rsn" not in text  # rules/ is still collapsed
+
+
+def test_render_file_tree_highlights_cursor_and_currently_open_file(tmp_path):
+    root = _tree_project(tmp_path)
+    tree = scan_project_tree(root)
+    water_path = (root / "models" / "water.rsn").resolve()
+    document = project(water_path.read_text(encoding="utf-8"), water_path)
+    state = ViewerState(
+        document=document, show_file_tree=True, tree_root=root, tree=tree,
+        tree_expanded=frozenset({(root / "models").resolve()}), tree_cursor=1,
+    )
+
+    frame = render(state, width=80, height=15)
+    styled = [(span.text.strip(), span.style) for line in frame for span in line if span.text.strip()]
+
+    cursor_rows = [text for text, style in styled if style is StyleRole.CURSOR]
+    assert any("hydrogen.rsn" in text for text in cursor_rows)  # row index 1 = hydrogen.rsn
+
+    current_file_rows = [text for text, style in styled if style is StyleRole.CORRELATED]
+    assert any("water.rsn" in text for text in current_file_rows)
+
+
+def test_render_file_tree_shows_placeholder_when_no_rsn_files_found(tmp_path):
+    document = _document()
+    state = ViewerState(document=document, show_file_tree=True, tree_root=tmp_path, tree=None)
+
+    text = to_plain_text(render(state, width=80, height=15))
+    assert "no .rsn files found" in text
+
+
+def test_ancestor_directories_can_seed_initial_tree_expansion(tmp_path):
+    # Exercises the design doc §17.11 point 1 use case: auto-expand just
+    # enough of the tree to reveal the file that's already open.
+    root = _tree_project(tmp_path)
+    tree = scan_project_tree(root)
+    water_path = (root / "models" / "water.rsn").resolve()
+
+    expanded = ancestor_directories(tree, water_path)
+    document = project(water_path.read_text(encoding="utf-8"), water_path)
+    state = ViewerState(document=document, show_file_tree=True, tree_root=root, tree=tree, tree_expanded=expanded)
+
+    text = to_plain_text(render(state, width=80, height=15))
+    assert "water.rsn" in text
+    assert "decay.rsn" not in text  # rules/ wasn't on the path to water.rsn

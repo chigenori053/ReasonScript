@@ -17,8 +17,11 @@ import locale
 import shutil
 import subprocess
 from dataclasses import replace
+from pathlib import Path
 
+from .filetree import FileTreeNode, ancestor_directories, flatten_file_tree
 from .model import Anchor, Stage, ViewerDocument, ViewerState
+from .projection import project
 from .render import MIN_HEIGHT, MIN_WIDTH, render
 from .theme import style_for
 
@@ -45,12 +48,43 @@ _CLIPBOARD_COMMANDS: tuple[tuple[str, ...], ...] = (
 )
 
 
-def run_tui(document: ViewerDocument, *, initial_stage: Stage = Stage.SOURCE) -> int:
+def run_tui(
+    document: ViewerDocument,
+    *,
+    initial_stage: Stage = Stage.SOURCE,
+    tree_root: Path | None = None,
+    tree: FileTreeNode | None = None,
+    tree_expanded: frozenset[Path] = frozenset(),
+    show_file_tree: bool = False,
+) -> int:
+    """tree_root/tree/tree_expanded/show_file_tree are set by
+    code_viewer_cmd.py (design doc §17): tree_root/tree are scanned once
+    before the TUI starts (scanning is I/O — it doesn't belong in the pure
+    render()/​_handle_key() path), and show_file_tree controls whether the
+    file picker is the first thing the user sees (when `reason view` was
+    given a directory, or no path at all) or starts closed (an explicit
+    .rsn file was given, matching every pre-§17 invocation unchanged)."""
     locale.setlocale(locale.LC_ALL, "")
-    return curses.wrapper(_main, document, initial_stage)
+    tree_cursor = 0
+    if show_file_tree:
+        # Starting straight into the tree (a directory or omitted path was
+        # given) — land the cursor on the auto-picked document, matching
+        # what pressing `e` later would do (_reveal_path / _toggle_file_tree).
+        tree_expanded, tree_cursor = _reveal_path(tree, tree_expanded, Path(document.source_path).resolve())
+    initial_state = ViewerState(
+        document=document,
+        active_stage=initial_stage,
+        cursor_line=1,
+        tree_root=tree_root,
+        tree=tree,
+        tree_expanded=tree_expanded,
+        tree_cursor=tree_cursor,
+        show_file_tree=show_file_tree,
+    )
+    return curses.wrapper(_main, initial_state)
 
 
-def _main(stdscr, document: ViewerDocument, initial_stage: Stage) -> int:
+def _main(stdscr, initial_state: ViewerState) -> int:
     curses.curs_set(0)
     stdscr.keypad(True)
     color_enabled = curses.has_colors()
@@ -63,7 +97,7 @@ def _main(stdscr, document: ViewerDocument, initial_stage: Stage) -> int:
             pass
         pairs = _init_pairs()
 
-    state = ViewerState(document=document, active_stage=initial_stage, cursor_line=1)
+    state = initial_state
     while True:
         height, width = stdscr.getmaxyx()
 
@@ -87,6 +121,7 @@ def _main(stdscr, document: ViewerDocument, initial_stage: Stage) -> int:
             return 0
         content_height = max(height, MIN_HEIGHT) - _HEADER_ROWS - _FOOTER_ROWS
         state = _handle_key(state, key, content_height)
+        state = _apply_pending_open(state)
 
 
 def _blit_too_small(stdscr, width: int, height: int) -> None:
@@ -148,12 +183,17 @@ def _handle_key(state: ViewerState, key: int, content_height: int) -> ViewerStat
     if state.search_input is not None:
         return _handle_search_typing(state, key, content_height)
 
-    # `?` and `d` are mutually exclusive overlay toggles; switching to one
-    # closes the other rather than stacking them.
+    # `?`, `d`, `e` are mutually exclusive overlay toggles; switching to one
+    # closes whichever other one was open rather than stacking them.
     if key == ord("?"):
-        return replace(state, show_help=not state.show_help, show_diagnostics=False, status_message=None)
+        return replace(state, show_help=not state.show_help, show_diagnostics=False, show_file_tree=False, status_message=None)
     if key == ord("d"):
-        return replace(state, show_diagnostics=not state.show_diagnostics, show_help=False, status_message=None)
+        return replace(state, show_diagnostics=not state.show_diagnostics, show_help=False, show_file_tree=False, status_message=None)
+    if key == ord("e"):
+        return _toggle_file_tree(state)
+
+    if state.show_file_tree:
+        return _handle_file_tree_key(state, key, content_height)
     if state.show_help or state.show_diagnostics:
         return replace(state, show_help=False, show_diagnostics=False)  # any other key closes it
 
@@ -318,3 +358,111 @@ def _copy_to_clipboard(text: str) -> bool:
         except (subprocess.SubprocessError, OSError):
             continue
     return False
+
+
+# --- file tree (design doc §17) --------------------------------------------
+
+
+def _reveal_path(tree: FileTreeNode | None, expanded: frozenset[Path], target: Path) -> tuple[frozenset[Path], int]:
+    """Expand just enough of `tree` to make `target` visible, and return the
+    row index it lands on. Shared by _toggle_file_tree (re-opening the tree
+    later) and run_tui's initial state (opening straight into the tree, for
+    a directory/omitted-path launch) so both start from the same row,
+    instead of leaving the cursor on row 0 while a *different* row is
+    highlighted as "currently open" (caught by manual pty testing — see
+    docs/development/code_viewer_design.md §17)."""
+    if tree is None:
+        return expanded, 0
+    revealed = expanded | ancestor_directories(tree, target)
+    rows = flatten_file_tree(tree, revealed)
+    match = next((index for index, row in enumerate(rows) if row.path == target), None)
+    return revealed, (match if match is not None else 0)
+
+
+def _toggle_file_tree(state: ViewerState) -> ViewerState:
+    if state.tree_root is None:
+        return replace(state, status_message="file tree unavailable (no project root)")
+    if state.show_file_tree:
+        return replace(state, show_file_tree=False, status_message=None)
+
+    # Every time the tree opens, reveal (and select) wherever the current
+    # document lives — not just once at startup — so re-opening the tree
+    # after browsing elsewhere always orients the user again.
+    current_path = Path(state.document.source_path).resolve()
+    expanded, cursor = _reveal_path(state.tree, state.tree_expanded, current_path)
+    return replace(
+        state, show_help=False, show_diagnostics=False, show_file_tree=True,
+        tree_expanded=expanded, tree_cursor=cursor, status_message=None,
+    )
+
+
+def _handle_file_tree_key(state: ViewerState, key: int, content_height: int) -> ViewerState:
+    rows = flatten_file_tree(state.tree, state.tree_expanded)
+    if not rows:
+        return replace(state, show_file_tree=False) if key == _ESC else state
+
+    if key in (ord("j"), curses.KEY_DOWN):
+        return _move_tree_cursor(state, rows, 1, content_height)
+    if key in (ord("k"), curses.KEY_UP):
+        return _move_tree_cursor(state, rows, -1, content_height)
+    if key == _CTRL_D:
+        return _move_tree_cursor(state, rows, max(content_height // 2, 1), content_height)
+    if key == _CTRL_U:
+        return _move_tree_cursor(state, rows, -max(content_height // 2, 1), content_height)
+    if key in (ord("l"), curses.KEY_RIGHT, curses.KEY_ENTER, ord("\n"), ord("\r")):
+        return _activate_tree_row(state, rows)
+    if key in (ord("h"), curses.KEY_LEFT):
+        return _collapse_tree_row(state, rows)
+    if key == _ESC:
+        return replace(state, show_file_tree=False)
+    return state
+
+
+def _move_tree_cursor(state: ViewerState, rows, delta: int, content_height: int) -> ViewerState:
+    cursor = min(max(state.tree_cursor + delta, 0), len(rows) - 1)
+    scroll = _follow_cursor(state.tree_scroll, cursor + 1, content_height)
+    return replace(state, tree_cursor=cursor, tree_scroll=scroll)
+
+
+def _activate_tree_row(state: ViewerState, rows) -> ViewerState:
+    row = rows[state.tree_cursor]
+    if row.is_directory:
+        expanded = (state.tree_expanded - {row.path}) if row.expanded else (state.tree_expanded | {row.path})
+        return replace(state, tree_expanded=expanded)
+    # Actual file I/O happens in _apply_pending_open, not here — keeps this
+    # function (and _handle_key as a whole) a pure state -> state mapping,
+    # which is what makes it unit-testable without a real filesystem/curses.
+    return replace(state, pending_open=row.path, show_file_tree=False)
+
+
+def _collapse_tree_row(state: ViewerState, rows) -> ViewerState:
+    row = rows[state.tree_cursor]
+    if row.is_directory and row.expanded:
+        return replace(state, tree_expanded=state.tree_expanded - {row.path})
+    if row.depth == 0:
+        return state
+    for index in range(state.tree_cursor - 1, -1, -1):  # nearest preceding shallower row = parent
+        if rows[index].depth == row.depth - 1:
+            return replace(state, tree_cursor=index)
+    return state
+
+
+def _apply_pending_open(state: ViewerState) -> ViewerState:
+    """Performs the I/O that _handle_key deliberately never does: reading
+    the newly-selected file and recompiling it. Called once per loop
+    iteration in _main, right after _handle_key."""
+    if state.pending_open is None:
+        return state
+    path = state.pending_open
+    try:
+        source = path.read_text(encoding="utf-8")
+        document = project(source, path)
+    except OSError as error:
+        return replace(state, pending_open=None, status_message=f"could not open {path.name}: {error}")
+    # active_stage carries over (the user's view mode is more likely to
+    # stay relevant than any cursor/scroll position from the old file).
+    return replace(
+        state, document=document, pending_open=None,
+        cursor_line=1, source_scroll=0, stage_scroll=0, stage_cursor=0,
+        focus="source", status_message=None,
+    )

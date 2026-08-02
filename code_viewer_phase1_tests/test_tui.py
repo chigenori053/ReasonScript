@@ -7,13 +7,16 @@ import pytest
 curses = pytest.importorskip("curses")
 
 from toolchain.code_viewer import Stage, ViewerState, project
+from toolchain.code_viewer.filetree import flatten_file_tree, scan_project_tree
 from toolchain.code_viewer.tui import (
+    _apply_pending_open,
     _copy_node,
     _cycle_stage,
     _follow_cursor,
     _handle_key,
     _jump_anchor,
     _move,
+    _reveal_path,
     _search_matches,
 )
 
@@ -316,3 +319,169 @@ def test_min_width_and_height_constants_match_the_documented_minimum():
     from toolchain.code_viewer.render import MIN_HEIGHT, MIN_WIDTH
 
     assert (MIN_WIDTH, MIN_HEIGHT) == (40, 10)
+
+
+# --- file tree (design doc §17) --------------------------------------------
+
+
+def _tree_state(tmp_path, **overrides):
+    (tmp_path / "models").mkdir()
+    (tmp_path / "models" / "water.rsn").write_text("module Water {}\n", encoding="utf-8")
+    (tmp_path / "models" / "hydrogen.rsn").write_text("module Hydrogen {}\n", encoding="utf-8")
+    (tmp_path / "rules").mkdir()
+    (tmp_path / "rules" / "decay.rsn").write_text("module Decay {}\n", encoding="utf-8")
+    tree = scan_project_tree(tmp_path)
+    document = project(DEPENDENCY_SOURCE.read_text(encoding="utf-8"), DEPENDENCY_SOURCE)
+    state = ViewerState(document=document, tree_root=tmp_path, tree=tree, **overrides)
+    return state, tree
+
+
+def test_e_toggles_file_tree_open_and_closed(tmp_path):
+    state, _ = _tree_state(tmp_path)
+    opened = _handle_key(state, ord("e"), CONTENT_HEIGHT)
+    assert opened.show_file_tree is True
+
+    closed = _handle_key(opened, ord("e"), CONTENT_HEIGHT)
+    assert closed.show_file_tree is False
+
+
+def test_e_reveals_the_currently_open_file_each_time_it_opens(tmp_path):
+    state, tree = _tree_state(tmp_path)
+    water = (tmp_path / "models" / "water.rsn").resolve()
+    document = project(water.read_text(encoding="utf-8"), water)
+    state = ViewerState(document=document, tree_root=tmp_path, tree=tree)
+
+    opened = _handle_key(state, ord("e"), CONTENT_HEIGHT)
+
+    rows = flatten_file_tree(tree, opened.tree_expanded)
+    assert rows[opened.tree_cursor].path == water
+    assert (tmp_path / "models").resolve() in opened.tree_expanded
+
+
+def test_e_reports_status_when_no_project_root_is_configured():
+    state = _state(tree_root=None)
+    result = _handle_key(state, ord("e"), CONTENT_HEIGHT)
+    assert result.show_file_tree is False
+    assert result.status_message is not None
+
+
+def test_tree_j_k_move_cursor_and_wrap_stops_at_bounds(tmp_path):
+    state, _ = _tree_state(tmp_path)
+    opened = _handle_key(state, ord("e"), CONTENT_HEIGHT)  # collapsed: 2 top-level rows (models/, rules/)
+
+    down = _handle_key(opened, ord("j"), CONTENT_HEIGHT)
+    assert down.tree_cursor == 1
+    past_end = _handle_key(down, ord("j"), CONTENT_HEIGHT)
+    assert past_end.tree_cursor == 1  # clamped, only 2 rows while collapsed
+
+    up = _handle_key(past_end, ord("k"), CONTENT_HEIGHT)
+    assert up.tree_cursor == 0
+    past_start = _handle_key(up, ord("k"), CONTENT_HEIGHT)
+    assert past_start.tree_cursor == 0
+
+
+def test_tree_enter_on_directory_expands_it_without_closing_the_tree(tmp_path):
+    state, _ = _tree_state(tmp_path)
+    opened = _handle_key(state, ord("e"), CONTENT_HEIGHT)  # cursor on row 0: models/
+
+    expanded = _handle_key(opened, ord("l"), CONTENT_HEIGHT)
+
+    assert expanded.show_file_tree is True
+    assert (tmp_path / "models").resolve() in expanded.tree_expanded
+
+
+def test_tree_h_collapses_an_expanded_directory(tmp_path):
+    state, _ = _tree_state(tmp_path)
+    opened = _handle_key(state, ord("e"), CONTENT_HEIGHT)
+    expanded = _handle_key(opened, ord("l"), CONTENT_HEIGHT)
+
+    collapsed = _handle_key(expanded, ord("h"), CONTENT_HEIGHT)
+
+    assert (tmp_path / "models").resolve() not in collapsed.tree_expanded
+
+
+def test_tree_h_on_a_child_jumps_cursor_to_its_parent_directory(tmp_path):
+    state, _ = _tree_state(tmp_path)
+    opened = _handle_key(state, ord("e"), CONTENT_HEIGHT)
+    expanded = _handle_key(opened, ord("l"), CONTENT_HEIGHT)  # models/ expanded
+    down = _handle_key(expanded, ord("j"), CONTENT_HEIGHT)  # cursor -> hydrogen.rsn (row 1)
+
+    jumped = _handle_key(down, ord("h"), CONTENT_HEIGHT)
+
+    rows = flatten_file_tree(state.tree, jumped.tree_expanded)
+    assert rows[jumped.tree_cursor].name == "models"
+
+
+def test_tree_enter_on_a_file_sets_pending_open_and_closes_the_tree(tmp_path):
+    state, _ = _tree_state(tmp_path)
+    opened = _handle_key(state, ord("e"), CONTENT_HEIGHT)
+    expanded = _handle_key(opened, ord("l"), CONTENT_HEIGHT)
+    down = _handle_key(expanded, ord("j"), CONTENT_HEIGHT)  # cursor -> hydrogen.rsn
+
+    selected = _handle_key(down, ord("\n"), CONTENT_HEIGHT)
+
+    assert selected.show_file_tree is False
+    assert selected.pending_open == (tmp_path / "models" / "hydrogen.rsn").resolve()
+    assert selected.document is state.document  # not applied yet — that's _apply_pending_open's job
+
+
+def test_tree_esc_closes_without_selecting_anything(tmp_path):
+    state, _ = _tree_state(tmp_path)
+    opened = _handle_key(state, ord("e"), CONTENT_HEIGHT)
+
+    closed = _handle_key(opened, 27, CONTENT_HEIGHT)  # Esc
+
+    assert closed.show_file_tree is False
+    assert closed.pending_open is None
+    assert closed.document is state.document
+
+
+def test_apply_pending_open_switches_the_document_and_resets_cursor_state(tmp_path):
+    state, _ = _tree_state(tmp_path)
+    target = (tmp_path / "models" / "hydrogen.rsn").resolve()
+    pending = ViewerState(
+        document=state.document, tree_root=state.tree_root, tree=state.tree,
+        pending_open=target, cursor_line=7, source_scroll=3, active_stage=Stage.IR,
+    )
+
+    applied = _apply_pending_open(pending)
+
+    assert applied.pending_open is None
+    assert applied.document.source_path == str(target)
+    assert applied.cursor_line == 1
+    assert applied.source_scroll == 0
+    assert applied.active_stage == Stage.IR  # view mode carries over across files
+
+
+def test_apply_pending_open_is_a_no_op_when_nothing_is_pending(tmp_path):
+    state, _ = _tree_state(tmp_path)
+    assert _apply_pending_open(state) is state
+
+
+def test_apply_pending_open_reports_status_message_on_read_failure(tmp_path):
+    state, _ = _tree_state(tmp_path)
+    missing = ViewerState(document=state.document, pending_open=tmp_path / "does_not_exist.rsn")
+
+    result = _apply_pending_open(missing)
+
+    assert result.pending_open is None
+    assert result.status_message is not None
+    assert "could not open" in result.status_message
+    assert result.document is state.document  # unchanged on failure
+
+
+def test_reveal_path_expands_ancestors_and_locates_the_row(tmp_path):
+    _, tree = _tree_state(tmp_path)
+    target = (tmp_path / "models" / "hydrogen.rsn").resolve()
+
+    expanded, cursor = _reveal_path(tree, frozenset(), target)
+
+    assert (tmp_path / "models").resolve() in expanded
+    rows = flatten_file_tree(tree, expanded)
+    assert rows[cursor].path == target
+
+
+def test_reveal_path_returns_zero_for_a_missing_tree():
+    expanded, cursor = _reveal_path(None, frozenset(), Path("/nonexistent.rsn"))
+    assert expanded == frozenset()
+    assert cursor == 0

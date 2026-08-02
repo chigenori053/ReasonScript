@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.5.4.4 — 2026-08-02
+
+### Added
+
+- Added a file-tree overlay to `reason view` (the `e` key): pass a
+  directory, or nothing at all, to browse a project's `.rsn` files instead
+  of naming one up front. The tree auto-picks a starting file, highlights
+  whichever file is currently open, and lets `j`/`k`/`h`/`l`/`Enter`/`Esc`
+  navigate, expand/collapse, and select. `--root <dir>` scopes the tree
+  independently of which file was opened. `--json`/`--plain` still require
+  a specific file (`CV-007`); a directory with no `.rsn` files anywhere
+  under it is `CV-008`. See `docs/development/code_viewer_design.md` §17.
+
 ## v0.5.4.3 — 2026-08-02
 
 ### Added

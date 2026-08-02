@@ -6,11 +6,14 @@ docs/development/code_viewer_design.md §5 for the design rationale.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Mapping
 
 from frontend.lsp.model import Diagnostic
+
+from .filetree import FileTreeNode
 
 
 SCHEMA = "reasonscript-code-viewer/0.1"
@@ -98,3 +101,13 @@ class ViewerState:
     status_message: str | None = None  # transient footer message (e.g. from `y`), cleared on next key
     show_help: bool = False
     show_diagnostics: bool = False
+
+    # File tree overlay (design doc §17). tree_root is fixed at startup;
+    # everything else changes as the tree is browsed.
+    show_file_tree: bool = False
+    tree_root: Path | None = None
+    tree: FileTreeNode | None = None  # scanned once at startup; flatten_file_tree() reads it per-render
+    tree_expanded: frozenset[Path] = field(default_factory=frozenset)
+    tree_cursor: int = 0
+    tree_scroll: int = 0
+    pending_open: Path | None = None  # set by _handle_key, consumed by _apply_pending_open in tui.py
