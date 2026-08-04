@@ -46,7 +46,6 @@ class LanguageSurfaceReleaseCertificationTests(unittest.TestCase):
         self.assertEqual(release["date"], "2026-06-14")
         for key in (
             "normative_specification",
-            "validation_report",
             "validation_results",
             "release_gate",
         ):

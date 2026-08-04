@@ -43,14 +43,9 @@ Completed in this milestone:
 - `lsp_phase1_tests`
 - `frontend.ide`
 - `ide_phase1_tests`
-- `docs/platform_architecture_review/`
-- `platform_architecture_review_tests`
+- Platform Architecture Review Phase 1
 
 ## Beta Planning
-
-Architecture baseline:
-
-- `docs/platform_architecture_review/platform_architecture_v1.md`
 
 P0 gates:
 

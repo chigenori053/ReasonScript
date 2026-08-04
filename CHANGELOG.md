@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Cleaned up repository documentation for the open-source release: removed
+  internal validation reports, phase completion reports, and audit artifacts;
+  added a documentation index at `docs/README.md`.
+
 ## reasonscript-semantic-language/0.2 - 2026-06-15
 
 ReasonScript Semantic Language v0.2 Core freeze.
