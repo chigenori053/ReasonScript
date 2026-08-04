@@ -1,1 +1,0 @@
-"""Abstract mathematics validation tests."""
