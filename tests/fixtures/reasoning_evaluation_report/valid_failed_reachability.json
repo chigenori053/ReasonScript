@@ -1,0 +1,41 @@
+{
+  "schema_version": "reasonscript-reasoning-evaluation-report/1.0",
+  "report_id": "report_failed_reachability",
+  "model_ref": {
+    "model_id": "AnimalReasoner",
+    "model_schema_version": "reasonscript-reasoning-model/1.0"
+  },
+  "evaluation_target_ref": {
+    "target_id": "eval_001",
+    "goal": "Plant",
+    "required_checks": [
+      "reachability"
+    ]
+  },
+  "summary": {
+    "status": "failed",
+    "passed": false,
+    "required_checks_passed": false,
+    "total_checks": 1,
+    "passed_checks": 0,
+    "failed_checks": 1,
+    "warning_checks": 0,
+    "fatal_diagnostics": 0
+  },
+  "checks": [
+    {
+      "check_id": "check_reachability",
+      "check_type": "reachability",
+      "required": true,
+      "status": "failed",
+      "passed": false,
+      "message": "Evaluation goal is unreachable.",
+      "evidence_refs": [],
+      "details": {
+        "goal": "Plant",
+        "reachable": false
+      }
+    }
+  ],
+  "diagnostics": []
+}

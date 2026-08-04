@@ -1,0 +1,24 @@
+{
+  "data": {
+    "cross_object_required": [
+      "target_object_id",
+      "target_entity_id",
+      "revision_policy",
+      "resolution_status"
+    ],
+    "local": {
+      "ref_kind": "local",
+      "target_id": "ruo:unit:example"
+    },
+    "statuses": [
+      "resolved",
+      "not_loaded",
+      "unavailable",
+      "redacted",
+      "unknown",
+      "external"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-reference-encoding-contract/1.0"
+}

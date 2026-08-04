@@ -1,0 +1,18 @@
+{
+  "data": {
+    "deterministic": true,
+    "layers": [
+      "object_store",
+      "stable_id_registry",
+      "snapshot_store",
+      "transaction_engine",
+      "query_engine",
+      "resource_manager",
+      "projection_engine"
+    ],
+    "native_execution_provenance": "reasonscript-reasonunit-native-runtime/1.0",
+    "safe_rust": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-architecture-contract/1.0"
+}

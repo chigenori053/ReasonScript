@@ -1,0 +1,10 @@
+{
+  "data": {
+    "conflict_rollback": true,
+    "partial_commit_count": 0,
+    "prior_snapshot_preserved": true,
+    "valid_commit": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-transaction-atomicity-report/1.0"
+}

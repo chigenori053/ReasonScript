@@ -1,0 +1,16 @@
+{
+  "data": {
+    "canonicalization_profile": "ruo-canonical-jsonl/1",
+    "format_version": "1.0",
+    "logical_model": "ruo-u1/1.0",
+    "magic": "REASONSCRIPT-RUO",
+    "prohibited": [
+      "timestamp",
+      "absolute_path",
+      "hostname",
+      "process_id"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-file-header-contract/1.0"
+}

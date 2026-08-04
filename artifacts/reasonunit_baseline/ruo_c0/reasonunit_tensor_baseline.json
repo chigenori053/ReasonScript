@@ -1,0 +1,21 @@
+{
+  "data": {
+    "identity_principle": "Tensor index is not ReasonUnit identity",
+    "metadata": {
+      "identity": "artifact-local tensor name/reference",
+      "integrity": [
+        "sha256",
+        "byte_size/profile-dependent"
+      ],
+      "shape_rank_dtype_device_backend": "recorded by Phase 1R tensor metadata where available",
+      "storage": [
+        "inline",
+        "external/profile-dependent"
+      ]
+    },
+    "reasonunit_mapping": "undefined",
+    "semantic_gap": "Tensor metadata does not preserve relations, evidence, lifecycle, or ownership."
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-tensor-baseline/1.0"
+}

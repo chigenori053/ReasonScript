@@ -1,0 +1,10 @@
+{
+  "data": {
+    "mutation": false,
+    "ordering": "stable_id",
+    "source_object": "ruo:object:universal-fixture",
+    "stale_invalidates": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-execution-projection-contract/1.0"
+}

@@ -13,6 +13,7 @@ KEYWORDS = {
     "bool",
     "calculation",
     "concept",
+    "component",
     "constraint",
     "const",
     "elif",
@@ -30,12 +31,19 @@ KEYWORDS = {
     "loop",
     "map",
     "match",
+    "model",
     "module",
     "object",
     "none",
     "optional",
     "pub",
     "reach",
+    "reason_object",
+    "from",
+    "resources",
+    "mode",
+    "strict",
+    "preserve",
     "require",
     "requires",
     "result",
@@ -43,8 +51,10 @@ KEYWORDS = {
     "set",
     "some",
     "struct",
+    "system",
     "transition",
     "true",
+    "world",
     "while",
     "break",
     "continue",
@@ -145,7 +155,7 @@ def tokenize(source: str) -> tuple[SurfaceToken, ...]:
             index += len(matched)
             column += len(matched)
             continue
-        if char in "{}()[]:,.":
+        if char in "{}()[]:,.;":
             tokens.append(
                 SurfaceToken(SurfaceTokenType.DELIMITER, char, line, column)
             )

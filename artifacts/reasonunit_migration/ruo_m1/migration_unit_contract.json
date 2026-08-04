@@ -1,0 +1,13 @@
+{
+  "data": {
+    "atomic_boundary": "project",
+    "required": [
+      "source_sha256",
+      "project_id",
+      "object_id",
+      "identity_mappings"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-migration-unit-contract/1.0"
+}

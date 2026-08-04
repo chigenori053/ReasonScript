@@ -1,0 +1,37 @@
+{
+  "data": {
+    "actual": [
+      [
+        1.0,
+        2.0
+      ],
+      [
+        3.0,
+        4.0
+      ]
+    ],
+    "canonical_hashes": [
+      "7344e657f76a51432111e14cd584f2db2a599fc24907f20010ff7f3b85a73fa0",
+      "7344e657f76a51432111e14cd584f2db2a599fc24907f20010ff7f3b85a73fa0",
+      "7344e657f76a51432111e14cd584f2db2a599fc24907f20010ff7f3b85a73fa0"
+    ],
+    "deterministic": true,
+    "passed": true,
+    "reference": [
+      [
+        1.0,
+        2.0
+      ],
+      [
+        3.0,
+        4.0
+      ]
+    ],
+    "tolerance": 1e-06
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-comparison-report/0.1",
+  "version": "1.0"
+}

@@ -1,0 +1,10 @@
+{
+  "data": {
+    "algorithm": "ruo-seal/1",
+    "followed_by": "LF only",
+    "position": "last",
+    "self_digest_cycle": false
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-file-seal-contract/1.0"
+}

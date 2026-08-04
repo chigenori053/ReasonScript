@@ -1,0 +1,19 @@
+{
+  "data": {
+    "inference_policy": "Generic relations do not imply ownership.",
+    "observations": [
+      {
+        "owned_data": [
+          "lifecycle",
+          "plan_revision",
+          "commit_boundary"
+        ],
+        "owner": "coordinator",
+        "scope": "dynamic_cluster"
+      }
+    ],
+    "repository_wide_contract": "undefined"
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-ownership-baseline/1.0"
+}

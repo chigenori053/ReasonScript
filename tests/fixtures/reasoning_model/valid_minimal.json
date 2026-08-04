@@ -1,0 +1,87 @@
+{
+  "schema_version": "reasonscript-reasoning-model/1.0",
+  "model_id": "AnimalReasoner",
+  "source_ref": {
+    "source_id": "animal_isa",
+    "source_kind": "reason_script_source",
+    "artifact_refs": {
+      "reason_ir": "reason_ir.json",
+      "execution_plan": "execution_plan.json",
+      "simulation": "simulation.json",
+      "knowledge": "knowledge.json"
+    }
+  },
+  "input_state": {
+    "input_id": "input_001",
+    "input_kind": "structured_state",
+    "units": [
+      {
+        "unit_id": "Animal",
+        "unit_type": "object",
+        "value": "Animal"
+      },
+      {
+        "unit_id": "Dog",
+        "unit_type": "object",
+        "value": "Dog"
+      }
+    ],
+    "relations": [
+      {
+        "relation_id": "rel_001",
+        "relation_type": "IsA",
+        "source": "Dog",
+        "target": "Animal"
+      }
+    ]
+  },
+  "reasoning_paths": [
+    {
+      "path_id": "path_main",
+      "path_signature": "Dog.IsA.Animal",
+      "status": "selected",
+      "steps": [
+        {
+          "step_id": "step_001",
+          "step_type": "relation_check",
+          "source": "Dog",
+          "target": "Animal",
+          "operation": "IsA",
+          "evidence_refs": [
+            "rel_001"
+          ]
+        }
+      ]
+    }
+  ],
+  "selected_path_id": "path_main",
+  "knowledge_emissions": [
+    {
+      "knowledge_id": "knowledge_001",
+      "source_step_id": "step_001",
+      "relation": "IsA",
+      "source": "Dog",
+      "target": "Animal",
+      "evidence_path": [
+        "step_001"
+      ],
+      "path_signature": "Dog.IsA.Animal"
+    }
+  ],
+  "evaluation_target": {
+    "target_id": "eval_001",
+    "goal": "Animal",
+    "expected_relation": {
+      "relation": "IsA",
+      "source": "Dog",
+      "target": "Animal"
+    },
+    "required_checks": [
+      "reachability",
+      "determinism",
+      "evidence_completeness",
+      "consistency"
+    ]
+  },
+  "diagnostics": []
+}

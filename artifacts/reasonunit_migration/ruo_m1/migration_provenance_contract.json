@@ -1,0 +1,8 @@
+{
+  "data": {
+    "plan_digest": "sha256:normalized-migration-plan",
+    "source_sha256": "sha256:d7f77e3f52a5e60286b3418046885d65b55a2cdc50305ba9640ad2f03acd17b4"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-migration-provenance-contract/1.0"
+}

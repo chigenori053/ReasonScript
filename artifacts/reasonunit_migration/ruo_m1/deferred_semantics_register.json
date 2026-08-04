@@ -1,0 +1,12 @@
+{
+  "data": {
+    "entries": [
+      {
+        "phase": "RUO-W1",
+        "semantics": "world-level multi-project atomic cutover"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-deferred-semantics-register/1.0"
+}

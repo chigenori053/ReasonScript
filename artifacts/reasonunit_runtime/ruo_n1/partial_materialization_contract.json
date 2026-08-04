@@ -1,0 +1,18 @@
+{
+  "data": {
+    "complete_claim_for_partial": "reject",
+    "selectors": [
+      "entity",
+      "root",
+      "payload",
+      "relation",
+      "evidence",
+      "dependency",
+      "lifecycle",
+      "tensor_chunk",
+      "extension"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-partial-materialization-contract/1.0"
+}

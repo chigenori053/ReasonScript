@@ -1,0 +1,21 @@
+{
+  "data": {
+    "executable_by_default": false,
+    "model": "ReasonUnitObject",
+    "ownership_revision_transaction_boundary": true,
+    "registries": [
+      "units",
+      "payloads",
+      "states",
+      "relations",
+      "constraints",
+      "evidence",
+      "dependencies",
+      "extensions",
+      "projections"
+    ],
+    "version": "1.0"
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-universal-object-contract/1.0"
+}

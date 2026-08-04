@@ -1,0 +1,11 @@
+{
+  "data": {
+    "failed": 0,
+    "native_mapped": 16,
+    "registered": 16,
+    "required": 16,
+    "typed": 16
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-standard-function-report/1.0"
+}

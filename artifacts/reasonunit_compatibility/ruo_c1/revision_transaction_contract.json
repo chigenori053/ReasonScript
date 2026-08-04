@@ -1,0 +1,27 @@
+{
+  "data": {
+    "failed_update": {
+      "canonical_state_digest": "unchanged",
+      "object_revision": "unchanged",
+      "partial_commit_count": 0,
+      "unit_revisions": "unchanged"
+    },
+    "revision_domains": [
+      "object",
+      "unit"
+    ],
+    "sequence": [
+      "snapshot",
+      "proposal",
+      "identity_validation",
+      "relation_validation",
+      "state_conflict_detection",
+      "constraint_validation",
+      "dependency_invalidation",
+      "atomic_commit_or_rollback"
+    ],
+    "world_transaction": "reserved_for_RUO-W1"
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-revision-transaction-contract/1.0"
+}

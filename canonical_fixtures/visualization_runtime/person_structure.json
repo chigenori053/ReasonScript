@@ -1,0 +1,22 @@
+{
+  "schema_version": "reasonscript-semantic-visualization-input/0.1",
+  "scene_id": "scene:person-structure:fixture-v1",
+  "source_ref": "fixture:person-structure:v1",
+  "width": 640,
+  "height": 480,
+  "objects": [
+    {"object_id": "head", "label": "Head", "bounding_box": [275, 40, 90, 90], "epistemic_state": "observed", "confidence": 0.98, "evidence_refs": ["evidence:head"]},
+    {"object_id": "torso", "label": "Torso", "bounding_box": [230, 135, 180, 160], "epistemic_state": "observed", "confidence": 0.96, "evidence_refs": ["evidence:torso"]},
+    {"object_id": "left_arm", "label": "Left Arm", "bounding_box": [145, 150, 78, 160], "epistemic_state": "observed", "confidence": 0.89, "evidence_refs": ["evidence:left-arm"]},
+    {"object_id": "right_arm", "label": "Right Arm", "bounding_box": [417, 150, 78, 160], "epistemic_state": "inferred", "confidence": 0.63, "evidence_refs": ["evidence:right-arm"]},
+    {"object_id": "left_leg", "label": "Left Leg", "bounding_box": [245, 300, 70, 145], "epistemic_state": "observed", "confidence": 0.84, "evidence_refs": ["evidence:left-leg"]},
+    {"object_id": "right_leg", "label": "Right Leg", "bounding_box": [325, 300, 70, 145], "epistemic_state": "unknown", "confidence": 0.32, "evidence_refs": ["evidence:right-leg"]}
+  ],
+  "relations": [
+    {"relation_id": "head-to-torso", "source_object_id": "head", "target_object_id": "torso", "relation_kind": "attached_to", "confidence": 0.97, "evidence_refs": ["evidence:head", "evidence:torso"]},
+    {"relation_id": "left-arm-to-torso", "source_object_id": "left_arm", "target_object_id": "torso", "relation_kind": "attached_to", "confidence": 0.86, "evidence_refs": ["evidence:left-arm", "evidence:torso"]},
+    {"relation_id": "right-arm-to-torso", "source_object_id": "right_arm", "target_object_id": "torso", "relation_kind": "inferred_attachment", "confidence": 0.61, "evidence_refs": ["evidence:right-arm", "evidence:torso"]},
+    {"relation_id": "left-leg-to-torso", "source_object_id": "left_leg", "target_object_id": "torso", "relation_kind": "attached_to", "confidence": 0.82, "evidence_refs": ["evidence:left-leg", "evidence:torso"]},
+    {"relation_id": "right-leg-to-torso", "source_object_id": "right_leg", "target_object_id": "torso", "relation_kind": "uncertain_attachment", "confidence": 0.30, "evidence_refs": ["evidence:right-leg", "evidence:torso"]}
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "schema_version": "reasonscript-reasoning-model/1.0",
+  "model_id": "BranchSelection.ReasoningModel",
+  "source_ref": {
+    "source_id": "branch_selection",
+    "source_kind": "reason_script_source",
+    "artifact_refs": {
+      "execution_plan": "execution_plan.json",
+      "knowledge": "knowledge.json",
+      "reason_ir": "reason_ir.json",
+      "simulation": "simulation.json"
+    }
+  },
+  "input_state": {
+    "input_id": "input_branch_selection",
+    "input_kind": "structured_state",
+    "units": [
+      {
+        "unit_id": "Answer.state.result",
+        "unit_type": "calculation_result",
+        "value": "Answer.state.result"
+      },
+      {
+        "unit_id": "BranchSelectionStart",
+        "unit_type": "state",
+        "value": "BranchSelectionStart"
+      },
+      {
+        "unit_id": "Select.return.false",
+        "unit_type": "state",
+        "value": "Select.return.false"
+      },
+      {
+        "unit_id": "Select.return.true",
+        "unit_type": "state",
+        "value": "Select.return.true"
+      }
+    ],
+    "relations": [
+      {
+        "relation_id": "rel_001",
+        "relation_type": "FunctionReturnTransition",
+        "source": "BranchSelectionStart",
+        "target": "Select.return.true"
+      },
+      {
+        "relation_id": "rel_002",
+        "relation_type": "FunctionReturnTransition",
+        "source": "BranchSelectionStart",
+        "target": "Select.return.false"
+      },
+      {
+        "relation_id": "rel_003",
+        "relation_type": "ResultTransition",
+        "source": "Select.return.true",
+        "target": "Answer.state.result"
+      },
+      {
+        "relation_id": "rel_004",
+        "relation_type": "ResultTransition",
+        "source": "Select.return.false",
+        "target": "Answer.state.result"
+      }
+    ]
+  },
+  "reasoning_paths": [
+    {
+      "path_id": "path_main",
+      "path_signature": "Select.return.true",
+      "status": "selected",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "step_type": "branch_selection",
+          "source": "BranchSelectionStart",
+          "target": "Select.return.true",
+          "operation": "FunctionReturnTransition",
+          "evidence_refs": [
+            "Select.return.true"
+          ]
+        },
+        {
+          "step_id": "step-2",
+          "step_type": "calculation",
+          "source": "Select.return.true",
+          "target": "Answer.state.result",
+          "operation": "ResultTransition",
+          "evidence_refs": [
+            "Answer-1-result-3"
+          ]
+        }
+      ],
+      "metadata": {
+        "branch_decisions": [
+          {
+            "branch_id": "Select.return.true",
+            "evidence_refs": [
+              "step-1"
+            ],
+            "rejected": [
+              "Answer-1-result-3",
+              "Answer-1-result-4",
+              "Select.return.false"
+            ],
+            "selected": "Select.return.true"
+          }
+        ]
+      }
+    }
+  ],
+  "selected_path_id": "path_main",
+  "knowledge_emissions": [
+    {
+      "knowledge_id": "K001",
+      "source_step_id": "step-2",
+      "relation": "ResultTransition",
+      "source": "BranchSelectionStart",
+      "target": "Answer.state.result",
+      "evidence_path": [
+        "step-1",
+        "step-2"
+      ],
+      "path_signature": "Select.return.true"
+    }
+  ],
+  "evaluation_target": {
+    "target_id": "eval_001",
+    "goal": "Answer.state.result",
+    "expected_relation": {
+      "relation": "ResultTransition",
+      "source": "BranchSelectionStart",
+      "target": "Answer.state.result"
+    },
+    "required_checks": [
+      "reachability",
+      "determinism",
+      "evidence_completeness",
+      "consistency",
+      "branch_traceability"
+    ]
+  },
+  "diagnostics": []
+}

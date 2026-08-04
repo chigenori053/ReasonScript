@@ -1,0 +1,15 @@
+{
+  "data": {
+    "concurrent_reads": true,
+    "fields": [
+      "object_id",
+      "revision_id",
+      "generation",
+      "state_digest",
+      "logical_object_digest"
+    ],
+    "immutable": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-snapshot-contract/1.0"
+}

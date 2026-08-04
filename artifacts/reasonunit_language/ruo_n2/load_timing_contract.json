@@ -1,0 +1,12 @@
+{
+  "data": {
+    "profiles": [
+      "eager_verified",
+      "lazy_verified",
+      "metadata_only"
+    ],
+    "valid_after_native_insert": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-load-timing-contract/1.0"
+}

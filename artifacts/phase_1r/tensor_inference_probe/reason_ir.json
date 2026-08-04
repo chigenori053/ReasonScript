@@ -1,0 +1,2766 @@
+{
+  "data": {
+    "execution_policy": {
+      "constraint_mode": "reject",
+      "max_steps": 128,
+      "rollback_on_failure": true
+    },
+    "goal": {
+      "kind": "reach_state",
+      "target": "Answer.state.result"
+    },
+    "initial_state": {
+      "data": {
+        "declarations": [
+          "CalculationNode"
+        ],
+        "module": "TensorIntegrationProbe",
+        "namespace": "TensorIntegrationProbe",
+        "package": null,
+        "semantic_functions": [],
+        "visibility": "Private"
+      },
+      "state_id": "TensorIntegrationProbeStart",
+      "state_type": "language_surface"
+    },
+    "metadata": {
+      "calculation_dependencies": [],
+      "calculation_order": [
+        "Answer"
+      ],
+      "composite_declarations": [],
+      "const_declarations": [],
+      "enum_symbols": [],
+      "exports": [],
+      "function_calls": [],
+      "function_declarations": [],
+      "function_ir": [],
+      "function_symbols": [],
+      "import_resolution": [],
+      "language_surface": "reasonscript-language-surface/0.1",
+      "module": "TensorIntegrationProbe",
+      "namespace": "TensorIntegrationProbe",
+      "package": null,
+      "reasoning_declarations": {
+        "constraints": [],
+        "execution_plans": [],
+        "goals": [],
+        "reason_graphs": [],
+        "states": []
+      },
+      "reasoning_types": [],
+      "runtime_calls": [],
+      "runtime_operations": [],
+      "semantic_functions": [],
+      "tensor_execution_plan": {
+        "backend": "abstract",
+        "deterministic": true,
+        "operations": [
+          {
+            "backend_operation": "create",
+            "dependencies": [],
+            "dtype": "f64",
+            "execution_order": 1,
+            "function": "tensor.create",
+            "lowered_operations": [
+              "tensor.create"
+            ],
+            "operation_id": "op_tensor_call_001",
+            "operation_type": "tensor_call",
+            "output_ref": "tensor_value_001",
+            "semantic_operation": "tensor.create",
+            "shape": [
+              1,
+              3
+            ],
+            "source_ref": {
+              "column": null,
+              "line": null
+            }
+          },
+          {
+            "backend_operation": "create",
+            "dependencies": [
+              "tensor_value_001"
+            ],
+            "dtype": "f64",
+            "execution_order": 2,
+            "function": "tensor.create",
+            "lowered_operations": [
+              "tensor.create"
+            ],
+            "operation_id": "op_tensor_call_002",
+            "operation_type": "tensor_call",
+            "output_ref": "tensor_value_002",
+            "semantic_operation": "tensor.create",
+            "shape": [
+              3,
+              2
+            ],
+            "source_ref": {
+              "column": null,
+              "line": null
+            }
+          },
+          {
+            "backend_operation": "create",
+            "dependencies": [
+              "tensor_value_002"
+            ],
+            "dtype": "f64",
+            "execution_order": 3,
+            "function": "tensor.create",
+            "lowered_operations": [
+              "tensor.create"
+            ],
+            "operation_id": "op_tensor_call_003",
+            "operation_type": "tensor_call",
+            "output_ref": "tensor_value_003",
+            "semantic_operation": "tensor.create",
+            "shape": [
+              2
+            ],
+            "source_ref": {
+              "column": null,
+              "line": null
+            }
+          },
+          {
+            "backend_operation": "linear",
+            "dependencies": [
+              "tensor_value_003"
+            ],
+            "dtype": "f64",
+            "execution_order": 4,
+            "function": "tensor.linear",
+            "lowered_operations": [
+              "tensor.matmul",
+              "tensor.add"
+            ],
+            "operation_id": "op_tensor_call_004",
+            "operation_type": "tensor_call",
+            "output_ref": "tensor_value_004",
+            "semantic_operation": "tensor.linear",
+            "shape": [
+              1,
+              2
+            ],
+            "source_ref": {
+              "column": null,
+              "line": null
+            }
+          },
+          {
+            "backend_operation": "relu",
+            "dependencies": [
+              "tensor_value_004"
+            ],
+            "dtype": "f64",
+            "execution_order": 5,
+            "function": "tensor.relu",
+            "lowered_operations": [
+              "tensor.maximum"
+            ],
+            "operation_id": "op_tensor_call_005",
+            "operation_type": "tensor_call",
+            "output_ref": "tensor_value_005",
+            "semantic_operation": "tensor.relu",
+            "shape": [
+              1,
+              2
+            ],
+            "source_ref": {
+              "column": null,
+              "line": null
+            }
+          },
+          {
+            "backend_operation": "softmax",
+            "dependencies": [
+              "tensor_value_005"
+            ],
+            "dtype": "f64",
+            "execution_order": 6,
+            "function": "tensor.softmax",
+            "lowered_operations": [
+              "tensor.max",
+              "tensor.subtract",
+              "tensor.exp",
+              "tensor.sum",
+              "tensor.divide"
+            ],
+            "operation_id": "op_tensor_call_006",
+            "operation_type": "tensor_call",
+            "output_ref": "tensor_value_006",
+            "semantic_operation": "tensor.softmax",
+            "shape": [
+              1,
+              2
+            ],
+            "source_ref": {
+              "column": null,
+              "line": null
+            }
+          }
+        ],
+        "schema_version": "reasonscript-tensor-execution-plan/0.1"
+      },
+      "tensor_function_registry": [
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "abs",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.abs",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "abs",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.abs",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "elementwise",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "add",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.add",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "add",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.add",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "argmax",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.argmax",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "argmax",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.argmax",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "reduction",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "argmin",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.argmin",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "argmin",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.argmin",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "reduction",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "cast",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.cast",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "cast",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.cast",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "conversion",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "concat",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.concat",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "concat",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.concat",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "shape",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [
+            {
+              "kind": "nested_numeric",
+              "name": "values",
+              "required": true
+            },
+            {
+              "kind": "dtype",
+              "name": "dtype",
+              "required": false
+            },
+            {
+              "kind": "string",
+              "name": "device",
+              "required": false
+            }
+          ],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "create",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.create",
+          "inputs": [
+            "data_or_shape"
+          ],
+          "lowering_policy": "native",
+          "name": "create",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.create",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "creation",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "dimension",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.dimension",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "dimension",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.dimension",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "inspection",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "divide",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.divide",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "divide",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.divide",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "dot",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.dot",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "dot",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.dot",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "linear_algebra",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "dtype",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.dtype",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "dtype",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.dtype",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "inspection",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "equal",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.equal",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "equal",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.equal",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "exp",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.exp",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "exp",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.exp",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "elementwise",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "flatten",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.flatten",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "flatten",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.flatten",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "shape",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "full",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.full",
+          "inputs": [
+            "data_or_shape"
+          ],
+          "lowering_policy": "native",
+          "name": "full",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.full",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "creation",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "greater",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.greater",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "greater",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.greater",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "greater_equal",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.greater_equal",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "greater_equal",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.greater_equal",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "less",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.less",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "less",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.less",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "less_equal",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.less_equal",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "less_equal",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.less_equal",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [
+            {
+              "kind": "tensor",
+              "name": "input",
+              "required": true
+            },
+            {
+              "kind": "tensor",
+              "name": "weight",
+              "required": true
+            },
+            {
+              "kind": "tensor",
+              "name": "bias",
+              "required": false
+            }
+          ],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "linear",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.linear",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "primitive_or_native",
+          "name": "linear",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.linear",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "inference",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "log",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.log",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "log",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.log",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "elementwise",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "matmul",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.matmul",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "matmul",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.matmul",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "linear_algebra",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "max",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.max",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "max",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.max",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "reduction",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "maximum",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.maximum",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "maximum",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.maximum",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "mean",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.mean",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "mean",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.mean",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "reduction",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "min",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.min",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "min",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.min",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "reduction",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "minimum",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.minimum",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "minimum",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.minimum",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "multiply",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.multiply",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "multiply",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.multiply",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "negate",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.negate",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "negate",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.negate",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "elementwise",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "norm",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.norm",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "norm",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.norm",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "linear_algebra",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "not_equal",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.not_equal",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "not_equal",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.not_equal",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "ones",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.ones",
+          "inputs": [
+            "data_or_shape"
+          ],
+          "lowering_policy": "native",
+          "name": "ones",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.ones",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "creation",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "power",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.power",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "power",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.power",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "rank",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.rank",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "rank",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.rank",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "inspection",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [
+            {
+              "kind": "tensor",
+              "name": "input",
+              "required": true
+            }
+          ],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "relu",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.relu",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "primitive_or_native",
+          "name": "relu",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.relu",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "inference",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "reshape",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.reshape",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "reshape",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.reshape",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "shape",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "scalar",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.scalar",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "scalar",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.scalar",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "conversion",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "shape",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.shape",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "shape",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.shape",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "inspection",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "size",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.size",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "size",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.size",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "inspection",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [
+            {
+              "kind": "tensor",
+              "name": "input",
+              "required": true
+            },
+            {
+              "default": -1,
+              "kind": "int",
+              "name": "axis",
+              "required": false
+            }
+          ],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "softmax",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.softmax",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "primitive_or_native",
+          "name": "softmax",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.softmax",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "inference",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "sqrt",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.sqrt",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "sqrt",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.sqrt",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "elementwise",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "squeeze",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.squeeze",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "squeeze",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.squeeze",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "shape",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "stack",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.stack",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "stack",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.stack",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "shape",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "subtract",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.subtract",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "subtract",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.subtract",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "broadcast",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "sum",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.sum",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "sum",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.sum",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "reduction",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "to_array",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.to_array",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "to_array",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.to_array",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "conversion",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "transpose",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.transpose",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "transpose",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.transpose",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "shape",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "unsqueeze",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.unsqueeze",
+          "inputs": [
+            "value"
+          ],
+          "lowering_policy": "native",
+          "name": "unsqueeze",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.unsqueeze",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "shape",
+          "side_effects": false,
+          "version": "0.1"
+        },
+        {
+          "argument_contract": [],
+          "artifact_policy": "metadata_only",
+          "backend": "abstract",
+          "backend_operation": "zeros",
+          "broadcasting_policy": "numpy",
+          "callable": true,
+          "deterministic": true,
+          "device_policy": "cpu",
+          "diagnostic_policy": "TSF",
+          "dtype_policy": "promote",
+          "function_id": "tensor.zeros",
+          "inputs": [
+            "data_or_shape"
+          ],
+          "lowering_policy": "native",
+          "name": "zeros",
+          "namespace": "tensor",
+          "output": "Tensor",
+          "qualified_name": "tensor.zeros",
+          "return_contract": {
+            "dtype": "inferred",
+            "kind": "tensor",
+            "shape": "inferred"
+          },
+          "shape_policy": "creation",
+          "side_effects": false,
+          "version": "0.1"
+        }
+      ],
+      "tensor_operations": [
+        {
+          "arguments": [
+            {
+              "position": 0,
+              "value": {
+                "elements": [
+                  {
+                    "expression": {
+                      "elements": [
+                        {
+                          "expression": {
+                            "node_type": "FloatLiteralNode",
+                            "value": 1.0
+                          },
+                          "node_type": "ExpressionNode"
+                        },
+                        {
+                          "expression": {
+                            "node_type": "UnaryExpressionNode",
+                            "operand": {
+                              "node_type": "FloatLiteralNode",
+                              "value": 2.0
+                            },
+                            "operator": "Negate"
+                          },
+                          "node_type": "ExpressionNode"
+                        },
+                        {
+                          "expression": {
+                            "node_type": "FloatLiteralNode",
+                            "value": 0.5
+                          },
+                          "node_type": "ExpressionNode"
+                        }
+                      ],
+                      "node_type": "ArrayLiteralNode"
+                    },
+                    "node_type": "ExpressionNode"
+                  }
+                ],
+                "node_type": "ArrayLiteralNode"
+              }
+            },
+            {
+              "position": 1,
+              "value": {
+                "node_type": "StringLiteralNode",
+                "value": "f64"
+              }
+            }
+          ],
+          "function": "tensor.create",
+          "lowered_operations": [
+            "tensor.create"
+          ],
+          "node_type": "tensor_call",
+          "operation_id": "tensor_call_001",
+          "output_ref": "tensor_value_001",
+          "semantic_operation": "tensor.create",
+          "source_ref": {
+            "column": null,
+            "line": null
+          },
+          "tensor_metadata": {
+            "dtype": "f64",
+            "external_value_policy": "tensor",
+            "rank": 2,
+            "shape": [
+              1,
+              3
+            ]
+          }
+        },
+        {
+          "arguments": [
+            {
+              "position": 0,
+              "value": {
+                "elements": [
+                  {
+                    "expression": {
+                      "elements": [
+                        {
+                          "expression": {
+                            "node_type": "FloatLiteralNode",
+                            "value": 0.2
+                          },
+                          "node_type": "ExpressionNode"
+                        },
+                        {
+                          "expression": {
+                            "node_type": "UnaryExpressionNode",
+                            "operand": {
+                              "node_type": "FloatLiteralNode",
+                              "value": 0.1
+                            },
+                            "operator": "Negate"
+                          },
+                          "node_type": "ExpressionNode"
+                        }
+                      ],
+                      "node_type": "ArrayLiteralNode"
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "elements": [
+                        {
+                          "expression": {
+                            "node_type": "FloatLiteralNode",
+                            "value": 0.4
+                          },
+                          "node_type": "ExpressionNode"
+                        },
+                        {
+                          "expression": {
+                            "node_type": "FloatLiteralNode",
+                            "value": 0.3
+                          },
+                          "node_type": "ExpressionNode"
+                        }
+                      ],
+                      "node_type": "ArrayLiteralNode"
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "elements": [
+                        {
+                          "expression": {
+                            "node_type": "UnaryExpressionNode",
+                            "operand": {
+                              "node_type": "FloatLiteralNode",
+                              "value": 0.5
+                            },
+                            "operator": "Negate"
+                          },
+                          "node_type": "ExpressionNode"
+                        },
+                        {
+                          "expression": {
+                            "node_type": "FloatLiteralNode",
+                            "value": 0.7
+                          },
+                          "node_type": "ExpressionNode"
+                        }
+                      ],
+                      "node_type": "ArrayLiteralNode"
+                    },
+                    "node_type": "ExpressionNode"
+                  }
+                ],
+                "node_type": "ArrayLiteralNode"
+              }
+            },
+            {
+              "position": 1,
+              "value": {
+                "node_type": "StringLiteralNode",
+                "value": "f64"
+              }
+            }
+          ],
+          "function": "tensor.create",
+          "lowered_operations": [
+            "tensor.create"
+          ],
+          "node_type": "tensor_call",
+          "operation_id": "tensor_call_002",
+          "output_ref": "tensor_value_002",
+          "semantic_operation": "tensor.create",
+          "source_ref": {
+            "column": null,
+            "line": null
+          },
+          "tensor_metadata": {
+            "dtype": "f64",
+            "external_value_policy": "tensor",
+            "rank": 2,
+            "shape": [
+              3,
+              2
+            ]
+          }
+        },
+        {
+          "arguments": [
+            {
+              "position": 0,
+              "value": {
+                "elements": [
+                  {
+                    "expression": {
+                      "node_type": "FloatLiteralNode",
+                      "value": 0.1
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "node_type": "UnaryExpressionNode",
+                      "operand": {
+                        "node_type": "FloatLiteralNode",
+                        "value": 0.2
+                      },
+                      "operator": "Negate"
+                    },
+                    "node_type": "ExpressionNode"
+                  }
+                ],
+                "node_type": "ArrayLiteralNode"
+              }
+            },
+            {
+              "position": 1,
+              "value": {
+                "node_type": "StringLiteralNode",
+                "value": "f64"
+              }
+            }
+          ],
+          "function": "tensor.create",
+          "lowered_operations": [
+            "tensor.create"
+          ],
+          "node_type": "tensor_call",
+          "operation_id": "tensor_call_003",
+          "output_ref": "tensor_value_003",
+          "semantic_operation": "tensor.create",
+          "source_ref": {
+            "column": null,
+            "line": null
+          },
+          "tensor_metadata": {
+            "dtype": "f64",
+            "external_value_policy": "tensor",
+            "rank": 1,
+            "shape": [
+              2
+            ]
+          }
+        },
+        {
+          "arguments": [
+            {
+              "position": 0,
+              "value": {
+                "name": "input",
+                "node_type": "IdentifierNode"
+              }
+            },
+            {
+              "position": 1,
+              "value": {
+                "name": "weight",
+                "node_type": "IdentifierNode"
+              }
+            },
+            {
+              "position": 2,
+              "value": {
+                "name": "bias",
+                "node_type": "IdentifierNode"
+              }
+            }
+          ],
+          "function": "tensor.linear",
+          "lowered_operations": [
+            "tensor.matmul",
+            "tensor.add"
+          ],
+          "node_type": "tensor_call",
+          "operation_id": "tensor_call_004",
+          "output_ref": "tensor_value_004",
+          "semantic_operation": "tensor.linear",
+          "source_ref": {
+            "column": null,
+            "line": null
+          },
+          "tensor_metadata": {
+            "dtype": "f64",
+            "external_value_policy": "tensor",
+            "rank": 2,
+            "shape": [
+              1,
+              2
+            ]
+          }
+        },
+        {
+          "arguments": [
+            {
+              "position": 0,
+              "value": {
+                "name": "logits",
+                "node_type": "IdentifierNode"
+              }
+            }
+          ],
+          "function": "tensor.relu",
+          "lowered_operations": [
+            "tensor.maximum"
+          ],
+          "node_type": "tensor_call",
+          "operation_id": "tensor_call_005",
+          "output_ref": "tensor_value_005",
+          "semantic_operation": "tensor.relu",
+          "source_ref": {
+            "column": null,
+            "line": null
+          },
+          "tensor_metadata": {
+            "dtype": "f64",
+            "external_value_policy": "tensor",
+            "rank": 2,
+            "shape": [
+              1,
+              2
+            ]
+          }
+        },
+        {
+          "arguments": [
+            {
+              "position": 0,
+              "value": {
+                "name": "activated",
+                "node_type": "IdentifierNode"
+              }
+            },
+            {
+              "position": 1,
+              "value": {
+                "node_type": "UnaryExpressionNode",
+                "operand": {
+                  "node_type": "IntegerLiteralNode",
+                  "value": 1
+                },
+                "operator": "Negate"
+              }
+            }
+          ],
+          "function": "tensor.softmax",
+          "lowered_operations": [
+            "tensor.max",
+            "tensor.subtract",
+            "tensor.exp",
+            "tensor.sum",
+            "tensor.divide"
+          ],
+          "node_type": "tensor_call",
+          "operation_id": "tensor_call_006",
+          "output_ref": "tensor_value_006",
+          "semantic_operation": "tensor.softmax",
+          "source_ref": {
+            "column": null,
+            "line": null
+          },
+          "tensor_metadata": {
+            "dtype": "f64",
+            "external_value_policy": "tensor",
+            "rank": 2,
+            "shape": [
+              1,
+              2
+            ]
+          }
+        }
+      ]
+    },
+    "planner_policy": {
+      "max_alternatives": 8,
+      "max_depth": 128,
+      "strategy": "minimum_expected_cost"
+    },
+    "schema_version": "reason-ir/0.1",
+    "trace_policy": {
+      "include_alternatives": true,
+      "include_state_data": true,
+      "level": "standard"
+    },
+    "transitions": [
+      {
+        "effect": {
+          "calculation": "Answer",
+          "expression": {
+            "expression": {
+              "arguments": [
+                {
+                  "elements": [
+                    {
+                      "expression": {
+                        "elements": [
+                          {
+                            "expression": {
+                              "node_type": "FloatLiteralNode",
+                              "value": 1.0
+                            },
+                            "node_type": "ExpressionNode"
+                          },
+                          {
+                            "expression": {
+                              "node_type": "UnaryExpressionNode",
+                              "operand": {
+                                "node_type": "FloatLiteralNode",
+                                "value": 2.0
+                              },
+                              "operator": "Negate"
+                            },
+                            "node_type": "ExpressionNode"
+                          },
+                          {
+                            "expression": {
+                              "node_type": "FloatLiteralNode",
+                              "value": 0.5
+                            },
+                            "node_type": "ExpressionNode"
+                          }
+                        ],
+                        "node_type": "ArrayLiteralNode"
+                      },
+                      "node_type": "ExpressionNode"
+                    }
+                  ],
+                  "node_type": "ArrayLiteralNode"
+                },
+                {
+                  "node_type": "StringLiteralNode",
+                  "value": "f64"
+                }
+              ],
+              "callee": {
+                "member": "create",
+                "node_type": "MemberAccessNode",
+                "object": {
+                  "name": "tensor",
+                  "node_type": "IdentifierNode"
+                }
+              },
+              "node_type": "CallExpressionNode"
+            },
+            "node_type": "ExpressionNode"
+          },
+          "function_calls": [],
+          "goal_annotation": null,
+          "inputs": [
+            "tensor"
+          ],
+          "return_type": null,
+          "statement": {
+            "expression": {
+              "expression": {
+                "arguments": [
+                  {
+                    "elements": [
+                      {
+                        "expression": {
+                          "elements": [
+                            {
+                              "expression": {
+                                "node_type": "FloatLiteralNode",
+                                "value": 1.0
+                              },
+                              "node_type": "ExpressionNode"
+                            },
+                            {
+                              "expression": {
+                                "node_type": "UnaryExpressionNode",
+                                "operand": {
+                                  "node_type": "FloatLiteralNode",
+                                  "value": 2.0
+                                },
+                                "operator": "Negate"
+                              },
+                              "node_type": "ExpressionNode"
+                            },
+                            {
+                              "expression": {
+                                "node_type": "FloatLiteralNode",
+                                "value": 0.5
+                              },
+                              "node_type": "ExpressionNode"
+                            }
+                          ],
+                          "node_type": "ArrayLiteralNode"
+                        },
+                        "node_type": "ExpressionNode"
+                      }
+                    ],
+                    "node_type": "ArrayLiteralNode"
+                  },
+                  {
+                    "node_type": "StringLiteralNode",
+                    "value": "f64"
+                  }
+                ],
+                "callee": {
+                  "member": "create",
+                  "node_type": "MemberAccessNode",
+                  "object": {
+                    "name": "tensor",
+                    "node_type": "IdentifierNode"
+                  }
+                },
+                "node_type": "CallExpressionNode"
+              },
+              "node_type": "ExpressionNode"
+            },
+            "identifier": "input",
+            "node_type": "LetStatementNode",
+            "type_annotation": null
+          },
+          "target": "input",
+          "visibility": "Private"
+        },
+        "expected_cost": 1.0,
+        "relation": "CallTransition",
+        "source": "TensorIntegrationProbeStart",
+        "target": "Answer.state.input",
+        "transition_id": "Answer-1-input"
+      },
+      {
+        "effect": {
+          "calculation": "Answer",
+          "expression": {
+            "expression": {
+              "arguments": [
+                {
+                  "elements": [
+                    {
+                      "expression": {
+                        "elements": [
+                          {
+                            "expression": {
+                              "node_type": "FloatLiteralNode",
+                              "value": 0.2
+                            },
+                            "node_type": "ExpressionNode"
+                          },
+                          {
+                            "expression": {
+                              "node_type": "UnaryExpressionNode",
+                              "operand": {
+                                "node_type": "FloatLiteralNode",
+                                "value": 0.1
+                              },
+                              "operator": "Negate"
+                            },
+                            "node_type": "ExpressionNode"
+                          }
+                        ],
+                        "node_type": "ArrayLiteralNode"
+                      },
+                      "node_type": "ExpressionNode"
+                    },
+                    {
+                      "expression": {
+                        "elements": [
+                          {
+                            "expression": {
+                              "node_type": "FloatLiteralNode",
+                              "value": 0.4
+                            },
+                            "node_type": "ExpressionNode"
+                          },
+                          {
+                            "expression": {
+                              "node_type": "FloatLiteralNode",
+                              "value": 0.3
+                            },
+                            "node_type": "ExpressionNode"
+                          }
+                        ],
+                        "node_type": "ArrayLiteralNode"
+                      },
+                      "node_type": "ExpressionNode"
+                    },
+                    {
+                      "expression": {
+                        "elements": [
+                          {
+                            "expression": {
+                              "node_type": "UnaryExpressionNode",
+                              "operand": {
+                                "node_type": "FloatLiteralNode",
+                                "value": 0.5
+                              },
+                              "operator": "Negate"
+                            },
+                            "node_type": "ExpressionNode"
+                          },
+                          {
+                            "expression": {
+                              "node_type": "FloatLiteralNode",
+                              "value": 0.7
+                            },
+                            "node_type": "ExpressionNode"
+                          }
+                        ],
+                        "node_type": "ArrayLiteralNode"
+                      },
+                      "node_type": "ExpressionNode"
+                    }
+                  ],
+                  "node_type": "ArrayLiteralNode"
+                },
+                {
+                  "node_type": "StringLiteralNode",
+                  "value": "f64"
+                }
+              ],
+              "callee": {
+                "member": "create",
+                "node_type": "MemberAccessNode",
+                "object": {
+                  "name": "tensor",
+                  "node_type": "IdentifierNode"
+                }
+              },
+              "node_type": "CallExpressionNode"
+            },
+            "node_type": "ExpressionNode"
+          },
+          "function_calls": [],
+          "goal_annotation": null,
+          "inputs": [
+            "tensor"
+          ],
+          "return_type": null,
+          "statement": {
+            "expression": {
+              "expression": {
+                "arguments": [
+                  {
+                    "elements": [
+                      {
+                        "expression": {
+                          "elements": [
+                            {
+                              "expression": {
+                                "node_type": "FloatLiteralNode",
+                                "value": 0.2
+                              },
+                              "node_type": "ExpressionNode"
+                            },
+                            {
+                              "expression": {
+                                "node_type": "UnaryExpressionNode",
+                                "operand": {
+                                  "node_type": "FloatLiteralNode",
+                                  "value": 0.1
+                                },
+                                "operator": "Negate"
+                              },
+                              "node_type": "ExpressionNode"
+                            }
+                          ],
+                          "node_type": "ArrayLiteralNode"
+                        },
+                        "node_type": "ExpressionNode"
+                      },
+                      {
+                        "expression": {
+                          "elements": [
+                            {
+                              "expression": {
+                                "node_type": "FloatLiteralNode",
+                                "value": 0.4
+                              },
+                              "node_type": "ExpressionNode"
+                            },
+                            {
+                              "expression": {
+                                "node_type": "FloatLiteralNode",
+                                "value": 0.3
+                              },
+                              "node_type": "ExpressionNode"
+                            }
+                          ],
+                          "node_type": "ArrayLiteralNode"
+                        },
+                        "node_type": "ExpressionNode"
+                      },
+                      {
+                        "expression": {
+                          "elements": [
+                            {
+                              "expression": {
+                                "node_type": "UnaryExpressionNode",
+                                "operand": {
+                                  "node_type": "FloatLiteralNode",
+                                  "value": 0.5
+                                },
+                                "operator": "Negate"
+                              },
+                              "node_type": "ExpressionNode"
+                            },
+                            {
+                              "expression": {
+                                "node_type": "FloatLiteralNode",
+                                "value": 0.7
+                              },
+                              "node_type": "ExpressionNode"
+                            }
+                          ],
+                          "node_type": "ArrayLiteralNode"
+                        },
+                        "node_type": "ExpressionNode"
+                      }
+                    ],
+                    "node_type": "ArrayLiteralNode"
+                  },
+                  {
+                    "node_type": "StringLiteralNode",
+                    "value": "f64"
+                  }
+                ],
+                "callee": {
+                  "member": "create",
+                  "node_type": "MemberAccessNode",
+                  "object": {
+                    "name": "tensor",
+                    "node_type": "IdentifierNode"
+                  }
+                },
+                "node_type": "CallExpressionNode"
+              },
+              "node_type": "ExpressionNode"
+            },
+            "identifier": "weight",
+            "node_type": "LetStatementNode",
+            "type_annotation": null
+          },
+          "target": "weight",
+          "visibility": "Private"
+        },
+        "expected_cost": 1.0,
+        "relation": "CallTransition",
+        "source": "Answer.state.input",
+        "target": "Answer.state.weight",
+        "transition_id": "Answer-2-weight"
+      },
+      {
+        "effect": {
+          "calculation": "Answer",
+          "expression": {
+            "expression": {
+              "arguments": [
+                {
+                  "elements": [
+                    {
+                      "expression": {
+                        "node_type": "FloatLiteralNode",
+                        "value": 0.1
+                      },
+                      "node_type": "ExpressionNode"
+                    },
+                    {
+                      "expression": {
+                        "node_type": "UnaryExpressionNode",
+                        "operand": {
+                          "node_type": "FloatLiteralNode",
+                          "value": 0.2
+                        },
+                        "operator": "Negate"
+                      },
+                      "node_type": "ExpressionNode"
+                    }
+                  ],
+                  "node_type": "ArrayLiteralNode"
+                },
+                {
+                  "node_type": "StringLiteralNode",
+                  "value": "f64"
+                }
+              ],
+              "callee": {
+                "member": "create",
+                "node_type": "MemberAccessNode",
+                "object": {
+                  "name": "tensor",
+                  "node_type": "IdentifierNode"
+                }
+              },
+              "node_type": "CallExpressionNode"
+            },
+            "node_type": "ExpressionNode"
+          },
+          "function_calls": [],
+          "goal_annotation": null,
+          "inputs": [
+            "tensor"
+          ],
+          "return_type": null,
+          "statement": {
+            "expression": {
+              "expression": {
+                "arguments": [
+                  {
+                    "elements": [
+                      {
+                        "expression": {
+                          "node_type": "FloatLiteralNode",
+                          "value": 0.1
+                        },
+                        "node_type": "ExpressionNode"
+                      },
+                      {
+                        "expression": {
+                          "node_type": "UnaryExpressionNode",
+                          "operand": {
+                            "node_type": "FloatLiteralNode",
+                            "value": 0.2
+                          },
+                          "operator": "Negate"
+                        },
+                        "node_type": "ExpressionNode"
+                      }
+                    ],
+                    "node_type": "ArrayLiteralNode"
+                  },
+                  {
+                    "node_type": "StringLiteralNode",
+                    "value": "f64"
+                  }
+                ],
+                "callee": {
+                  "member": "create",
+                  "node_type": "MemberAccessNode",
+                  "object": {
+                    "name": "tensor",
+                    "node_type": "IdentifierNode"
+                  }
+                },
+                "node_type": "CallExpressionNode"
+              },
+              "node_type": "ExpressionNode"
+            },
+            "identifier": "bias",
+            "node_type": "LetStatementNode",
+            "type_annotation": null
+          },
+          "target": "bias",
+          "visibility": "Private"
+        },
+        "expected_cost": 1.0,
+        "relation": "CallTransition",
+        "source": "Answer.state.weight",
+        "target": "Answer.state.bias",
+        "transition_id": "Answer-3-bias"
+      },
+      {
+        "effect": {
+          "calculation": "Answer",
+          "expression": {
+            "expression": {
+              "arguments": [
+                {
+                  "name": "input",
+                  "node_type": "IdentifierNode"
+                },
+                {
+                  "name": "weight",
+                  "node_type": "IdentifierNode"
+                },
+                {
+                  "name": "bias",
+                  "node_type": "IdentifierNode"
+                }
+              ],
+              "callee": {
+                "member": "linear",
+                "node_type": "MemberAccessNode",
+                "object": {
+                  "name": "tensor",
+                  "node_type": "IdentifierNode"
+                }
+              },
+              "node_type": "CallExpressionNode"
+            },
+            "node_type": "ExpressionNode"
+          },
+          "function_calls": [],
+          "goal_annotation": null,
+          "inputs": [
+            "Answer.state.bias",
+            "Answer.state.input",
+            "tensor",
+            "Answer.state.weight"
+          ],
+          "return_type": null,
+          "statement": {
+            "expression": {
+              "expression": {
+                "arguments": [
+                  {
+                    "name": "input",
+                    "node_type": "IdentifierNode"
+                  },
+                  {
+                    "name": "weight",
+                    "node_type": "IdentifierNode"
+                  },
+                  {
+                    "name": "bias",
+                    "node_type": "IdentifierNode"
+                  }
+                ],
+                "callee": {
+                  "member": "linear",
+                  "node_type": "MemberAccessNode",
+                  "object": {
+                    "name": "tensor",
+                    "node_type": "IdentifierNode"
+                  }
+                },
+                "node_type": "CallExpressionNode"
+              },
+              "node_type": "ExpressionNode"
+            },
+            "identifier": "logits",
+            "node_type": "LetStatementNode",
+            "type_annotation": null
+          },
+          "target": "logits",
+          "visibility": "Private"
+        },
+        "expected_cost": 1.0,
+        "relation": "CallTransition",
+        "source": "Answer.state.bias",
+        "target": "Answer.state.logits",
+        "transition_id": "Answer-4-logits"
+      },
+      {
+        "effect": {
+          "calculation": "Answer",
+          "expression": {
+            "expression": {
+              "arguments": [
+                {
+                  "name": "logits",
+                  "node_type": "IdentifierNode"
+                }
+              ],
+              "callee": {
+                "member": "relu",
+                "node_type": "MemberAccessNode",
+                "object": {
+                  "name": "tensor",
+                  "node_type": "IdentifierNode"
+                }
+              },
+              "node_type": "CallExpressionNode"
+            },
+            "node_type": "ExpressionNode"
+          },
+          "function_calls": [],
+          "goal_annotation": null,
+          "inputs": [
+            "Answer.state.logits",
+            "tensor"
+          ],
+          "return_type": null,
+          "statement": {
+            "expression": {
+              "expression": {
+                "arguments": [
+                  {
+                    "name": "logits",
+                    "node_type": "IdentifierNode"
+                  }
+                ],
+                "callee": {
+                  "member": "relu",
+                  "node_type": "MemberAccessNode",
+                  "object": {
+                    "name": "tensor",
+                    "node_type": "IdentifierNode"
+                  }
+                },
+                "node_type": "CallExpressionNode"
+              },
+              "node_type": "ExpressionNode"
+            },
+            "identifier": "activated",
+            "node_type": "LetStatementNode",
+            "type_annotation": null
+          },
+          "target": "activated",
+          "visibility": "Private"
+        },
+        "expected_cost": 1.0,
+        "relation": "CallTransition",
+        "source": "Answer.state.logits",
+        "target": "Answer.state.activated",
+        "transition_id": "Answer-5-activated"
+      },
+      {
+        "effect": {
+          "calculation": "Answer",
+          "expression": {
+            "expression": {
+              "arguments": [
+                {
+                  "name": "activated",
+                  "node_type": "IdentifierNode"
+                },
+                {
+                  "node_type": "UnaryExpressionNode",
+                  "operand": {
+                    "node_type": "IntegerLiteralNode",
+                    "value": 1
+                  },
+                  "operator": "Negate"
+                }
+              ],
+              "callee": {
+                "member": "softmax",
+                "node_type": "MemberAccessNode",
+                "object": {
+                  "name": "tensor",
+                  "node_type": "IdentifierNode"
+                }
+              },
+              "node_type": "CallExpressionNode"
+            },
+            "node_type": "ExpressionNode"
+          },
+          "function_calls": [],
+          "goal_annotation": null,
+          "inputs": [
+            "Answer.state.activated",
+            "tensor"
+          ],
+          "return_type": null,
+          "statement": {
+            "expression": {
+              "expression": {
+                "arguments": [
+                  {
+                    "name": "activated",
+                    "node_type": "IdentifierNode"
+                  },
+                  {
+                    "node_type": "UnaryExpressionNode",
+                    "operand": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 1
+                    },
+                    "operator": "Negate"
+                  }
+                ],
+                "callee": {
+                  "member": "softmax",
+                  "node_type": "MemberAccessNode",
+                  "object": {
+                    "name": "tensor",
+                    "node_type": "IdentifierNode"
+                  }
+                },
+                "node_type": "CallExpressionNode"
+              },
+              "node_type": "ExpressionNode"
+            },
+            "node_type": "ResultStatementNode"
+          },
+          "target": "result",
+          "visibility": "Private"
+        },
+        "expected_cost": 1.0,
+        "relation": "ResultTransition",
+        "source": "Answer.state.activated",
+        "target": "Answer.state.result",
+        "transition_id": "Answer-6-result"
+      }
+    ]
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reason-ir/0.5",
+  "version": "1.0"
+}

@@ -1,0 +1,11 @@
+{
+  "agent_protocol": true,
+  "artifacts": true,
+  "diagnostics": true,
+  "golden": true,
+  "schema": "reasonscript-ci-summary/1.0",
+  "status": "PASS",
+  "tests": 1085,
+  "version": "1.0",
+  "workspace": true
+}

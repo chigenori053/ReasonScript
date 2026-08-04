@@ -1,0 +1,10 @@
+{
+  "cases": [
+    "valid/single_calculation",
+    "valid/vision_language"
+  ],
+  "language_version": "0.5",
+  "schema": "reasonscript-golden-tests/1.0",
+  "total_cases": 2,
+  "version": "1.0"
+}

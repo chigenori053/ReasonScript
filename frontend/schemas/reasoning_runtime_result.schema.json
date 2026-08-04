@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/reasoning_runtime_result.schema.json",
+  "title": "ReasoningRuntimeResult",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "source_ref",
+    "pipeline_status",
+    "reasoning_model",
+    "evaluation_report",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "reasonscript-reasoning-runtime-prototype/1.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_ref": {
+      "type": "object",
+      "required": ["source_id", "source_kind"],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_kind": {
+          "enum": ["reason_script_source", "fixture", "inline_source", "pipeline_artifact_bundle"]
+        },
+        "source_path": {
+          "type": "string"
+        },
+        "artifact_refs": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    },
+    "pipeline_status": {
+      "type": "object",
+      "required": [
+        "status",
+        "parser_passed",
+        "reason_ir_available",
+        "execution_plan_available",
+        "simulation_available",
+        "knowledge_available",
+        "diagnostics_count"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["passed", "failed", "partial", "fatal"]
+        },
+        "parser_passed": {
+          "type": "boolean"
+        },
+        "reason_ir_available": {
+          "type": "boolean"
+        },
+        "execution_plan_available": {
+          "type": "boolean"
+        },
+        "simulation_available": {
+          "type": "boolean"
+        },
+        "knowledge_available": {
+          "type": "boolean"
+        },
+        "diagnostics_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "reasoning_model": {
+      "type": "object"
+    },
+    "evaluation_report": {
+      "type": "object"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "message"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": ["info", "warning", "error", "fatal"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

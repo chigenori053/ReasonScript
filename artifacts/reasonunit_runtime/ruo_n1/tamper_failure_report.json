@@ -1,0 +1,10 @@
+{
+  "data": {
+    "invalid_cases": 26,
+    "panic_count": 0,
+    "partial_commits": 0,
+    "rejected": 26
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-tamper-failure-report/1.0"
+}

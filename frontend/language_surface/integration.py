@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+import hashlib
 
 from frontend import ast as semantic
 from frontend.compiler import compile as compile_semantic
@@ -44,6 +45,7 @@ from .nodes import (
     LetStatementNode,
     LiteralPatternNode,
     LogicalExpressionNode,
+    LogicalOperator,
     LoopStatementNode,
     MapLiteralNode,
     MatchStatementNode,
@@ -59,7 +61,9 @@ from .nodes import (
     ProgramNode,
     QualifiedPatternNode,
     QualifiedIdentifierNode,
+    RangePatternNode,
     ReasonGraphDeclarationNode,
+    ReasonObjectBindingNode,
     ReachStatementNode,
     RelationNode,
     RequireStatementNode,
@@ -79,6 +83,7 @@ from .nodes import (
     TransitionNode,
     TupleLiteralNode,
     UnaryExpressionNode,
+    UnaryOperator,
     Visibility,
     WhileStatementNode,
     WildcardPatternNode,
@@ -89,6 +94,16 @@ from .pattern_evaluator import PatternEvaluator, RuntimeEnumValue, RuntimeStruct
 from .semantic_patterns import StructPatternSemanticError, resolve_struct_pattern
 from .validation import SurfaceValidationError, validate
 from .namespace import resolve_program
+from frontend.tensor.integration import (
+    public_registry as tensor_public_registry,
+    tensor_execution_plan,
+    tensor_operations,
+)
+from frontend.vision.integration import (
+    public_registry as vision_public_registry,
+    vision_execution_plan,
+    vision_operations,
+)
 
 
 def project_program(program: ProgramNode) -> tuple[semantic.ModuleNode, ...]:
@@ -115,6 +130,10 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
     imports: list[str] = []
     surface_goals = [node for node in module.body if isinstance(node, GoalNode)]
     goal_target = surface_goals[0].name if surface_goals else f"{module.name}Result"
+    module_tensor_operations = tensor_operations(module)
+    module_vision_operations = vision_operations(module)
+    reason_object_bindings = _reason_object_bindings(module, namespace)
+    reason_object_operations = _reason_object_operations(module)
     declarations.append(
         semantic.GoalNode(
             f"{namespace}-goal",
@@ -308,6 +327,56 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                 "runtime_operations",
                 _runtime_operations(module),
             ),
+            *(
+                (semantic.MetadataNode(f"{namespace}-reason-object-bindings", "reason_object_bindings", reason_object_bindings),)
+                if reason_object_bindings else ()
+            ),
+            *(
+                (semantic.MetadataNode(f"{namespace}-reason-object-operations", "reason_object_operations", reason_object_operations),)
+                if reason_object_operations else ()
+            ),
+            *(
+                (
+                    semantic.MetadataNode(
+                        f"{namespace}-tensor-registry",
+                        "tensor_function_registry",
+                        list(tensor_public_registry()),
+                    ),
+                    semantic.MetadataNode(
+                        f"{namespace}-tensor-operations",
+                        "tensor_operations",
+                        module_tensor_operations,
+                    ),
+                    semantic.MetadataNode(
+                        f"{namespace}-tensor-execution-plan",
+                        "tensor_execution_plan",
+                        tensor_execution_plan(module_tensor_operations),
+                    ),
+                )
+                if module_tensor_operations
+                else ()
+            ),
+            *(
+                (
+                    semantic.MetadataNode(
+                        f"{namespace}-vision-registry",
+                        "vision_function_registry",
+                        list(vision_public_registry()),
+                    ),
+                    semantic.MetadataNode(
+                        f"{namespace}-vision-operations",
+                        "vision_operations",
+                        module_vision_operations,
+                    ),
+                    semantic.MetadataNode(
+                        f"{namespace}-vision-execution-plan",
+                        "vision_execution_plan",
+                        vision_execution_plan(module_vision_operations),
+                    ),
+                )
+                if module_vision_operations
+                else ()
+            ),
             semantic.MetadataNode(
                 f"{namespace}-reasoning-types",
                 "reasoning_types",
@@ -364,13 +433,44 @@ def _project_calculations(
                 statement, index
             )
             expression = _statement_expression(statement)
-            for function_name in _expression_function_calls(expression):
+            for call_index, function_name in enumerate(
+                _expression_function_calls(expression),
+                1,
+            ):
                 function = functions.get(function_name)
                 if function is None or function_name in emitted_function_returns:
                     continue
+                if len(current_sources) > 1:
+                    merge_target = (
+                        f"{node.name}.state.call.{index}.{call_index}.{function_name}"
+                    )
+                    for source_index, source in enumerate(current_sources, 1):
+                        transition_index += 1
+                        declarations.append(
+                            semantic.TransitionNode(
+                                f"{namespace}-function-{transition_index}",
+                                (
+                                    f"{node.name}-{index}-call-{call_index}-"
+                                    f"merge-{source_index}"
+                                ),
+                                source,
+                                "FunctionCallMergeTransition",
+                                merge_target,
+                                effect={
+                                    "calculation": node.name,
+                                    "function": f"{namespace}.{function_name}",
+                                    "source_return": source,
+                                },
+                            )
+                        )
+                    current_sources = [merge_target]
                 return_paths = _function_return_paths(function, module)
                 arguments = _function_call_arguments(expression, function_name)
-                evaluation_context = _function_evaluation_context(function, arguments)
+                evaluation_context = _function_evaluation_context(
+                    function,
+                    arguments,
+                    functions,
+                )
                 next_sources: list[str] = []
                 for source in current_sources:
                     for return_path in return_paths:
@@ -532,6 +632,53 @@ def _runtime_operations(module: ModuleNode) -> list[dict[str, Any]]:
             }
         )
     return result
+
+
+def _reason_object_bindings(module: ModuleNode, namespace: str) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for node in module.body:
+        if not isinstance(node, ReasonObjectBindingNode):
+            continue
+        binding_id = "ruo-binding:" + hashlib.sha256(f"{namespace}:{node.name}".encode()).hexdigest()[:24]
+        result.append({
+            "node_type": "ReasonObjectBindingIR",
+            "binding_id": binding_id,
+            "lexical_name": node.name,
+            "logical_source_ref": node.source_path,
+            "resource_root_ref": node.resource_root,
+            "load_mode": node.load_mode,
+            "expected_object_id": node.expected_object_id,
+            "capability_requirements": ["filesystem_read"],
+            "input_type": "ReasonObjectBinding",
+            "output_type": "ReasonObject",
+            "failure_modes": ["capability", "integrity", "identity", "resource", "limit"],
+            "determinism": "deterministic_for_verified_inputs",
+            "source_span": to_json_value(node.source_span),
+        })
+    return result
+
+
+_RUO_OUTPUT_TYPES = {"object_id": "StableId", "snapshot": "ReasonObjectSnapshot", "resolve": "ReasonEntityRef", "query": "ReasonQueryResult", "begin": "ReasonTransaction", "apply": "ReasonTransaction", "validate": "ReasonTransactionResult", "commit": "ReasonTransactionResult", "rollback": "ReasonTransactionResult", "select": "ReasonSelection", "materialize": "ReasonSelection", "project": "ReasonProjection", "save": "ReasonTransactionResult", "tensor_view": "ReasonTensorView", "status": "ReasonStatus", "diagnostics": "ReasonDiagnosticSet"}
+
+
+def _reason_object_operations(module: ModuleNode) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for node in module.body:
+        for call in _walk_ruo_calls(node):
+            method = call.callee.member
+            result.append({"node_type": "ReasonObjectOperationIR", "operation": method, "native_operation": method, "input_type": "typed", "output_type": _RUO_OUTPUT_TYPES[method], "arguments": [to_json_value(argument) for argument in call.arguments], "capability_requirement": "filesystem_write" if method == "save" else ("filesystem_read" if method in {"materialize", "tensor_view"} else None), "failure_modes": ["not_loaded", "unavailable", "invalid", "deleted", "stale", "conflict", "error"], "determinism": "deterministic"})
+    return result
+
+
+def _walk_ruo_calls(value: Any):
+    if isinstance(value, CallExpressionNode) and isinstance(value.callee, MemberAccessNode) and isinstance(value.callee.object, IdentifierNode) and value.callee.object.name == "ruo":
+        yield value
+    if isinstance(value, tuple):
+        for item in value: yield from _walk_ruo_calls(item)
+    elif isinstance(value, list):
+        for item in value: yield from _walk_ruo_calls(item)
+    elif hasattr(value, "__dataclass_fields__"):
+        for field in value.__dataclass_fields__: yield from _walk_ruo_calls(getattr(value, field))
 
 
 def _function_symbols(module: ModuleNode, namespace: str) -> list[dict[str, Any]]:
@@ -776,6 +923,7 @@ def _function_return_paths(
                                 statement,
                                 arm,
                                 _return_path_label(branch_prefix, 1),
+                                function.name,
                                 enum,
                                 selected_pattern=alternative,
                                 alternative_index=alternative_index,
@@ -911,6 +1059,12 @@ def _function_control_flow_ir(
                             selected_pattern=alternative,
                         )
                         label = _return_path_label(branch_prefix, 1)
+                        pattern_identity = _pattern_identity(
+                            _function_return_target(function.name, label),
+                            alternative,
+                            guarded=arm.guard is not None,
+                            nested=len(_canonical_match_path(branch_prefix)) > 1,
+                        )
                         if arm.guard is not None:
                             nodes.append(_guard_expression_ir(arm.guard))
                         nodes.append(
@@ -920,6 +1074,7 @@ def _function_control_flow_ir(
                                 "pattern": _match_pattern_value(alternative, enum),
                                 "target": _function_return_target(function.name, label),
                                 "canonical_path": _canonical_match_path(branch_prefix),
+                                "pattern_identity": pattern_identity,
                                 **_or_pattern_metadata(arm.pattern, alternative_index, len(alternatives), enum),
                                 **(
                                     {"guard": _guard_expression_ir(arm.guard)}
@@ -1043,6 +1198,7 @@ def _match_condition(
     statement: MatchStatementNode,
     arm: Any,
     label: str,
+    function_name: str,
     enum: EnumDeclarationNode | None = None,
     *,
     selected_pattern: PatternNode | None = None,
@@ -1050,12 +1206,19 @@ def _match_condition(
     alternative_count: int = 1,
 ) -> dict[str, Any]:
     pattern = selected_pattern or arm.pattern
+    pattern_id = _function_return_target(function_name, label)
     return {
         "node_type": "MatchSelectionIRNode",
         "value": _match_value_name(statement.expression),
         "expression": to_json_value(statement.expression),
         "pattern": _match_pattern_value(pattern, enum),
         "target": label,
+        "pattern_identity": _pattern_identity(
+            pattern_id,
+            pattern,
+            guarded=arm.guard is not None,
+            nested="|" in pattern_id and "|guard." not in pattern_id,
+        ),
         **_or_pattern_metadata(arm.pattern, alternative_index, alternative_count, enum),
         **(
             {"guard": _guard_expression_ir(arm.guard)}
@@ -1122,7 +1285,64 @@ def _match_pattern_label(
         return "none"
     if isinstance(value, dict) and value.get("node_type") == "StructPatternNode":
         return _struct_pattern_signature(value)
+    if isinstance(value, dict) and value.get("node_type") == "RangePatternIRNode":
+        return _range_pattern_label(value)
     return str(value).replace("-", "neg_").replace(".", "_")
+
+
+def _pattern_identity(
+    pattern_id: str,
+    pattern: PatternNode,
+    *,
+    guarded: bool = False,
+    nested: bool = False,
+) -> dict[str, str]:
+    return {
+        "pattern_id": pattern_id,
+        "pattern_type": _pattern_identity_type(pattern, guarded=guarded, nested=nested),
+        "canonical_path": pattern_id,
+    }
+
+
+def _pattern_identity_type(
+    pattern: PatternNode,
+    *,
+    guarded: bool = False,
+    nested: bool = False,
+) -> str:
+    if guarded:
+        return "Guard"
+    if nested:
+        return "NestedStruct"
+    value = pattern.pattern
+    if isinstance(value, LiteralPatternNode):
+        return "Literal"
+    if isinstance(value, RangePatternNode):
+        return "Range"
+    if isinstance(value, (QualifiedPatternNode, EnumValuePatternNode)):
+        return "Enum"
+    if isinstance(value, (OptionalPatternNode, OptionalValuePatternNode)):
+        return "Optional"
+    if isinstance(value, StructPatternNode):
+        return "NestedStruct" if _struct_pattern_contains_nested_struct(value) else "Struct"
+    if isinstance(value, OrPatternNode):
+        return "OrAlternative"
+    return "Literal"
+
+
+def _struct_pattern_contains_nested_struct(pattern: StructPatternNode) -> bool:
+    for field in pattern.fields:
+        field_pattern = field.pattern
+        if isinstance(field_pattern, StructPatternNode):
+            return True
+        if isinstance(field_pattern, OrPatternNode):
+            if any(
+                isinstance(alternative, StructPatternNode)
+                and _struct_pattern_contains_nested_struct(alternative)
+                for alternative in field_pattern.alternatives
+            ):
+                return True
+    return False
 
 
 def _match_pattern_value(
@@ -1142,6 +1362,14 @@ def _match_pattern_value(
             return literal.value
         if isinstance(literal, StringLiteralNode):
             return literal.value
+    if isinstance(value, RangePatternNode):
+        return {
+            "node_type": "RangePatternIRNode",
+            "lower": value.lower.value,
+            "upper": value.upper.value,
+            "lower_inclusive": value.lower_inclusive,
+            "upper_inclusive": value.upper_inclusive,
+        }
     if isinstance(value, QualifiedPatternNode):
         return {
             "node_type": "EnumValuePatternNode",
@@ -1208,6 +1436,10 @@ def _or_pattern_metadata(
         "or_pattern": {
             **_or_pattern_ir(value, enum),
             "selected_index": alternative_index,
+            "selected_pattern": _match_pattern_label(
+                PatternNode(value.alternatives[alternative_index]),
+                enum,
+            ),
             "alternative_count": alternative_count,
         }
     }
@@ -1221,6 +1453,20 @@ def _struct_pattern_signature(pattern: dict[str, Any]) -> str:
         if label is not None:
             field_labels.append(label)
     return f"{type_name}.{('_'.join(field_labels))}" if field_labels else type_name
+
+
+def _range_pattern_label(pattern: dict[str, Any]) -> str:
+    lower = _range_bound_label(pattern.get("lower"))
+    upper = _range_bound_label(pattern.get("upper"))
+    separator = "_" if pattern.get("upper_inclusive", True) else "_lt_"
+    return f"range.{lower}{separator}{upper}"
+
+
+def _range_bound_label(value: Any) -> str:
+    text = str(value)
+    if text.endswith(".0"):
+        text = text[:-2]
+    return text.replace("-", "neg_").replace(".", "_")
 
 
 def _struct_field_pattern_label(field: Any) -> str | None:
@@ -1649,11 +1895,205 @@ def _condition_operand_name(value: Any) -> str:
 def _function_evaluation_context(
     function: FunctionDeclarationNode,
     arguments: tuple[Any, ...],
+    functions: dict[str, FunctionDeclarationNode] | None = None,
 ) -> dict[str, Any]:
     context: dict[str, Any] = {}
     for parameter, argument in zip(function.parameters, arguments):
-        context[_function_parameter_name(parameter)] = _literal_value(argument)
+        value = _compile_time_value(argument, {}, functions or {}, ())
+        context[_function_parameter_name(parameter)] = (
+            _literal_value(argument) if value is _UNKNOWN_VALUE else value
+        )
     return context
+
+
+_UNKNOWN_VALUE = object()
+_NO_RETURN = object()
+
+
+def _compile_time_value(
+    expression: Any,
+    context: dict[str, Any],
+    functions: dict[str, FunctionDeclarationNode],
+    active_calls: tuple[str, ...],
+) -> Any:
+    value = expression.expression if isinstance(expression, ExpressionNode) else expression
+    if isinstance(value, BooleanLiteralNode):
+        return value.value
+    if isinstance(value, (IntegerLiteralNode, FloatLiteralNode)):
+        return value.value
+    if isinstance(value, IdentifierNode):
+        return context.get(value.name, _UNKNOWN_VALUE)
+    if isinstance(value, ParenthesizedExpressionNode):
+        return _compile_time_value(value.expression, context, functions, active_calls)
+    if isinstance(value, UnaryExpressionNode):
+        operand = _compile_time_value(value.operand, context, functions, active_calls)
+        if operand is _UNKNOWN_VALUE:
+            return _UNKNOWN_VALUE
+        if value.operator == UnaryOperator.NEGATE and isinstance(operand, (int, float)):
+            return -operand
+        if value.operator == UnaryOperator.NOT and isinstance(operand, bool):
+            return not operand
+        return _UNKNOWN_VALUE
+    if isinstance(value, BinaryExpressionNode):
+        left = _compile_time_value(value.left, context, functions, active_calls)
+        right = _compile_time_value(value.right, context, functions, active_calls)
+        return _compile_time_binary(value.operator, left, right)
+    if isinstance(value, ComparisonExpressionNode):
+        left = _compile_time_value(value.left, context, functions, active_calls)
+        right = _compile_time_value(value.right, context, functions, active_calls)
+        return _compile_time_comparison(value.operator, left, right)
+    if isinstance(value, LogicalExpressionNode):
+        left = _compile_time_value(value.left, context, functions, active_calls)
+        right = _compile_time_value(value.right, context, functions, active_calls)
+        if not isinstance(left, bool) or not isinstance(right, bool):
+            return _UNKNOWN_VALUE
+        return left and right if value.operator == LogicalOperator.AND else left or right
+    if (
+        isinstance(value, CallExpressionNode)
+        and isinstance(value.callee, IdentifierNode)
+        and value.callee.name in functions
+        and value.callee.name not in active_calls
+    ):
+        function = functions[value.callee.name]
+        arguments = [
+            _compile_time_value(argument, context, functions, active_calls)
+            for argument in value.arguments
+        ]
+        if any(argument is _UNKNOWN_VALUE for argument in arguments):
+            return _UNKNOWN_VALUE
+        call_context = {
+            _function_parameter_name(parameter): argument
+            for parameter, argument in zip(function.parameters, arguments)
+        }
+        result = _compile_time_function_body(
+            function.body,
+            call_context,
+            functions,
+            (*active_calls, function.name),
+        )
+        return _UNKNOWN_VALUE if result is _NO_RETURN else result
+    return _UNKNOWN_VALUE
+
+
+def _compile_time_function_body(
+    statements: tuple[Any, ...],
+    context: dict[str, Any],
+    functions: dict[str, FunctionDeclarationNode],
+    active_calls: tuple[str, ...],
+) -> Any:
+    local_context = dict(context)
+    for statement in statements:
+        if isinstance(statement, ReturnStatementNode):
+            return _compile_time_value(
+                statement.expression,
+                local_context,
+                functions,
+                active_calls,
+            )
+        if isinstance(statement, (LetStatementNode, ConstStatementNode)):
+            value = _compile_time_value(
+                statement.expression,
+                local_context,
+                functions,
+                active_calls,
+            )
+            if value is _UNKNOWN_VALUE:
+                return _UNKNOWN_VALUE
+            local_context[statement.identifier] = value
+            continue
+        if isinstance(statement, AssignmentStatementNode):
+            value = _compile_time_value(
+                statement.expression,
+                local_context,
+                functions,
+                active_calls,
+            )
+            if value is _UNKNOWN_VALUE:
+                return _UNKNOWN_VALUE
+            local_context[statement.target] = value
+            continue
+        if isinstance(statement, IfStatementNode):
+            branches = (
+                (statement.condition, statement.body),
+                *((branch.condition, branch.body) for branch in statement.elif_branches),
+            )
+            selected_body = None
+            for condition, body in branches:
+                selected = _compile_time_value(
+                    condition,
+                    local_context,
+                    functions,
+                    active_calls,
+                )
+                if not isinstance(selected, bool):
+                    return _UNKNOWN_VALUE
+                if selected:
+                    selected_body = body
+                    break
+            if selected_body is None and statement.else_branch is not None:
+                selected_body = statement.else_branch.body
+            if selected_body is not None:
+                result = _compile_time_function_body(
+                    selected_body,
+                    local_context,
+                    functions,
+                    active_calls,
+                )
+                if result is not _NO_RETURN:
+                    return result
+    return _NO_RETURN
+
+
+def _compile_time_binary(operator: BinaryOperator, left: Any, right: Any) -> Any:
+    if (
+        left is _UNKNOWN_VALUE
+        or right is _UNKNOWN_VALUE
+        or isinstance(left, bool)
+        or isinstance(right, bool)
+        or not isinstance(left, (int, float))
+        or not isinstance(right, (int, float))
+    ):
+        return _UNKNOWN_VALUE
+    if operator == BinaryOperator.ADD:
+        return left + right
+    if operator == BinaryOperator.SUBTRACT:
+        return left - right
+    if operator == BinaryOperator.MULTIPLY:
+        return left * right
+    if operator == BinaryOperator.DIVIDE and right != 0:
+        return left / right
+    if operator == BinaryOperator.MODULO and right != 0:
+        return left % right
+    return _UNKNOWN_VALUE
+
+
+def _compile_time_comparison(
+    operator: ComparisonOperator,
+    left: Any,
+    right: Any,
+) -> Any:
+    if left is _UNKNOWN_VALUE or right is _UNKNOWN_VALUE:
+        return _UNKNOWN_VALUE
+    if operator == ComparisonOperator.EQUAL:
+        return left == right
+    if operator == ComparisonOperator.NOT_EQUAL:
+        return left != right
+    if (
+        isinstance(left, bool)
+        or isinstance(right, bool)
+        or not isinstance(left, (int, float))
+        or not isinstance(right, (int, float))
+    ):
+        return _UNKNOWN_VALUE
+    if operator == ComparisonOperator.GREATER_THAN:
+        return left > right
+    if operator == ComparisonOperator.GREATER_THAN_OR_EQUAL:
+        return left >= right
+    if operator == ComparisonOperator.LESS_THAN:
+        return left < right
+    if operator == ComparisonOperator.LESS_THAN_OR_EQUAL:
+        return left <= right
+    return _UNKNOWN_VALUE
 
 
 def _evaluation_context_for_return_path(
@@ -2087,11 +2527,11 @@ def _expression_function_calls(expression: ExpressionNode | Any | None) -> list[
 
     def visit(item: Any) -> None:
         if isinstance(item, CallExpressionNode):
-            if isinstance(item.callee, IdentifierNode) and item.callee.name not in found:
-                found.append(item.callee.name)
-            visit(item.callee)
             for argument in item.arguments:
                 visit(argument)
+            visit(item.callee)
+            if isinstance(item.callee, IdentifierNode) and item.callee.name not in found:
+                found.append(item.callee.name)
             return
         if isinstance(item, ExpressionNode):
             visit(item.expression)
@@ -2231,7 +2671,7 @@ def execution_plan_for(reason_ir: dict[str, Any]) -> dict[str, Any]:
         }
         for index, transition in enumerate(reason_ir["transitions"], 1)
     ]
-    return {
+    result = {
         "selected_steps": steps,
         "alternative_paths": [],
         "expected_cost": sum(
@@ -2240,6 +2680,22 @@ def execution_plan_for(reason_ir: dict[str, Any]) -> dict[str, Any]:
         "evidence_refs": [],
         "planner_version": "language-surface-validation/0.1",
     }
+    bindings = reason_ir.get("metadata", {}).get("reason_object_bindings", [])
+    if bindings:
+        result["reason_object_plan"] = {
+            "load_profile": "lazy_verified",
+            "bindings": bindings,
+            "steps": [
+                {"order": index, "operation": operation, "transaction_boundary": operation in {"transaction_commit_or_rollback", "save"}}
+                for index, operation in enumerate(["binding_resolution", "capability_validation", "native_load", "operation_execution", "transaction_commit_or_rollback", "projection_or_save"], 1)
+            ],
+            "resource_limits_required": True,
+            "operations": reason_ir.get("metadata", {}).get("reason_object_operations", []),
+        }
+    vision_plan = reason_ir.get("metadata", {}).get("vision_execution_plan")
+    if vision_plan:
+        result["vision_plan"] = vision_plan
+    return result
 
 
 def _calculation_transition_id(

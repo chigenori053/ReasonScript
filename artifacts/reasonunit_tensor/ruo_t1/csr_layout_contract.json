@@ -1,0 +1,11 @@
+{
+  "data": {
+    "columns": "strictly increasing per row",
+    "duplicates": "forbidden",
+    "index_dtype": "uint64",
+    "rank": 2,
+    "row_pointer_length": "rows+1"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-csr-layout-contract/1.0"
+}

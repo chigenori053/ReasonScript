@@ -1,0 +1,6 @@
+model SolarVisionLanguage {
+    calculation RecognizeFrame {
+        let observation = vision.infer("model.json", "image.bin")
+        result = vision.build_ruo(observation, "output/solar-observation.ruo")
+    }
+}

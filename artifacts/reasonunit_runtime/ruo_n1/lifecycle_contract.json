@@ -1,0 +1,19 @@
+{
+  "data": {
+    "states": [
+      "proposed",
+      "active",
+      "suspended",
+      "reactivated",
+      "replaced",
+      "pruned",
+      "retired",
+      "converged",
+      "terminated",
+      "deleted"
+    ],
+    "tombstones": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-lifecycle-contract/1.0"
+}

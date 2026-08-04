@@ -1,0 +1,69 @@
+{
+  "data": {
+    "immutable_input": true,
+    "verification": {
+      "artifact_count": 38,
+      "evidence": {
+        "byte_roundtrip_identical": true,
+        "c0": "40/40",
+        "c1": "56/56",
+        "f1": "72/72",
+        "f1_focused": "12 passed",
+        "focused_prerequisites": "106 passed",
+        "protected_behavior": "unchanged",
+        "repository_tests": 1014,
+        "semantic_loss_count": 0,
+        "three_run_byte_equality": true,
+        "u1": "65/65"
+      },
+      "issues": [],
+      "ok": true,
+      "profile_version": "reasonscript-reasonunit-file-format/1.0",
+      "run_manifest_sha256": "sha256:7a63e192330a4a2c1f066d7d42d839d4ae09da531cf699945756bbfc3620c315",
+      "statuses": {
+        "artifact_validation_status": "COMPLETE",
+        "byte_roundtrip_status": "COMPLETE",
+        "canonical_json_status": "COMPLETE",
+        "cli_status": "COMPLETE",
+        "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+        "entity_record_status": "COMPLETE",
+        "extension_retention_status": "COMPLETE",
+        "external_resource_status": "COMPLETE",
+        "file_header_status": "COMPLETE",
+        "file_identity_status": "COMPLETE",
+        "file_seal_status": "COMPLETE",
+        "implementation_status": "IMPLEMENTED",
+        "integrity_digest_status": "COMPLETE",
+        "partial_file_status": "COMPLETE",
+        "partial_loading_status": "COMPLETE",
+        "path_safety_status": "COMPLETE",
+        "phase_status": "VALIDATED",
+        "physical_encoding_status": "COMPLETE",
+        "protected_behavior_status": "UNCHANGED",
+        "reader_mode_status": "COMPLETE",
+        "record_envelope_status": "COMPLETE",
+        "record_order_status": "COMPLETE",
+        "reference_encoding_status": "COMPLETE",
+        "resource_limit_status": "COMPLETE",
+        "ruo_c0_prerequisite_status": "VERIFIED",
+        "ruo_c1_prerequisite_status": "VERIFIED",
+        "ruo_u1_compatibility_status": "COMPLETE",
+        "ruo_u1_prerequisite_status": "VERIFIED",
+        "section_manifest_status": "COMPLETE",
+        "semantic_roundtrip_status": "COMPLETE",
+        "streaming_reader_status": "COMPLETE",
+        "tamper_detection_status": "COMPLETE",
+        "transition_decision": "PROCEED_TO_RUO-T1",
+        "version_compatibility_status": "COMPLETE",
+        "writer_atomicity_status": "COMPLETE"
+      },
+      "summary": {
+        "failed": 0,
+        "passed": 72,
+        "total": 72
+      }
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-ruo-f1-input-manifest/1.0"
+}

@@ -1,0 +1,8 @@
+{
+  "data": {
+    "ruo_byte_identical": true,
+    "ruot_byte_identical": true
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-byte-roundtrip-report/1.0"
+}

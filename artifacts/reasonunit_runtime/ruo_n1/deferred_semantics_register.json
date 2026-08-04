@@ -1,0 +1,22 @@
+{
+  "data": {
+    "automatic_execution_claim": false,
+    "entries": [
+      {
+        "phase": "RUO-N2",
+        "semantics": "language and user-facing integration"
+      },
+      {
+        "phase": "RUO-M1",
+        "semantics": "legacy migration"
+      },
+      {
+        "phase": "RUO-W1",
+        "semantics": "WorldModel pilot"
+      }
+    ],
+    "intelligence_claim": false
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-deferred-semantics-register/1.0"
+}

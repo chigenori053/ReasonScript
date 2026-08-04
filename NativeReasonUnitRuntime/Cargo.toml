@@ -1,0 +1,18 @@
+[package]
+name = "reasonscript-native-reasonunit-runtime"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "reasonscript_native_reasonunit_runtime"
+path = "src/lib.rs"
+
+[[bin]]
+name = "reasonunit-runtime-native"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
+sha2 = "0.10"

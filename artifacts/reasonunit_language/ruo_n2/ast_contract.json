@@ -1,0 +1,19 @@
+{
+  "data": {
+    "absolute_paths": false,
+    "fields": [
+      "clause_spans",
+      "expected_object_id",
+      "load_mode",
+      "name",
+      "node_type",
+      "resource_root",
+      "source_path",
+      "source_span",
+      "syntax_version"
+    ],
+    "node": "ReasonObjectBindingNode"
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-ast-contract/1.0"
+}

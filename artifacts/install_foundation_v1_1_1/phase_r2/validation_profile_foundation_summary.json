@@ -1,0 +1,15 @@
+{
+  "schema_version": "reasonscript-validation-profile-foundation-summary/1.0",
+  "status": "validated",
+  "legacy_0_5_0_profile": "passed",
+  "release_0_5_1_profile": "passed",
+  "command_detection": "passed",
+  "fixture_detection": "passed",
+  "component_detection": "passed",
+  "schema_detection": "passed",
+  "path_safety": "passed",
+  "determinism": "passed",
+  "phase_r1_compatibility": "passed",
+  "repository_ci": "passed",
+  "diagnostics": []
+}

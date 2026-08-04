@@ -1,0 +1,51 @@
+{
+  "data": {
+    "immutable_input": true,
+    "verification": {
+      "artifact_count": 26,
+      "count_reconciliation": {
+        "authoritative_aggregate": 96,
+        "focused_regression_suite": 83,
+        "obsolete_claim": 84,
+        "resolution": "The authoritative phase matrices are 40 + 56 = 96; the final C1 report records the separate focused regression suite as 83/83. The earlier 84/84 statement is non-authoritative and superseded.",
+        "ruo_c0_mandatory": 40,
+        "ruo_c1_mandatory": 56
+      },
+      "issues": [],
+      "ok": true,
+      "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+      "run_manifest_sha256": "sha256:a6afd6594e066738b49644686f7ab88cdfeefa110030264e9cce38ddf59068e3",
+      "statuses": {
+        "atomic_reasonunit_status": "COMPLETE",
+        "cluster_projection_status": "COMPLETE",
+        "composite_reasonunit_status": "COMPLETE",
+        "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+        "evidence_compatibility_status": "COMPLETE",
+        "execution_projection_status": "COMPLETE",
+        "identity_compatibility_status": "COMPLETE",
+        "implementation_status": "IMPLEMENTED",
+        "legacy_adapter_status": "COMPLETE",
+        "lifecycle_compatibility_status": "COMPLETE",
+        "object_boundary_status": "COMPLETE",
+        "ownership_compatibility_status": "COMPLETE",
+        "phase_status": "VALIDATED",
+        "protected_behavior_status": "UNCHANGED",
+        "reason_entity_contract_status": "COMPLETE",
+        "relation_compatibility_status": "COMPLETE",
+        "ruo_c0_prerequisite_status": "VERIFIED",
+        "semantic_roundtrip_status": "COMPLETE",
+        "state_compatibility_status": "COMPLETE",
+        "tensor_identity_status": "COMPLETE",
+        "transaction_status": "COMPLETE",
+        "transition_decision": "PROCEED_TO_RUO-U1"
+      },
+      "summary": {
+        "failed": 0,
+        "passed": 56,
+        "total": 56
+      }
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-ruo-c1-input-manifest/1.0"
+}

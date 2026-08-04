@@ -1,0 +1,19 @@
+{
+  "data": {
+    "kinds": [
+      "object",
+      "unit",
+      "payload",
+      "state",
+      "relation",
+      "evidence",
+      "constraint",
+      "dependency",
+      "revision",
+      "extension",
+      "projection"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-entity-contract/1.0"
+}

@@ -1,0 +1,157 @@
+{
+  "data": {
+    "fixtures": [
+      {
+        "class": "atomic_unit",
+        "coverage": [
+          "identity",
+          "unit_local_state",
+          "roundtrip"
+        ],
+        "fixture_id": "atomic"
+      },
+      {
+        "children": 3,
+        "class": "composite",
+        "coverage": [
+          "containment",
+          "derived_state"
+        ],
+        "fixture_id": "composite"
+      },
+      {
+        "class": "related_units",
+        "coverage": [
+          "directed",
+          "undirected",
+          "cyclic_semantic"
+        ],
+        "fixture_id": "related",
+        "units": 3
+      },
+      {
+        "class": "shared_evidence",
+        "coverage": [
+          "deduplication",
+          "provenance",
+          "invalidation"
+        ],
+        "fixture_id": "evidence"
+      },
+      {
+        "class": "lifecycle",
+        "coverage": [
+          "active",
+          "suspended",
+          "reactivated",
+          "replaced"
+        ],
+        "fixture_id": "lifecycle"
+      },
+      {
+        "class": "cluster_projection",
+        "coverage": [
+          "canonical_unit_id",
+          "budget",
+          "worker_reassignment"
+        ],
+        "fixture_id": "cluster"
+      },
+      {
+        "class": "tensor_reindex",
+        "coverage": [
+          "index_table",
+          "stable_unit_id"
+        ],
+        "fixture_id": "tensor",
+        "units": 3
+      },
+      {
+        "class": "molecular_structured",
+        "coverage": [
+          "molecule",
+          "atom",
+          "bond",
+          "atomic_update"
+        ],
+        "fixture_id": "molecular"
+      },
+      {
+        "class": "project_local_structured_object_precursor",
+        "evidence": "RUO-G1E",
+        "fixture_id": "vehicle",
+        "native_reasonunit_object": false
+      }
+    ],
+    "invalid_fixtures": [
+      {
+        "class": "duplicate_unit_id",
+        "expected_diagnostic": "RUO-C1-003",
+        "fixture_id": "invalid-01"
+      },
+      {
+        "class": "duplicate_object_id",
+        "expected_diagnostic": "RUO-C1-003",
+        "fixture_id": "invalid-02"
+      },
+      {
+        "class": "ownership_cycle",
+        "expected_diagnostic": "RUO-C1-006",
+        "fixture_id": "invalid-03"
+      },
+      {
+        "class": "containment_cycle",
+        "expected_diagnostic": "RUO-C1-006",
+        "fixture_id": "invalid-04"
+      },
+      {
+        "class": "multiple_owners",
+        "expected_diagnostic": "RUO-C1-005",
+        "fixture_id": "invalid-05"
+      },
+      {
+        "class": "dangling_relation",
+        "expected_diagnostic": "RUO-C1-008",
+        "fixture_id": "invalid-06"
+      },
+      {
+        "class": "invalid_state_owner",
+        "expected_diagnostic": "RUO-C1-007",
+        "fixture_id": "invalid-07"
+      },
+      {
+        "class": "invalid_evidence_reference",
+        "expected_diagnostic": "RUO-C1-009",
+        "fixture_id": "invalid-08"
+      },
+      {
+        "class": "invalid_lifecycle_mapping",
+        "expected_diagnostic": "RUO-C1-010",
+        "fixture_id": "invalid-09"
+      },
+      {
+        "class": "tensor_index_identity_misuse",
+        "expected_diagnostic": "RUO-C1-015",
+        "fixture_id": "invalid-10"
+      },
+      {
+        "class": "stale_projection",
+        "expected_diagnostic": "RUO-C1-013",
+        "fixture_id": "invalid-11"
+      },
+      {
+        "class": "semantic_loss_roundtrip",
+        "expected_diagnostic": "RUO-C1-016",
+        "fixture_id": "invalid-12"
+      },
+      {
+        "class": "partial_commit",
+        "expected_diagnostic": "RUO-C1-012",
+        "fixture_id": "invalid-13"
+      }
+    ],
+    "ordering": "fixture_id"
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-fixture-manifest/1.0"
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/cluster-evaluation-report/0.1",
+  "title": "ReasonScript Cluster Evaluation Report 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "passed", "correctness", "determinism", "equivalence", "efficiency", "fallback_used"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-cluster-evaluation-report/0.1"},
+    "status": {"enum": ["passed", "failed", "partial"]},
+    "passed": {"type": "boolean"},
+    "correctness": {"type": "object"},
+    "determinism": {"type": "object"},
+    "equivalence": {"type": "object"},
+    "efficiency": {"type": "object"},
+    "fallback_used": {"type": "boolean"}
+  }
+}

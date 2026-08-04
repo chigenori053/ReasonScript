@@ -1,0 +1,214 @@
+{
+  "schema_version": "reasonscript-validation-profile-declaration/1.0",
+  "reason_version": "0.5.4.4",
+  "install_foundation_version": "1.1",
+  "runtime_version": "0.5.4.4",
+  "commands": [
+    "--version",
+    "doctor",
+    "install-info",
+    "install-validate",
+    "phase1r-validate",
+    "project-validate",
+    "update"
+  ],
+  "baseline": {
+    "version": {
+      "required_level": "required",
+      "command": "--version"
+    },
+    "doctor": {
+      "required_level": "required",
+      "command": "doctor"
+    },
+    "install_info": {
+      "required_level": "required",
+      "command": "install-info"
+    },
+    "install_validate": {
+      "required_level": "required",
+      "command": "install-validate"
+    },
+    "cli_entry_point": {
+      "required_level": "required",
+      "components": [
+        "cli"
+      ]
+    },
+    "runtime_import": {
+      "required_level": "required",
+      "components": [
+        "runtime-core"
+      ]
+    },
+    "schema_inventory": {
+      "required_level": "required",
+      "components": [
+        "schemas"
+      ],
+      "schemas": [
+        "install_validation"
+      ]
+    },
+    "standard_library": {
+      "required_level": "required",
+      "components": [
+        "standard-library"
+      ]
+    }
+  },
+  "features": {
+    "phase1r_validate": {
+      "required_level": "optional",
+      "command": "phase1r-validate",
+      "fixtures": [
+        "phase1r"
+      ],
+      "components": [
+        "toolchain"
+      ]
+    },
+    "tensor_smoke": {
+      "required_level": "optional",
+      "fixtures": [
+        "phase1r"
+      ],
+      "components": [
+        "runtime-core"
+      ]
+    },
+    "loop_smoke": {
+      "required_level": "optional",
+      "fixtures": [
+        "phase1r"
+      ],
+      "components": [
+        "runtime-core"
+      ]
+    },
+    "project_validate": {
+      "required_level": "optional",
+      "command": "project-validate",
+      "components": [
+        "toolchain"
+      ]
+    },
+    "update_validate": {
+      "required_level": "optional",
+      "command": "update",
+      "schemas": [
+        "update_report"
+      ]
+    },
+    "vision_runtime": {
+      "required_level": "required",
+      "command": "vision",
+      "fixtures": [
+        "vision_runtime"
+      ],
+      "components": [
+        "vision-runtime-v0.1",
+        "frontend-core",
+        "schemas"
+      ],
+      "schemas": [
+        "vision_observation"
+      ]
+    },
+    "semantic_visualization_runtime": {
+      "required_level": "required",
+      "command": "visualization",
+      "fixtures": [
+        "semantic_visualization_runtime"
+      ],
+      "components": [
+        "semantic-visualization-runtime-v0.1",
+        "toolchain"
+      ]
+    }
+  },
+  "fixtures": {
+    "phase1r": {
+      "path": "canonical_fixtures/phase1r",
+      "path_type": "directory",
+      "required": false,
+      "required_files": [
+        "iterative_state_probe.rsn",
+        "tensor_integration_probe.rsn",
+        "tensor_namespace_probe.rsn"
+      ]
+    },
+    "vision_runtime": {
+      "path": "canonical_fixtures/vision_runtime",
+      "path_type": "directory",
+      "required": true,
+      "required_files": [
+        "solar_observation.json"
+      ]
+    },
+    "semantic_visualization_runtime": {
+      "path": "canonical_fixtures/visualization_runtime",
+      "path_type": "directory",
+      "required": true,
+      "required_files": [
+        "person_structure.json"
+      ]
+    }
+  },
+  "components": {
+    "cli": {
+      "path": "reason",
+      "required": true
+    },
+    "runtime-core": {
+      "path": "runtime",
+      "required": true
+    },
+    "toolchain": {
+      "path": "toolchain",
+      "required": true
+    },
+    "schemas": {
+      "path": "schemas",
+      "required": true
+    },
+    "standard-library": {
+      "path": "standard_library",
+      "required": true
+    },
+    "metadata": {
+      "path": "metadata",
+      "required": true
+    },
+    "frontend-core": {
+      "path": "frontend",
+      "required": true
+    },
+    "vision-runtime-v0.1": {
+      "path": "VisionRuntime",
+      "required": true
+    },
+    "semantic-visualization-runtime-v0.1": {
+      "path": "VisualizationRuntime",
+      "required": true
+    },
+    "reasonunit-runtime-v1.0": {
+      "path": "NativeReasonUnitRuntime",
+      "required": true
+    }
+  },
+  "schemas": {
+    "install_validation": {
+      "path": "schemas/install_validation.schema.json",
+      "required": true
+    },
+    "update_report": {
+      "path": "schemas/update_report.schema.json",
+      "required": false
+    },
+    "vision_observation": {
+      "path": "schemas/vision_observation.schema.json",
+      "required": true
+    }
+  }
+}

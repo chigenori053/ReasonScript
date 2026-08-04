@@ -1,0 +1,16 @@
+{
+  "artifacts_generated": true,
+  "commands_executed": [
+    "reason check",
+    "reason analyze",
+    "reason run",
+    "reason artifacts",
+    "reason validate-artifacts",
+    "reason golden"
+  ],
+  "schema": "reasonscript-agent-report/1.0",
+  "status": "VALIDATED",
+  "task": "ReasonScript v0.5.2.4 release",
+  "tests_passed": 1102,
+  "version": "1.0"
+}

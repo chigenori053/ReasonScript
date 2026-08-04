@@ -1,0 +1,12 @@
+{
+  "data": {
+    "C0_N2": "validated",
+    "N2": "67/67",
+    "N2_dedicated": "17/17",
+    "focused_regression": "159/159",
+    "repository_tests": 1051,
+    "semantic_loss_count": 0
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-ruo-stack-compatibility-report/1.0"
+}

@@ -1,0 +1,5 @@
+{
+  "case_id": "missing_critical_resource",
+  "expected": "rejected",
+  "partial_commit_count": 0
+}

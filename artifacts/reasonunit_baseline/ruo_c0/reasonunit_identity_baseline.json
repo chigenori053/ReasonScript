@@ -1,0 +1,29 @@
+{
+  "data": {
+    "canonical_unit_id": {
+      "algorithm_evidence": {
+        "available": true,
+        "bytes": 30418,
+        "path": "ClusterRuntime/src/dynamic/runtime.rs",
+        "sha256": "sha256:0384dc39124d269c17b0451cef2a3d8e21b3c98ba3bcecaa80063e93e4b766b8"
+      },
+      "duplicate_detection": "proposal duplicate key and accepted-unit set",
+      "owner": "cluster_runtime_native",
+      "replacement": "original identity retained and replaced_by recorded",
+      "worker_reassignment_stability": "semantic seed excludes worker assignment"
+    },
+    "principles": [
+      "ReasonUnit identity != declaration order",
+      "ReasonUnit identity != Tensor index",
+      "ReasonUnit identity != worker assignment",
+      "ReasonUnit identity != temporary artifact path"
+    ],
+    "undefined_cases": [
+      "repository-wide namespace",
+      "ownership contribution to identity",
+      "cross-runtime identity equivalence"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-identity-baseline/1.0"
+}

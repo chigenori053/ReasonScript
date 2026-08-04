@@ -1,0 +1,8 @@
+{
+  "data": {
+    "partial_commit_count": 0,
+    "reference_exercise": "validated staging; publication capability contract tested"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-publication-report/1.0"
+}

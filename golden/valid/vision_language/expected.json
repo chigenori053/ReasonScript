@@ -1,0 +1,122 @@
+{
+  "artifacts": {
+    "ast": {
+      "keys": [
+        "modules",
+        "node_type",
+        "package"
+      ],
+      "present": true,
+      "schema": null
+    },
+    "execution_plan": {
+      "keys": [
+        "alternative_paths",
+        "distance",
+        "evidence_refs",
+        "expected_cost",
+        "goal",
+        "path_signature",
+        "planner_version",
+        "reachable",
+        "schema_version",
+        "selected_branch",
+        "selected_branches",
+        "selected_steps",
+        "vision_plan"
+      ],
+      "present": true,
+      "schema": "execution-plan/0.1"
+    },
+    "knowledge": {
+      "keys": [
+        "evidence_count",
+        "generated_at",
+        "knowledge",
+        "knowledge_count",
+        "schema_version"
+      ],
+      "present": true,
+      "schema": "knowledge-emergence/0.2"
+    },
+    "reason_ir": {
+      "keys": [
+        "execution_policy",
+        "goal",
+        "initial_state",
+        "metadata",
+        "planner_policy",
+        "schema_version",
+        "trace_policy",
+        "transitions"
+      ],
+      "present": true,
+      "schema": "reason-ir/0.1"
+    },
+    "semantic_ast": {
+      "keys": [
+        "declarations",
+        "imports",
+        "metadata",
+        "node_id",
+        "node_type",
+        "version"
+      ],
+      "present": true,
+      "schema": null
+    },
+    "simulation": {
+      "keys": [
+        "confidence",
+        "cost",
+        "final_state",
+        "goal_reached",
+        "path_signature",
+        "schema_version",
+        "selected_branch",
+        "selected_branches",
+        "step_count",
+        "success",
+        "trace",
+        "violations"
+      ],
+      "present": true,
+      "schema": "semantic-simulation/0.2"
+    },
+    "validation": {
+      "keys": [
+        "errors",
+        "generated_at",
+        "ok",
+        "schema_version",
+        "tree"
+      ],
+      "present": true,
+      "schema": "validation-report/0.3"
+    }
+  },
+  "diagnostics": [],
+  "expected": "pass",
+  "ok": true,
+  "runtime": {
+    "execution_plan_keys": [
+      "alternative_paths",
+      "distance",
+      "evidence_refs",
+      "expected_cost",
+      "goal",
+      "path_signature",
+      "planner_version",
+      "reachable",
+      "schema_version",
+      "selected_branch",
+      "selected_branches",
+      "selected_steps",
+      "vision_plan"
+    ],
+    "goal_reached": true,
+    "knowledge_count": 2
+  },
+  "schema": "reasonscript-golden-expected/1.0",
+  "version": "1.0"
+}

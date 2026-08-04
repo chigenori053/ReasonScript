@@ -1,0 +1,19 @@
+{
+  "data": {
+    "existing_target": "explicit overwrite or expected digest",
+    "precondition": "valid RUO-U1 Object",
+    "sequence": [
+      "validate",
+      "normalize",
+      "project",
+      "digest",
+      "temporary_write",
+      "seal",
+      "flush",
+      "reopen_verify",
+      "atomic_publish"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-writer-contract/1.0"
+}

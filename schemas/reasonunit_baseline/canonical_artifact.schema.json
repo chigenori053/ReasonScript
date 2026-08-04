@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/reasonunit-baseline-canonical-artifact-1.0.json",
+  "title": "ReasonUnit RUO-C0 canonical artifact",
+  "type": "object",
+  "required": ["schema_version", "profile_version", "data"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^reasonscript-reasonunit-baseline-[a-z0-9-]+/1\\.0$"
+    },
+    "profile_version": {"const": "reasonscript-reasonunit-baseline/1.0"},
+    "data": {"type": "object"}
+  },
+  "additionalProperties": false
+}

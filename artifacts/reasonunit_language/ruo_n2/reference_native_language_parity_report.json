@@ -1,0 +1,10 @@
+{
+  "data": {
+    "canonical_byte_loss": 0,
+    "native_object_id": "ruo:object:universal-fixture",
+    "semantic_loss": 0,
+    "source_object_id": "ruo:object:universal-fixture"
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-reference-native-language-parity-report/1.0"
+}

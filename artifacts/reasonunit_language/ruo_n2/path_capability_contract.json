@@ -1,0 +1,17 @@
+{
+  "data": {
+    "read_capability": "filesystem_read",
+    "reject": [
+      "absolute",
+      "parent",
+      "network",
+      "credentials",
+      "environment",
+      "shell"
+    ],
+    "relative_normalized": true,
+    "write_capability": "filesystem_write"
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-path-capability-contract/1.0"
+}

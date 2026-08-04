@@ -1,0 +1,45 @@
+{
+  "data": {
+    "collision": "reject",
+    "mappings": [
+      {
+        "aliases": [],
+        "ambiguity_status": "resolved",
+        "generation_inputs": null,
+        "kind": "composite",
+        "legacy_id": "ruo:unit:legacy-root",
+        "legacy_locator": "root",
+        "mapping_rationale": "explicit stable ID",
+        "preservation_status": "preserved",
+        "replacement_history": [],
+        "semantic_locator": "root",
+        "source_digest": "sha256:d7f77e3f52a5e60286b3418046885d65b55a2cdc50305ba9640ad2f03acd17b4",
+        "target_id": "ruo:unit:legacy-root",
+        "target_kind": "composite_reasonunit"
+      },
+      {
+        "aliases": [],
+        "ambiguity_status": "resolved",
+        "generation_inputs": {
+          "kind": "atomic",
+          "namespace": "unit",
+          "policy": "ruo-m1-semantic-id/1",
+          "project_id": "phase-fixture",
+          "semantic_locator": "leaf"
+        },
+        "kind": "atomic",
+        "legacy_id": null,
+        "legacy_locator": "leaf",
+        "mapping_rationale": "versioned semantic-locator policy",
+        "preservation_status": "generated",
+        "replacement_history": [],
+        "semantic_locator": "leaf",
+        "source_digest": "sha256:d7f77e3f52a5e60286b3418046885d65b55a2cdc50305ba9640ad2f03acd17b4",
+        "target_id": "ruo:unit:bf51637715977725378f3cd4",
+        "target_kind": "atomic_reasonunit"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-identity-mapping-contract/1.0"
+}

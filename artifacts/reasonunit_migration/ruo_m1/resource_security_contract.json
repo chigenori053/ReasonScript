@@ -1,0 +1,10 @@
+{
+  "data": {
+    "authorized_root": true,
+    "bounded_diagnostics": true,
+    "network": "disabled",
+    "symlink_escape": "reject"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-resource-security-contract/1.0"
+}

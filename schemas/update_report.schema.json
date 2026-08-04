@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-update-report/1.0",
+  "type": "object",
+  "required": ["schema_version", "status", "diagnostics"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-update-report/1.0"},
+    "status": {"enum": ["update_available", "already_up_to_date", "downgrade_rejected", "completed", "failed", "validated", "validation_failed", "rolled_back"]},
+    "diagnostics": {"type": "array"}
+  },
+  "additionalProperties": true
+}

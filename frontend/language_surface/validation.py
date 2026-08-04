@@ -80,8 +80,11 @@ from .nodes import (
     ProgramNode,
     QualifiedPatternNode,
     QualifiedIdentifierNode,
+    RangePatternNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
+    ReasonObjectBindingNode,
+    ReasonObjectClauseSpanNode,
     ReasonGraphTransitionNode,
     RelationNode,
     RelationType,
@@ -98,6 +101,7 @@ from .nodes import (
     StateDeclarationNode,
     StateKind,
     StateTypeNode,
+    SourceSpanNode,
     StructDeclarationNode,
     StructBindingPatternNode,
     StructFieldPatternNode,
@@ -115,6 +119,16 @@ from .nodes import (
     WildcardPatternNode,
 )
 from .namespace import ModuleNamespace, NamespaceResolutionError, resolve_program
+from frontend.tensor.integration import (
+    TensorSemanticError,
+    tensor_call_name,
+    validate_tensor_call,
+)
+from frontend.vision.integration import (
+    VisionSemanticError,
+    validate_vision_call,
+    vision_call_name,
+)
 from .semantic_patterns import StructPatternSemanticError, resolve_struct_pattern
 
 
@@ -159,6 +173,7 @@ DECLARATION_NODES = (
     CalculationNode,
     FunctionDeclarationNode,
     TransitionNode,
+    ReasonObjectBindingNode,
 )
 KNOWN_NODE_TYPES = (
     ProgramNode,
@@ -207,6 +222,8 @@ KNOWN_NODE_TYPES = (
     QualifiedIdentifierNode,
     RuntimeNamespaceNode,
     RuntimeCallExpressionNode,
+    SourceSpanNode,
+    ReasonObjectClauseSpanNode,
     UnaryExpressionNode,
     BinaryExpressionNode,
     ComparisonExpressionNode,
@@ -242,6 +259,7 @@ KNOWN_NODE_TYPES = (
     WildcardPatternNode,
     DefaultPatternNode,
     LiteralPatternNode,
+    RangePatternNode,
     PrimitiveTypeNode,
     StateTypeNode,
 )
@@ -298,6 +316,8 @@ def validate(program: ProgramNode) -> None:
         module_names.add(module.name)
         if not isinstance(module.visibility, Visibility):
             raise SurfaceValidationError("AST-V001 invalid module visibility")
+        if module.source_kind not in {"module", "model"}:
+            raise SurfaceValidationError("AST-V001 invalid module source_kind")
         _validate_module(module)
     _CURRENT_NAMESPACE = None
 
@@ -526,10 +546,10 @@ def _validate_ast_node(node: Any) -> None:
                     raise SurfaceValidationError("PT-002 MSI-002 default not last")
             elif any(key[0] == "wildcard" for key in keys):
                 if index != len(node.arms) - 1:
-                    raise SurfaceValidationError("PT-007 unreachable pattern")
+                    raise SurfaceValidationError("CV-7 PT-007 unreachable pattern")
             for key in keys:
                 if key in arm_keys:
-                    raise SurfaceValidationError("PT-001 MSI-001 duplicate pattern")
+                    raise SurfaceValidationError("CV-5 PT-001 MSI-001 duplicate pattern")
                 arm_keys.add(key)
     elif isinstance(node, ConstraintNode):
         _identifier(node.name, "AST-V002 ConstraintNode.name")
@@ -746,6 +766,8 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
             visit(item.expression)
             return
         if isinstance(item, MemberAccessNode):
+            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo"}:
+                return
             visit(item.object)
             return
         if isinstance(item, CallExpressionNode):
@@ -804,7 +826,7 @@ def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -
         _CURRENT_FUNCTION = previous_function
     _validate_function_control_flow(node.body)
     if not _statement_list_terminates_with_return(node.body):
-        raise SurfaceValidationError("FCF-001 Not all execution paths return")
+        raise SurfaceValidationError("FN-010 FCF-001 Not all execution paths return")
 
 
 def _function_parameter_name(parameter: Any) -> str:
@@ -1494,7 +1516,7 @@ def _validate_calculation_expression(
             ):
                 if _is_unqualified_enum_variant(value.name, symbols):
                     raise SurfaceValidationError(
-                        "ESR-003 enum variants must be qualified"
+                        "NonExhaustiveMatch ESR-003 enum variants must be qualified"
                     )
                 raise SurfaceValidationError(
                     f"CAL-020 undefined variable: {value.name}"
@@ -1527,6 +1549,11 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision"}:
+                # ``tensor`` is a standard namespace, not a user module or a
+                # mutable value. Callable resolution happens on the enclosing
+                # CallExpressionNode.
+                return
             if isinstance(value.object, RuntimeNamespaceNode):
                 raise SurfaceValidationError("RV-4 UnknownRuntimeMethod")
             enum_reference = _enum_variant_reference(value, symbols)
@@ -1552,6 +1579,32 @@ def _validate_calculation_expression(
                 return
             visit(value.object)
         elif isinstance(value, CallExpressionNode):
+            if _array_call_name(value) is not None:
+                _validate_array_call(value)
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if tensor_call_name(value) is not None:
+                try:
+                    validate_tensor_call(value)
+                except TensorSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if _ruo_call_name(value) is not None:
+                _validate_ruo_call(value)
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if vision_call_name(value) is not None:
+                try:
+                    validate_vision_call(value)
+                except VisionSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
             visit(value.callee, callee=True)
             for argument in value.arguments:
                 visit(argument)
@@ -1582,6 +1635,48 @@ def _member_access_parts(value: Any) -> tuple[str, ...]:
         if parts:
             return (*parts, value.member)
     return ()
+
+
+_RUO_METHOD_ARITY = {
+    "object_id": (1, 1), "snapshot": (1, 1), "resolve": (2, 2), "query": (2, 2),
+    "begin": (1, 1), "apply": (2, 2), "validate": (1, 1), "commit": (1, 1),
+    "rollback": (1, 1), "select": (2, 2), "materialize": (2, 2), "project": (2, 2),
+    "save": (3, 3), "tensor_view": (2, 3), "status": (1, 1), "diagnostics": (1, 1),
+}
+
+
+def _ruo_call_name(value: CallExpressionNode) -> str | None:
+    callee = value.callee
+    if isinstance(callee, MemberAccessNode) and isinstance(callee.object, IdentifierNode) and callee.object.name == "ruo":
+        return callee.member
+    return None
+
+
+def _array_call_name(value: CallExpressionNode) -> str | None:
+    callee = value.callee
+    if (
+        isinstance(callee, MemberAccessNode)
+        and isinstance(callee.object, IdentifierNode)
+        and callee.object.name == "array"
+    ):
+        return callee.member
+    return None
+
+
+def _validate_array_call(value: CallExpressionNode) -> None:
+    method = _array_call_name(value)
+    if method != "append":
+        raise SurfaceValidationError("COLL-001 unknown array standard function")
+    if len(value.arguments) != 2:
+        raise SurfaceValidationError("COLL-001 array.append argument count mismatch")
+
+
+def _validate_ruo_call(value: CallExpressionNode) -> None:
+    method = _ruo_call_name(value); bounds = _RUO_METHOD_ARITY.get(str(method))
+    if bounds is None:
+        raise SurfaceValidationError("RUO-N2-009 unknown ruo standard function")
+    if not bounds[0] <= len(value.arguments) <= bounds[1]:
+        raise SurfaceValidationError(f"RUO-N2-009 ruo.{method} argument count mismatch")
 
 
 def _validate_runtime_call(value: RuntimeCallExpressionNode) -> None:
@@ -1859,6 +1954,47 @@ def _expression_type(
             return _UNKNOWN_TYPE
         raise SurfaceValidationError("CV5-7 index access requires collection type")
     if isinstance(value, CallExpressionNode):
+        if _array_call_name(value) == "append":
+            if len(value.arguments) != 2:
+                raise SurfaceValidationError(
+                    "COLL-001 array.append argument count mismatch"
+                )
+            collection_type = _expression_type(
+                value.arguments[0].expression
+                if isinstance(value.arguments[0], ExpressionNode)
+                else value.arguments[0],
+                symbols,
+                bindings,
+            )
+            item_type = _expression_type(
+                value.arguments[1].expression
+                if isinstance(value.arguments[1], ExpressionNode)
+                else value.arguments[1],
+                symbols,
+                bindings,
+            )
+            if not isinstance(collection_type, ArrayTypeNode):
+                raise SurfaceValidationError(
+                    "COLL-002 array.append first argument must be an array"
+                )
+            _require_type_equal(
+                collection_type.element_type,
+                item_type,
+                "COLL-003 array.append element type mismatch",
+            )
+            return collection_type
+        if tensor_call_name(value) is not None:
+            try:
+                validate_tensor_call(value)
+            except TensorSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            return NamedTypeNode("Tensor")
+        if vision_call_name(value) is not None:
+            try:
+                validate_vision_call(value)
+            except VisionSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            return NamedTypeNode("VisionObservation" if vision_call_name(value) == "vision.infer" else "VisionBuildResult")
         if isinstance(value.callee, IdentifierNode):
             if value.callee.name == _CURRENT_FUNCTION:
                 raise SurfaceValidationError("FN-007 recursive function calls are rejected")
@@ -2035,7 +2171,7 @@ def _require_function_bool_condition(
         _require_bool_condition(expression, symbols, bindings)
     except SurfaceValidationError as error:
         if "ConditionMustBeBoolean" in str(error):
-            raise SurfaceValidationError("FCF-004 condition must be Bool") from error
+            raise SurfaceValidationError("CV-1 FCF-004 condition must be Bool") from error
         raise
 
 
@@ -2531,6 +2667,23 @@ def _validate_match_pattern(
         ):
             raise SurfaceValidationError("PT-005 literal type mismatch")
         return
+    if isinstance(pattern, RangePatternNode):
+        range_type = _expression_type(pattern.lower, symbols, bindings)
+        if type(pattern.lower) is not type(pattern.upper):
+            raise SurfaceValidationError("RP-001 range endpoints must have identical numeric types")
+        if not isinstance(pattern.lower, (IntegerLiteralNode, FloatLiteralNode)):
+            raise SurfaceValidationError("RP-002 only int and float range patterns are supported")
+        if (
+            match_type is not _UNKNOWN_TYPE
+            and range_type is not _UNKNOWN_TYPE
+            and not _types_compatible(match_type, range_type)
+        ):
+            raise SurfaceValidationError("RP-001 range endpoints must match input type")
+        if pattern.lower.value > pattern.upper.value:
+            raise SurfaceValidationError("RP-003 InvalidRange")
+        if pattern.lower.value == pattern.upper.value and not pattern.upper_inclusive:
+            raise SurfaceValidationError("RP-003 InvalidRange")
+        return
     if isinstance(pattern, IdentifierPatternNode):
         _validate_identifier_pattern(pattern, match_type, symbols)
         return
@@ -2574,7 +2727,7 @@ def _validate_identifier_pattern(
         enum = symbols.get(match_type.name)
         if isinstance(enum, EnumDeclarationNode):
             if pattern.name in {value.name for value in enum.values}:
-                raise SurfaceValidationError("ESR-003 enum variants must be qualified")
+                raise SurfaceValidationError("NonExhaustiveMatch ESR-003 enum variants must be qualified")
             raise SurfaceValidationError("PT-004 undefined identifier pattern")
     if isinstance(match_type, OptionalTypeNode) and pattern.name in {"Some", "None"}:
         return
@@ -2976,6 +3129,16 @@ def _pattern(value: PatternNode) -> None:
             raise SurfaceValidationError("PT-V003 invalid literal pattern")
         _expression_value(pattern.value)
         return
+    if isinstance(pattern, RangePatternNode):
+        if type(pattern.lower) is not type(pattern.upper):
+            raise SurfaceValidationError("RP-001 range endpoints must have identical numeric types")
+        if not isinstance(pattern.lower, (IntegerLiteralNode, FloatLiteralNode)):
+            raise SurfaceValidationError("RP-002 only int and float range patterns are supported")
+        if pattern.lower.value > pattern.upper.value:
+            raise SurfaceValidationError("RP-003 InvalidRange")
+        if pattern.lower.value == pattern.upper.value and not pattern.upper_inclusive:
+            raise SurfaceValidationError("RP-003 InvalidRange")
+        return
     if isinstance(pattern, EnumValuePatternNode):
         _identifier(pattern.enum_name, "TV-7 EnumValuePatternNode.enum_name")
         _identifier(pattern.value_name, "TV-7 EnumValuePatternNode.value_name")
@@ -3104,6 +3267,8 @@ def _or_pattern_kind(pattern: Any) -> str:
         return "enum"
     if isinstance(pattern, LiteralPatternNode):
         return "literal"
+    if isinstance(pattern, RangePatternNode):
+        return "range"
     if isinstance(pattern, StructPatternNode):
         return "struct"
     if isinstance(pattern, StructBindingPatternNode):
@@ -3137,6 +3302,15 @@ def _pattern_key(value: PatternNode) -> tuple[str, Any]:
             "literal",
             type(literal).__name__,
             getattr(literal, "value", None),
+        )
+    if isinstance(pattern, RangePatternNode):
+        return (
+            "range",
+            type(pattern.lower).__name__,
+            pattern.lower.value,
+            pattern.upper.value,
+            pattern.lower_inclusive,
+            pattern.upper_inclusive,
         )
     if isinstance(pattern, OptionalPatternNode):
         return ("optional", pattern.kind, pattern.binding)

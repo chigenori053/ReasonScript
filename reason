@@ -3,11 +3,19 @@
 
 import os
 import sys
+from pathlib import Path
 
 # Ensure project root is on the path so toolchain and frontend packages resolve.
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
+
+from toolchain.installed_permissions import restore_runtime_executables
+
+# Install Foundation v1.1 ZIP updaters released before v0.5.2.1 restored only
+# the CLI/runtime launchers. Repair the bounded packaged-native set before the
+# first post-activation validation command runs.
+restore_runtime_executables(Path(_ROOT))
 
 from toolchain.__main__ import main
 

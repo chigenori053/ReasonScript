@@ -1,19 +1,153 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { FileNode, ProjectState, WorkspaceState } from "./types";
 
+export interface AnalyzeSourceContext {
+  workspace_root: string;
+  relative_path: string;
+  dirty: boolean;
+}
+
 export async function buildProjectState(
   source: string,
-  uri: string = "file:///main.rsn"
+  uri: string = "file:///main.rsn",
+  compilerMode: string = "normal",
+  sourceContext?: AnalyzeSourceContext
 ): Promise<ProjectState> {
-  console.log("[bridge] buildProjectState via Tauri invoke", {
-    uri,
-    sourceLength: source.length,
+  const filename = sourceContext?.relative_path ?? uri.replace(/^file:\/\//, "") ?? "playground.rsn";
+  const response = await fetch("/api/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      source,
+      filename,
+      compiler_mode: compilerMode,
+      ...(sourceContext ? { source_context: sourceContext } : {}),
+    }),
   });
 
-  return await invoke<ProjectState>("build_project_state", {
-    source,
-    uri,
+  if (!response.ok) {
+    throw new Error(`Analyze request failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as Record<string, unknown>;
+  return normalizeProjectState(data, source, uri, filename, compilerMode, sourceContext);
+}
+
+function normalizeProjectState(
+  data: Record<string, unknown>,
+  source: string,
+  uri: string,
+  filename: string,
+  compilerMode: string,
+  sourceContext?: AnalyzeSourceContext
+): ProjectState {
+  const metadata = data.metadata && typeof data.metadata === "object"
+    ? data.metadata as Record<string, unknown>
+    : {};
+
+  return {
+    schema_version: String(data.schema_version ?? "reasonscript-project-state/0.1"),
+    compiler_version: String(data.compiler_version ?? "playground-backend"),
+    workspace: {
+      root_uri: sourceContext?.workspace_root,
+      project_name: sourceContext?.workspace_root?.split("/").filter(Boolean).pop(),
+    },
+    source_files: Array.isArray(data.source_files) ? data.source_files as ProjectState["source_files"] : [
+      {
+        uri,
+        text: source,
+        language_id: "reasonscript",
+      },
+    ],
+    surface_ast: data.surface_ast ?? data.ast ?? null,
+    semantic_ast: data.semantic_ast ?? null,
+    reason_ir: data.reason_ir ?? (Array.isArray(data.reason_irs) ? data.reason_irs[0] : null) ?? null,
+    execution_plan: data.execution_plan ?? null,
+    diagnostics: Array.isArray(data.diagnostics) ? data.diagnostics as ProjectState["diagnostics"] : [],
+    views: data.views ?? null,
+    artifacts: data.artifacts ?? null,
+    artifactWorkflow: data.artifactWorkflow ?? data.artifact_workflow ?? null,
+    languageAudit: data.languageAudit ?? data.language_audit ?? null,
+    pipeline: data.pipeline ?? null,
+    validation: data.validation ?? null,
+    analyzer: data.analysis ?? data.analyzer ?? null,
+    runtime_operations: data.runtime_operations ?? null,
+    simulation: data.simulation ?? null,
+    knowledge: data.knowledge ?? null,
+    reasoning_runtime: data.reasoning_runtime ?? null,
+    reasoning_model: data.reasoning_model ?? null,
+    reasoning_evaluation_report: data.reasoning_evaluation_report ?? null,
+    reasoning_overview: data.reasoning_overview ?? null,
+    metadata: {
+      ...metadata,
+      compiler_mode: String(metadata.compiler_mode ?? data.compiler_mode ?? compilerMode),
+      source_filename: String(metadata.source_filename ?? data.filename ?? filename),
+    },
+    generated_at: String(data.generated_at ?? new Date().toISOString()),
+  };
+}
+
+async function postArtifactOperation(endpoint: "/api/export" | "/api/import" | "/api/diff", body: unknown): Promise<unknown> {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
+
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`${endpoint} request failed with status ${response.status}`);
+  }
+  return payload;
+}
+
+export async function exportArtifactWorkflow(source: string, filename: string): Promise<unknown> {
+  return postArtifactOperation("/api/export", {
+    source,
+    filename,
+    compiler_mode: "normal",
+  });
+}
+
+export async function importArtifactWorkflow(path: string): Promise<unknown> {
+  return postArtifactOperation("/api/import", { path });
+}
+
+export async function diffArtifactWorkflow(a: unknown, b: unknown): Promise<unknown> {
+  return postArtifactOperation("/api/diff", { a, b });
+}
+
+export async function runLanguageAudit(): Promise<unknown> {
+  const response = await fetch("/api/language-audit");
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`/api/language-audit request failed with status ${response.status}`);
+  }
+  return payload;
+}
+
+export async function exportLanguageAudit(): Promise<unknown> {
+  const response = await fetch("/api/language-audit/export", { method: "POST" });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`/api/language-audit/export request failed with status ${response.status}`);
+  }
+  return payload;
+}
+
+export async function fetchExamples(): Promise<unknown> {
+  const response = await fetch("/api/examples");
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`/api/examples request failed with status ${response.status}`);
+  }
+  return payload;
 }
 
 export async function openFile(path: string): Promise<string> {

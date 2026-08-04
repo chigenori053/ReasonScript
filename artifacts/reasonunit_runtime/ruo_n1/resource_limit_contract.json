@@ -1,0 +1,26 @@
+{
+  "data": {
+    "categories": [
+      "objects",
+      "entities",
+      "depth",
+      "relations",
+      "evidence",
+      "dependencies",
+      "extensions",
+      "snapshots",
+      "operations",
+      "results",
+      "bytes",
+      "leases",
+      "tensor",
+      "closure",
+      "diagnostics",
+      "projection"
+    ],
+    "overflow_safe": true,
+    "pre_allocation": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-resource-limit-contract/1.0"
+}

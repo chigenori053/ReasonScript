@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/reasonunit_tensor/tensor_payload.schema.json",
+  "title": "ReasonScript RUO-T1 Tensor Payload",
+  "type": "object",
+  "required": ["tensor_profile", "dtype", "rank", "shape", "element_count", "representation", "axes", "value_presence", "validity", "storage", "logical_digest", "evidence_refs", "extensions"],
+  "properties": {
+    "tensor_profile": {"const": "ruo.tensor/1.0"},
+    "dtype": {"enum": ["bool", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64", "float16", "bfloat16", "float32", "float64", "complex64", "complex128"]},
+    "rank": {"type": "integer", "minimum": 0},
+    "shape": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+    "element_count": {"type": "integer", "minimum": 0},
+    "representation": {"enum": ["inline", "dense_resource", "coo_resource", "csr_resource"]},
+    "axes": {"type": "array"},
+    "value_presence": {"enum": ["present", "external", "not_loaded", "unknown", "redacted"]},
+    "validity": {"type": "object"},
+    "storage": {"type": "object"},
+    "logical_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "extensions": {"type": "object"}
+  },
+  "additionalProperties": true
+}

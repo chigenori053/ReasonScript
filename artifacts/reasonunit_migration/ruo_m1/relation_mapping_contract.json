@@ -1,0 +1,8 @@
+{
+  "data": {
+    "endpoint_identity_preserved": true,
+    "unmapped": "legacy extension"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-relation-mapping-contract/1.0"
+}

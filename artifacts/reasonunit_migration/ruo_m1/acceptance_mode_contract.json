@@ -1,0 +1,11 @@
+{
+  "data": {
+    "lossy": "reject",
+    "modes": [
+      "zero_loss",
+      "approved_extension"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-acceptance-mode-contract/1.0"
+}

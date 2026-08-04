@@ -24,6 +24,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Bootstrap: add the repo root to sys.path so frontend.* imports resolve.

@@ -1,0 +1,3 @@
+model MigratedFixture {
+ reason_object fixture from "migrated.ruo" mode strict;
+}

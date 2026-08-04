@@ -1,0 +1,10 @@
+{
+  "data": {
+    "local_entity_record_count": 1,
+    "lossless_projection": true,
+    "object_record_count": 1,
+    "references_by": "stable namespaced identity"
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-entity-record-contract/1.0"
+}

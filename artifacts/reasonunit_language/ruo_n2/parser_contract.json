@@ -1,0 +1,18 @@
+{
+  "data": {
+    "duplicate_clause": "reject",
+    "nested_contexts": [
+      "model",
+      "module"
+    ],
+    "source_spans": [
+      "name",
+      "from",
+      "resources",
+      "mode",
+      "as"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-parser-contract/1.0"
+}

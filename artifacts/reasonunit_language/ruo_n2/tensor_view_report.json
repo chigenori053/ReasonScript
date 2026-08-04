@@ -1,0 +1,9 @@
+{
+  "data": {
+    "dtype_shape_mask_chunks_mapping_preserved": true,
+    "stable_tensor_identity": true,
+    "stale_view_rejected": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-tensor-view-report/1.0"
+}

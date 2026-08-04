@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/reasonunit_tensor/artifact.schema.json",
+  "title": "ReasonScript RUO-T1 Canonical Artifact Envelope",
+  "type": "object",
+  "required": ["schema_version", "profile_version", "data"],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^reasonscript-reasonunit-tensor-.+/1\\.0$"},
+    "profile_version": {"const": "reasonscript-reasonunit-tensor/1.0"},
+    "data": {"type": "object"}
+  },
+  "additionalProperties": false
+}

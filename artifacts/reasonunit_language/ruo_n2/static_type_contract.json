@@ -1,0 +1,21 @@
+{
+  "data": {
+    "opaque_runtime_values": true,
+    "types": [
+      "ReasonObject",
+      "ReasonObjectSnapshot",
+      "ReasonEntityRef",
+      "ReasonQuery",
+      "ReasonQueryResult",
+      "ReasonTransaction",
+      "ReasonTransactionResult",
+      "ReasonSelector",
+      "ReasonSelection",
+      "ReasonProjection",
+      "ReasonTensorView",
+      "ReasonDiagnosticSet"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-static-type-contract/1.0"
+}

@@ -1,0 +1,150 @@
+{
+  "data": {
+    "artifact_count": 26,
+    "artifacts": [
+      {
+        "bytes": 485,
+        "path": "atomic_reasonunit_contract.json",
+        "sha256": "sha256:fc3f97e64c1510fd5a80b0cfb682eb57605c5544f1d6ade91aff1f4155c555a7"
+      },
+      {
+        "bytes": 1117,
+        "path": "baseline_comparison_report.json",
+        "sha256": "sha256:c893a6c4aa0bb47ed75501cb48ff248460fb3c6efc9186f275fa78feb7d41d95"
+      },
+      {
+        "bytes": 453,
+        "path": "cluster_projection_contract.json",
+        "sha256": "sha256:46db1b156a1938cb6ee962dddfeb5c97d6b95fe273d6be81db8e6fd736df6b43"
+      },
+      {
+        "bytes": 3807,
+        "path": "compatibility_fixture_manifest.json",
+        "sha256": "sha256:5fc237da0b4429ee522ff6b7c9df3d0c511a3654b205102846d77730e78fa79f"
+      },
+      {
+        "bytes": 2388,
+        "path": "compatibility_risk_register.json",
+        "sha256": "sha256:36dc66e4da92629545d76a5e959744f08eea953bf90d98b7b2a66e9913d3e9ec"
+      },
+      {
+        "bytes": 488,
+        "path": "composite_reasonunit_contract.json",
+        "sha256": "sha256:bd80262774bd7aecd458765bc278dbe08b86923da7359b47363f6291142741c4"
+      },
+      {
+        "bytes": 253,
+        "path": "diagnostics.json",
+        "sha256": "sha256:2a937aeea3a6fe6b350697d6a8bab72cad497ca6dce82dd527582e10dcd787b6"
+      },
+      {
+        "bytes": 546,
+        "path": "evidence_registry_contract.json",
+        "sha256": "sha256:ee1b5321950d0491f4d271e74dda2f5382f4564f2b2ac5c471dd1de749f8dc5a"
+      },
+      {
+        "bytes": 2953,
+        "path": "execution_projection_contract.json",
+        "sha256": "sha256:020bd0dfeed415ab6df3b5230d862d682afa7d021366c610b893e7b22e134beb"
+      },
+      {
+        "bytes": 1878,
+        "path": "final_report.md",
+        "sha256": "sha256:a492697f64af709d7c83daac679463b1a209c86f054a17ba75d93dc259033dc5"
+      },
+      {
+        "bytes": 791,
+        "path": "identity_namespace_contract.json",
+        "sha256": "sha256:dfb06f6a5632b1e734e8108bfe51e74c5dde3a9033d03ed4d8774efc5fda580c"
+      },
+      {
+        "bytes": 803,
+        "path": "legacy_adapter_contract.json",
+        "sha256": "sha256:630d672354a4329393ba690f53c69bbd6c2f7946a0f9fec158415e667211ad99"
+      },
+      {
+        "bytes": 496,
+        "path": "lifecycle_compatibility_contract.json",
+        "sha256": "sha256:8fb711dce689b2d78bccfba853a1cce606ac31ee2314aa4f851aa110155c5438"
+      },
+      {
+        "bytes": 438,
+        "path": "ownership_containment_contract.json",
+        "sha256": "sha256:62176ee54b4607871c98b164ae0be6a196c8338c5fe99f9d775579e8a8e5d5b1"
+      },
+      {
+        "bytes": 580,
+        "path": "query_compatibility_contract.json",
+        "sha256": "sha256:b7b62349b6c52f2933cd9b6ad0e17b7a64be8192965fbd5307c0c5268d112ef9"
+      },
+      {
+        "bytes": 523,
+        "path": "reason_entity_contract.json",
+        "sha256": "sha256:ad6d37badab2b8b3d55f43cb979799b0f18f928dd0e5a690e6a1ba14e7de2d65"
+      },
+      {
+        "bytes": 470,
+        "path": "reasonunit_object_boundary_contract.json",
+        "sha256": "sha256:6ba865b0676f8acbc028e03f71041f2026b80119069ecd6de9e4183f514b14fe"
+      },
+      {
+        "bytes": 590,
+        "path": "relation_compatibility_contract.json",
+        "sha256": "sha256:879ddc15ab0a974b39996a1e9175b88aaaf1a79a276465635cac6fd7404e435b"
+      },
+      {
+        "bytes": 723,
+        "path": "revision_transaction_contract.json",
+        "sha256": "sha256:a78f4ffa4afa9e17116ca5dcb0120b199d772e8442ac0415fbf6baf501d3adc9"
+      },
+      {
+        "bytes": 1375,
+        "path": "ruo_c0_input_manifest.json",
+        "sha256": "sha256:559b21807e3c419598a51c391be5cadad605e01d1f610d959456b066761f7c8b"
+      },
+      {
+        "bytes": 1344,
+        "path": "semantic_roundtrip_report.json",
+        "sha256": "sha256:b3223209d8b81d3d399abe965758ee2b65b26e067381f081db88bae347224220"
+      },
+      {
+        "bytes": 500,
+        "path": "state_ownership_contract.json",
+        "sha256": "sha256:626df594900566a472ffc0a6e28b7b9a75b9377b10e83dbec0a3181cfd0f036d"
+      },
+      {
+        "bytes": 557,
+        "path": "tensor_identity_mapping_contract.json",
+        "sha256": "sha256:be3097f8a8d74faa27b65e22feedb0cec6530ff24f29a81fb27b5775e81166df"
+      },
+      {
+        "bytes": 1075,
+        "path": "undefined_semantics_resolution.json",
+        "sha256": "sha256:15b3c2c83c745ca2c1efc907ea13856a4650af722863f1a269c4933f0a2a6291"
+      },
+      {
+        "bytes": 8892,
+        "path": "validation_summary.json",
+        "sha256": "sha256:6f52b5f5fb37a40d2b628d08784ecf505a404d3302d40b49c349c44838c1ff80"
+      },
+      {
+        "bytes": null,
+        "digest_scope": "canonical data object before self entry",
+        "path": "run_manifest.json",
+        "sha256": "sha256:c978292d1fb677608a3a51a1c6be1724ea1541fc7925a25f54b24b19a1783866"
+      }
+    ],
+    "canonicalization": {
+      "encoding": "UTF-8",
+      "host_specific_fields": "excluded",
+      "json_keys": "sorted",
+      "line_endings": "LF",
+      "list_ordering": "contract-defined",
+      "non_finite_numbers": "rejected"
+    },
+    "self_digest": "sha256:c978292d1fb677608a3a51a1c6be1724ea1541fc7925a25f54b24b19a1783866",
+    "self_digest_contract": "run_manifest self digest is SHA-256 of this data object before the run_manifest entry is appended"
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-run-manifest/1.0"
+}

@@ -1,0 +1,78 @@
+{
+  "data": {
+    "risks": [
+      {
+        "blocking": false,
+        "resolution": "stable mapping",
+        "risk": "unit-index-confusion"
+      },
+      {
+        "blocking": false,
+        "resolution": "separate digest contracts",
+        "risk": "logical-physical-digest-confusion"
+      },
+      {
+        "blocking": false,
+        "resolution": "exact little-endian bytes",
+        "risk": "float-variance"
+      },
+      {
+        "blocking": false,
+        "resolution": "normalization",
+        "risk": "negative-zero"
+      },
+      {
+        "blocking": false,
+        "resolution": "checked arithmetic",
+        "risk": "overflow"
+      },
+      {
+        "blocking": false,
+        "resolution": "views only",
+        "risk": "backend-strides"
+      },
+      {
+        "blocking": false,
+        "resolution": "sorted unique policy",
+        "risk": "sparse-ambiguity"
+      },
+      {
+        "blocking": false,
+        "resolution": "logical digest exclusion",
+        "risk": "chunk-identity"
+      },
+      {
+        "blocking": false,
+        "resolution": "validity mask",
+        "risk": "numeric-sentinel"
+      },
+      {
+        "blocking": false,
+        "resolution": "separate statuses",
+        "risk": "partial-as-complete"
+      },
+      {
+        "blocking": false,
+        "resolution": "non-semantic metadata",
+        "risk": "device-as-semantic"
+      },
+      {
+        "blocking": false,
+        "resolution": "temporary atomic replace",
+        "risk": "publication-failure"
+      },
+      {
+        "blocking": false,
+        "resolution": "limits",
+        "risk": "sparse-expansion"
+      },
+      {
+        "blocking": false,
+        "resolution": "deferred",
+        "risk": "native-capability-claim"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-risk-register/1.0"
+}

@@ -1,0 +1,9 @@
+{
+  "data": {
+    "profile": "legacy-json/1",
+    "silent_defaulting": false,
+    "versioned": true
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-mapping-profile-contract/1.0"
+}

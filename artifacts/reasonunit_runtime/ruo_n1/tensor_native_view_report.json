@@ -1,0 +1,17 @@
+{
+  "data": {
+    "dtypes": 15,
+    "mapping_loss": 0,
+    "representations": [
+      "dense",
+      "coo",
+      "csr",
+      "inline",
+      "masked",
+      "chunked",
+      "partial"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-tensor-native-view-report/1.0"
+}

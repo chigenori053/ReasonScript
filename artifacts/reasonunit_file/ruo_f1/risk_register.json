@@ -1,0 +1,78 @@
+{
+  "data": {
+    "risks": [
+      {
+        "blocking": false,
+        "resolution": "canonical JSON contract",
+        "risk": "number-implementation-difference"
+      },
+      {
+        "blocking": false,
+        "resolution": "NFC scalar ordering",
+        "risk": "unicode-key-order"
+      },
+      {
+        "blocking": false,
+        "resolution": "canonical reserialization",
+        "risk": "parser-insertion-order"
+      },
+      {
+        "blocking": false,
+        "resolution": "separate contracts",
+        "risk": "digest-identity-confusion"
+      },
+      {
+        "blocking": false,
+        "resolution": "seal exclusion",
+        "risk": "self-digest-cycle"
+      },
+      {
+        "blocking": false,
+        "resolution": "retention contract",
+        "risk": "extension-loss"
+      },
+      {
+        "blocking": false,
+        "resolution": "header and status",
+        "risk": "partial-as-complete"
+      },
+      {
+        "blocking": false,
+        "resolution": "resource limits",
+        "risk": "hostile-record"
+      },
+      {
+        "blocking": false,
+        "resolution": "authorized-root policy",
+        "risk": "path-traversal"
+      },
+      {
+        "blocking": false,
+        "resolution": "availability status",
+        "risk": "missing-as-invalid"
+      },
+      {
+        "blocking": false,
+        "resolution": "temporary verify and os.replace",
+        "risk": "non-atomic-replace"
+      },
+      {
+        "blocking": false,
+        "resolution": "explicit conversion",
+        "risk": "downgrade-loss"
+      },
+      {
+        "blocking": false,
+        "resolution": "deferred authentication",
+        "risk": "integrity-as-authenticity"
+      },
+      {
+        "blocking": false,
+        "resolution": "deferred",
+        "risk": "compression"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-risk-register/1.0"
+}

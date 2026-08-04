@@ -1,0 +1,90 @@
+{
+  "final_snapshot": {
+    "checksum": "sha256:4da02851168e687fc28946a0808cc5b34a3b119f3ce394723643b793028f32e2",
+    "completed_tasks": [
+      "task_0001",
+      "task_0002"
+    ],
+    "logical_step": 1,
+    "pending_tasks": [],
+    "run_id": "cluster_run_344f817e017bbbeb",
+    "schema_version": "reasonscript-cluster-state/0.1",
+    "shared_state": {
+      "semantic_final_state": "B.state.result"
+    },
+    "state_version": 2,
+    "worker_states": {
+      "worker-0": {
+        "completed_tasks": [
+          "task_0001",
+          "task_0002"
+        ],
+        "status": "ready"
+      },
+      "worker-1": {
+        "completed_tasks": [],
+        "status": "ready"
+      }
+    }
+  },
+  "run_id": "cluster_run_344f817e017bbbeb",
+  "schema_version": "reasonscript-cluster-state-history/0.1",
+  "snapshots": [
+    {
+      "checksum": "sha256:b91e03f485ff583ffce4cd5a314f3c1c9b24185ad1fd6b2864d7a85cdb2c6e9a",
+      "completed_tasks": [
+        "task_0001"
+      ],
+      "logical_step": 0,
+      "pending_tasks": [
+        "task_0002"
+      ],
+      "run_id": "cluster_run_344f817e017bbbeb",
+      "schema_version": "reasonscript-cluster-state/0.1",
+      "shared_state": {
+        "semantic_final_state": "B.state.result"
+      },
+      "state_version": 1,
+      "worker_states": {
+        "worker-0": {
+          "completed_tasks": [
+            "task_0001"
+          ],
+          "status": "ready"
+        },
+        "worker-1": {
+          "completed_tasks": [],
+          "status": "ready"
+        }
+      }
+    },
+    {
+      "checksum": "sha256:4da02851168e687fc28946a0808cc5b34a3b119f3ce394723643b793028f32e2",
+      "completed_tasks": [
+        "task_0001",
+        "task_0002"
+      ],
+      "logical_step": 1,
+      "pending_tasks": [],
+      "run_id": "cluster_run_344f817e017bbbeb",
+      "schema_version": "reasonscript-cluster-state/0.1",
+      "shared_state": {
+        "semantic_final_state": "B.state.result"
+      },
+      "state_version": 2,
+      "worker_states": {
+        "worker-0": {
+          "completed_tasks": [
+            "task_0001",
+            "task_0002"
+          ],
+          "status": "ready"
+        },
+        "worker-1": {
+          "completed_tasks": [],
+          "status": "ready"
+        }
+      }
+    }
+  ]
+}

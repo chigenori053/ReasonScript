@@ -1,0 +1,48 @@
+{
+  "data": {
+    "risks": [
+      {
+        "classification": "resolved_by_native_core",
+        "risk": "stable-id-handle-confusion"
+      },
+      {
+        "classification": "resolved_by_native_core",
+        "risk": "hash-order"
+      },
+      {
+        "classification": "resolved_by_native_core",
+        "risk": "stale-handle"
+      },
+      {
+        "classification": "resolved_by_native_core",
+        "risk": "snapshot-mutation"
+      },
+      {
+        "classification": "resolved_by_native_core",
+        "risk": "rollback"
+      },
+      {
+        "classification": "resolved_by_native_core",
+        "risk": "lease-lifetime"
+      },
+      {
+        "classification": "resolved_by_native_core",
+        "risk": "tensor-mapping"
+      },
+      {
+        "classification": "resolved_by_native_core",
+        "risk": "concurrent-commit"
+      },
+      {
+        "classification": "resolved_by_native_core",
+        "risk": "ffi-panic"
+      },
+      {
+        "classification": "resolved_by_native_core",
+        "risk": "layout-confusion"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-risk-register/1.0"
+}

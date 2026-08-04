@@ -1,0 +1,5 @@
+module InvalidParse {
+  calculation Answer {
+    result =
+  }
+}

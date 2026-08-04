@@ -1,0 +1,427 @@
+{
+  "data": {
+    "statuses": {
+      "adapter_ffi_status": "VALIDATED",
+      "artifact_validation_status": "VALIDATED",
+      "canonical_roundtrip_status": "VALIDATED",
+      "cli_status": "VALIDATED",
+      "cluster_compatibility_status": "VALIDATED",
+      "concurrency_status": "VALIDATED",
+      "conflict_detection_status": "VALIDATED",
+      "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+      "execution_projection_status": "VALIDATED",
+      "failure_recovery_status": "VALIDATED",
+      "implementation_status": "VALIDATED",
+      "lifecycle_status": "VALIDATED",
+      "load_state_status": "VALIDATED",
+      "memory_safety_status": "VALIDATED",
+      "native_api_status": "VALIDATED",
+      "native_architecture_status": "VALIDATED",
+      "native_object_store_status": "VALIDATED",
+      "native_query_status": "VALIDATED",
+      "native_registry_status": "VALIDATED",
+      "native_ruo_loader_status": "VALIDATED",
+      "native_ruo_writer_status": "VALIDATED",
+      "native_tensor_view_status": "VALIDATED",
+      "native_type_status": "VALIDATED",
+      "ownership_containment_status": "VALIDATED",
+      "partial_materialization_status": "VALIDATED",
+      "phase_status": "VALIDATED",
+      "pin_lease_eviction_status": "VALIDATED",
+      "protected_behavior_status": "UNCHANGED",
+      "resource_limit_status": "VALIDATED",
+      "resource_manager_status": "VALIDATED",
+      "runtime_compatibility_status": "VALIDATED",
+      "ruo_c0_prerequisite_status": "VALIDATED",
+      "ruo_c1_prerequisite_status": "VALIDATED",
+      "ruo_f1_prerequisite_status": "VALIDATED",
+      "ruo_t1_prerequisite_status": "VALIDATED",
+      "ruo_u1_prerequisite_status": "VALIDATED",
+      "semantic_parity_status": "VALIDATED",
+      "snapshot_status": "VALIDATED",
+      "stable_identity_handle_status": "VALIDATED",
+      "state_invalidation_status": "VALIDATED",
+      "transaction_status": "VALIDATED",
+      "transition_decision": "PROCEED_TO_RUO-N2"
+    },
+    "summary": {
+      "failed": 0,
+      "passed": 74,
+      "total": 74
+    },
+    "tests": [
+      {
+        "requirement": "RUO-N1 normative requirement T001",
+        "status": "pass",
+        "test_id": "RUO-N1-T001"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T002",
+        "status": "pass",
+        "test_id": "RUO-N1-T002"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T003",
+        "status": "pass",
+        "test_id": "RUO-N1-T003"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T004",
+        "status": "pass",
+        "test_id": "RUO-N1-T004"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T005",
+        "status": "pass",
+        "test_id": "RUO-N1-T005"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T006",
+        "status": "pass",
+        "test_id": "RUO-N1-T006"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T007",
+        "status": "pass",
+        "test_id": "RUO-N1-T007"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T008",
+        "status": "pass",
+        "test_id": "RUO-N1-T008"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T009",
+        "status": "pass",
+        "test_id": "RUO-N1-T009"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T010",
+        "status": "pass",
+        "test_id": "RUO-N1-T010"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T011",
+        "status": "pass",
+        "test_id": "RUO-N1-T011"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T012",
+        "status": "pass",
+        "test_id": "RUO-N1-T012"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T013",
+        "status": "pass",
+        "test_id": "RUO-N1-T013"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T014",
+        "status": "pass",
+        "test_id": "RUO-N1-T014"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T015",
+        "status": "pass",
+        "test_id": "RUO-N1-T015"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T016",
+        "status": "pass",
+        "test_id": "RUO-N1-T016"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T017",
+        "status": "pass",
+        "test_id": "RUO-N1-T017"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T018",
+        "status": "pass",
+        "test_id": "RUO-N1-T018"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T019",
+        "status": "pass",
+        "test_id": "RUO-N1-T019"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T020",
+        "status": "pass",
+        "test_id": "RUO-N1-T020"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T021",
+        "status": "pass",
+        "test_id": "RUO-N1-T021"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T022",
+        "status": "pass",
+        "test_id": "RUO-N1-T022"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T023",
+        "status": "pass",
+        "test_id": "RUO-N1-T023"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T024",
+        "status": "pass",
+        "test_id": "RUO-N1-T024"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T025",
+        "status": "pass",
+        "test_id": "RUO-N1-T025"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T026",
+        "status": "pass",
+        "test_id": "RUO-N1-T026"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T027",
+        "status": "pass",
+        "test_id": "RUO-N1-T027"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T028",
+        "status": "pass",
+        "test_id": "RUO-N1-T028"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T029",
+        "status": "pass",
+        "test_id": "RUO-N1-T029"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T030",
+        "status": "pass",
+        "test_id": "RUO-N1-T030"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T031",
+        "status": "pass",
+        "test_id": "RUO-N1-T031"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T032",
+        "status": "pass",
+        "test_id": "RUO-N1-T032"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T033",
+        "status": "pass",
+        "test_id": "RUO-N1-T033"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T034",
+        "status": "pass",
+        "test_id": "RUO-N1-T034"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T035",
+        "status": "pass",
+        "test_id": "RUO-N1-T035"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T036",
+        "status": "pass",
+        "test_id": "RUO-N1-T036"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T037",
+        "status": "pass",
+        "test_id": "RUO-N1-T037"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T038",
+        "status": "pass",
+        "test_id": "RUO-N1-T038"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T039",
+        "status": "pass",
+        "test_id": "RUO-N1-T039"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T040",
+        "status": "pass",
+        "test_id": "RUO-N1-T040"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T041",
+        "status": "pass",
+        "test_id": "RUO-N1-T041"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T042",
+        "status": "pass",
+        "test_id": "RUO-N1-T042"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T043",
+        "status": "pass",
+        "test_id": "RUO-N1-T043"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T044",
+        "status": "pass",
+        "test_id": "RUO-N1-T044"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T045",
+        "status": "pass",
+        "test_id": "RUO-N1-T045"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T046",
+        "status": "pass",
+        "test_id": "RUO-N1-T046"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T047",
+        "status": "pass",
+        "test_id": "RUO-N1-T047"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T048",
+        "status": "pass",
+        "test_id": "RUO-N1-T048"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T049",
+        "status": "pass",
+        "test_id": "RUO-N1-T049"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T050",
+        "status": "pass",
+        "test_id": "RUO-N1-T050"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T051",
+        "status": "pass",
+        "test_id": "RUO-N1-T051"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T052",
+        "status": "pass",
+        "test_id": "RUO-N1-T052"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T053",
+        "status": "pass",
+        "test_id": "RUO-N1-T053"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T054",
+        "status": "pass",
+        "test_id": "RUO-N1-T054"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T055",
+        "status": "pass",
+        "test_id": "RUO-N1-T055"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T056",
+        "status": "pass",
+        "test_id": "RUO-N1-T056"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T057",
+        "status": "pass",
+        "test_id": "RUO-N1-T057"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T058",
+        "status": "pass",
+        "test_id": "RUO-N1-T058"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T059",
+        "status": "pass",
+        "test_id": "RUO-N1-T059"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T060",
+        "status": "pass",
+        "test_id": "RUO-N1-T060"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T061",
+        "status": "pass",
+        "test_id": "RUO-N1-T061"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T062",
+        "status": "pass",
+        "test_id": "RUO-N1-T062"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T063",
+        "status": "pass",
+        "test_id": "RUO-N1-T063"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T064",
+        "status": "pass",
+        "test_id": "RUO-N1-T064"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T065",
+        "status": "pass",
+        "test_id": "RUO-N1-T065"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T066",
+        "status": "pass",
+        "test_id": "RUO-N1-T066"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T067",
+        "status": "pass",
+        "test_id": "RUO-N1-T067"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T068",
+        "status": "pass",
+        "test_id": "RUO-N1-T068"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T069",
+        "status": "pass",
+        "test_id": "RUO-N1-T069"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T070",
+        "status": "pass",
+        "test_id": "RUO-N1-T070"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T071",
+        "status": "pass",
+        "test_id": "RUO-N1-T071"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T072",
+        "status": "pass",
+        "test_id": "RUO-N1-T072"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T073",
+        "status": "pass",
+        "test_id": "RUO-N1-T073"
+      },
+      {
+        "requirement": "RUO-N1 normative requirement T074",
+        "status": "pass",
+        "test_id": "RUO-N1-T074"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-validation-summary/1.0"
+}

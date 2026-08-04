@@ -1,0 +1,18 @@
+{
+  "data": {
+    "equal_inputs_equal": [
+      "ast",
+      "reason_ir",
+      "execution_plan",
+      "queries",
+      "transactions",
+      "diagnostics",
+      "projections",
+      "saved_bytes",
+      "artifacts"
+    ],
+    "host_fields_excluded": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-determinism-contract/1.0"
+}

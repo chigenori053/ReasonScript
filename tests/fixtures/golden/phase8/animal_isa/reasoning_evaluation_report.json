@@ -1,0 +1,123 @@
+{
+  "schema_version": "reasonscript-reasoning-evaluation-report/1.0",
+  "report_id": "report_AnimalReasoning.ReasoningModel_eval_001",
+  "model_ref": {
+    "model_id": "AnimalReasoning.ReasoningModel",
+    "model_schema_version": "reasonscript-reasoning-model/1.0",
+    "source_id": "animal_isa"
+  },
+  "evaluation_target_ref": {
+    "target_id": "eval_001",
+    "goal": "Answer.state.result",
+    "required_checks": [
+      "reachability",
+      "determinism",
+      "evidence_completeness",
+      "consistency",
+      "branch_traceability"
+    ]
+  },
+  "summary": {
+    "status": "passed",
+    "passed": true,
+    "required_checks_passed": true,
+    "total_checks": 5,
+    "passed_checks": 5,
+    "failed_checks": 0,
+    "warning_checks": 0,
+    "fatal_diagnostics": 0
+  },
+  "checks": [
+    {
+      "check_id": "check_reachability",
+      "check_type": "reachability",
+      "required": true,
+      "status": "passed",
+      "passed": true,
+      "message": "Selected reasoning path reaches the evaluation goal.",
+      "evidence_refs": [
+        "path_main",
+        "step-2"
+      ],
+      "details": {
+        "goal": "Answer.state.result",
+        "matched_by": "reasoning_step",
+        "matched_ref": "step-2",
+        "reachable": true,
+        "selected_path_id": "path_main"
+      }
+    },
+    {
+      "check_id": "check_determinism",
+      "check_type": "determinism",
+      "required": true,
+      "status": "passed",
+      "passed": true,
+      "message": "ReasoningModel artifact is deterministically representable.",
+      "evidence_refs": [
+        "AnimalReasoning.ReasoningModel"
+      ],
+      "details": {
+        "canonical_serialization_stable": true,
+        "duplicate_ids": [],
+        "stable_ids": true
+      }
+    },
+    {
+      "check_id": "check_evidence_completeness",
+      "check_type": "evidence_completeness",
+      "required": true,
+      "status": "passed",
+      "passed": true,
+      "message": "Knowledge emissions include complete evidence paths.",
+      "evidence_refs": [
+        "K001",
+        "step-1",
+        "step-2"
+      ],
+      "details": {
+        "invalid_path_signatures": [],
+        "invalid_source_step_refs": [],
+        "knowledge_emissions_checked": 1,
+        "missing_evidence_paths": [],
+        "missing_evidence_refs": [],
+        "steps_checked": 2
+      }
+    },
+    {
+      "check_id": "check_consistency",
+      "check_type": "consistency",
+      "required": true,
+      "status": "passed",
+      "passed": true,
+      "message": "ReasoningModel artifact is structurally consistent.",
+      "evidence_refs": [
+        "path_main"
+      ],
+      "details": {
+        "fatal_model_diagnostics": 0,
+        "input_relations_valid": true,
+        "selected_path_count": 1,
+        "selected_path_valid": true,
+        "unknown_path_signatures": [],
+        "unknown_required_checks": []
+      }
+    },
+    {
+      "check_id": "check_branch_traceability",
+      "check_type": "branch_traceability",
+      "required": true,
+      "status": "passed",
+      "passed": true,
+      "message": "Branch decisions are traceable.",
+      "evidence_refs": [],
+      "details": {
+        "branch_decisions_checked": 1,
+        "branches_traceable": true,
+        "invalid_selected_branches": [],
+        "missing_branch_evidence": []
+      }
+    }
+  ],
+  "diagnostics": []
+}

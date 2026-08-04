@@ -1,0 +1,120 @@
+{
+  "data": {
+    "bool_bytes": [
+      0,
+      1
+    ],
+    "dtypes": [
+      {
+        "byte_order": "little",
+        "dtype": "bool",
+        "finite_only": false,
+        "kind": "bool",
+        "width": 1
+      },
+      {
+        "byte_order": "little",
+        "dtype": "int8",
+        "finite_only": false,
+        "kind": "int",
+        "width": 1
+      },
+      {
+        "byte_order": "little",
+        "dtype": "uint8",
+        "finite_only": false,
+        "kind": "int",
+        "width": 1
+      },
+      {
+        "byte_order": "little",
+        "dtype": "int16",
+        "finite_only": false,
+        "kind": "int",
+        "width": 2
+      },
+      {
+        "byte_order": "little",
+        "dtype": "uint16",
+        "finite_only": false,
+        "kind": "int",
+        "width": 2
+      },
+      {
+        "byte_order": "little",
+        "dtype": "int32",
+        "finite_only": false,
+        "kind": "int",
+        "width": 4
+      },
+      {
+        "byte_order": "little",
+        "dtype": "uint32",
+        "finite_only": false,
+        "kind": "int",
+        "width": 4
+      },
+      {
+        "byte_order": "little",
+        "dtype": "int64",
+        "finite_only": false,
+        "kind": "int",
+        "width": 8
+      },
+      {
+        "byte_order": "little",
+        "dtype": "uint64",
+        "finite_only": false,
+        "kind": "int",
+        "width": 8
+      },
+      {
+        "byte_order": "little",
+        "dtype": "float16",
+        "finite_only": true,
+        "kind": "float",
+        "width": 2
+      },
+      {
+        "byte_order": "little",
+        "dtype": "bfloat16",
+        "finite_only": true,
+        "kind": "bfloat",
+        "width": 2
+      },
+      {
+        "byte_order": "little",
+        "dtype": "float32",
+        "finite_only": true,
+        "kind": "float",
+        "width": 4
+      },
+      {
+        "byte_order": "little",
+        "dtype": "float64",
+        "finite_only": true,
+        "kind": "float",
+        "width": 8
+      },
+      {
+        "byte_order": "little",
+        "dtype": "complex64",
+        "finite_only": true,
+        "kind": "complex",
+        "width": 8
+      },
+      {
+        "byte_order": "little",
+        "dtype": "complex128",
+        "finite_only": true,
+        "kind": "complex",
+        "width": 16
+      }
+    ],
+    "negative_zero": "normalize_positive",
+    "nonfinite": "prohibited",
+    "registry_version": "ruo.tensor.dtype/1"
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-dtype-registry/1.0"
+}

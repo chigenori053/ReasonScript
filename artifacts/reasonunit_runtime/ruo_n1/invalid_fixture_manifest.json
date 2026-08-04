@@ -1,0 +1,113 @@
+{
+  "data": {
+    "case_count": 26,
+    "cases": [
+      {
+        "case_id": "duplicate_identity",
+        "rejected": true
+      },
+      {
+        "case_id": "invalid_ownership",
+        "rejected": true
+      },
+      {
+        "case_id": "containment_cycle",
+        "rejected": true
+      },
+      {
+        "case_id": "stale_handle",
+        "rejected": true
+      },
+      {
+        "case_id": "wrong_handle_generation",
+        "rejected": true
+      },
+      {
+        "case_id": "invalid_ruo_seal",
+        "rejected": true
+      },
+      {
+        "case_id": "corrupted_ruot",
+        "rejected": true
+      },
+      {
+        "case_id": "unsupported_critical_extension",
+        "rejected": true
+      },
+      {
+        "case_id": "missing_critical_resource",
+        "rejected": true
+      },
+      {
+        "case_id": "partial_claiming_completeness",
+        "rejected": true
+      },
+      {
+        "case_id": "stale_snapshot_transaction",
+        "rejected": true
+      },
+      {
+        "case_id": "conflicting_entity_revision",
+        "rejected": true
+      },
+      {
+        "case_id": "illegal_lifecycle_transition",
+        "rejected": true
+      },
+      {
+        "case_id": "dangling_resolved_relation",
+        "rejected": true
+      },
+      {
+        "case_id": "stale_derived_state",
+        "rejected": true
+      },
+      {
+        "case_id": "stale_query_cache",
+        "rejected": true
+      },
+      {
+        "case_id": "stale_tensor_mapping",
+        "rejected": true
+      },
+      {
+        "case_id": "access_after_lease_expiry",
+        "rejected": true
+      },
+      {
+        "case_id": "eviction_of_pinned_resource",
+        "rejected": true
+      },
+      {
+        "case_id": "projection_from_invalid_resource",
+        "rejected": true
+      },
+      {
+        "case_id": "adapter_reordering",
+        "rejected": true
+      },
+      {
+        "case_id": "panic_containment",
+        "rejected": true
+      },
+      {
+        "case_id": "allocation_overflow",
+        "rejected": true
+      },
+      {
+        "case_id": "resource_limit_breach",
+        "rejected": true
+      },
+      {
+        "case_id": "non_atomic_commit",
+        "rejected": true
+      },
+      {
+        "case_id": "canonical_roundtrip_mismatch",
+        "rejected": true
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-invalid-fixture-manifest/1.0"
+}

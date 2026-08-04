@@ -1,0 +1,44 @@
+{
+  "data": {
+    "artifacts": [
+      {
+        "name": "comparison_report.json",
+        "sha256": "932c5d8b3925f12baf68591b048142a8a91d959ebe0a216dccb97e772aadbc1b"
+      },
+      {
+        "name": "diagnostics.json",
+        "sha256": "61c092f922d282910a24e99e6909bff72e85eccb70a4386a902fe0ad26ae8736"
+      },
+      {
+        "name": "execution_plan.json",
+        "sha256": "c41c300eb28cb0a75c8386de5d18435b0da24ba06c263e9fba626accb2d11f7c"
+      },
+      {
+        "name": "reason_ir.json",
+        "sha256": "d2f8bf2fd76ccfe71ff075edc01ff22630b67f38872462e615a5a26e7057cc25"
+      },
+      {
+        "name": "reference_result.json",
+        "sha256": "2b6f7a1c9be00296d108e2227c1a33ea605d72c676ff64ee9ed491e1cff44f6b"
+      },
+      {
+        "name": "runtime_result.json",
+        "sha256": "7344e657f76a51432111e14cd584f2db2a599fc24907f20010ff7f3b85a73fa0"
+      },
+      {
+        "name": "simulation.json",
+        "sha256": "736c099acfb6fe4f78a561f71babeca5fd24df2ea2ba7f88046520b2184dc6d2"
+      },
+      {
+        "name": "tensor_metadata.json",
+        "sha256": "6419d614ab09e07fd0de0f7d29b9a839d39362d6449cb13fed9f197c88115ab9"
+      }
+    ],
+    "schema_version": "reasonscript-phase-1r-manifest/0.1"
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-phase-1r-manifest/0.1",
+  "version": "1.0"
+}

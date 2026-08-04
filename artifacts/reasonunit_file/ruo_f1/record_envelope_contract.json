@@ -1,0 +1,16 @@
+{
+  "data": {
+    "body_digest_scope": "canonical body bytes without LF",
+    "ordinal_origin": 0,
+    "ordinal_step": 1,
+    "required": [
+      "body",
+      "body_sha256",
+      "ordinal",
+      "record_type",
+      "record_version"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-record-envelope-contract/1.0"
+}

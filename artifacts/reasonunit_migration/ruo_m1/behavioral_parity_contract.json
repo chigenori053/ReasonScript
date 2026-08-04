@@ -1,0 +1,8 @@
+{
+  "data": {
+    "legacy_observables": "preserved",
+    "protected_behavior": "unchanged"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-behavioral-parity-contract/1.0"
+}

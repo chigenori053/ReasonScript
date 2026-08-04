@@ -50,6 +50,7 @@
       ],
       "name": "Sample",
       "node_type": "ModuleNode",
+      "source_kind": "module",
       "visibility": "Private"
     }
   ],

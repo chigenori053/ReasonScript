@@ -1,0 +1,177 @@
+{
+  "data": {
+    "case_count": 42,
+    "cases": [
+      {
+        "case_id": "wrong_extension",
+        "rejected": true
+      },
+      {
+        "case_id": "wrong_media",
+        "rejected": true
+      },
+      {
+        "case_id": "utf8_bom",
+        "rejected": true
+      },
+      {
+        "case_id": "invalid_utf8",
+        "rejected": true
+      },
+      {
+        "case_id": "crlf",
+        "rejected": true
+      },
+      {
+        "case_id": "missing_final_lf",
+        "rejected": true
+      },
+      {
+        "case_id": "blank_line",
+        "rejected": true
+      },
+      {
+        "case_id": "duplicate_key",
+        "rejected": true
+      },
+      {
+        "case_id": "noncanonical_key_order",
+        "rejected": true
+      },
+      {
+        "case_id": "whitespace",
+        "rejected": true
+      },
+      {
+        "case_id": "invalid_escape",
+        "rejected": true
+      },
+      {
+        "case_id": "non_nfc",
+        "rejected": true
+      },
+      {
+        "case_id": "leading_zero",
+        "rejected": true
+      },
+      {
+        "case_id": "negative_zero",
+        "rejected": true
+      },
+      {
+        "case_id": "exponent_decimal",
+        "rejected": true
+      },
+      {
+        "case_id": "nan",
+        "rejected": true
+      },
+      {
+        "case_id": "infinity",
+        "rejected": true
+      },
+      {
+        "case_id": "skipped_ordinal",
+        "rejected": true
+      },
+      {
+        "case_id": "repeated_ordinal",
+        "rejected": true
+      },
+      {
+        "case_id": "reordered_ordinal",
+        "rejected": true
+      },
+      {
+        "case_id": "unknown_critical_record",
+        "rejected": true
+      },
+      {
+        "case_id": "body_digest",
+        "rejected": true
+      },
+      {
+        "case_id": "section_count",
+        "rejected": true
+      },
+      {
+        "case_id": "section_range",
+        "rejected": true
+      },
+      {
+        "case_id": "section_digest",
+        "rejected": true
+      },
+      {
+        "case_id": "content_digest",
+        "rejected": true
+      },
+      {
+        "case_id": "logical_digest",
+        "rejected": true
+      },
+      {
+        "case_id": "missing_seal",
+        "rejected": true
+      },
+      {
+        "case_id": "duplicate_seal",
+        "rejected": true
+      },
+      {
+        "case_id": "bytes_after_seal",
+        "rejected": true
+      },
+      {
+        "case_id": "duplicate_entity",
+        "rejected": true
+      },
+      {
+        "case_id": "dangling_resolved_reference",
+        "rejected": true
+      },
+      {
+        "case_id": "partial_claims_complete",
+        "rejected": true
+      },
+      {
+        "case_id": "path_traversal",
+        "rejected": true
+      },
+      {
+        "case_id": "resource_digest",
+        "rejected": true
+      },
+      {
+        "case_id": "resource_size",
+        "rejected": true
+      },
+      {
+        "case_id": "chunk_coverage",
+        "rejected": true
+      },
+      {
+        "case_id": "critical_extension",
+        "rejected": true
+      },
+      {
+        "case_id": "semantic_loss",
+        "rejected": true
+      },
+      {
+        "case_id": "stale_revision",
+        "rejected": true
+      },
+      {
+        "case_id": "resource_limit",
+        "rejected": true
+      },
+      {
+        "case_id": "atomic_replacement",
+        "rejected": true
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-invalid-fixture-manifest/1.0"
+}

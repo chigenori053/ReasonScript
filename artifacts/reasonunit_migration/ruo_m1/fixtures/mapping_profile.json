@@ -1,0 +1,8 @@
+{
+  "acceptance_modes": [
+    "strict_zero_loss",
+    "approved_extension"
+  ],
+  "defaulting": "prohibited",
+  "profile_version": "legacy-json/1"
+}

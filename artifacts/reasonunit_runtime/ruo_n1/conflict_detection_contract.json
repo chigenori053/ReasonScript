@@ -1,0 +1,9 @@
+{
+  "data": {
+    "affected_revision_check": true,
+    "automatic_merge": false,
+    "source_generation_required": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-conflict-detection-contract/1.0"
+}

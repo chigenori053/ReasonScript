@@ -1,0 +1,8 @@
+{
+  "data": {
+    "identity_not_tensor_index": true,
+    "legacy_tensor": "opaque retention unless typed mapping declared"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-tensor-mapping-contract/1.0"
+}

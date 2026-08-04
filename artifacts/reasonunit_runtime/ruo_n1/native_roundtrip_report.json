@@ -1,0 +1,10 @@
+{
+  "data": {
+    "byte_identical": true,
+    "resources_valid": true,
+    "ruo_valid": true,
+    "semantic_loss": 0
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-roundtrip-report/1.0"
+}

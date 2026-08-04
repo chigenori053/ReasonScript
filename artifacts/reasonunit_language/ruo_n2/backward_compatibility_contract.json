@@ -1,0 +1,11 @@
+{
+  "data": {
+    "model_preferred": true,
+    "module_compatible": true,
+    "non_opt_in_unchanged": true,
+    "reserved_unchanged": true,
+    "tensor_cluster_unchanged": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-backward-compatibility-contract/1.0"
+}

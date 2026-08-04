@@ -1,0 +1,4 @@
+model TransactionObject {
+    reason_object object from "objects/complete.ruo"
+        mode strict;
+}

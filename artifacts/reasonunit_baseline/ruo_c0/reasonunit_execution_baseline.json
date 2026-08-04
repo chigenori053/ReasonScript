@@ -1,0 +1,31 @@
+{
+  "data": {
+    "canonical_boundary": "versioned JSON artifacts",
+    "outside_reasonscript": [
+      {
+        "owner": "adapter_owned",
+        "step": "Python source analysis/lowering adapter"
+      },
+      {
+        "owner": "cluster_runtime_native",
+        "step": "Rust Dynamic Cluster scheduling and lifecycle"
+      },
+      {
+        "owner": "adapter_owned",
+        "step": "Tensor metadata/artifact generation"
+      }
+    ],
+    "stages": [
+      "authored_source",
+      "parsed_or_normalized_representation",
+      "execution_plan",
+      "runtime_state",
+      "result_proposal",
+      "committed_result",
+      "canonical_artifact",
+      "projection_or_visualization"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-execution-baseline/1.0"
+}

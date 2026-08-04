@@ -1,0 +1,9 @@
+{
+  "data": {
+    "core_override": "reject",
+    "semantic_loss_count": 0,
+    "unknown_noncritical": "retain"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-extension-retention-contract/1.0"
+}

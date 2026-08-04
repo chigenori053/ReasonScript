@@ -78,7 +78,6 @@ RUST_TEST_CRATES = [
 ]
 
 NPM_PROJECTS = [
-    "playground/frontend",
     "apps/reasonscript-ide/ui",
 ]
 

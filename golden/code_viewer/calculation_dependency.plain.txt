@@ -1,0 +1,24 @@
+examples/v0_5/003_calculation_dependen… | [IR] module: CalculationDependency    
+ 1 module CalculationDependency {       |  {}                                   
+▸2   calculation Base {                 |    schema_version: "reason-ir/0.1"    
+ 3     result = 21                      |    initial_state                      
+ 4   }                                  |      state_id: "CalculationDependency…
+ 5                                      |      state_type: "language_surface"   
+ 6   calculation Answer {               |      data                             
+ 7     result = Base * 2                |        package: null                  
+ 8   }                                  |        module: "CalculationDependency"
+ 9 }                                    |        namespace: "CalculationDepende…
+                                        |        visibility: "Private"          
+                                        |        declarations [2]               
+                                        |          [0]: "CalculationNode"       
+                                        |          [1]: "CalculationNode"       
+                                        |        semantic_functions [0]         
+                                        |    goal                               
+                                        |      kind: "reach_state"              
+                                        |      target: "Answer.state.result"    
+                                        |    transitions [2]                    
+                                        | ▸    [0]                              
+                                        |        transition_id: "Base-1-result" 
+                                        |        source: "CalculationDependency…
+                                        |        relation: "ResultTransition"   
+1:Source 2:Surface 3:Semantic 4:IR* 5:Plan | ?:help q:quit | line 2 | 3 declara…

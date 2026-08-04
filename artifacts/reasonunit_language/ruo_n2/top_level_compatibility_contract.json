@@ -1,0 +1,16 @@
+{
+  "data": {
+    "active": [
+      "model",
+      "module"
+    ],
+    "reason_object_top_level": "rejected",
+    "reserved": [
+      "world",
+      "system",
+      "component"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-top-level-compatibility-contract/1.0"
+}

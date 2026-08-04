@@ -1,0 +1,9 @@
+{
+  "data": {
+    "acyclic": true,
+    "children_preserve_identity_state_evidence": true,
+    "minimum_children": 1
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-composite-reasonunit-contract/1.0"
+}

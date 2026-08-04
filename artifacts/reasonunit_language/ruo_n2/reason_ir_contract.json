@@ -1,0 +1,30 @@
+{
+  "data": {
+    "forbidden": [
+      "native_handle",
+      "pointer",
+      "worker_id",
+      "absolute_path"
+    ],
+    "typed_operations": [
+      "object_id",
+      "snapshot",
+      "resolve",
+      "query",
+      "begin",
+      "apply",
+      "validate",
+      "commit",
+      "rollback",
+      "select",
+      "materialize",
+      "project",
+      "save",
+      "tensor_view",
+      "status",
+      "diagnostics"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-reason-ir-contract/1.0"
+}

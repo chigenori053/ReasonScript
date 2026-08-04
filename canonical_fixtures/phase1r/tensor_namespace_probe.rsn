@@ -1,0 +1,5 @@
+module TensorNamespaceProbe {
+  calculation Answer {
+    result = tensor.create([[1.0, 2.0], [3.0, 4.0]], "f64")
+  }
+}

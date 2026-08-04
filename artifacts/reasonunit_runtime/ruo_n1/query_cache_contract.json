@@ -1,0 +1,14 @@
+{
+  "data": {
+    "key": [
+      "object_id",
+      "generation",
+      "profile",
+      "selector",
+      "resource_status"
+    ],
+    "semantic": false
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-query-cache-contract/1.0"
+}

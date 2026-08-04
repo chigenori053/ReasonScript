@@ -1,0 +1,16 @@
+{
+  "data": {
+    "confidence": "runtime-specific",
+    "identity": "URI/string references by subsystem",
+    "known_loss": "Evidence is not a language-native universal ReasonUnit field.",
+    "revision_invalidation": "undefined outside subsystem-specific behavior",
+    "serialization": "Dynamic proposal refs survive canonical JSONL serialization",
+    "storage": [
+      "dynamic proposal evidence_refs",
+      "reasoning runtime evidence/check artifacts",
+      "project artifacts"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-evidence-baseline/1.0"
+}

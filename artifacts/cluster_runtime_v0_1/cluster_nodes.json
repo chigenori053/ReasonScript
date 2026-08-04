@@ -1,0 +1,26 @@
+{
+  "nodes": [
+    {
+      "node_id": "coordinator-0",
+      "role": "coordinator",
+      "status": "completed"
+    },
+    {
+      "completed_tasks": [
+        "task_0001",
+        "task_0002"
+      ],
+      "node_id": "worker-0",
+      "role": "worker",
+      "status": "ready"
+    },
+    {
+      "completed_tasks": [],
+      "node_id": "worker-1",
+      "role": "worker",
+      "status": "ready"
+    }
+  ],
+  "run_id": "cluster_run_344f817e017bbbeb",
+  "schema_version": "reasonscript-cluster-nodes/0.1"
+}

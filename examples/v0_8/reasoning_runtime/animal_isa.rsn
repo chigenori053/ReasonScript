@@ -1,0 +1,9 @@
+module AnimalReasoning {
+  fn IsAnimal() -> bool {
+    return true
+  }
+
+  calculation Answer {
+    result = IsAnimal()
+  }
+}

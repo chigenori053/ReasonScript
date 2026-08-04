@@ -1,0 +1,8 @@
+{
+  "data": {
+    "index_used_as_identity": false,
+    "tensor_semantics_retained": true
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-tensor-migration-report/1.0"
+}

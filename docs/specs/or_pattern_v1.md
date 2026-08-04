@@ -1,6 +1,6 @@
-# ReasonScript Or Pattern Specification v1.0
+# ReasonScript Or Pattern Specification v1.1
 
-Specification ID: `or-pattern/1.0`
+Specification ID: `or-pattern/1.1`
 
 Phase: MSI-008
 
@@ -25,7 +25,22 @@ matching, exhaustiveness metadata, simulation evidence, and knowledge evidence.
 ## IR Metadata
 
 OR arms lower to `OrPatternIRNode` metadata with deterministic `alternatives`,
-`selected_index`, and `alternative_count` fields.
+`selected_index`, `selected_pattern`, and `alternative_count` fields.
+
+ExecutionPlan, Simulation, and Knowledge preserve the same selected-pattern
+metadata:
+
+```json
+{
+  "selected_index": 1,
+  "selected_pattern": "Color.Blue",
+  "alternative_count": 2
+}
+```
+
+Runtime artifacts serialize only the selected canonical path, such as
+`Score.match.Color.Blue`; the OR expression itself is retained only as semantic
+metadata for auditability.
 
 ## Acceptance
 

@@ -1,0 +1,33 @@
+{
+  "data": {
+    "dangling_relation_behavior": "Validator/scenario specific; no language-wide rule.",
+    "vocabularies": [
+      {
+        "direction": "parent_to_child",
+        "evidence_required": false,
+        "multiplicity": "many",
+        "ownership": "none_inferred",
+        "scope": "cluster_specific",
+        "type": "parent_unit_ids"
+      },
+      {
+        "direction": "unit_to_state",
+        "evidence_required": false,
+        "multiplicity": "many",
+        "ownership": "none_inferred",
+        "scope": "cluster_specific",
+        "type": "input_refs"
+      },
+      {
+        "direction": "typed",
+        "evidence_required": false,
+        "multiplicity": "model_defined",
+        "ownership": "none_inferred",
+        "scope": "runtime_specific",
+        "type": "GraphRelation/TransitionOp"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-relation-baseline/1.0"
+}

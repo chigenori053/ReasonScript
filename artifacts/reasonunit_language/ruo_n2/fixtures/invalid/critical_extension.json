@@ -1,0 +1,5 @@
+{
+  "case_id": "critical_extension",
+  "expected": "rejected",
+  "published_partial_target": false
+}

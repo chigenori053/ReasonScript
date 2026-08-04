@@ -1,0 +1,18 @@
+{
+  "data": {
+    "examples": [
+      "minimal.rsn",
+      "molecular.rsn",
+      "partial_loading.rsn",
+      "runtime_projection.rsn",
+      "tensor_view.rsn",
+      "transaction.rsn",
+      "vehicle.rsn"
+    ],
+    "implemented_classes": 20,
+    "object_id": "ruo:object:universal-fixture",
+    "required_classes": 20
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-language-fixture-manifest/1.0"
+}

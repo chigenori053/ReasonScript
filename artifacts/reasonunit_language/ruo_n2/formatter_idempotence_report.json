@@ -1,0 +1,10 @@
+{
+  "data": {
+    "examples": 7,
+    "existing_unchanged": true,
+    "failed": 0,
+    "passed": 7
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-formatter-idempotence-report/1.0"
+}

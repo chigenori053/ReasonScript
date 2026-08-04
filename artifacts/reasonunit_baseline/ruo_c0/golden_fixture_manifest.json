@@ -1,0 +1,127 @@
+{
+  "data": {
+    "fixtures": [
+      {
+        "class": "minimal_atomic",
+        "expected": "deterministic",
+        "id": "minimal-atomic",
+        "units": [
+          {
+            "id": "unit:atomic:001",
+            "state": "ready",
+            "type": "symbolic"
+          }
+        ]
+      },
+      {
+        "class": "related",
+        "id": "related-units",
+        "relations": [
+          {
+            "source": "unit:related:source",
+            "target": "unit:related:target",
+            "type": "depends_on"
+          }
+        ],
+        "units": [
+          {
+            "id": "unit:related:source"
+          },
+          {
+            "id": "unit:related:target"
+          }
+        ]
+      },
+      {
+        "class": "stateful",
+        "id": "stateful-unit",
+        "invalid_proposal": "unknown",
+        "pre_state": "ready",
+        "rollback_state": "ready",
+        "valid_proposal": "active"
+      },
+      {
+        "class": "evidence_carrying",
+        "evidence_refs": [
+          "evidence:fixture:001"
+        ],
+        "explanation_ref": "explanation:fixture:001",
+        "id": "evidence-unit",
+        "unit_id": "unit:evidence:001"
+      },
+      {
+        "class": "lifecycle",
+        "id": "lifecycle-unit",
+        "states": [
+          "proposed",
+          "validated",
+          "active",
+          "suspended",
+          "reactivated",
+          "replaced",
+          "pruned"
+        ]
+      },
+      {
+        "class": "cluster_executed",
+        "evidence": "artifacts/dynamic_reason_unit_cluster_v0_1/dynamic_unit_manifest.json",
+        "id": "cluster-unit"
+      },
+      {
+        "class": "tensor_associated",
+        "id": "tensor-unit",
+        "tensor_ref": "artifacts/phase_1r/tensor_inference_probe/tensor_metadata.json",
+        "unit_id": "unit:tensor:001"
+      },
+      {
+        "class": "molecular_structured",
+        "evidence": "ClusterRuntime/src/dynamic/test_model.rs",
+        "id": "molecular-unit",
+        "scenario": "molecular-dynamic"
+      }
+    ],
+    "invalid_fixtures": [
+      {
+        "id": "invalid-duplicate-identity",
+        "kind": "duplicate_identity"
+      },
+      {
+        "id": "invalid-dangling-relation",
+        "kind": "dangling_relation"
+      },
+      {
+        "id": "invalid-state",
+        "kind": "invalid_state"
+      },
+      {
+        "id": "invalid-lifecycle",
+        "kind": "illegal_lifecycle_transition"
+      },
+      {
+        "id": "invalid-conflict",
+        "kind": "state_conflict"
+      },
+      {
+        "id": "invalid-evidence",
+        "kind": "invalid_evidence_reference"
+      },
+      {
+        "id": "invalid-resource-limit",
+        "kind": "resource_limit"
+      },
+      {
+        "id": "invalid-digest",
+        "kind": "corrupted_artifact_digest"
+      }
+    ],
+    "ordering": "fixture id",
+    "source": {
+      "available": true,
+      "bytes": 1985,
+      "path": "tests/reasonunit_baseline/fixtures/representative_fixtures.json",
+      "sha256": "sha256:85e2a90ee32cd575060a4037bf7fa6960b27f5525e794b03eda3f2daab73c2d8"
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-golden-fixture-manifest/1.0"
+}

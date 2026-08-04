@@ -1,0 +1,14 @@
+{
+  "data": {
+    "canonical_only_after_materialization": true,
+    "derived": true,
+    "runtime_strides_allowed": true,
+    "source": [
+      "tensor_id",
+      "revision",
+      "logical_digest"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-tensor-view-contract/1.0"
+}

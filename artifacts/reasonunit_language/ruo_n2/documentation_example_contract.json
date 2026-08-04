@@ -1,0 +1,18 @@
+{
+  "data": {
+    "examples": [
+      "minimal.rsn",
+      "molecular.rsn",
+      "partial_loading.rsn",
+      "runtime_projection.rsn",
+      "tensor_view.rsn",
+      "transaction.rsn",
+      "vehicle.rsn"
+    ],
+    "intelligence_claim": false,
+    "offline": true,
+    "relative_paths": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-documentation-example-contract/1.0"
+}

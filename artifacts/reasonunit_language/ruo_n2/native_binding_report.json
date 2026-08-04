@@ -1,0 +1,60 @@
+{
+  "data": {
+    "native_provenance": "reasonscript-reasonunit-native-runtime/1.0",
+    "python_core_semantic_dependency": 0,
+    "results": [
+      {
+        "binding_id": "ruo-binding:f1fd5e22ee471126c7d39b11",
+        "binding_name": "vehicle",
+        "capability_decision": "filesystem_read:allowed",
+        "load_mode": "strict",
+        "load_profile": "eager_verified",
+        "native_execution_provenance": "reasonscript-reasonunit-native-runtime/1.0",
+        "native_result": {
+          "entity_ids": [
+            "ruo:evidence:observation",
+            "ruo:extension:project",
+            "ruo:payload:abstract",
+            "ruo:payload:binary",
+            "ruo:payload:graph",
+            "ruo:payload:numeric",
+            "ruo:payload:scalar",
+            "ruo:payload:spatial",
+            "ruo:payload:temporal",
+            "ruo:payload:tensor",
+            "ruo:payload:text",
+            "ruo:projection:69ff29e8df0b14d32a242448",
+            "ruo:relation:text-numeric",
+            "ruo:revision:0",
+            "ruo:state:committed",
+            "ruo:unit:abstract",
+            "ruo:unit:numeric",
+            "ruo:unit:root",
+            "ruo:unit:text"
+          ],
+          "exit_status": 0,
+          "logical_object_digest": "sha256:8be9a4f4e285297ffd6733be986c1713c0a1e538603f3f122ebaac7164830ef5",
+          "native_execution_provenance": "reasonscript-reasonunit-native-runtime/1.0",
+          "object_id": "ruo:object:universal-fixture",
+          "ok": true,
+          "operation": "load",
+          "resource_status": "metadata_verified",
+          "revision_id": "ruo:revision:0",
+          "snapshot_generation": 1
+        },
+        "object_id": "ruo:object:universal-fixture",
+        "revision_id": "ruo:revision:0",
+        "snapshot_generation": 1,
+        "source_span": {
+          "end_column": 34,
+          "end_line": 5,
+          "node_type": "SourceSpanNode",
+          "start_column": 1,
+          "start_line": 2
+        }
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-native-binding-report/1.0"
+}

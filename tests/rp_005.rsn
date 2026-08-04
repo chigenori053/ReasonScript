@@ -1,0 +1,12 @@
+module Test {
+    fn Score(score: int, passed: bool) -> int {
+        match score {
+            80..100 when passed => return 1
+            default => return 0
+        }
+    }
+
+    calculation Result {
+        result = Score(90, true)
+    }
+}

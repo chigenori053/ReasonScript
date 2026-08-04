@@ -1,0 +1,108 @@
+{
+  "schema_version": "reasonscript-reasoning-evaluation-report/1.0",
+  "report_id": "report_CalculationChain.ReasoningModel_eval_001",
+  "model_ref": {
+    "model_id": "CalculationChain.ReasoningModel",
+    "model_schema_version": "reasonscript-reasoning-model/1.0",
+    "source_id": "calculation_chain"
+  },
+  "evaluation_target_ref": {
+    "target_id": "eval_001",
+    "goal": "B.state.result",
+    "required_checks": [
+      "reachability",
+      "determinism",
+      "evidence_completeness",
+      "consistency"
+    ]
+  },
+  "summary": {
+    "status": "passed",
+    "passed": true,
+    "required_checks_passed": true,
+    "total_checks": 4,
+    "passed_checks": 4,
+    "failed_checks": 0,
+    "warning_checks": 0,
+    "fatal_diagnostics": 0
+  },
+  "checks": [
+    {
+      "check_id": "check_reachability",
+      "check_type": "reachability",
+      "required": true,
+      "status": "passed",
+      "passed": true,
+      "message": "Selected reasoning path reaches the evaluation goal.",
+      "evidence_refs": [
+        "path_main",
+        "step-2"
+      ],
+      "details": {
+        "goal": "B.state.result",
+        "matched_by": "reasoning_step",
+        "matched_ref": "step-2",
+        "reachable": true,
+        "selected_path_id": "path_main"
+      }
+    },
+    {
+      "check_id": "check_determinism",
+      "check_type": "determinism",
+      "required": true,
+      "status": "passed",
+      "passed": true,
+      "message": "ReasoningModel artifact is deterministically representable.",
+      "evidence_refs": [
+        "CalculationChain.ReasoningModel"
+      ],
+      "details": {
+        "canonical_serialization_stable": true,
+        "duplicate_ids": [],
+        "stable_ids": true
+      }
+    },
+    {
+      "check_id": "check_evidence_completeness",
+      "check_type": "evidence_completeness",
+      "required": true,
+      "status": "passed",
+      "passed": true,
+      "message": "Knowledge emissions include complete evidence paths.",
+      "evidence_refs": [
+        "K001",
+        "K002",
+        "step-1",
+        "step-2"
+      ],
+      "details": {
+        "invalid_path_signatures": [],
+        "invalid_source_step_refs": [],
+        "knowledge_emissions_checked": 2,
+        "missing_evidence_paths": [],
+        "missing_evidence_refs": [],
+        "steps_checked": 2
+      }
+    },
+    {
+      "check_id": "check_consistency",
+      "check_type": "consistency",
+      "required": true,
+      "status": "passed",
+      "passed": true,
+      "message": "ReasoningModel artifact is structurally consistent.",
+      "evidence_refs": [
+        "path_main"
+      ],
+      "details": {
+        "fatal_model_diagnostics": 0,
+        "input_relations_valid": true,
+        "selected_path_count": 1,
+        "selected_path_valid": true,
+        "unknown_path_signatures": [],
+        "unknown_required_checks": []
+      }
+    }
+  ],
+  "diagnostics": []
+}

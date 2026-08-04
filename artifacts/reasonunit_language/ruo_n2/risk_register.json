@@ -1,0 +1,72 @@
+{
+  "data": {
+    "risks": [
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "binding-object-identity"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "declaration-order"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "grammar-ambiguity"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "path-escape"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "compile-runtime-confusion"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "python-fallback"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "opaque-type-leak"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "snapshot-mutation"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "hidden-transaction"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "implicit-overwrite"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "partial-collapse"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "diagnostic-span-loss"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "formatter-instability"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "cli-divergence"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "syntax-regression"
+      },
+      {
+        "classification": "resolved_by_n2_language_cli_contract",
+        "risk": "reserved-world-activation"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-risk-register/1.0"
+}

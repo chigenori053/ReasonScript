@@ -1,0 +1,9 @@
+module DuplicateSymbol {
+  calculation Answer {
+    result = 1
+  }
+
+  calculation Answer {
+    result = 2
+  }
+}

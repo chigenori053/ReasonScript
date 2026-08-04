@@ -1,0 +1,5 @@
+{
+  "case_id": "invalid_ruo_seal",
+  "expected": "rejected",
+  "partial_commit_count": 0
+}

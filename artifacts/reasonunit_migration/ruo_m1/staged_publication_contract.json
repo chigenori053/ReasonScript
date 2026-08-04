@@ -1,0 +1,9 @@
+{
+  "data": {
+    "allow_write_required": true,
+    "atomic_replace": true,
+    "precondition": "validated"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-staged-publication-contract/1.0"
+}

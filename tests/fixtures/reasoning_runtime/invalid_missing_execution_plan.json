@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "source_file": "invalid_missing_execution_plan.rsn",
+  "diagnostics": [],
+  "artifacts": {
+    "reason_ir": {
+      "schema_version": "reason-ir/0.1",
+      "initial_state": {
+        "state_id": "FixtureStart",
+        "data": {
+          "module": "Fixture"
+        }
+      },
+      "metadata": {
+        "module": "Fixture"
+      },
+      "transitions": []
+    },
+    "simulation": {},
+    "knowledge": {}
+  }
+}

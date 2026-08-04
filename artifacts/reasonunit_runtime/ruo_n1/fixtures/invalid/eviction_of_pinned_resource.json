@@ -1,0 +1,5 @@
+{
+  "case_id": "eviction_of_pinned_resource",
+  "expected": "rejected",
+  "partial_commit_count": 0
+}

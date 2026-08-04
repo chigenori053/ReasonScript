@@ -1,0 +1,7 @@
+{
+  "category": "Valid",
+  "expected": "pass",
+  "id": "GT-001",
+  "language_version": "0.5",
+  "name": "single_calculation"
+}

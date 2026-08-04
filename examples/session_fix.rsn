@@ -1,6 +1,13 @@
-goal preserve_session_consistency
-derive identify_transition_gap
-prove deterministic_state_transition
-apply patch_session_machine
-converge verify_repl_stability
-rollback previous_safe_state
+module SessionFix {
+  fn PatchSessionMachine(gap: int) -> int {
+    return gap + 1
+  }
+
+  calculation TransitionGap {
+    result = 1
+  }
+
+  calculation StableState {
+    result = PatchSessionMachine(TransitionGap)
+  }
+}

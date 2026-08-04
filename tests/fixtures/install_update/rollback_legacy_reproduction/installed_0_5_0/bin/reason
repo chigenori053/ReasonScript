@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+import json
+import sys
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+current = json.loads((root / "metadata/current.json").read_text(encoding="utf-8"))
+version = current["active_version"]
+command = next((arg for arg in sys.argv[1:] if arg != "--json"), "--version")
+status = "healthy" if command == "doctor" else "pass"
+print(json.dumps({"status": status, "reason_version": version, "launcher_path": str(root / "versions" / version / "reason")}))

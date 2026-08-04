@@ -1,0 +1,20 @@
+{
+  "data": {
+    "ordering": "stable_identity",
+    "queries": [
+      "unit_by_id",
+      "owner_of_unit",
+      "containment_parent_and_children",
+      "state_owner_and_committed_state",
+      "internal_and_external_relations",
+      "supporting_evidence",
+      "lifecycle",
+      "dependencies_and_invalidation",
+      "execution_eligible_units",
+      "tensor_index_to_unit_id",
+      "revision_diff"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-query-compatibility-contract/1.0"
+}

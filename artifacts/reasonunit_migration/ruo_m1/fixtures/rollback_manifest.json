@@ -1,0 +1,7 @@
+{
+  "plan_digest": "sha256:normalized-migration-plan",
+  "previous": "<authorized-root>/previous",
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "target": "<authorized-root>/target",
+  "verification": "reason object migrate status"
+}

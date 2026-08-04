@@ -1,0 +1,14 @@
+{
+  "data": {
+    "canonical_nonfinite": "rejected",
+    "profile_id": "ruo.payload.binary-ref/1",
+    "requires": [
+      "media_type",
+      "byte_size",
+      "digest",
+      "locator_policy"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-binary-reference-payload-profile/1.0"
+}

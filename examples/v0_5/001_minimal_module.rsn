@@ -1,0 +1,5 @@
+module Minimal {
+  calculation Answer {
+    result = 42
+  }
+}

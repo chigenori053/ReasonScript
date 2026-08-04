@@ -1,0 +1,19 @@
+{
+  "schema_version": "reasonscript-reasoning-runtime-prototype/1.0",
+  "source_ref": {
+    "source_id": "invalid_missing_run_id",
+    "source_kind": "fixture"
+  },
+  "pipeline_status": {
+    "status": "failed",
+    "parser_passed": true,
+    "reason_ir_available": false,
+    "execution_plan_available": false,
+    "simulation_available": false,
+    "knowledge_available": false,
+    "diagnostics_count": 1
+  },
+  "reasoning_model": {},
+  "evaluation_report": {},
+  "diagnostics": []
+}

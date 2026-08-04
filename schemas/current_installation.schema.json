@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-current-installation/1.0",
+  "type": "object",
+  "required": ["schema_version", "active_version", "previous_version", "activation_status"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-current-installation/1.0"},
+    "active_version": {"type": "string"},
+    "previous_version": {"type": ["string", "null"]},
+    "activation_status": {"enum": ["active", "activating", "rollback"]}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,54 @@
+{
+  "specification": "pattern-identity-normalization/1.0",
+  "status": "Draft",
+  "coverage": [
+    {
+      "id": "PIN-001",
+      "feature": "Enum Pattern Identity",
+      "expected": "deterministic pattern_identity",
+      "status": "PASS"
+    },
+    {
+      "id": "PIN-002",
+      "feature": "Struct Pattern Identity",
+      "expected": "deterministic pattern_identity",
+      "status": "PASS"
+    },
+    {
+      "id": "PIN-003",
+      "feature": "Optional Pattern Identity",
+      "expected": "deterministic pattern_identity",
+      "status": "PASS"
+    },
+    {
+      "id": "PIN-004",
+      "feature": "Nested Pattern Identity",
+      "expected": "deterministic pattern_identity",
+      "status": "PASS"
+    },
+    {
+      "id": "PIN-005",
+      "feature": "Guard Pattern Identity",
+      "expected": "deterministic pattern_identity",
+      "status": "PASS"
+    },
+    {
+      "id": "PIN-006",
+      "feature": "OR Pattern Identity",
+      "expected": "selected alternative only",
+      "status": "PASS"
+    },
+    {
+      "id": "PIN-007",
+      "feature": "Repeated compilation",
+      "expected": "identical pattern_identity",
+      "status": "PASS"
+    },
+    {
+      "id": "PIN-AUDIT-001",
+      "feature": "Cross-artifact consistency",
+      "expected": "ExecutionPlan, Simulation, and Knowledge expose identical identity",
+      "status": "PASS"
+    }
+  ]
+}

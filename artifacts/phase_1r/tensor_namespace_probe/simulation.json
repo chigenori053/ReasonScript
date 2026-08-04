@@ -1,0 +1,51 @@
+{
+  "data": {
+    "loop_trace": [],
+    "tensor_trace": [
+      {
+        "diagnostics": [],
+        "function_id": "tensor.create",
+        "inputs": [
+          [
+            [
+              1.0,
+              2.0
+            ],
+            [
+              3.0,
+              4.0
+            ]
+          ],
+          "f64"
+        ],
+        "lowered_operations": [
+          "tensor.create"
+        ],
+        "operation_id": "op_tensor_call_001",
+        "operation_type": "standard_function_call",
+        "output": {
+          "backend": "python",
+          "device": "cpu",
+          "dtype": "f64",
+          "shape": [
+            2,
+            2
+          ],
+          "tensor_id": "tensor_0001"
+        },
+        "semantic_operation": "tensor.create",
+        "source_ref": {
+          "column": null,
+          "line": null
+        },
+        "status": "success",
+        "step_id": "step_0001"
+      }
+    ]
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "simulation/0.5",
+  "version": "1.0"
+}

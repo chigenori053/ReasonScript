@@ -1,0 +1,35 @@
+{
+  "data": {
+    "codes": [
+      "RUO-N2-001",
+      "RUO-N2-002",
+      "RUO-N2-003",
+      "RUO-N2-004",
+      "RUO-N2-005",
+      "RUO-N2-006",
+      "RUO-N2-007",
+      "RUO-N2-008",
+      "RUO-N2-009",
+      "RUO-N2-010",
+      "RUO-N2-011",
+      "RUO-N2-012",
+      "RUO-N2-013",
+      "RUO-N2-014",
+      "RUO-N2-015",
+      "RUO-N2-016",
+      "RUO-N2-017",
+      "RUO-N2-018",
+      "RUO-N2-019",
+      "RUO-N2-020",
+      "RUO-N2-021",
+      "RUO-N2-022",
+      "RUO-N2-023",
+      "RUO-N2-024"
+    ],
+    "native_chain_preserved": true,
+    "ordering": "deterministic",
+    "source_span_preserved": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-diagnostic-contract/1.0"
+}

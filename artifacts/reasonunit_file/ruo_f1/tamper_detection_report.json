@@ -1,0 +1,15 @@
+{
+  "data": {
+    "classes": [
+      "single_byte",
+      "record_order",
+      "section",
+      "seal",
+      "external_resource"
+    ],
+    "detected": 5,
+    "undetected": 0
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-tamper-detection-report/1.0"
+}

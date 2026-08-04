@@ -1,0 +1,9 @@
+module CalculationDependency {
+  calculation Base {
+    result = 21
+  }
+
+  calculation Answer {
+    result = Base * 2
+  }
+}

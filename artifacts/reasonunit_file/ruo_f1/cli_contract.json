@@ -1,0 +1,18 @@
+{
+  "data": {
+    "command": "reason reasonunit-file",
+    "json": true,
+    "offline_validate": true,
+    "operations": [
+      "write",
+      "validate",
+      "inspect",
+      "read",
+      "select",
+      "verify-resources"
+    ],
+    "success_exit": 0
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-cli-contract/1.0"
+}

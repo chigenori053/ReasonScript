@@ -1,0 +1,5 @@
+{
+  "case_id": "invalid_selector",
+  "expected": "rejected",
+  "published_partial_target": false
+}

@@ -1,0 +1,9 @@
+{
+  "data": {
+    "resume_rejects_changed_source": true,
+    "same_logical_digest": true,
+    "same_plan_digest": true
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-idempotency-report/1.0"
+}

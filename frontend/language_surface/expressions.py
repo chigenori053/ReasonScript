@@ -37,6 +37,7 @@ from .nodes import (
     PatternNode,
     QualifiedPatternNode,
     QualifiedIdentifierNode,
+    RangePatternNode,
     StringLiteralNode,
     SomeExpressionNode,
     StructBindingPatternNode,
@@ -75,6 +76,7 @@ class _Kind(str, Enum):
     COLON = "colon"
     DOT = "dot"
     QUALIFIER = "qualifier"
+    ASSIGN = "assign"
     EOF = "eof"
 
 
@@ -127,8 +129,11 @@ def parse_pattern(source: str, depth: int = 0) -> PatternNode:
                 tuple(parse_pattern(alternative, depth + 1).pattern for alternative in alternatives)
             )
         )
+    range_pattern = _parse_range_pattern(text)
+    if range_pattern is not None:
+        return PatternNode(range_pattern)
     if ".." in text:
-        raise ExpressionSyntaxError("PT-203 range patterns are not supported in LSI-200")
+        raise ExpressionSyntaxError("RP-001 invalid range pattern")
     if text.startswith("(") and text.endswith(")") and "," in text:
         raise ExpressionSyntaxError("PT-204 destructuring patterns are not supported in LSI-200")
     if "{" in text or "}" in text:
@@ -180,6 +185,36 @@ def _parse_struct_pattern(source: str, depth: int) -> PatternNode:
     if not parser.at_end():
         raise ExpressionSyntaxError("SP-002 NP-002 unexpected token after struct pattern")
     return PatternNode(pattern)
+
+
+def _parse_range_pattern(source: str) -> RangePatternNode | None:
+    match = re.fullmatch(
+        r"([+-]?\d+(?:\.\d+)?)\s*(\.\.<|\.\.)\s*([+-]?\d+(?:\.\d+)?)",
+        source,
+    )
+    if not match:
+        return None
+    lower_text, operator, upper_text = match.groups()
+    lower = _range_literal(lower_text)
+    upper = _range_literal(upper_text)
+    if type(lower) is not type(upper):
+        raise ExpressionSyntaxError("RP-001 range endpoints must have identical numeric types")
+    if lower.value > upper.value:
+        raise ExpressionSyntaxError("RP-003 InvalidRange")
+    if lower.value == upper.value and operator == "..<":
+        raise ExpressionSyntaxError("RP-003 InvalidRange")
+    return RangePatternNode(
+        lower,
+        upper,
+        lower_inclusive=True,
+        upper_inclusive=operator == "..",
+    )
+
+
+def _range_literal(source: str) -> IntegerLiteralNode | FloatLiteralNode:
+    if "." in source:
+        return FloatLiteralNode(float(source))
+    return IntegerLiteralNode(int(source))
 
 
 def _split_or_pattern(source: str) -> list[str]:
@@ -559,6 +594,7 @@ class _Parser:
     def _call(self, callee: Expression) -> Expression:
         self.take()
         arguments: list[Expression] = []
+        named_arguments: set[str] = set()
         if self.current.kind == _Kind.RIGHT_PAREN:
             self.take()
             if isinstance(callee, IdentifierNode) and callee.name == "some":
@@ -567,6 +603,22 @@ class _Parser:
         while True:
             if self.current.kind in {_Kind.COMMA, _Kind.EOF}:
                 raise ExpressionSyntaxError("EX-V004 invalid call argument")
+            if self.current.kind == _Kind.IDENTIFIER and self._next_kind() == _Kind.ASSIGN:
+                name = self.take().value
+                self.take()
+                function = _tensor_callee_name(callee)
+                positions = {
+                    "tensor.create": ("values", "dtype", "device"),
+                    "tensor.softmax": ("input", "axis"),
+                    "tensor.linear": ("input", "weight", "bias"),
+                }
+                if function not in positions or name not in positions[function]:
+                    raise ExpressionSyntaxError(f"TSF-016 unsupported Tensor argument: {name}")
+                if name in named_arguments:
+                    raise ExpressionSyntaxError(f"TSF-016 duplicate Tensor argument: {name}")
+                if positions[function].index(name) != len(arguments):
+                    raise ExpressionSyntaxError(f"TSF-016 Tensor named argument is out of order: {name}")
+                named_arguments.add(name)
             arguments.append(self.parse(0))
             if self.current.kind == _Kind.RIGHT_PAREN:
                 self.take()
@@ -658,6 +710,7 @@ def _tokenize(source: str) -> tuple[_Token, ...]:
             ":": _Kind.COLON,
             ",": _Kind.COMMA,
             ".": _Kind.DOT,
+            "=": _Kind.ASSIGN,
         }.get(char)
         if kind:
             tokens.append(_Token(kind, char, index))
@@ -672,6 +725,16 @@ def _tokenize(source: str) -> tuple[_Token, ...]:
         raise ExpressionSyntaxError(f"unsupported expression character {char!r}")
     tokens.append(_Token(_Kind.EOF, "", len(source)))
     return tuple(tokens)
+
+
+def _tensor_callee_name(callee: Expression) -> str | None:
+    if (
+        isinstance(callee, MemberAccessNode)
+        and isinstance(callee.object, IdentifierNode)
+        and callee.object.name == "tensor"
+    ):
+        return f"tensor.{callee.member}"
+    return None
 
 
 def _decode_string(source: str) -> str:

@@ -23,6 +23,8 @@ export interface PlatformDiagnostic {
   code?: string;
   severity: DiagnosticSeverity;
   message: string;
+  stage?: string;
+  source_range?: SourceSpan | null;
   span?: SourceSpan;
   source?: string;
   phase: DiagnosticPhase;
@@ -156,11 +158,20 @@ export interface ProjectState {
   reason_ir: unknown;
   execution_plan: unknown;
   diagnostics: PlatformDiagnostic[];
+  views?: unknown;
+  artifacts?: unknown;
+  artifactWorkflow?: unknown;
+  languageAudit?: unknown;
+  pipeline?: unknown;
   validation: unknown;
   analyzer: unknown;
   runtime_operations: unknown;
   simulation: unknown;
   knowledge: unknown;
+  reasoning_runtime?: unknown;
+  reasoning_model?: unknown;
+  reasoning_evaluation_report?: unknown;
+  reasoning_overview?: unknown;
   metadata: ProjectStateMetadata;
   generated_at: string;
 }

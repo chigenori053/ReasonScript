@@ -1,0 +1,28 @@
+{
+  "data": {
+    "ordered_ids": [
+      "ruo:evidence:observation",
+      "ruo:extension:project",
+      "ruo:payload:abstract",
+      "ruo:payload:binary",
+      "ruo:payload:graph",
+      "ruo:payload:numeric",
+      "ruo:payload:scalar",
+      "ruo:payload:spatial",
+      "ruo:payload:temporal",
+      "ruo:payload:tensor",
+      "ruo:payload:text",
+      "ruo:projection:69ff29e8df0b14d32a242448",
+      "ruo:relation:text-numeric",
+      "ruo:revision:0",
+      "ruo:state:committed",
+      "ruo:unit:abstract",
+      "ruo:unit:numeric",
+      "ruo:unit:root",
+      "ruo:unit:text"
+    ],
+    "reference_native_loss": 0
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-query-result-report/1.0"
+}

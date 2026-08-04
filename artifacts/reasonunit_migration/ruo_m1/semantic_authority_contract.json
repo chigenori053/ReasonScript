@@ -1,0 +1,9 @@
+{
+  "data": {
+    "extension": "opaque_lossless",
+    "legacy": "identity_and_semantics",
+    "mapping": "target_representation"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-semantic-authority-contract/1.0"
+}

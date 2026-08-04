@@ -1,0 +1,9 @@
+pytest
+jsonschema
+pydantic
+fastapi
+uvicorn
+ruff
+black
+mypy
+matplotlib>=3.8,<4

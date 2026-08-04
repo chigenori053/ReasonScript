@@ -1,0 +1,119 @@
+{
+  "data": {
+    "artifact_count": 20,
+    "artifacts": [
+      {
+        "bytes": 942,
+        "path": "adapter_semantics_inventory.json",
+        "sha256": "sha256:4dfbf3bded761037f907f3f8eec23fe212ccb836af9194803b1da233fb6969a3"
+      },
+      {
+        "bytes": 6405,
+        "path": "compatibility_risk_register.json",
+        "sha256": "sha256:7d855d11766c177086457793b1b0d6be8228834e3a905b35d226c2e6a810af78"
+      },
+      {
+        "bytes": 243,
+        "path": "diagnostics.json",
+        "sha256": "sha256:a8cd1b736392e94922f7cf7c3c6be047cea1a6c53c3071a3cf027f8523ad3efa"
+      },
+      {
+        "bytes": 6633,
+        "path": "environment_manifest.json",
+        "sha256": "sha256:87f09adf92340611818cefc33612190b35911b000189993353d5ee34b8682b98"
+      },
+      {
+        "bytes": 1559,
+        "path": "final_report.md",
+        "sha256": "sha256:f3cb2569d5c92ef6bdbee7a3121276b26e1fd1d3eda66192f7b4aabd733ea1cf"
+      },
+      {
+        "bytes": 3221,
+        "path": "golden_fixture_manifest.json",
+        "sha256": "sha256:07ac82775d064314cfe6969d147d80c0e9db058222299899b08e8b87bb5016d2"
+      },
+      {
+        "bytes": 2911,
+        "path": "project_evidence_manifest.json",
+        "sha256": "sha256:10a578eed37875cc44fefbc3a1b6702eeb02d7bfdc010549d365d143f888f559"
+      },
+      {
+        "bytes": 1929,
+        "path": "reasoning_representation_metrics.json",
+        "sha256": "sha256:2d2366ff8f8a7538a5921bb076a2219979e5e843c809ee6b82fed98ddb45ea90"
+      },
+      {
+        "bytes": 6133,
+        "path": "reasonunit_contract_inventory.json",
+        "sha256": "sha256:b6d8b87677880b6883dcdda3a0c8e529b059458922f6c7e134183dc892c0da4d"
+      },
+      {
+        "bytes": 637,
+        "path": "reasonunit_evidence_baseline.json",
+        "sha256": "sha256:0047d3186d31c1f846b7726c62afb8ef383f307c980ff22d57fc27eff83a6ce9"
+      },
+      {
+        "bytes": 842,
+        "path": "reasonunit_execution_baseline.json",
+        "sha256": "sha256:265963ec5fe0b98b1d23028cfeaf44ecc3b6f2c07103db2a93293d12e5d35ed6"
+      },
+      {
+        "bytes": 1088,
+        "path": "reasonunit_identity_baseline.json",
+        "sha256": "sha256:29f9f85d967990f752d135379c6ff4cb40eb1ed530279f7053b84a9692cb53ac"
+      },
+      {
+        "bytes": 776,
+        "path": "reasonunit_lifecycle_baseline.json",
+        "sha256": "sha256:a012b981ed61a2aafc2e530be9a0ac5cff801aaa700ff4ff6c5a0a6bb38dbf82"
+      },
+      {
+        "bytes": 498,
+        "path": "reasonunit_ownership_baseline.json",
+        "sha256": "sha256:46f9ff8e936fcc2249d0e2af48e8fe9811ef561a112688419c2b03ac657b7b99"
+      },
+      {
+        "bytes": 980,
+        "path": "reasonunit_relation_baseline.json",
+        "sha256": "sha256:63b73440319907f3c925435eb140d1784e4c4226c8e0720b0d5985eb14c4ac13"
+      },
+      {
+        "bytes": 859,
+        "path": "reasonunit_state_baseline.json",
+        "sha256": "sha256:7ad9f07c48c98649365dce30d45dc1a995630b09e1489efe6bc16a93ca211e6c"
+      },
+      {
+        "bytes": 715,
+        "path": "reasonunit_tensor_baseline.json",
+        "sha256": "sha256:0d4ca210f409869adc34766b98119dec55ae4cfc870680f294df9e3bafd66da9"
+      },
+      {
+        "bytes": 3201,
+        "path": "undefined_semantics_register.json",
+        "sha256": "sha256:d6c7df1196d0f7c53c39647267ed04df9d4a8d4a1cdc440dd53ea43094b2bc0e"
+      },
+      {
+        "bytes": 6188,
+        "path": "validation_summary.json",
+        "sha256": "sha256:c6a9cb7fbf0686d2a7527104befb1009157300cdc6680ca97253a4e27593b6ff"
+      },
+      {
+        "bytes": null,
+        "digest_scope": "canonical data object before self entry",
+        "path": "run_manifest.json",
+        "sha256": "sha256:7f5d1a0495c7e09cdfff69caab47c71d8205ec4048e105dfd2fc5bf6d26eaf76"
+      }
+    ],
+    "canonicalization": {
+      "encoding": "UTF-8",
+      "json_keys": "sorted",
+      "line_endings": "LF",
+      "non_finite_numbers": "rejected",
+      "unstable_environment_fields": "excluded"
+    },
+    "self_digest": "sha256:7f5d1a0495c7e09cdfff69caab47c71d8205ec4048e105dfd2fc5bf6d26eaf76",
+    "self_digest_contract": "run_manifest self digest is SHA-256 of this data object before the run_manifest entry is appended"
+  },
+  "profile_version": "reasonscript-reasonunit-baseline/1.0",
+  "schema_version": "reasonscript-reasonunit-baseline-run-manifest/1.0"
+}

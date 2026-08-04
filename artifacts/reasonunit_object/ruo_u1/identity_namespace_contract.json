@@ -1,0 +1,27 @@
+{
+  "data": {
+    "identity_independent_of": [
+      "order",
+      "containment_position",
+      "tensor_index",
+      "worker",
+      "address",
+      "path",
+      "timestamp"
+    ],
+    "prefixes": [
+      "ruo:object:",
+      "ruo:unit:",
+      "ruo:payload:",
+      "ruo:state:",
+      "ruo:relation:",
+      "ruo:evidence:",
+      "ruo:constraint:",
+      "ruo:revision:",
+      "ruo:transaction:",
+      "ruo:projection:"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-identity-namespace-contract/1.0"
+}

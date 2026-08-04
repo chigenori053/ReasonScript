@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"reasonscript-install-report/1.0","type":"object","required":["schema_version","status","diagnostics"],"properties":{"schema_version":{"const":"reasonscript-install-report/1.0"},"status":{"enum":["success","failure"]},"diagnostics":{"type":"array"}},"additionalProperties":true}

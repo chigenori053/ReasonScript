@@ -1,0 +1,272 @@
+{
+  "data": {
+    "execution_policy": {
+      "constraint_mode": "reject",
+      "max_steps": 128,
+      "rollback_on_failure": true
+    },
+    "goal": {
+      "kind": "reach_state",
+      "target": "Answer.state.result"
+    },
+    "initial_state": {
+      "data": {
+        "declarations": [
+          "CalculationNode"
+        ],
+        "module": "IterativeStateProbe",
+        "namespace": "IterativeStateProbe",
+        "package": null,
+        "semantic_functions": [],
+        "visibility": "Private"
+      },
+      "state_id": "IterativeStateProbeStart",
+      "state_type": "language_surface"
+    },
+    "metadata": {
+      "calculation_dependencies": [],
+      "calculation_order": [
+        "Answer"
+      ],
+      "composite_declarations": [],
+      "const_declarations": [],
+      "enum_symbols": [],
+      "exports": [],
+      "function_calls": [],
+      "function_declarations": [],
+      "function_ir": [],
+      "function_symbols": [],
+      "import_resolution": [],
+      "language_surface": "reasonscript-language-surface/0.1",
+      "module": "IterativeStateProbe",
+      "namespace": "IterativeStateProbe",
+      "package": null,
+      "reasoning_declarations": {
+        "constraints": [],
+        "execution_plans": [],
+        "goals": [],
+        "reason_graphs": [],
+        "states": []
+      },
+      "reasoning_types": [],
+      "runtime_calls": [],
+      "runtime_operations": [],
+      "semantic_functions": []
+    },
+    "planner_policy": {
+      "max_alternatives": 8,
+      "max_depth": 128,
+      "strategy": "minimum_expected_cost"
+    },
+    "schema_version": "reason-ir/0.1",
+    "trace_policy": {
+      "include_alternatives": true,
+      "include_state_data": true,
+      "level": "standard"
+    },
+    "transitions": [
+      {
+        "effect": {
+          "calculation": "Answer",
+          "expression": {
+            "expression": {
+              "node_type": "FloatLiteralNode",
+              "value": 0.0
+            },
+            "node_type": "ExpressionNode"
+          },
+          "function_calls": [],
+          "goal_annotation": null,
+          "inputs": [],
+          "return_type": null,
+          "statement": {
+            "expression": {
+              "expression": {
+                "node_type": "FloatLiteralNode",
+                "value": 0.0
+              },
+              "node_type": "ExpressionNode"
+            },
+            "identifier": "x",
+            "node_type": "LetStatementNode",
+            "type_annotation": null
+          },
+          "target": "x",
+          "visibility": "Private"
+        },
+        "expected_cost": 1.0,
+        "relation": "ExpressionTransition",
+        "source": "IterativeStateProbeStart",
+        "target": "Answer.state.x",
+        "transition_id": "Answer-1-x"
+      },
+      {
+        "effect": {
+          "calculation": "Answer",
+          "function_calls": [],
+          "goal_annotation": null,
+          "inputs": [],
+          "return_type": null,
+          "statement": {
+            "body": [
+              {
+                "expression": {
+                  "expression": {
+                    "left": {
+                      "left": {
+                        "node_type": "FloatLiteralNode",
+                        "value": 0.8
+                      },
+                      "node_type": "BinaryExpressionNode",
+                      "operator": "Multiply",
+                      "right": {
+                        "name": "x",
+                        "node_type": "IdentifierNode"
+                      }
+                    },
+                    "node_type": "BinaryExpressionNode",
+                    "operator": "Add",
+                    "right": {
+                      "node_type": "FloatLiteralNode",
+                      "value": 1.0
+                    }
+                  },
+                  "node_type": "ExpressionNode"
+                },
+                "node_type": "AssignmentStatementNode",
+                "target": "x"
+              }
+            ],
+            "iterable": {
+              "expression": {
+                "elements": [
+                  {
+                    "expression": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 0
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 1
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 2
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 3
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 4
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 5
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 6
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 7
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 8
+                    },
+                    "node_type": "ExpressionNode"
+                  },
+                  {
+                    "expression": {
+                      "node_type": "IntegerLiteralNode",
+                      "value": 9
+                    },
+                    "node_type": "ExpressionNode"
+                  }
+                ],
+                "node_type": "ArrayLiteralNode"
+              },
+              "node_type": "ExpressionNode"
+            },
+            "iterator": "step",
+            "node_type": "ForStatementNode"
+          },
+          "target": "for_2",
+          "visibility": "Private"
+        },
+        "expected_cost": 1.0,
+        "relation": "ForTransition",
+        "source": "Answer.state.x",
+        "target": "Answer.state.for_2",
+        "transition_id": "Answer-2-for_2"
+      },
+      {
+        "effect": {
+          "calculation": "Answer",
+          "expression": {
+            "expression": {
+              "name": "x",
+              "node_type": "IdentifierNode"
+            },
+            "node_type": "ExpressionNode"
+          },
+          "function_calls": [],
+          "goal_annotation": null,
+          "inputs": [
+            "Answer.state.x"
+          ],
+          "return_type": null,
+          "statement": {
+            "expression": {
+              "expression": {
+                "name": "x",
+                "node_type": "IdentifierNode"
+              },
+              "node_type": "ExpressionNode"
+            },
+            "node_type": "ResultStatementNode"
+          },
+          "target": "result",
+          "visibility": "Private"
+        },
+        "expected_cost": 1.0,
+        "relation": "ResultTransition",
+        "source": "Answer.state.for_2",
+        "target": "Answer.state.result",
+        "transition_id": "Answer-3-result"
+      }
+    ]
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reason-ir/0.5",
+  "version": "1.0"
+}

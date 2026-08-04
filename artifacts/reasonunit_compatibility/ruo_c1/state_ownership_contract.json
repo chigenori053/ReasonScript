@@ -1,0 +1,18 @@
+{
+  "data": {
+    "cached_projection_canonical": false,
+    "categories": [
+      "unit_local",
+      "object_shared",
+      "derived",
+      "external_world",
+      "cached_projection",
+      "unknown"
+    ],
+    "derived_source_revisions_required": true,
+    "object_shared_transaction_required": true,
+    "staleness_detectable": true
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-state-ownership-contract/1.0"
+}

@@ -1,0 +1,53 @@
+{
+  "data": {
+    "risks": [
+      {
+        "blocking": false,
+        "classification": "namespaced extension",
+        "risk": "project-local-overgeneralization"
+      },
+      {
+        "blocking": false,
+        "classification": "core contract",
+        "risk": "ordering-identity"
+      },
+      {
+        "blocking": false,
+        "classification": "core contract",
+        "risk": "relation-ownership"
+      },
+      {
+        "blocking": false,
+        "classification": "payload profile",
+        "risk": "ambiguous-reference-frame"
+      },
+      {
+        "blocking": false,
+        "classification": "evidence contract",
+        "risk": "confidence-as-probability"
+      },
+      {
+        "blocking": false,
+        "classification": "partial loading contract",
+        "risk": "partial-as-absence"
+      },
+      {
+        "blocking": false,
+        "classification": "extension contract",
+        "risk": "extension-core-override"
+      },
+      {
+        "blocking": false,
+        "classification": "resource limits",
+        "risk": "excessive-complexity"
+      },
+      {
+        "blocking": false,
+        "classification": "deferred",
+        "risk": "native-execution-claim"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-risk-register/1.0"
+}

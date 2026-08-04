@@ -1,0 +1,10 @@
+{
+  "data": {
+    "physical_integrity_status": "VALID",
+    "publication_before_seal": false,
+    "record_count": 25,
+    "single_pass": true
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-streaming-validation-report/1.0"
+}

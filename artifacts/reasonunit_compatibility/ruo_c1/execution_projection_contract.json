@@ -1,0 +1,110 @@
+{
+  "data": {
+    "reference_projection": {
+      "budget": 10,
+      "dependency_closure": [
+        "unit:alpha",
+        "unit:beta"
+      ],
+      "deterministic_ordering": "unit_id",
+      "excluded_unit_ids": [
+        "unit:suspended"
+      ],
+      "lifecycle_eligibility": {
+        "unit:alpha": true,
+        "unit:beta": true
+      },
+      "not_loaded_unit_ids": [],
+      "priority": 1,
+      "profile": "existing-runtime/1.0",
+      "projection_id": "projection:8b81376448e1db80b1d3a57b",
+      "relation_subset": [
+        {
+          "relation_id": "relation:alpha-beta",
+          "relation_type": "legacy:depends",
+          "source_id": "unit:alpha",
+          "target_id": "unit:beta"
+        }
+      ],
+      "selected_unit_ids": [
+        "unit:alpha",
+        "unit:beta"
+      ],
+      "source_object_id": "object:fixture",
+      "source_object_revision": 0,
+      "state_snapshot_digest": "sha256:5329a04d130499954d812ca1b7cd8df0b5b11646a60fa7452c38a4f100a5989f",
+      "suspended_unit_ids": [],
+      "tensor_index_table": [
+        {
+          "index": 0,
+          "unit_id": "unit:beta"
+        },
+        {
+          "index": 1,
+          "unit_id": "unit:alpha"
+        },
+        {
+          "index": 2,
+          "unit_id": "unit:suspended"
+        }
+      ],
+      "units": [
+        {
+          "children": [],
+          "entity_kind": "atomic_reasonunit",
+          "execution": {
+            "result": "accepted"
+          },
+          "extensions": {},
+          "lifecycle": "active",
+          "ordered_children": true,
+          "owner_object_id": "object:fixture",
+          "parent_unit_id": null,
+          "revision": 2,
+          "role": "legacy",
+          "unit_id": "unit:alpha"
+        },
+        {
+          "children": [],
+          "entity_kind": "atomic_reasonunit",
+          "execution": {},
+          "extensions": {},
+          "lifecycle": "active",
+          "ordered_children": true,
+          "owner_object_id": "object:fixture",
+          "parent_unit_id": null,
+          "revision": 1,
+          "role": "legacy",
+          "unit_id": "unit:beta"
+        }
+      ],
+      "unknown_unit_ids": []
+    },
+    "required_fields": [
+      "source_object_id",
+      "source_object_revision",
+      "projection_id",
+      "profile",
+      "selected_unit_ids",
+      "excluded_unit_ids",
+      "state_snapshot_digest",
+      "relation_subset",
+      "dependency_closure",
+      "budget",
+      "priority",
+      "lifecycle_eligibility",
+      "tensor_index_table",
+      "deterministic_ordering"
+    ],
+    "semantic_distinctions": [
+      "not_loaded!=absent",
+      "inactive!=deleted",
+      "suspended!=invalid",
+      "unknown!=false",
+      "inferred!=observed"
+    ],
+    "storage_view_equals_execution_projection": false
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-execution-projection-contract/1.0"
+}

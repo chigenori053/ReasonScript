@@ -1,0 +1,26 @@
+{
+  "data": {
+    "algorithm": "SHA-256",
+    "excludes": [
+      "locator",
+      "chunks",
+      "device",
+      "backend",
+      "address",
+      "cache"
+    ],
+    "includes": [
+      "profile",
+      "dtype",
+      "shape",
+      "axes",
+      "mappings",
+      "row-major logical values",
+      "validity",
+      "units",
+      "critical extensions"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-logical-tensor-digest-contract/1.0"
+}

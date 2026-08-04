@@ -1,0 +1,60 @@
+{
+  "data": {
+    "cases": [
+      {
+        "actual": "TSF-009",
+        "case": "empty",
+        "expected": "TSF-009",
+        "passed": true
+      },
+      {
+        "actual": "TSF-010",
+        "case": "nan",
+        "expected": "TSF-010",
+        "passed": true
+      },
+      {
+        "actual": "TSF-011",
+        "case": "positive_infinity",
+        "expected": "TSF-011",
+        "passed": true
+      },
+      {
+        "actual": "TSF-011",
+        "case": "negative_infinity",
+        "expected": "TSF-011",
+        "passed": true
+      },
+      {
+        "actual": "TSF-008",
+        "case": "shape_mismatch",
+        "expected": "TSF-008",
+        "passed": true
+      },
+      {
+        "actual": "TSF-005",
+        "case": "invalid_axis",
+        "expected": "TSF-005",
+        "passed": true
+      },
+      {
+        "actual": "TSF-007",
+        "case": "invalid_reshape",
+        "expected": "TSF-007",
+        "passed": true
+      },
+      {
+        "actual": "TSF-012",
+        "case": "non_finite_output",
+        "expected": "TSF-012",
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "reasonscript-diagnostics-validation/0.1",
+  "version": "1.0"
+}

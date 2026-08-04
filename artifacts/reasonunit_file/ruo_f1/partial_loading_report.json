@@ -1,0 +1,23 @@
+{
+  "data": {
+    "complete_object_semantic_status": "INDETERMINATE",
+    "deterministic": true,
+    "selector": {
+      "containment_depth": 1,
+      "containment_roots": [
+        "ruo:unit:root"
+      ],
+      "include_dependency_closure": true,
+      "include_evidence_closure": true
+    },
+    "statuses": {
+      "complete_object_semantic_status": "INDETERMINATE",
+      "external_resource_status": "NOT_VERIFIED",
+      "physical_integrity_status": "VALID",
+      "selected_record_schema_status": "VALID",
+      "selected_view_semantic_status": "VALID"
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-partial-loading-report/1.0"
+}

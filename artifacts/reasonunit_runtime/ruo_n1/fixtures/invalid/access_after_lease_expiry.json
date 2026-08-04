@@ -1,0 +1,5 @@
+{
+  "case_id": "access_after_lease_expiry",
+  "expected": "rejected",
+  "partial_commit_count": 0
+}

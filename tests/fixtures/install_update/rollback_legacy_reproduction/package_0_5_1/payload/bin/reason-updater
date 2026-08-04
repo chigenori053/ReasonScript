@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+import json
+import sys
+from pathlib import Path
+
+_, command, root_value, version, previous = sys.argv
+if command != "activate":
+    raise SystemExit(2)
+root = Path(root_value)
+payload = {
+    "schema_version": "reasonscript-current-installation/1.0",
+    "active_version": version,
+    "previous_version": None if previous == "-" else previous,
+    "activation_status": "active",
+}
+(root / "metadata/current.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

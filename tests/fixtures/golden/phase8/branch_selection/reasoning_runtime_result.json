@@ -1,0 +1,287 @@
+{
+  "schema_version": "reasonscript-reasoning-runtime-prototype/1.0",
+  "run_id": "run_branch_selection",
+  "source_ref": {
+    "source_id": "branch_selection",
+    "source_kind": "reason_script_source",
+    "source_path": "examples/v0_8/reasoning_runtime/branch_selection.rsn"
+  },
+  "pipeline_status": {
+    "status": "passed",
+    "parser_passed": true,
+    "reason_ir_available": true,
+    "execution_plan_available": true,
+    "simulation_available": true,
+    "knowledge_available": true,
+    "diagnostics_count": 0
+  },
+  "reasoning_model": {
+    "diagnostics": [],
+    "evaluation_target": {
+      "expected_relation": {
+        "relation": "ResultTransition",
+        "source": "BranchSelectionStart",
+        "target": "Answer.state.result"
+      },
+      "goal": "Answer.state.result",
+      "required_checks": [
+        "reachability",
+        "determinism",
+        "evidence_completeness",
+        "consistency",
+        "branch_traceability"
+      ],
+      "target_id": "eval_001"
+    },
+    "input_state": {
+      "input_id": "input_branch_selection",
+      "input_kind": "structured_state",
+      "relations": [
+        {
+          "relation_id": "rel_001",
+          "relation_type": "FunctionReturnTransition",
+          "source": "BranchSelectionStart",
+          "target": "Select.return.true"
+        },
+        {
+          "relation_id": "rel_002",
+          "relation_type": "FunctionReturnTransition",
+          "source": "BranchSelectionStart",
+          "target": "Select.return.false"
+        },
+        {
+          "relation_id": "rel_003",
+          "relation_type": "ResultTransition",
+          "source": "Select.return.true",
+          "target": "Answer.state.result"
+        },
+        {
+          "relation_id": "rel_004",
+          "relation_type": "ResultTransition",
+          "source": "Select.return.false",
+          "target": "Answer.state.result"
+        }
+      ],
+      "units": [
+        {
+          "unit_id": "Answer.state.result",
+          "unit_type": "calculation_result",
+          "value": "Answer.state.result"
+        },
+        {
+          "unit_id": "BranchSelectionStart",
+          "unit_type": "state",
+          "value": "BranchSelectionStart"
+        },
+        {
+          "unit_id": "Select.return.false",
+          "unit_type": "state",
+          "value": "Select.return.false"
+        },
+        {
+          "unit_id": "Select.return.true",
+          "unit_type": "state",
+          "value": "Select.return.true"
+        }
+      ]
+    },
+    "knowledge_emissions": [
+      {
+        "evidence_path": [
+          "step-1",
+          "step-2"
+        ],
+        "knowledge_id": "K001",
+        "path_signature": "Select.return.true",
+        "relation": "ResultTransition",
+        "source": "BranchSelectionStart",
+        "source_step_id": "step-2",
+        "target": "Answer.state.result"
+      }
+    ],
+    "model_id": "BranchSelection.ReasoningModel",
+    "reasoning_paths": [
+      {
+        "metadata": {
+          "branch_decisions": [
+            {
+              "branch_id": "Select.return.true",
+              "evidence_refs": [
+                "step-1"
+              ],
+              "rejected": [
+                "Answer-1-result-3",
+                "Answer-1-result-4",
+                "Select.return.false"
+              ],
+              "selected": "Select.return.true"
+            }
+          ]
+        },
+        "path_id": "path_main",
+        "path_signature": "Select.return.true",
+        "status": "selected",
+        "steps": [
+          {
+            "evidence_refs": [
+              "Select.return.true"
+            ],
+            "operation": "FunctionReturnTransition",
+            "source": "BranchSelectionStart",
+            "step_id": "step-1",
+            "step_type": "branch_selection",
+            "target": "Select.return.true"
+          },
+          {
+            "evidence_refs": [
+              "Answer-1-result-3"
+            ],
+            "operation": "ResultTransition",
+            "source": "Select.return.true",
+            "step_id": "step-2",
+            "step_type": "calculation",
+            "target": "Answer.state.result"
+          }
+        ]
+      }
+    ],
+    "schema_version": "reasonscript-reasoning-model/1.0",
+    "selected_path_id": "path_main",
+    "source_ref": {
+      "source_id": "branch_selection",
+      "source_kind": "reason_script_source",
+      "artifact_refs": {
+        "execution_plan": "execution_plan.json",
+        "knowledge": "knowledge.json",
+        "reason_ir": "reason_ir.json",
+        "simulation": "simulation.json"
+      }
+    }
+  },
+  "evaluation_report": {
+    "checks": [
+      {
+        "check_id": "check_reachability",
+        "check_type": "reachability",
+        "details": {
+          "goal": "Answer.state.result",
+          "matched_by": "reasoning_step",
+          "matched_ref": "step-2",
+          "reachable": true,
+          "selected_path_id": "path_main"
+        },
+        "evidence_refs": [
+          "path_main",
+          "step-2"
+        ],
+        "message": "Selected reasoning path reaches the evaluation goal.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_determinism",
+        "check_type": "determinism",
+        "details": {
+          "canonical_serialization_stable": true,
+          "duplicate_ids": [],
+          "stable_ids": true
+        },
+        "evidence_refs": [
+          "BranchSelection.ReasoningModel"
+        ],
+        "message": "ReasoningModel artifact is deterministically representable.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_evidence_completeness",
+        "check_type": "evidence_completeness",
+        "details": {
+          "invalid_path_signatures": [],
+          "invalid_source_step_refs": [],
+          "knowledge_emissions_checked": 1,
+          "missing_evidence_paths": [],
+          "missing_evidence_refs": [],
+          "steps_checked": 2
+        },
+        "evidence_refs": [
+          "K001",
+          "step-1",
+          "step-2"
+        ],
+        "message": "Knowledge emissions include complete evidence paths.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_consistency",
+        "check_type": "consistency",
+        "details": {
+          "fatal_model_diagnostics": 0,
+          "input_relations_valid": true,
+          "selected_path_count": 1,
+          "selected_path_valid": true,
+          "unknown_path_signatures": [],
+          "unknown_required_checks": []
+        },
+        "evidence_refs": [
+          "path_main"
+        ],
+        "message": "ReasoningModel artifact is structurally consistent.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_branch_traceability",
+        "check_type": "branch_traceability",
+        "details": {
+          "branch_decisions_checked": 1,
+          "branches_traceable": true,
+          "invalid_selected_branches": [],
+          "missing_branch_evidence": []
+        },
+        "evidence_refs": [
+          "step-1"
+        ],
+        "message": "Branch decisions are traceable.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      }
+    ],
+    "diagnostics": [],
+    "evaluation_target_ref": {
+      "goal": "Answer.state.result",
+      "required_checks": [
+        "reachability",
+        "determinism",
+        "evidence_completeness",
+        "consistency",
+        "branch_traceability"
+      ],
+      "target_id": "eval_001"
+    },
+    "model_ref": {
+      "model_id": "BranchSelection.ReasoningModel",
+      "model_schema_version": "reasonscript-reasoning-model/1.0",
+      "source_id": "branch_selection"
+    },
+    "report_id": "report_BranchSelection.ReasoningModel_eval_001",
+    "schema_version": "reasonscript-reasoning-evaluation-report/1.0",
+    "summary": {
+      "failed_checks": 0,
+      "fatal_diagnostics": 0,
+      "passed": true,
+      "passed_checks": 5,
+      "required_checks_passed": true,
+      "status": "passed",
+      "total_checks": 5,
+      "warning_checks": 0
+    }
+  },
+  "diagnostics": []
+}

@@ -1,0 +1,211 @@
+{
+  "schema_version": "reasonscript-reasoning-runtime-prototype/1.0",
+  "run_id": "run_unreachable_goal",
+  "source_ref": {
+    "source_id": "unreachable_goal",
+    "source_kind": "reason_script_source",
+    "source_path": "examples/v0_8/reasoning_runtime/unreachable_goal.rsn"
+  },
+  "pipeline_status": {
+    "status": "passed",
+    "parser_passed": true,
+    "reason_ir_available": true,
+    "execution_plan_available": true,
+    "simulation_available": true,
+    "knowledge_available": true,
+    "diagnostics_count": 1
+  },
+  "reasoning_model": {
+    "diagnostics": [],
+    "evaluation_target": {
+      "goal": "Unreachable.state",
+      "required_checks": [
+        "reachability",
+        "determinism",
+        "evidence_completeness",
+        "consistency"
+      ],
+      "target_id": "eval_001"
+    },
+    "input_state": {
+      "input_id": "input_unreachable_goal",
+      "input_kind": "structured_state",
+      "relations": [
+        {
+          "relation_id": "rel_001",
+          "relation_type": "ResultTransition",
+          "source": "UnreachableGoalStart",
+          "target": "Answer.state.result"
+        }
+      ],
+      "units": [
+        {
+          "unit_id": "Answer.state.result",
+          "unit_type": "calculation_result",
+          "value": "Answer.state.result"
+        },
+        {
+          "unit_id": "UnreachableGoalStart",
+          "unit_type": "state",
+          "value": "UnreachableGoalStart"
+        }
+      ]
+    },
+    "knowledge_emissions": [
+      {
+        "evidence_path": [
+          "step-1"
+        ],
+        "knowledge_id": "K001",
+        "path_signature": "Answer.state.result",
+        "relation": "ResultTransition",
+        "source": "UnreachableGoalStart",
+        "source_step_id": "step-1",
+        "target": "Answer.state.result"
+      }
+    ],
+    "model_id": "UnreachableGoal.ReasoningModel",
+    "reasoning_paths": [
+      {
+        "path_id": "path_main",
+        "path_signature": "Answer.state.result",
+        "status": "selected",
+        "steps": [
+          {
+            "evidence_refs": [
+              "Answer-1-result"
+            ],
+            "operation": "ResultTransition",
+            "source": "UnreachableGoalStart",
+            "step_id": "step-1",
+            "step_type": "calculation",
+            "target": "Answer.state.result"
+          }
+        ]
+      }
+    ],
+    "schema_version": "reasonscript-reasoning-model/1.0",
+    "selected_path_id": "path_main",
+    "source_ref": {
+      "source_id": "unreachable_goal",
+      "source_kind": "reason_script_source",
+      "artifact_refs": {
+        "execution_plan": "execution_plan.json",
+        "knowledge": "knowledge.json",
+        "reason_ir": "reason_ir.json",
+        "simulation": "simulation.json"
+      }
+    }
+  },
+  "evaluation_report": {
+    "checks": [
+      {
+        "check_id": "check_reachability",
+        "check_type": "reachability",
+        "details": {
+          "goal": "Unreachable.state",
+          "reachable": false,
+          "selected_path_id": "path_main"
+        },
+        "evidence_refs": [
+          "path_main"
+        ],
+        "message": "Evaluation goal is unreachable from the selected reasoning path.",
+        "passed": false,
+        "required": true,
+        "status": "failed"
+      },
+      {
+        "check_id": "check_determinism",
+        "check_type": "determinism",
+        "details": {
+          "canonical_serialization_stable": true,
+          "duplicate_ids": [],
+          "stable_ids": true
+        },
+        "evidence_refs": [
+          "UnreachableGoal.ReasoningModel"
+        ],
+        "message": "ReasoningModel artifact is deterministically representable.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_evidence_completeness",
+        "check_type": "evidence_completeness",
+        "details": {
+          "invalid_path_signatures": [],
+          "invalid_source_step_refs": [],
+          "knowledge_emissions_checked": 1,
+          "missing_evidence_paths": [],
+          "missing_evidence_refs": [],
+          "steps_checked": 1
+        },
+        "evidence_refs": [
+          "K001",
+          "step-1"
+        ],
+        "message": "Knowledge emissions include complete evidence paths.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "check_id": "check_consistency",
+        "check_type": "consistency",
+        "details": {
+          "fatal_model_diagnostics": 0,
+          "input_relations_valid": true,
+          "selected_path_count": 1,
+          "selected_path_valid": true,
+          "unknown_path_signatures": [],
+          "unknown_required_checks": []
+        },
+        "evidence_refs": [
+          "path_main"
+        ],
+        "message": "ReasoningModel artifact is structurally consistent.",
+        "passed": true,
+        "required": true,
+        "status": "passed"
+      }
+    ],
+    "diagnostics": [],
+    "evaluation_target_ref": {
+      "goal": "Unreachable.state",
+      "required_checks": [
+        "reachability",
+        "determinism",
+        "evidence_completeness",
+        "consistency"
+      ],
+      "target_id": "eval_001"
+    },
+    "model_ref": {
+      "model_id": "UnreachableGoal.ReasoningModel",
+      "model_schema_version": "reasonscript-reasoning-model/1.0",
+      "source_id": "unreachable_goal"
+    },
+    "report_id": "report_UnreachableGoal.ReasoningModel_eval_001",
+    "schema_version": "reasonscript-reasoning-evaluation-report/1.0",
+    "summary": {
+      "failed_checks": 1,
+      "fatal_diagnostics": 0,
+      "passed": false,
+      "passed_checks": 3,
+      "required_checks_passed": false,
+      "status": "failed",
+      "total_checks": 4,
+      "warning_checks": 0
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "RRP-EVAL-003",
+      "severity": "warning",
+      "message": "Required evaluation checks failed",
+      "location": "evaluation_report.summary"
+    }
+  ]
+}

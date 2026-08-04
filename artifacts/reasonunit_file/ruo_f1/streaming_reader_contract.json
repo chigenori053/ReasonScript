@@ -1,0 +1,15 @@
+{
+  "data": {
+    "bounded": true,
+    "incremental": [
+      "ordinal",
+      "body_digest",
+      "section_digest",
+      "content_digest"
+    ],
+    "one_pass": true,
+    "publication_after_seal": true
+  },
+  "profile_version": "reasonscript-reasonunit-file-format/1.0",
+  "schema_version": "reasonscript-reasonunit-file-format-streaming-reader-contract/1.0"
+}

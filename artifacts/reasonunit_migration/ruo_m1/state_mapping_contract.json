@@ -1,0 +1,8 @@
+{
+  "data": {
+    "core_when_unambiguous": true,
+    "otherwise": "legacy extension"
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-state-mapping-contract/1.0"
+}

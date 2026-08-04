@@ -1,0 +1,14 @@
+{
+  "data": {
+    "staging_only": true,
+    "target": [
+      "RUO-U1",
+      "RUO-F1",
+      "RUO-T1-compatible",
+      "RUO-N1",
+      "RUO-N2"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-conversion-pipeline-contract/1.0"
+}

@@ -1,0 +1,9 @@
+{
+  "data": {
+    "atomic_insertion": true,
+    "committed_and_staging_separate": true,
+    "duplicate_object_rejected": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-object-store-contract/1.0"
+}

@@ -17,5 +17,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: python3 -m pip install --upgrade pip ruff black mypy
+      - name: Install Linux desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            libglib2.0-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            pkg-config
+      - run: python3 -m pip install --upgrade pip
+      - run: python3 -m pip install -r requirements-dev.txt
       - run: python3 scripts/test_platform.py lint

@@ -1,0 +1,20 @@
+{
+  "data": {
+    "child_ordering_declared": true,
+    "children_preserved": true,
+    "containment_cycles_allowed": false,
+    "projection_modes": [
+      "expand",
+      "preserve_boundary"
+    ],
+    "stable_unit_id": true,
+    "state_modes": [
+      "local",
+      "aggregated",
+      "shared",
+      "derived"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-composite-reasonunit-contract/1.0"
+}

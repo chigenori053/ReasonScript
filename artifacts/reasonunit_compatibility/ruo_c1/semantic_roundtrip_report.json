@@ -1,0 +1,44 @@
+{
+  "data": {
+    "invalid_transaction": {
+      "canonical_state_digest": "sha256:17b08c39763aed3473be06c1e2c2dcababeea256b4e37f2f54f3d2b90c471fc9",
+      "committed": false,
+      "object_revision": 1,
+      "partial_commit_count": 0,
+      "reason": "unknown_state",
+      "transaction_id": "transaction:invalid"
+    },
+    "preservation": {
+      "existing_evidence_preserved": true,
+      "existing_execution_result_preserved": true,
+      "existing_lifecycle_preserved": true,
+      "existing_relations_preserved": true,
+      "existing_state_preserved": true,
+      "existing_unit_ids_preserved": true,
+      "new_object_fields_optional_for_legacy": true,
+      "semantic_loss_count": 0
+    },
+    "procedure": [
+      "wrap",
+      "validate",
+      "project",
+      "unwrap",
+      "compare"
+    ],
+    "rollback_unchanged": true,
+    "stale_projection_detected": true,
+    "unchanged_unit_revision_preserved": true,
+    "valid_transaction": {
+      "changed_unit_ids": [
+        "unit:alpha"
+      ],
+      "committed": true,
+      "object_revision": 1,
+      "partial_commit_count": 0,
+      "transaction_id": "transaction:valid"
+    },
+    "validation_diagnostics": []
+  },
+  "profile_version": "reasonscript-reasonunit-compatibility/1.0",
+  "schema_version": "reasonscript-reasonunit-compatibility-semantic-roundtrip-report/1.0"
+}

@@ -1,0 +1,20 @@
+{
+  "data": {
+    "limits": {
+      "bindings": 256,
+      "diagnostics": 1000,
+      "path_bytes": 4096,
+      "projection_size": 100000,
+      "query_results": 100000,
+      "selector_closure": 100000,
+      "source_bytes": 1000000,
+      "tensor_view_bytes": 256000000,
+      "transaction_operations": 10000
+    },
+    "network": false,
+    "object_code_execution": false,
+    "shell_expansion": false
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-security-resource-limit-contract/1.0"
+}

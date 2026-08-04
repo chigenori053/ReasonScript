@@ -1,0 +1,162 @@
+{
+  "data": {
+    "loop_trace": [
+      {
+        "break_triggered": false,
+        "condition": true,
+        "continue_triggered": false,
+        "iteration": 1,
+        "loop_id": "Answer.for.step",
+        "previous_state": {
+          "step": 0,
+          "x": 0.0
+        },
+        "updated_state": {
+          "step": 0,
+          "x": 1.0
+        }
+      },
+      {
+        "break_triggered": false,
+        "condition": true,
+        "continue_triggered": false,
+        "iteration": 2,
+        "loop_id": "Answer.for.step",
+        "previous_state": {
+          "step": 1,
+          "x": 1.0
+        },
+        "updated_state": {
+          "step": 1,
+          "x": 1.8
+        }
+      },
+      {
+        "break_triggered": false,
+        "condition": true,
+        "continue_triggered": false,
+        "iteration": 3,
+        "loop_id": "Answer.for.step",
+        "previous_state": {
+          "step": 2,
+          "x": 1.8
+        },
+        "updated_state": {
+          "step": 2,
+          "x": 2.4400000000000004
+        }
+      },
+      {
+        "break_triggered": false,
+        "condition": true,
+        "continue_triggered": false,
+        "iteration": 4,
+        "loop_id": "Answer.for.step",
+        "previous_state": {
+          "step": 3,
+          "x": 2.4400000000000004
+        },
+        "updated_state": {
+          "step": 3,
+          "x": 2.9520000000000004
+        }
+      },
+      {
+        "break_triggered": false,
+        "condition": true,
+        "continue_triggered": false,
+        "iteration": 5,
+        "loop_id": "Answer.for.step",
+        "previous_state": {
+          "step": 4,
+          "x": 2.9520000000000004
+        },
+        "updated_state": {
+          "step": 4,
+          "x": 3.3616000000000006
+        }
+      },
+      {
+        "break_triggered": false,
+        "condition": true,
+        "continue_triggered": false,
+        "iteration": 6,
+        "loop_id": "Answer.for.step",
+        "previous_state": {
+          "step": 5,
+          "x": 3.3616000000000006
+        },
+        "updated_state": {
+          "step": 5,
+          "x": 3.6892800000000006
+        }
+      },
+      {
+        "break_triggered": false,
+        "condition": true,
+        "continue_triggered": false,
+        "iteration": 7,
+        "loop_id": "Answer.for.step",
+        "previous_state": {
+          "step": 6,
+          "x": 3.6892800000000006
+        },
+        "updated_state": {
+          "step": 6,
+          "x": 3.9514240000000007
+        }
+      },
+      {
+        "break_triggered": false,
+        "condition": true,
+        "continue_triggered": false,
+        "iteration": 8,
+        "loop_id": "Answer.for.step",
+        "previous_state": {
+          "step": 7,
+          "x": 3.9514240000000007
+        },
+        "updated_state": {
+          "step": 7,
+          "x": 4.161139200000001
+        }
+      },
+      {
+        "break_triggered": false,
+        "condition": true,
+        "continue_triggered": false,
+        "iteration": 9,
+        "loop_id": "Answer.for.step",
+        "previous_state": {
+          "step": 8,
+          "x": 4.161139200000001
+        },
+        "updated_state": {
+          "step": 8,
+          "x": 4.328911360000001
+        }
+      },
+      {
+        "break_triggered": false,
+        "condition": true,
+        "continue_triggered": false,
+        "iteration": 10,
+        "loop_id": "Answer.for.step",
+        "previous_state": {
+          "step": 9,
+          "x": 4.328911360000001
+        },
+        "updated_state": {
+          "step": 9,
+          "x": 4.4631290880000005
+        }
+      }
+    ],
+    "tensor_trace": []
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "simulation/0.5",
+  "version": "1.0"
+}

@@ -1,0 +1,13 @@
+module BranchingFunction {
+  fn Score(flag: bool) -> int {
+    if flag {
+      return 42
+    }
+
+    return 0
+  }
+
+  calculation Answer {
+    result = Score(true)
+  }
+}

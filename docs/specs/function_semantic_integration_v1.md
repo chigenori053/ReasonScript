@@ -11,6 +11,24 @@ This repository implements `fn` as a first-class language-surface construct acro
 - Execution: called functions emit `FunctionReturnTransition` evidence before the consuming calculation result transition.
 - Knowledge: function-call execution preserves the function return in evidence while extracting the calculation result as knowledge.
 
+## Function Composition
+
+Nested calls are lowered in evaluation order, from the innermost call to the
+outermost call. When a branching inner call has multiple return states, those
+states converge through unique `FunctionCallMergeTransition` edges before the
+outer call is evaluated. `FunctionReturnTransition.transition_id` remains the
+canonical `<function>.return[.<path>]` identity and is unique within Reason IR.
+
+Compile-time evaluation of literal nested calls supplies the inner return value
+to the outer function's evaluation context. Execution evidence preserves each
+selected function return in inner-to-outer order.
+
+## Function Signature Layout
+
+Typed parameter lists may span multiple source lines. Newlines inside the
+opening and closing parentheses are treated as whitespace before parameter and
+return-type parsing.
+
 Validation coverage:
 
 - `FN-001`: duplicate function symbol.
@@ -20,4 +38,7 @@ Validation coverage:
 - `FN-005`: return expressions and call arguments must match declared types.
 - `FN-006`: duplicate parameter names are invalid.
 - `FN-007`: direct recursive calls are rejected for v1.0.
-
+- `FN-008`: nested calls preserve inner-to-outer evaluation order and unique
+  transition identities.
+- `FN-009`: multiline typed parameter lists parse equivalently to single-line
+  parameter lists.

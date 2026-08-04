@@ -1,0 +1,369 @@
+{
+  "data": {
+    "statuses": {
+      "artifact_validation_status": "COMPLETE",
+      "constraint_dependency_status": "COMPLETE",
+      "core_entity_status": "COMPLETE",
+      "determinism_status": "BYTE_IDENTICAL_THREE_RUNS",
+      "evidence_registry_status": "COMPLETE",
+      "execution_projection_status": "COMPLETE",
+      "extension_registry_status": "COMPLETE",
+      "heterogeneous_payload_status": "COMPLETE",
+      "identity_status": "COMPLETE",
+      "implementation_status": "IMPLEMENTED",
+      "legacy_compatibility_status": "COMPLETE",
+      "lifecycle_status": "COMPLETE",
+      "ownership_containment_status": "COMPLETE",
+      "partial_loading_status": "COMPLETE",
+      "payload_envelope_status": "COMPLETE",
+      "payload_profile_registry_status": "COMPLETE",
+      "phase_status": "VALIDATED",
+      "prerequisite_count_reconciliation_status": "RECONCILED",
+      "protected_behavior_status": "UNCHANGED",
+      "relation_model_status": "COMPLETE",
+      "resource_limit_status": "COMPLETE",
+      "revision_transaction_status": "COMPLETE",
+      "ruo_c0_prerequisite_status": "VERIFIED",
+      "ruo_c1_prerequisite_status": "VERIFIED",
+      "semantic_roundtrip_status": "COMPLETE",
+      "state_model_status": "COMPLETE",
+      "transition_decision": "PROCEED_TO_RUO-F1",
+      "universal_object_contract_status": "COMPLETE",
+      "universal_query_status": "COMPLETE"
+    },
+    "summary": {
+      "failed": 0,
+      "passed": 65,
+      "total": 65
+    },
+    "tests": [
+      {
+        "requirement": "validated C0 and C1 inputs and digests",
+        "status": "pass",
+        "test_id": "RUO-U1-T001"
+      },
+      {
+        "requirement": "authoritative C0/C1 count reconciliation",
+        "status": "pass",
+        "test_id": "RUO-U1-T002"
+      },
+      {
+        "requirement": "invalid prerequisite rejected",
+        "status": "pass",
+        "test_id": "RUO-U1-T003"
+      },
+      {
+        "requirement": "complete universal Object contract",
+        "status": "pass",
+        "test_id": "RUO-U1-T004"
+      },
+      {
+        "requirement": "all core entity contracts",
+        "status": "pass",
+        "test_id": "RUO-U1-T005"
+      },
+      {
+        "requirement": "identity domains distinct",
+        "status": "pass",
+        "test_id": "RUO-U1-T006"
+      },
+      {
+        "requirement": "identity stable across registry reorder",
+        "status": "pass",
+        "test_id": "RUO-U1-T007"
+      },
+      {
+        "requirement": "identity stable through partial load and projection",
+        "status": "pass",
+        "test_id": "RUO-U1-T008"
+      },
+      {
+        "requirement": "duplicate identities rejected",
+        "status": "pass",
+        "test_id": "RUO-U1-T009"
+      },
+      {
+        "requirement": "one Object owner",
+        "status": "pass",
+        "test_id": "RUO-U1-T010"
+      },
+      {
+        "requirement": "one containment parent",
+        "status": "pass",
+        "test_id": "RUO-U1-T011"
+      },
+      {
+        "requirement": "cycles rejected",
+        "status": "pass",
+        "test_id": "RUO-U1-T012"
+      },
+      {
+        "requirement": "multiple roots and reachability",
+        "status": "pass",
+        "test_id": "RUO-U1-T013"
+      },
+      {
+        "requirement": "relocation and replacement history",
+        "status": "pass",
+        "test_id": "RUO-U1-T014"
+      },
+      {
+        "requirement": "Payload envelope",
+        "status": "pass",
+        "test_id": "RUO-U1-T015"
+      },
+      {
+        "requirement": "Scalar and finite values",
+        "status": "pass",
+        "test_id": "RUO-U1-T016"
+      },
+      {
+        "requirement": "Text language offsets annotations",
+        "status": "pass",
+        "test_id": "RUO-U1-T017"
+      },
+      {
+        "requirement": "Numeric dimensions units masks order",
+        "status": "pass",
+        "test_id": "RUO-U1-T018"
+      },
+      {
+        "requirement": "Temporal values and frames",
+        "status": "pass",
+        "test_id": "RUO-U1-T019"
+      },
+      {
+        "requirement": "Spatial dimensions units frames",
+        "status": "pass",
+        "test_id": "RUO-U1-T020"
+      },
+      {
+        "requirement": "Graph identity and edges",
+        "status": "pass",
+        "test_id": "RUO-U1-T021"
+      },
+      {
+        "requirement": "Tensor reference mapping",
+        "status": "pass",
+        "test_id": "RUO-U1-T022"
+      },
+      {
+        "requirement": "Binary reference digest size",
+        "status": "pass",
+        "test_id": "RUO-U1-T023"
+      },
+      {
+        "requirement": "Abstract namespace schema",
+        "status": "pass",
+        "test_id": "RUO-U1-T024"
+      },
+      {
+        "requirement": "heterogeneous Payloads",
+        "status": "pass",
+        "test_id": "RUO-U1-T025"
+      },
+      {
+        "requirement": "cross-Payload relations",
+        "status": "pass",
+        "test_id": "RUO-U1-T026"
+      },
+      {
+        "requirement": "six state classes",
+        "status": "pass",
+        "test_id": "RUO-U1-T027"
+      },
+      {
+        "requirement": "state semantics distinct",
+        "status": "pass",
+        "test_id": "RUO-U1-T028"
+      },
+      {
+        "requirement": "stale state detection",
+        "status": "pass",
+        "test_id": "RUO-U1-T029"
+      },
+      {
+        "requirement": "five relation classes",
+        "status": "pass",
+        "test_id": "RUO-U1-T030"
+      },
+      {
+        "requirement": "dangling resolved endpoint rejection",
+        "status": "pass",
+        "test_id": "RUO-U1-T031"
+      },
+      {
+        "requirement": "shared evidence",
+        "status": "pass",
+        "test_id": "RUO-U1-T032"
+      },
+      {
+        "requirement": "provenance confidence history",
+        "status": "pass",
+        "test_id": "RUO-U1-T033"
+      },
+      {
+        "requirement": "selective invalidation",
+        "status": "pass",
+        "test_id": "RUO-U1-T034"
+      },
+      {
+        "requirement": "deterministic dependency closure",
+        "status": "pass",
+        "test_id": "RUO-U1-T035"
+      },
+      {
+        "requirement": "Object/entity lifecycle separation",
+        "status": "pass",
+        "test_id": "RUO-U1-T036"
+      },
+      {
+        "requirement": "replacement deletion tombstone",
+        "status": "pass",
+        "test_id": "RUO-U1-T037"
+      },
+      {
+        "requirement": "atomic multi-entity commit",
+        "status": "pass",
+        "test_id": "RUO-U1-T038"
+      },
+      {
+        "requirement": "zero-partial rollback",
+        "status": "pass",
+        "test_id": "RUO-U1-T039"
+      },
+      {
+        "requirement": "optimistic conflict",
+        "status": "pass",
+        "test_id": "RUO-U1-T040"
+      },
+      {
+        "requirement": "unchanged entity revisions",
+        "status": "pass",
+        "test_id": "RUO-U1-T041"
+      },
+      {
+        "requirement": "knowledge states distinct",
+        "status": "pass",
+        "test_id": "RUO-U1-T042"
+      },
+      {
+        "requirement": "indeterminate missing knowledge",
+        "status": "pass",
+        "test_id": "RUO-U1-T043"
+      },
+      {
+        "requirement": "unknown noncritical extension retained",
+        "status": "pass",
+        "test_id": "RUO-U1-T044"
+      },
+      {
+        "requirement": "unknown critical extension rejected",
+        "status": "pass",
+        "test_id": "RUO-U1-T045"
+      },
+      {
+        "requirement": "extension core override rejected",
+        "status": "pass",
+        "test_id": "RUO-U1-T046"
+      },
+      {
+        "requirement": "deterministic universal queries",
+        "status": "pass",
+        "test_id": "RUO-U1-T047"
+      },
+      {
+        "requirement": "deterministic execution projection",
+        "status": "pass",
+        "test_id": "RUO-U1-T048"
+      },
+      {
+        "requirement": "stale projection rejected",
+        "status": "pass",
+        "test_id": "RUO-U1-T049"
+      },
+      {
+        "requirement": "Cluster and Tensor compatibility",
+        "status": "pass",
+        "test_id": "RUO-U1-T050"
+      },
+      {
+        "requirement": "Atomic evidence fixture",
+        "status": "pass",
+        "test_id": "RUO-U1-T051"
+      },
+      {
+        "requirement": "Composite heterogeneous fixture",
+        "status": "pass",
+        "test_id": "RUO-U1-T052"
+      },
+      {
+        "requirement": "molecular semantics",
+        "status": "pass",
+        "test_id": "RUO-U1-T053"
+      },
+      {
+        "requirement": "vehicle precursor semantics",
+        "status": "pass",
+        "test_id": "RUO-U1-T054"
+      },
+      {
+        "requirement": "C1 zero-loss adapter roundtrip",
+        "status": "pass",
+        "test_id": "RUO-U1-T055"
+      },
+      {
+        "requirement": "existing behavior preserved",
+        "status": "pass",
+        "test_id": "RUO-U1-T056"
+      },
+      {
+        "requirement": "38 canonical artifacts",
+        "status": "pass",
+        "test_id": "RUO-U1-T057"
+      },
+      {
+        "requirement": "offline schemas",
+        "status": "pass",
+        "test_id": "RUO-U1-T058"
+      },
+      {
+        "requirement": "digests and byte sizes",
+        "status": "pass",
+        "test_id": "RUO-U1-T059"
+      },
+      {
+        "requirement": "tamper detection",
+        "status": "pass",
+        "test_id": "RUO-U1-T060"
+      },
+      {
+        "requirement": "three byte-identical runs",
+        "status": "pass",
+        "test_id": "RUO-U1-T061"
+      },
+      {
+        "requirement": "resource limits atomic",
+        "status": "pass",
+        "test_id": "RUO-U1-T062"
+      },
+      {
+        "requirement": "protected targets",
+        "status": "pass",
+        "test_id": "RUO-U1-T063"
+      },
+      {
+        "requirement": "C0/C1 tests",
+        "status": "pass",
+        "test_id": "RUO-U1-T064"
+      },
+      {
+        "requirement": "canonical reason ci --json",
+        "status": "pass",
+        "test_id": "RUO-U1-T065"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-validation-summary/1.0"
+}

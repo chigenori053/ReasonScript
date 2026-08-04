@@ -1,0 +1,20 @@
+{
+  "atomicity_gate": "passed",
+  "compatibility_gate": "passed",
+  "determinism_gate": "passed",
+  "diagnostics": [],
+  "integrity_gate": "passed",
+  "manifest_gate": "passed",
+  "platforms": {
+    "linux": "not_yet_device_validated",
+    "macos": "validated",
+    "windows": "not_yet_device_validated"
+  },
+  "post_install_gate": "passed",
+  "preservation_gate": "passed",
+  "rollback_gate": "passed",
+  "schema_version": "reasonscript-install-foundation-validation/1.1",
+  "status": "validated",
+  "tests_passed": 839,
+  "update_core": "passed"
+}

@@ -1,0 +1,23 @@
+{
+  "data": {
+    "arithmetic": "overflow-safe before allocation",
+    "defaults": {
+      "chunks": 100000,
+      "conversion_expansion": 10000000,
+      "diagnostics": 1000,
+      "dimension": 2147483647,
+      "elements": 10000000,
+      "inline_bytes": 65536,
+      "inline_elements": 4096,
+      "logical_bytes": 256000000,
+      "mapping_entries": 10000000,
+      "mask_bytes": 10000000,
+      "nnz": 10000000,
+      "rank": 32,
+      "resource_bytes": 2000000000,
+      "selector_expansion": 10000000
+    }
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-resource-limit-contract/1.0"
+}

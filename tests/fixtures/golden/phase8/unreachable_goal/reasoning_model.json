@@ -1,0 +1,82 @@
+{
+  "schema_version": "reasonscript-reasoning-model/1.0",
+  "model_id": "UnreachableGoal.ReasoningModel",
+  "source_ref": {
+    "source_id": "unreachable_goal",
+    "source_kind": "reason_script_source",
+    "artifact_refs": {
+      "execution_plan": "execution_plan.json",
+      "knowledge": "knowledge.json",
+      "reason_ir": "reason_ir.json",
+      "simulation": "simulation.json"
+    }
+  },
+  "input_state": {
+    "input_id": "input_unreachable_goal",
+    "input_kind": "structured_state",
+    "units": [
+      {
+        "unit_id": "Answer.state.result",
+        "unit_type": "calculation_result",
+        "value": "Answer.state.result"
+      },
+      {
+        "unit_id": "UnreachableGoalStart",
+        "unit_type": "state",
+        "value": "UnreachableGoalStart"
+      }
+    ],
+    "relations": [
+      {
+        "relation_id": "rel_001",
+        "relation_type": "ResultTransition",
+        "source": "UnreachableGoalStart",
+        "target": "Answer.state.result"
+      }
+    ]
+  },
+  "reasoning_paths": [
+    {
+      "path_id": "path_main",
+      "path_signature": "Answer.state.result",
+      "status": "selected",
+      "steps": [
+        {
+          "step_id": "step-1",
+          "step_type": "calculation",
+          "source": "UnreachableGoalStart",
+          "target": "Answer.state.result",
+          "operation": "ResultTransition",
+          "evidence_refs": [
+            "Answer-1-result"
+          ]
+        }
+      ]
+    }
+  ],
+  "selected_path_id": "path_main",
+  "knowledge_emissions": [
+    {
+      "knowledge_id": "K001",
+      "source_step_id": "step-1",
+      "relation": "ResultTransition",
+      "source": "UnreachableGoalStart",
+      "target": "Answer.state.result",
+      "evidence_path": [
+        "step-1"
+      ],
+      "path_signature": "Answer.state.result"
+    }
+  ],
+  "evaluation_target": {
+    "target_id": "eval_001",
+    "goal": "Unreachable.state",
+    "required_checks": [
+      "reachability",
+      "determinism",
+      "evidence_completeness",
+      "consistency"
+    ]
+  },
+  "diagnostics": []
+}

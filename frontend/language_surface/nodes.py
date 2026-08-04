@@ -358,6 +358,14 @@ class LiteralPatternNode:
 
 
 @dataclass(frozen=True)
+class RangePatternNode:
+    lower: IntegerLiteralNode | FloatLiteralNode
+    upper: IntegerLiteralNode | FloatLiteralNode
+    lower_inclusive: bool = True
+    upper_inclusive: bool = True
+
+
+@dataclass(frozen=True)
 class EnumValuePatternNode:
     enum_name: str
     value_name: str
@@ -404,6 +412,7 @@ Pattern: TypeAlias = (
     | WildcardPatternNode
     | DefaultPatternNode
     | LiteralPatternNode
+    | RangePatternNode
     | EnumValuePatternNode
     | OptionalPatternNode
     | OptionalValuePatternNode
@@ -722,6 +731,32 @@ class FunctionDeclarationNode:
     return_type: TypeNode | None = None
 
 
+@dataclass(frozen=True)
+class SourceSpanNode:
+    start_line: int
+    start_column: int
+    end_line: int
+    end_column: int
+
+
+@dataclass(frozen=True)
+class ReasonObjectClauseSpanNode:
+    clause: str
+    span: SourceSpanNode
+
+
+@dataclass(frozen=True)
+class ReasonObjectBindingNode:
+    name: str
+    source_path: str
+    resource_root: str | None
+    load_mode: str
+    expected_object_id: str | None
+    source_span: SourceSpanNode
+    clause_spans: tuple[ReasonObjectClauseSpanNode, ...]
+    syntax_version: str = "reason-object-binding/1.0"
+
+
 AstNode: TypeAlias = (
     ImportNode
     | ConceptNode
@@ -741,6 +776,7 @@ AstNode: TypeAlias = (
     | TransitionNode
     | CalculationNode
     | FunctionDeclarationNode
+    | ReasonObjectBindingNode
 )
 
 
@@ -749,6 +785,7 @@ class ModuleNode:
     name: str
     visibility: Visibility
     body: tuple[AstNode, ...]
+    source_kind: str = "module"
 
 
 @dataclass(frozen=True)
@@ -792,6 +829,9 @@ _NODE_TYPES = {
         FloatLiteralNode,
         ForStatementNode,
         FunctionDeclarationNode,
+        SourceSpanNode,
+        ReasonObjectClauseSpanNode,
+        ReasonObjectBindingNode,
         GoalNode,
         GoalStatementNode,
         IdentifierNode,
@@ -808,6 +848,7 @@ _NODE_TYPES = {
         IntegerLiteralNode,
         LetStatementNode,
         LiteralPatternNode,
+        RangePatternNode,
         LogicalExpressionNode,
         LoopStatementNode,
         MapEntryNode,
@@ -980,6 +1021,7 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
             value["name"],
             Visibility(value["visibility"]),
             tuple(_from_json_node(item) for item in value["body"]),
+            value.get("source_kind", "module"),
         )
     if node_type == "ExpressionNode":
         return ExpressionNode(_from_json_node(value["expression"]))
@@ -1120,6 +1162,13 @@ def _from_json_node(value: Mapping[str, Any]) -> Any:
         return WildcardPatternNode()
     if node_type == "LiteralPatternNode":
         return LiteralPatternNode(_from_json_node(value["value"]))
+    if node_type == "RangePatternNode":
+        return RangePatternNode(
+            _from_json_node(value["lower"]),
+            _from_json_node(value["upper"]),
+            bool(value.get("lower_inclusive", True)),
+            bool(value.get("upper_inclusive", True)),
+        )
     if node_type == "EnumValuePatternNode":
         return EnumValuePatternNode(value["enum_name"], value["value_name"])
     if node_type == "OptionalPatternNode":

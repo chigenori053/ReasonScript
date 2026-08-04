@@ -1,0 +1,9 @@
+{
+  "data": {
+    "kind_checked": true,
+    "map": "BTreeMap",
+    "ordering": "stable_id"
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-registry-contract/1.0"
+}

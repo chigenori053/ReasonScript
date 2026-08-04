@@ -1,0 +1,11 @@
+{
+  "data": {
+    "conflict_rejected": true,
+    "invalid_rollback": true,
+    "partial_commit_count": 0,
+    "rust_tests": 5,
+    "valid_commit": true
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-transaction-atomicity-report/1.0"
+}

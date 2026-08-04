@@ -1,0 +1,5 @@
+module UndefinedDependency {
+  calculation Answer {
+    result = Unknown * 2
+  }
+}

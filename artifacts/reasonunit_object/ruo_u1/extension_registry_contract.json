@@ -1,0 +1,11 @@
+{
+  "data": {
+    "core_override": "reject",
+    "namespaced": true,
+    "nonfinite": "reject",
+    "unknown_critical": "reject",
+    "unknown_noncritical": "retain"
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-extension-registry-contract/1.0"
+}

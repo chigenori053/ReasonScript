@@ -1,0 +1,160 @@
+{
+  "data": {
+    "backend": "abstract",
+    "deterministic": true,
+    "operations": [
+      {
+        "backend_operation": "create",
+        "dependencies": [],
+        "dtype": "f64",
+        "execution_order": 1,
+        "function": "tensor.create",
+        "lowered_operations": [
+          "tensor.create"
+        ],
+        "operation_id": "op_tensor_call_001",
+        "operation_type": "tensor_call",
+        "output_ref": "tensor_value_001",
+        "semantic_operation": "tensor.create",
+        "shape": [
+          1,
+          3
+        ],
+        "source_ref": {
+          "column": null,
+          "line": null
+        }
+      },
+      {
+        "backend_operation": "create",
+        "dependencies": [
+          "tensor_value_001"
+        ],
+        "dtype": "f64",
+        "execution_order": 2,
+        "function": "tensor.create",
+        "lowered_operations": [
+          "tensor.create"
+        ],
+        "operation_id": "op_tensor_call_002",
+        "operation_type": "tensor_call",
+        "output_ref": "tensor_value_002",
+        "semantic_operation": "tensor.create",
+        "shape": [
+          3,
+          2
+        ],
+        "source_ref": {
+          "column": null,
+          "line": null
+        }
+      },
+      {
+        "backend_operation": "create",
+        "dependencies": [
+          "tensor_value_002"
+        ],
+        "dtype": "f64",
+        "execution_order": 3,
+        "function": "tensor.create",
+        "lowered_operations": [
+          "tensor.create"
+        ],
+        "operation_id": "op_tensor_call_003",
+        "operation_type": "tensor_call",
+        "output_ref": "tensor_value_003",
+        "semantic_operation": "tensor.create",
+        "shape": [
+          2
+        ],
+        "source_ref": {
+          "column": null,
+          "line": null
+        }
+      },
+      {
+        "backend_operation": "linear",
+        "dependencies": [
+          "tensor_value_003"
+        ],
+        "dtype": "f64",
+        "execution_order": 4,
+        "function": "tensor.linear",
+        "lowered_operations": [
+          "tensor.matmul",
+          "tensor.add"
+        ],
+        "operation_id": "op_tensor_call_004",
+        "operation_type": "tensor_call",
+        "output_ref": "tensor_value_004",
+        "semantic_operation": "tensor.linear",
+        "shape": [
+          1,
+          2
+        ],
+        "source_ref": {
+          "column": null,
+          "line": null
+        }
+      },
+      {
+        "backend_operation": "relu",
+        "dependencies": [
+          "tensor_value_004"
+        ],
+        "dtype": "f64",
+        "execution_order": 5,
+        "function": "tensor.relu",
+        "lowered_operations": [
+          "tensor.maximum"
+        ],
+        "operation_id": "op_tensor_call_005",
+        "operation_type": "tensor_call",
+        "output_ref": "tensor_value_005",
+        "semantic_operation": "tensor.relu",
+        "shape": [
+          1,
+          2
+        ],
+        "source_ref": {
+          "column": null,
+          "line": null
+        }
+      },
+      {
+        "backend_operation": "softmax",
+        "dependencies": [
+          "tensor_value_005"
+        ],
+        "dtype": "f64",
+        "execution_order": 6,
+        "function": "tensor.softmax",
+        "lowered_operations": [
+          "tensor.max",
+          "tensor.subtract",
+          "tensor.exp",
+          "tensor.sum",
+          "tensor.divide"
+        ],
+        "operation_id": "op_tensor_call_006",
+        "operation_type": "tensor_call",
+        "output_ref": "tensor_value_006",
+        "semantic_operation": "tensor.softmax",
+        "shape": [
+          1,
+          2
+        ],
+        "source_ref": {
+          "column": null,
+          "line": null
+        }
+      }
+    ],
+    "schema_version": "reasonscript-tensor-execution-plan/0.1"
+  },
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "reason-phase1r",
+  "language_version": "0.5",
+  "schema": "execution-plan/0.5",
+  "version": "1.0"
+}

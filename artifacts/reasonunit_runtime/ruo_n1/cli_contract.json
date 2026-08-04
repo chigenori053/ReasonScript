@@ -1,0 +1,21 @@
+{
+  "data": {
+    "command": "reason reasonunit-runtime",
+    "json": true,
+    "operations": [
+      "load",
+      "validate",
+      "inspect",
+      "query",
+      "snapshot",
+      "transact",
+      "select",
+      "project",
+      "verify-native",
+      "generate",
+      "validate-phase"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-cli-contract/1.0"
+}

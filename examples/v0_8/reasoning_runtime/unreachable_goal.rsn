@@ -1,0 +1,5 @@
+module UnreachableGoal {
+  calculation Answer {
+    result = 1
+  }
+}

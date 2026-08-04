@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/cluster-message/0.1",
+  "title": "ReasonScript Cluster Message 0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "message_id", "run_id", "logical_step", "sequence", "sender", "receiver", "message_type", "payload", "checksum"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-cluster-message/0.1"},
+    "message_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "logical_step": {"type": "integer", "minimum": 0},
+    "sequence": {"type": "integer", "minimum": 1},
+    "sender": {"type": "string", "minLength": 1},
+    "receiver": {"type": "string", "minLength": 1},
+    "message_type": {"enum": ["worker_register", "worker_ready", "task_assign", "task_start", "task_result", "task_failure", "state_request", "state_response", "barrier_wait", "barrier_release", "heartbeat", "cancel", "shutdown", "diagnostic"]},
+    "payload": {"type": "object"},
+    "checksum": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

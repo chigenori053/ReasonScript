@@ -1,0 +1,9 @@
+{
+  "data": {
+    "protected_behavior": "unchanged",
+    "semantic_loss": 0,
+    "worker_identity_leaks": 0
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-cluster-projection-report/1.0"
+}

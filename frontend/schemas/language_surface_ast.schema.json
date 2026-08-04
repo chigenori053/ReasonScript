@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://reasonscript.org/schema/language-surface-ast/0.1",
-  "title": "ReasonScript Language Surface AST 0.1",
+  "$id": "https://reasonscript.org/schema/language-surface-ast/0.6",
+  "title": "ReasonScript Language Surface AST 0.6",
   "$ref": "#/$defs/program",
   "$defs": {
     "identifier": {
@@ -460,6 +460,7 @@
         {"$ref": "#/$defs/wildcard_pattern"},
         {"$ref": "#/$defs/default_pattern"},
         {"$ref": "#/$defs/literal_pattern"},
+        {"$ref": "#/$defs/range_pattern"},
         {"$ref": "#/$defs/enum_value_pattern"},
         {"$ref": "#/$defs/optional_pattern"},
         {"$ref": "#/$defs/optional_value_pattern"},
@@ -528,6 +529,28 @@
         "enum_name": {"$ref": "#/$defs/identifier"},
         "value_name": {"$ref": "#/$defs/identifier"},
         "node_type": {"const": "EnumValuePatternNode"}
+      }
+    },
+    "range_pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lower", "upper", "lower_inclusive", "upper_inclusive", "node_type"],
+      "properties": {
+        "lower": {
+          "oneOf": [
+            {"$ref": "#/$defs/integer_literal"},
+            {"$ref": "#/$defs/float_literal"}
+          ]
+        },
+        "upper": {
+          "oneOf": [
+            {"$ref": "#/$defs/integer_literal"},
+            {"$ref": "#/$defs/float_literal"}
+          ]
+        },
+        "lower_inclusive": {"type": "boolean"},
+        "upper_inclusive": {"type": "boolean"},
+        "node_type": {"const": "RangePatternNode"}
       }
     },
     "optional_pattern": {
@@ -635,7 +658,7 @@
     "module": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "visibility", "body", "node_type"],
+      "required": ["name", "visibility", "body", "source_kind", "node_type"],
       "properties": {
         "name": {"$ref": "#/$defs/identifier"},
         "visibility": {"enum": ["Public", "Private"]},
@@ -643,6 +666,7 @@
           "type": "array",
           "items": {"$ref": "#/$defs/ast_node"}
         },
+        "source_kind": {"enum": ["module", "model"]},
         "node_type": {"const": "ModuleNode"}
       }
     },

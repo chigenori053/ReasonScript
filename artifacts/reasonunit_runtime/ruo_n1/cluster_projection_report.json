@@ -1,0 +1,9 @@
+{
+  "data": {
+    "protected_behavior": "unchanged",
+    "stable_id_loss": 0,
+    "worker_handle_leak": 0
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-cluster-projection-report/1.0"
+}

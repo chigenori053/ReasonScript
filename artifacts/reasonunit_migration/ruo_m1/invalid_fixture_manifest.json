@@ -1,0 +1,18 @@
+{
+  "data": {
+    "cases": [
+      "missing_source",
+      "invalid_json",
+      "unsupported",
+      "source_mutated",
+      "plan_tampered",
+      "identity_collision",
+      "containment_cycle",
+      "loss_detected",
+      "publish_without_capability",
+      "rollback_without_capability"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-invalid-fixture-manifest/1.0"
+}

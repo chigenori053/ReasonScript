@@ -1,0 +1,23 @@
+{
+  "schema_version": "reasonscript-reasonunit-baseline-fixtures/1.0",
+  "fixtures": [
+    {"id": "minimal-atomic", "class": "minimal_atomic", "units": [{"id": "unit:atomic:001", "type": "symbolic", "state": "ready"}], "expected": "deterministic"},
+    {"id": "related-units", "class": "related", "units": [{"id": "unit:related:source"}, {"id": "unit:related:target"}], "relations": [{"type": "depends_on", "source": "unit:related:source", "target": "unit:related:target"}]},
+    {"id": "stateful-unit", "class": "stateful", "pre_state": "ready", "valid_proposal": "active", "invalid_proposal": "unknown", "rollback_state": "ready"},
+    {"id": "evidence-unit", "class": "evidence_carrying", "unit_id": "unit:evidence:001", "evidence_refs": ["evidence:fixture:001"], "explanation_ref": "explanation:fixture:001"},
+    {"id": "lifecycle-unit", "class": "lifecycle", "states": ["proposed", "validated", "active", "suspended", "reactivated", "replaced", "pruned"]},
+    {"id": "cluster-unit", "class": "cluster_executed", "evidence": "artifacts/dynamic_reason_unit_cluster_v0_1/dynamic_unit_manifest.json"},
+    {"id": "tensor-unit", "class": "tensor_associated", "unit_id": "unit:tensor:001", "tensor_ref": "artifacts/phase_1r/tensor_inference_probe/tensor_metadata.json"},
+    {"id": "molecular-unit", "class": "molecular_structured", "evidence": "ClusterRuntime/src/dynamic/test_model.rs", "scenario": "molecular-dynamic"}
+  ],
+  "invalid_fixtures": [
+    {"id": "invalid-duplicate-identity", "kind": "duplicate_identity"},
+    {"id": "invalid-dangling-relation", "kind": "dangling_relation"},
+    {"id": "invalid-state", "kind": "invalid_state"},
+    {"id": "invalid-lifecycle", "kind": "illegal_lifecycle_transition"},
+    {"id": "invalid-conflict", "kind": "state_conflict"},
+    {"id": "invalid-evidence", "kind": "invalid_evidence_reference"},
+    {"id": "invalid-resource-limit", "kind": "resource_limit"},
+    {"id": "invalid-digest", "kind": "corrupted_artifact_digest"}
+  ]
+}

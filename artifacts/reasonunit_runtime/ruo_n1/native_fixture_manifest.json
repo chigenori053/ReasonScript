@@ -1,0 +1,41 @@
+{
+  "data": {
+    "implemented_fixture_classes": 21,
+    "native_probe": {
+      "entity_ids": [
+        "ruo:evidence:observation",
+        "ruo:extension:project",
+        "ruo:payload:abstract",
+        "ruo:payload:binary",
+        "ruo:payload:graph",
+        "ruo:payload:numeric",
+        "ruo:payload:scalar",
+        "ruo:payload:spatial",
+        "ruo:payload:temporal",
+        "ruo:payload:tensor",
+        "ruo:payload:text",
+        "ruo:projection:69ff29e8df0b14d32a242448",
+        "ruo:relation:text-numeric",
+        "ruo:revision:0",
+        "ruo:state:committed",
+        "ruo:unit:abstract",
+        "ruo:unit:numeric",
+        "ruo:unit:root",
+        "ruo:unit:text"
+      ],
+      "exit_status": 0,
+      "logical_object_digest": "sha256:8be9a4f4e285297ffd6733be986c1713c0a1e538603f3f122ebaac7164830ef5",
+      "native_execution_provenance": "reasonscript-reasonunit-native-runtime/1.0",
+      "object_id": "ruo:object:universal-fixture",
+      "ok": true,
+      "operation": "load",
+      "process_exit_status": 0,
+      "resource_status": "metadata_verified",
+      "revision_id": "ruo:revision:0",
+      "snapshot_generation": 1
+    },
+    "required_fixture_classes": 21
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-fixture-manifest/1.0"
+}

@@ -1,0 +1,18 @@
+{
+  "data": {
+    "inputs": [
+      "declared namespace",
+      "logical project id",
+      "semantic locator",
+      "kind"
+    ],
+    "prohibited": [
+      "path",
+      "order",
+      "time",
+      "host"
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-id-generation-contract/1.0"
+}

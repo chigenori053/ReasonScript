@@ -1,0 +1,189 @@
+{
+  "data": {
+    "case_count": 45,
+    "cases": [
+      {
+        "case_id": "unknown_dtype",
+        "rejected": true
+      },
+      {
+        "case_id": "rank_shape_mismatch",
+        "rejected": true
+      },
+      {
+        "case_id": "negative_dimension",
+        "rejected": true
+      },
+      {
+        "case_id": "element_count_mismatch",
+        "rejected": true
+      },
+      {
+        "case_id": "shape_overflow",
+        "rejected": true
+      },
+      {
+        "case_id": "dense_size",
+        "rejected": true
+      },
+      {
+        "case_id": "invalid_bool",
+        "rejected": true
+      },
+      {
+        "case_id": "nan",
+        "rejected": true
+      },
+      {
+        "case_id": "infinity",
+        "rejected": true
+      },
+      {
+        "case_id": "negative_zero",
+        "rejected": true
+      },
+      {
+        "case_id": "complex_order",
+        "rejected": true
+      },
+      {
+        "case_id": "axis_ordinal",
+        "rejected": true
+      },
+      {
+        "case_id": "axis_dimension",
+        "rejected": true
+      },
+      {
+        "case_id": "duplicate_unit_mapping",
+        "rejected": true
+      },
+      {
+        "case_id": "mapping_length",
+        "rejected": true
+      },
+      {
+        "case_id": "index_as_identity",
+        "rejected": true
+      },
+      {
+        "case_id": "noncontiguous_dense",
+        "rejected": true
+      },
+      {
+        "case_id": "padded_dense",
+        "rejected": true
+      },
+      {
+        "case_id": "coo_bounds",
+        "rejected": true
+      },
+      {
+        "case_id": "coo_unsorted",
+        "rejected": true
+      },
+      {
+        "case_id": "coo_duplicate",
+        "rejected": true
+      },
+      {
+        "case_id": "coo_count",
+        "rejected": true
+      },
+      {
+        "case_id": "csr_rank",
+        "rejected": true
+      },
+      {
+        "case_id": "csr_pointer",
+        "rejected": true
+      },
+      {
+        "case_id": "csr_column_order",
+        "rejected": true
+      },
+      {
+        "case_id": "csr_nnz",
+        "rejected": true
+      },
+      {
+        "case_id": "inline_hex_length",
+        "rejected": true
+      },
+      {
+        "case_id": "inline_uppercase",
+        "rejected": true
+      },
+      {
+        "case_id": "resource_digest",
+        "rejected": true
+      },
+      {
+        "case_id": "resource_size",
+        "rejected": true
+      },
+      {
+        "case_id": "chunk_gap",
+        "rejected": true
+      },
+      {
+        "case_id": "chunk_overlap",
+        "rejected": true
+      },
+      {
+        "case_id": "chunk_order",
+        "rejected": true
+      },
+      {
+        "case_id": "chunk_digest",
+        "rejected": true
+      },
+      {
+        "case_id": "mask_shape",
+        "rejected": true
+      },
+      {
+        "case_id": "mask_byte",
+        "rejected": true
+      },
+      {
+        "case_id": "missing_resource",
+        "rejected": true
+      },
+      {
+        "case_id": "partial_complete",
+        "rejected": true
+      },
+      {
+        "case_id": "stale_logical_digest",
+        "rejected": true
+      },
+      {
+        "case_id": "stale_mapping_digest",
+        "rejected": true
+      },
+      {
+        "case_id": "false_lossless",
+        "rejected": true
+      },
+      {
+        "case_id": "critical_extension",
+        "rejected": true
+      },
+      {
+        "case_id": "path_traversal",
+        "rejected": true
+      },
+      {
+        "case_id": "resource_limit",
+        "rejected": true
+      },
+      {
+        "case_id": "atomic_publication",
+        "rejected": true
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reasonunit-tensor/1.0",
+  "schema_version": "reasonscript-reasonunit-tensor-invalid-fixture-manifest/1.0"
+}

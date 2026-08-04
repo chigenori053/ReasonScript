@@ -1,0 +1,8 @@
+{
+  "data": {
+    "protected_behavior": "unchanged",
+    "semantic_loss_count": 0
+  },
+  "profile_version": "reasonscript-reasonunit-migration/1.0",
+  "schema_version": "reasonscript-reasonunit-migration-behavioral-parity-report/1.0"
+}

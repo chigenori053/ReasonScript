@@ -1,0 +1,11 @@
+{
+  "data": {
+    "c1_wrap_project_unwrap_loss_count": 0,
+    "canonical_digest": "sha256:5b551746ef4c7bb4a415a9e15b19d2f5858a84d7802a60b30f0a8a966558cf4b",
+    "reordered_digest": "sha256:5b551746ef4c7bb4a415a9e15b19d2f5858a84d7802a60b30f0a8a966558cf4b",
+    "semantic_loss_count": 0,
+    "unknown_extension_retained": true
+  },
+  "profile_version": "reasonscript-reasonunit-object-universal/1.0",
+  "schema_version": "reasonscript-reasonunit-object-universal-semantic-roundtrip-report/1.0"
+}

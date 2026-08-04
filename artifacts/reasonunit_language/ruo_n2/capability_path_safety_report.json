@@ -1,0 +1,16 @@
+{
+  "data": {
+    "invalid_cases": [
+      "absolute",
+      "escape",
+      "network",
+      "secret",
+      "shell"
+    ],
+    "read_denial": true,
+    "rejected": 5,
+    "write_denial": true
+  },
+  "profile_version": "reasonscript-reasonunit-language-integration/1.0",
+  "schema_version": "reasonscript-reasonunit-language-integration-capability-path-safety-report/1.0"
+}

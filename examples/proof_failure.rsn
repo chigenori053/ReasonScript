@@ -1,4 +1,12 @@
-goal preserve_session_consistency
-apply patch_session_machine
-prove invalid_transition
-converge verify_repl_stability
+// Expected to fail semantic validation: the state transition is inconsistent
+// because CurrentState and ProposedState depend on each other cyclically,
+// so no deterministic transition can be proven.
+module ProofFailure {
+  calculation CurrentState {
+    result = ProposedState + 1
+  }
+
+  calculation ProposedState {
+    result = CurrentState + 1
+  }
+}

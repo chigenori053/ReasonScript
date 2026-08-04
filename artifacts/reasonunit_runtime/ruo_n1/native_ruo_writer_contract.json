@@ -1,0 +1,10 @@
+{
+  "data": {
+    "byte_roundtrip": true,
+    "canonical_codec": "RUO-F1",
+    "handles_serialized": false,
+    "projection": "immutable_logical_model"
+  },
+  "profile_version": "reasonscript-reasonunit-native-runtime/1.0",
+  "schema_version": "reasonscript-reasonunit-native-runtime-native-ruo-writer-contract/1.0"
+}

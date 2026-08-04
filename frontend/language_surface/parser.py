@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 
 from .expressions import (
     MAX_PATTERN_DEPTH,
@@ -66,6 +67,8 @@ from .nodes import (
     PrimitiveTypeNode,
     ReasonGraphDeclarationNode,
     ReasonGraphTransitionNode,
+    ReasonObjectBindingNode,
+    ReasonObjectClauseSpanNode,
     RelationNode,
     RelationType,
     ReachStatementNode,
@@ -81,6 +84,7 @@ from .nodes import (
     StateDeclarationNode,
     StateKind,
     StateTypeNode,
+    SourceSpanNode,
     StructDeclarationNode,
     StructFieldNode,
     StructLiteralFieldNode,
@@ -99,6 +103,31 @@ from .validation import SurfaceValidationError, validate
 
 class SurfaceSyntaxError(ValueError):
     pass
+
+
+class SurfaceReservedConstructError(SurfaceSyntaxError):
+    code = "LL-002-RESERVED-TOP-LEVEL-CONSTRUCT"
+    layer = "L1"
+    severity = "error"
+
+    def __init__(self, construct: str) -> None:
+        self.construct = construct
+        super().__init__(_reserved_construct_message(construct))
+
+
+_RESERVED_TOP_LEVEL_CONSTRUCTS = {
+    "world": "WorldModel syntax",
+    "system": "multi-model orchestration",
+    "component": "UI / SDK structural composition",
+}
+
+
+def _reserved_construct_message(construct: str) -> str:
+    purpose = _RESERVED_TOP_LEVEL_CONSTRUCTS[construct]
+    return (
+        f"{construct} is reserved for future {purpose} "
+        "and is not active in v0.6-D."
+    )
 
 
 @dataclass
@@ -131,6 +160,7 @@ def parse(source: str) -> ProgramNode:
                 raise SurfaceSyntaxError("PV-3 PackageMustAppearFirst")
             package = _parse_package(cursor)
             continue
+        _reject_reserved_top_level_construct(cursor.current())
         modules.append(_parse_module(cursor))
     program = ProgramNode(tuple(modules), package)
     try:
@@ -148,10 +178,21 @@ def _parse_package(cursor: _Cursor) -> PackageDeclarationNode:
     return PackageDeclarationNode(match.group(1))
 
 
+def _reject_reserved_top_level_construct(line: str) -> None:
+    if re.match(r"reason_object\b", line):
+        raise SurfaceSyntaxError("RUO-N2-002 reason_object is a nested declaration only")
+    match = re.fullmatch(
+        r"(?:(?:pub)\s+)?(world|system|component)\b.*",
+        line,
+    )
+    if match:
+        raise SurfaceReservedConstructError(match.group(1))
+
+
 def _logical_lines(source: str) -> list[str]:
     lines: list[str] = []
     for raw in source.splitlines():
-        line = raw.split("//", 1)[0].strip()
+        line = _strip_line_comment(raw).strip()
         if not line:
             continue
         line = re.sub(r"}\s*(elif\b)", r"}\n\1", line)
@@ -160,16 +201,30 @@ def _logical_lines(source: str) -> list[str]:
     return lines
 
 
+def _strip_line_comment(raw: str) -> str:
+    quote: str | None = None; escaped = False; index = 0
+    while index < len(raw):
+        char = raw[index]
+        if quote is not None:
+            if escaped: escaped = False
+            elif char == "\\": escaped = True
+            elif char == quote: quote = None
+        elif char in {'"', "'"}: quote = char
+        elif raw.startswith("//", index): return raw[:index]
+        index += 1
+    return raw
+
+
 def _parse_module(cursor: _Cursor) -> ModuleNode:
     match = re.fullmatch(
-        r"(?:(pub)\s+)?module\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{",
+        r"(?:(pub)\s+)?(module|model)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{",
         cursor.take(),
     )
     if not match:
-        raise SurfaceSyntaxError("expected module declaration")
+        raise SurfaceSyntaxError("expected module or model declaration")
     visibility = Visibility.PUBLIC if match.group(1) else Visibility.PRIVATE
     body = _parse_body(cursor, context="module")
-    return ModuleNode(match.group(2), visibility, tuple(body))
+    return ModuleNode(match.group(3), visibility, tuple(body), match.group(2))
 
 
 def _parse_body(cursor: _Cursor, *, context: str) -> list:
@@ -201,6 +256,10 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
             nodes.append(_parse_transition(cursor))
         elif line.startswith("reason_graph "):
             nodes.append(_parse_reason_graph(cursor))
+        elif line.startswith("reason_object "):
+            if context != "module":
+                raise SurfaceSyntaxError("RUO-N2-002 invalid reason_object lexical context")
+            nodes.append(_parse_reason_object(cursor))
         elif line.startswith("execution_plan "):
             nodes.append(_parse_execution_plan(cursor))
         elif (
@@ -228,6 +287,73 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
         else:
             nodes.append(_parse_simple(_collect_simple_statement(cursor), context=context))
     raise SurfaceSyntaxError(f"unterminated {context} block")
+
+
+def _parse_reason_object(cursor: _Cursor) -> ReasonObjectBindingNode:
+    start_index = cursor.index
+    parts = [cursor.take().rstrip(";")]
+    while cursor.index < len(cursor.lines):
+        following = cursor.current().rstrip(";")
+        if re.match(r"^(resources|mode|as)\b", following):
+            parts.append(cursor.take().rstrip(";"))
+        else:
+            break
+    text = " ".join(parts)
+    head = re.match(
+        r'^reason_object\s+([A-Za-z_][A-Za-z0-9_]*)\s+from\s+("(?:[^"\\]|\\.)*")(?=\s|$)',
+        text,
+    )
+    if not head:
+        raise SurfaceSyntaxError("RUO-N2-003 reason_object requires an identifier and string from path")
+    name, source_literal = head.group(1), head.group(2)
+    source_path = _reason_object_string(source_literal)
+    tail = text[head.end():].strip()
+    clauses: dict[str, str] = {}
+    clause_spans: list[ReasonObjectClauseSpanNode] = [
+        ReasonObjectClauseSpanNode("name", SourceSpanNode(start_index + 1, 15, start_index + 1, 15 + len(name))),
+        ReasonObjectClauseSpanNode("from", SourceSpanNode(start_index + 1, max(1, parts[0].find("from") + 1), start_index + 1, len(parts[0]) + 1)),
+    ]
+    clause_pattern = re.compile(r'^(resources|mode|as)\s+("(?:[^"\\]|\\.)*"|strict|preserve)(?=\s|$)')
+    while tail:
+        match = clause_pattern.match(tail)
+        if not match:
+            raise SurfaceSyntaxError("RUO-N2-003 unknown or malformed reason_object clause")
+        clause, value = match.group(1), match.group(2)
+        if clause in clauses:
+            raise SurfaceSyntaxError(f"RUO-N2-003 duplicate reason_object clause: {clause}")
+        clauses[clause] = value
+        logical_line = start_index + 1 + min(len(clause_spans) - 1, len(parts) - 1)
+        clause_spans.append(ReasonObjectClauseSpanNode(clause, SourceSpanNode(logical_line, 1, logical_line, len(match.group(0)) + 1)))
+        tail = tail[match.end():].strip()
+    mode = clauses.get("mode", "strict")
+    if mode not in {"strict", "preserve"}:
+        raise SurfaceSyntaxError("RUO-N2-003 unknown reason_object load mode")
+    resource_root = _reason_object_string(clauses["resources"]) if "resources" in clauses else None
+    expected = _reason_object_string(clauses["as"]) if "as" in clauses else None
+    _validate_reason_object_path(source_path)
+    if not source_path.endswith(".ruo"):
+        raise SurfaceSyntaxError("RUO-N2-006 reason_object source must use lowercase .ruo")
+    if resource_root is not None: _validate_reason_object_path(resource_root)
+    if expected is not None and (":" not in expected or any(char.isspace() for char in expected)):
+        raise SurfaceSyntaxError("RUO-N2-005 invalid expected Object ID assertion")
+    end_line = start_index + len(parts)
+    return ReasonObjectBindingNode(name, source_path, resource_root, mode, expected, SourceSpanNode(start_index + 1, 1, end_line, len(parts[-1]) + 1), tuple(clause_spans))
+
+
+def _reason_object_string(literal: str) -> str:
+    if not (literal.startswith('"') and literal.endswith('"')):
+        raise SurfaceSyntaxError("RUO-N2-003 reason_object clause requires a string")
+    value = literal[1:-1]
+    if "\\" in value:
+        raise SurfaceSyntaxError("RUO-N2-006 escaped or platform-specific Object paths are prohibited")
+    return value
+
+
+def _validate_reason_object_path(value: str) -> None:
+    pure = PurePosixPath(value)
+    if (not value or pure.is_absolute() or any(part in {"", ".", ".."} for part in pure.parts)
+            or "://" in value or value.startswith(("~", "//")) or any(marker in value for marker in ("$", "`", "${", "$("))):
+        raise SurfaceSyntaxError("RUO-N2-006 unsafe or non-relative Object path")
 
 
 def _collect_simple_statement(cursor: _Cursor) -> str:
@@ -501,12 +627,23 @@ def _parse_calculation(cursor: _Cursor) -> CalculationNode:
 
 
 def _parse_struct(cursor: _Cursor) -> StructDeclarationNode:
+    declaration = cursor.take()
+    compact = re.fullmatch(
+        r"(?:(export)\s+)?struct\s+([A-Za-z_]\w*)\s*\{(.*)\}",
+        declaration,
+    )
+    if compact:
+        return StructDeclarationNode(
+            compact.group(2),
+            _parse_compact_struct_fields(compact.group(3)),
+            Visibility.PUBLIC if compact.group(1) else Visibility.PRIVATE,
+        )
     match = re.fullmatch(
         r"(?:(export)\s+)?struct\s+([A-Za-z_]\w*)\s*\{",
-        cursor.take(),
+        declaration,
     )
     if not match:
-        raise SurfaceSyntaxError("invalid struct declaration")
+        raise SurfaceSyntaxError("PARSE-001 invalid struct declaration")
     fields: list[StructFieldNode] = []
     while cursor.index < len(cursor.lines):
         line = cursor.take()
@@ -521,6 +658,53 @@ def _parse_struct(cursor: _Cursor) -> StructDeclarationNode:
             raise SurfaceSyntaxError("TV-4 FieldTypeRequired")
         fields.append(StructFieldNode(field.group(1), _type_annotation(field.group(2))))
     raise SurfaceSyntaxError("unterminated struct declaration")
+
+
+def _parse_compact_struct_fields(body: str) -> tuple[StructFieldNode, ...]:
+    text = body.strip()
+    if not text:
+        return ()
+
+    markers: list[tuple[int, int, str]] = []
+    depth = 0
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char in "([<":
+            depth += 1
+        elif char in ")]>":
+            depth -= 1
+            if depth < 0:
+                raise SurfaceSyntaxError(
+                    "PARSE-001 invalid compact struct field type"
+                )
+        elif depth == 0 and (char.isalpha() or char == "_"):
+            field = re.match(r"([A-Za-z_]\w*)\s*:(?!:)", text[index:])
+            if field:
+                markers.append(
+                    (index, index + field.end(), field.group(1))
+                )
+                index += field.end()
+                continue
+        index += 1
+
+    if depth != 0 or not markers or text[:markers[0][0]].strip(" ,;"):
+        raise SurfaceSyntaxError("PARSE-001 invalid compact struct declaration")
+
+    fields: list[StructFieldNode] = []
+    for marker_index, (_, value_start, name) in enumerate(markers):
+        value_end = (
+            markers[marker_index + 1][0]
+            if marker_index + 1 < len(markers)
+            else len(text)
+        )
+        field_type = text[value_start:value_end].strip().rstrip(",;").strip()
+        if not field_type:
+            raise SurfaceSyntaxError(
+                f"PARSE-001 compact struct field requires a type: {name}"
+            )
+        fields.append(StructFieldNode(name, _type_annotation(field_type)))
+    return tuple(fields)
 
 
 def _parse_enum(cursor: _Cursor) -> EnumDeclarationNode:
@@ -547,10 +731,11 @@ def _parse_enum(cursor: _Cursor) -> EnumDeclarationNode:
 
 
 def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
+    signature = _collect_function_signature(cursor)
     match = re.fullmatch(
         r"(?:(pub|export)\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)"
         r"(?:\s*(?:->|:)\s*(.+?))?\s*\{",
-        cursor.take(),
+        signature,
     )
     if not match:
         raise SurfaceSyntaxError("invalid function declaration")
@@ -564,6 +749,22 @@ def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
         visibility,
         _type_annotation(match.group(4)) if match.group(4) else None,
     )
+
+
+def _collect_function_signature(cursor: _Cursor) -> str:
+    parts = [cursor.take()]
+    balance = _parenthesis_balance(parts[0])
+    while balance > 0 and cursor.index < len(cursor.lines):
+        next_line = cursor.take()
+        parts.append(next_line)
+        balance += _parenthesis_balance(next_line)
+    if balance != 0:
+        raise SurfaceSyntaxError("invalid function declaration")
+    return " ".join(parts)
+
+
+def _parenthesis_balance(line: str) -> int:
+    return line.count("(") - line.count(")")
 
 
 def _parse_for(cursor: _Cursor, *, context: str) -> ForStatementNode:
