@@ -23,9 +23,26 @@ for the official macOS arm64 package update procedure.
   formats.
 - **Cross-language DTO bindings** — Rust, Python, TypeScript, Go, and Java
   bindings share one normative contract (`docs/specifications/Common_DTO_Specification_v0.1.md`).
+- **Visualization** — a Safe-Rust Semantic Visualization Runtime and
+  `reason view`, a terminal CodeViewer that correlates a `.rsn` source file
+  with its compiled Surface AST, Semantic AST, Reason IR, and ExecutionPlan
+  (interactive curses UI, `--json`/`--plain` output, and a file-tree browser).
+- **Cluster execution** — `reason cluster` plans, runs, simulates, verifies,
+  and compares Dynamic ReasonUnit cluster executions.
 - **Tooling** — a CLI (`reason`), an IDE (`apps/reasonscript-ide`), a VS
   Code extension (`vscode-extension/`), and a browser playground
   (`playground/`).
+
+`./reason ci` runs the full CI Stabilization pipeline (checkout, workspace,
+diagnostics, artifacts, golden corpus, agent protocol, DTO compatibility,
+and the test suite — 1085 tests passing as of this release).
+
+### Not yet implemented
+
+See [`docs/roadmap.md`](docs/roadmap.md) for the full roadmap. Notably
+still open: full ReasonGraph/World viewers (only read-only groundwork
+exists today), package registry design, the LSP symbol index migration to
+compiler source spans, and the SDK public API manifest.
 
 ## Installation
 
