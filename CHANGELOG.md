@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Cleaned up repository documentation for the open-source release: removed
+  internal validation reports, phase completion reports, and audit artifacts;
+  added a documentation index at `docs/README.md`.
+
 ## v0.5.4.4 — 2026-08-02
 
 ### Added
@@ -197,12 +205,6 @@
     (provenance manifest) and `schemas/update_transaction.schema.json`;
     the previous package-manifest schema moved to
     `schemas/install_manifest_v1_1.schema.json`.
-
-### Changed
-
-- Cleaned up repository documentation for the open-source release: removed
-  internal validation reports, phase completion reports, and audit artifacts;
-  added a documentation index at `docs/README.md`.
 
 ## ReasonScript Dynamic ReasonUnit Cluster Execution v0.1 - 2026-07-18
 
