@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from conformance.framework import execute_reason_ir, validate_reason_ir
+from conformance.framework import ROOT, execute_reason_ir, validate_reason_ir
 from conformance.schema_validator import SchemaValidator
 from frontend.ast import (
     AstValidationError,
@@ -17,7 +17,6 @@ from frontend.ast import (
     to_reason_ir,
     validate,
 )
-from conformance.framework import ROOT
 
 
 def module_for(*declarations, metadata=()):

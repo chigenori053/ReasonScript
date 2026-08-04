@@ -6,7 +6,11 @@ from pathlib import Path
 
 from .manifest import Manifest, ManifestError
 from .pipeline import PipelineError, validate_source
-from .workspace import PackageGraphService, WorkspaceError, diagnostic_from_workspace_error
+from .workspace import (
+    PackageGraphService,
+    WorkspaceError,
+    diagnostic_from_workspace_error,
+)
 
 
 def run(project_root: Path, package: str | None = None) -> int:

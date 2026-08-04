@@ -7,8 +7,27 @@ import pytest
 
 from toolchain.object_cmd import run as object_cli
 from toolchain.reasonunit_file import read_file
-from toolchain.reasonunit_migration import MigrationError, analyze, compare, convert, discover, dry_run, generate_migration_profile, plan, publish, rollback, status, validate, validate_migration_profile
-from toolchain.reasonunit_migration.phase import CANONICAL_ARTIFACTS, DIAGNOSTIC_CODES, FIXTURE_CLASSES, verify_ruo_n2
+from toolchain.reasonunit_migration import (
+    MigrationError,
+    analyze,
+    compare,
+    convert,
+    discover,
+    dry_run,
+    generate_migration_profile,
+    plan,
+    publish,
+    rollback,
+    status,
+    validate,
+    validate_migration_profile,
+)
+from toolchain.reasonunit_migration.phase import (
+    CANONICAL_ARTIFACTS,
+    DIAGNOSTIC_CODES,
+    FIXTURE_CLASSES,
+    verify_ruo_n2,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 

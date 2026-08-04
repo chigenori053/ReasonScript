@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
-from typing import Mapping
 
 from frontend.ast import (
     ConstraintNode,
@@ -62,7 +62,7 @@ class ResolvedModule:
     name: str
     imports: tuple[str, ...]
     symbols: Mapping[str, Symbol]
-    _dependencies: Mapping[str, "ResolvedModule"] = field(
+    _dependencies: Mapping[str, ResolvedModule] = field(
         default_factory=dict, repr=False, compare=False
     )
 

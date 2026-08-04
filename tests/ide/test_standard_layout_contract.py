@@ -4,7 +4,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 APP_TSX = REPO_ROOT / "apps" / "reasonscript-ide" / "ui" / "src" / "App.tsx"
 STANDARD_VIEWS = (
@@ -19,7 +18,7 @@ STANDARD_VIEWS = (
 
 
 def _tab_ids(source: str, const_name: str) -> list[str]:
-    match = re.search(rf"const {const_name} = \[(.*?)\n  \];", source, re.S)
+    match = re.search(rf"const {const_name} = \[(.*?)\n  \];", source, re.DOTALL)
     assert match, f"{const_name} definition not found"
     return re.findall(r'id: "([^"]+)"', match.group(1))
 
@@ -37,7 +36,7 @@ def test_right_inspector_has_phase_35_primary_tabs() -> None:
 
 def test_bottom_tool_window_has_phase_35_primary_tabs() -> None:
     source = STANDARD_VIEWS.read_text()
-    match = re.search(r"export function BottomToolWindow\(.*?const tabs = \[(.*?)\n  \];", source, re.S)
+    match = re.search(r"export function BottomToolWindow\(.*?const tabs = \[(.*?)\n  \];", source, re.DOTALL)
     assert match, "BottomToolWindow tabs definition not found"
     assert re.findall(r'id: "([^"]+)"', match.group(1)) == [
         "problems",

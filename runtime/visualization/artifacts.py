@@ -1,11 +1,14 @@
 """Artifact-first projection for reproducible visualizations."""
 from __future__ import annotations
+
 import hashlib
 import json
 import shutil
 from pathlib import Path
 from typing import Any
+
 from runtime.data import Table
+
 from .matplotlib_backend import MatplotlibBackend
 from .model import VisualizationSpec
 from .operations import chart_data

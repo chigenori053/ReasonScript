@@ -27,7 +27,7 @@ class Manifest:
     dependencies: dict[str, object] = field(default_factory=dict)
 
     @staticmethod
-    def load(project_root: Path) -> "Manifest":
+    def load(project_root: Path) -> Manifest:
         path = project_root / "reason.toml"
         if not path.exists():
             raise ManifestError(f"reason.toml not found in {project_root}")

@@ -13,7 +13,6 @@ from frontend.ide import (
     TestResult,
 )
 
-
 MAIN_RSN = """package hello_world
 module main {
 fn run(goal) {

@@ -15,7 +15,6 @@ import re
 
 from .model import Anchor
 
-
 _HEADER_PATTERN = re.compile(
     r"^\s*(?:(?:pub|export)\s+)?(module|model|calculation|fn|struct|enum)\s+([A-Za-z_]\w*)\b"
 )

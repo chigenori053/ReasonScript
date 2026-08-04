@@ -18,7 +18,6 @@ from frontend.runtime_integration import (
 )
 from sdk._engine import resolve_registry
 
-
 GOAL_SCHEMA = "planning-sdk-goal/0.1"
 PLAN_SCHEMA = "planning-sdk-plan/0.1"
 RESULT_SCHEMA = "planning-sdk-result/0.1"

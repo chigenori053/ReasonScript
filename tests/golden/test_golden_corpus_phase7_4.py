@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-import toolchain.golden as golden
+from toolchain import golden
 from toolchain.golden import (
     discover_cases,
     evaluate_case,
@@ -16,7 +16,6 @@ from toolchain.golden import (
     update_manifest,
     validate_corpus,
 )
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV = REPO_ROOT / "scripts" / "dev.py"

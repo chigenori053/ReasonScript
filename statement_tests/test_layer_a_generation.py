@@ -13,7 +13,6 @@ from frontend.language_surface import (
     parse,
 )
 
-
 SOURCE = """
 module workflow {
     constraint Adult

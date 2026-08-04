@@ -9,6 +9,7 @@ from pathlib import Path
 from frontend.language_surface import SurfaceSyntaxError, parse
 
 from .model import (
+    SCHEMA,
     CompletionItem,
     Diagnostic,
     DiagnosticSeverity,
@@ -16,13 +17,11 @@ from .model import (
     Hover,
     Location,
     Range,
-    SCHEMA,
     Symbol,
     point_range,
     position,
     range_for,
 )
-
 
 KEYWORD_COMPLETIONS = (
     # Top-level constructs — model preferred (v0.6-C), module compatible (v0.6-B)

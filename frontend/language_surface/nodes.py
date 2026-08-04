@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
-from typing import Any, Mapping, TypeAlias
+from typing import Any, TypeAlias
 
 
 class Visibility(str, Enum):
@@ -94,28 +95,28 @@ class NamedTypeNode:
 
 @dataclass(frozen=True)
 class ArrayTypeNode:
-    element_type: "TypeNode"
+    element_type: TypeNode
 
 
 @dataclass(frozen=True)
 class TupleTypeNode:
-    element_types: tuple["TypeNode", ...]
+    element_types: tuple[TypeNode, ...]
 
 
 @dataclass(frozen=True)
 class SetTypeNode:
-    element_type: "TypeNode"
+    element_type: TypeNode
 
 
 @dataclass(frozen=True)
 class MapTypeNode:
-    key_type: "TypeNode"
-    value_type: "TypeNode"
+    key_type: TypeNode
+    value_type: TypeNode
 
 
 @dataclass(frozen=True)
 class OptionalTypeNode:
-    inner_type: "TypeNode"
+    inner_type: TypeNode
 
 
 TypeNode: TypeAlias = (
@@ -182,44 +183,44 @@ class RuntimeCallExpressionNode:
     namespace: RuntimeNamespaceNode
     method: str
     kind: RuntimeCallKind
-    arguments: tuple["Expression", ...]
+    arguments: tuple[Expression, ...]
 
 
 @dataclass(frozen=True)
 class UnaryExpressionNode:
     operator: UnaryOperator
-    operand: "Expression"
+    operand: Expression
 
 
 @dataclass(frozen=True)
 class BinaryExpressionNode:
-    left: "Expression"
+    left: Expression
     operator: BinaryOperator
-    right: "Expression"
+    right: Expression
 
 
 @dataclass(frozen=True)
 class ComparisonExpressionNode:
-    left: "Expression"
+    left: Expression
     operator: ComparisonOperator
-    right: "Expression"
+    right: Expression
 
 
 @dataclass(frozen=True)
 class LogicalExpressionNode:
-    left: "Expression"
+    left: Expression
     operator: LogicalOperator
-    right: "Expression"
+    right: Expression
 
 
 @dataclass(frozen=True)
 class ParenthesizedExpressionNode:
-    expression: "Expression"
+    expression: Expression
 
 
 @dataclass(frozen=True)
 class MemberAccessNode:
-    object: "Expression"
+    object: Expression
     member: str
 
 
@@ -232,14 +233,14 @@ class EnumVariantReferenceNode:
 
 @dataclass(frozen=True)
 class CallExpressionNode:
-    callee: "Expression"
-    arguments: tuple["Expression", ...]
+    callee: Expression
+    arguments: tuple[Expression, ...]
 
 
 @dataclass(frozen=True)
 class StructLiteralFieldNode:
     field_name: str
-    expression: "ExpressionNode"
+    expression: ExpressionNode
 
     @property
     def name(self) -> str:
@@ -257,23 +258,23 @@ StructLiteralNode = StructLiteralExpressionNode
 
 @dataclass(frozen=True)
 class ArrayLiteralNode:
-    elements: tuple["ExpressionNode", ...]
+    elements: tuple[ExpressionNode, ...]
 
 
 @dataclass(frozen=True)
 class TupleLiteralNode:
-    elements: tuple["ExpressionNode", ...]
+    elements: tuple[ExpressionNode, ...]
 
 
 @dataclass(frozen=True)
 class SetLiteralNode:
-    elements: tuple["ExpressionNode", ...]
+    elements: tuple[ExpressionNode, ...]
 
 
 @dataclass(frozen=True)
 class MapEntryNode:
-    key: "ExpressionNode"
-    value: "ExpressionNode"
+    key: ExpressionNode
+    value: ExpressionNode
 
 
 @dataclass(frozen=True)
@@ -283,13 +284,13 @@ class MapLiteralNode:
 
 @dataclass(frozen=True)
 class IndexAccessNode:
-    collection: "Expression"
-    index: "Expression"
+    collection: Expression
+    index: Expression
 
 
 @dataclass(frozen=True)
 class SomeExpressionNode:
-    value: "Expression"
+    value: Expression
 
 
 Expression: TypeAlias = (
@@ -380,7 +381,7 @@ class OptionalPatternNode:
 @dataclass(frozen=True)
 class OptionalValuePatternNode:
     kind: str
-    pattern: "Pattern"
+    pattern: Pattern
 
 
 @dataclass(frozen=True)
@@ -392,7 +393,7 @@ class StructBindingPatternNode:
 @dataclass(frozen=True)
 class StructFieldPatternNode:
     field_name: str
-    pattern: "Pattern"
+    pattern: Pattern
 
 
 @dataclass(frozen=True)
@@ -403,7 +404,7 @@ class StructPatternNode:
 
 @dataclass(frozen=True)
 class OrPatternNode:
-    alternatives: tuple["Pattern", ...]
+    alternatives: tuple[Pattern, ...]
 
 
 Pattern: TypeAlias = (
@@ -620,18 +621,18 @@ class ExpressionStatementNode:
 class ForStatementNode:
     iterator: str
     iterable: ExpressionNode
-    body: tuple["StatementNode", ...]
+    body: tuple[StatementNode, ...]
 
 
 @dataclass(frozen=True)
 class WhileStatementNode:
     condition: ExpressionNode
-    body: tuple["StatementNode", ...]
+    body: tuple[StatementNode, ...]
 
 
 @dataclass(frozen=True)
 class LoopStatementNode:
-    body: tuple["StatementNode", ...]
+    body: tuple[StatementNode, ...]
 
 
 @dataclass(frozen=True)
@@ -647,18 +648,18 @@ class ContinueStatementNode:
 @dataclass(frozen=True)
 class ElseIfStatementNode:
     condition: ExpressionNode
-    body: tuple["StatementNode", ...]
+    body: tuple[StatementNode, ...]
 
 
 @dataclass(frozen=True)
 class ElseStatementNode:
-    body: tuple["StatementNode", ...]
+    body: tuple[StatementNode, ...]
 
 
 @dataclass(frozen=True)
 class IfStatementNode:
     condition: ExpressionNode
-    body: tuple["StatementNode", ...]
+    body: tuple[StatementNode, ...]
     elif_branches: tuple[ElseIfStatementNode, ...] = ()
     else_branch: ElseStatementNode | None = None
 
@@ -666,7 +667,7 @@ class IfStatementNode:
 @dataclass(frozen=True)
 class MatchArmNode:
     pattern: PatternNode
-    body: tuple["StatementNode", ...]
+    body: tuple[StatementNode, ...]
     guard: ExpressionNode | None = None
 
 

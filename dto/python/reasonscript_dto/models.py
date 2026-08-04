@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
-from typing import Any, Mapping
+from typing import Any
 
 REASON_IR_VERSION = "reason-ir/0.1"
 JsonValue = Any

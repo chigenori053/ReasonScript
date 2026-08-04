@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from frontend.language_surface.integration import compile_program, project_program
+from frontend.language_surface.namespace import NamespaceResolutionError
 from frontend.language_surface.parser import SurfaceSyntaxError, parse
 from frontend.language_surface.validation import SurfaceValidationError
-from frontend.language_surface.namespace import NamespaceResolutionError
-from frontend.language_surface.integration import compile_program, project_program
 
 
 class PipelineError(Exception):

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from toolchain.phase8_golden_validation import render_json, update_phase8_golden, validate_phase8_golden
+from toolchain.phase8_golden_validation import (
+    render_json,
+    update_phase8_golden,
+    validate_phase8_golden,
+)
 
 
 def run(command: str, args: list[str], project_root: Path) -> int:

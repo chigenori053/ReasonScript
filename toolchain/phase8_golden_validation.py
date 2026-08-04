@@ -15,10 +15,15 @@ from toolchain.reasoning_evaluation_report import (
 )
 from toolchain.reasoning_model_contract import (
     serialize_reasoning_model,
+)
+from toolchain.reasoning_model_contract import (
     validate as validate_reasoning_model,
 )
-from toolchain.reasoning_runtime import run_reasoning_runtime, serialize_reasoning_runtime_result, validate_reasoning_runtime_result
-
+from toolchain.reasoning_runtime import (
+    run_reasoning_runtime,
+    serialize_reasoning_runtime_result,
+    validate_reasoning_runtime_result,
+)
 
 CONTRACT_SCHEMA = "reasonscript-phase8-golden-validation/1.0"
 VALIDATOR_SCHEMA = "reasonscript-phase8-golden-validation-report/1.0"

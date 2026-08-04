@@ -1,14 +1,14 @@
 """execution_plan SDK package."""
 
-from .builder import ExecutionPlan, create_plan, add_step
+from .builder import ExecutionPlan, add_step, create_plan
+from .query import length, steps
 from .validation import validate
-from .query import steps, length
 
 __all__ = [
     "ExecutionPlan",
-    "create_plan",
     "add_step",
-    "validate",
-    "steps",
+    "create_plan",
     "length",
+    "steps",
+    "validate",
 ]

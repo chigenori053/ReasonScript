@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from frontend.runtime_integration import (
     RuntimeEngineRegistry,
-    runtime_real_registry,
     hybrid_runtime_registry,
+    runtime_real_registry,
 )
 
 SUPPORTED_BACKENDS = {"RuntimeReal", "HybridRuntime"}

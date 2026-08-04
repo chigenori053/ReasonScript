@@ -7,11 +7,11 @@ legacy build/run/check behavior can remain unchanged.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import json
-from pathlib import Path
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 try:
@@ -19,9 +19,9 @@ try:
 except ImportError:  # pragma: no cover
     import tomli as tomllib  # type: ignore[no-redef]
 
-from toolchain.diagnostics import diagnostics_document, diagnostics_summary as canonical_diagnostics_summary
 from toolchain.artifacts import write_artifact_directory
-
+from toolchain.diagnostics import diagnostics_document
+from toolchain.diagnostics import diagnostics_summary as canonical_diagnostics_summary
 
 WORKSPACE_SCHEMA = "reasonscript-workspace/1.0"
 SUPPORTED_SOURCE_EXTENSIONS = {".rsn", ".rs", ".py", ".toml", ".md", ".json", ".yaml", ".yml"}

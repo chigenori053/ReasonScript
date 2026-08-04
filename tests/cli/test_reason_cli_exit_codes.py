@@ -4,7 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV = REPO_ROOT / "scripts" / "dev.py"
 VALID = REPO_ROOT / "examples" / "v0_5" / "002_single_calculation.rsn"

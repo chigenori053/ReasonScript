@@ -19,7 +19,6 @@ from frontend.runtime_integration import (
 from sdk import planning
 from sdk._engine import resolve_registry
 
-
 SDK_VERSION = "agent-layer/0.1"
 AGENT_SCHEMA = "agent-layer-agent/0.1"
 TASK_SCHEMA = "agent-layer-task/0.1"
@@ -58,7 +57,7 @@ class Agent:
     metadata: dict[str, Any] = field(default_factory=dict)
     tools: tuple[Tool, ...] = ()
 
-    def with_tool(self, tool: Tool) -> "Agent":
+    def with_tool(self, tool: Tool) -> Agent:
         tools = tuple(item for item in self.tools if item.id != tool.id) + (tool,)
         return Agent(
             self.id,

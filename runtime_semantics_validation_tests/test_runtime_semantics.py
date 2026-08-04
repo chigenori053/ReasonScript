@@ -2,12 +2,12 @@ import copy
 import unittest
 
 from conformance.framework import (
+    ROOT,
     ConformanceError,
     execute_reason_ir,
     execute_transaction_fixture,
 )
 from conformance.schema_validator import SchemaValidator
-from conformance.framework import ROOT
 
 
 def state(state_id):

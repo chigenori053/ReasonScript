@@ -4,7 +4,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from toolchain.install_foundation import doctor_payload, install_validation_payload, version_payload
+from toolchain.install_foundation import (
+    doctor_payload,
+    install_validation_payload,
+    version_payload,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 

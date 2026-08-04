@@ -8,9 +8,12 @@ import pytest
 from frontend.integrated_computation_runtime import LoopLimitError, execute_program
 from frontend.language_surface import compile_program, parse, project_program
 from frontend.tensor import TensorError, TensorPolicy, TensorRuntime
-from frontend.tensor.integration import public_registry, tensor_execution_plan, tensor_operations
+from frontend.tensor.integration import (
+    public_registry,
+    tensor_execution_plan,
+    tensor_operations,
+)
 from toolchain.project_validation import validate_project
-
 
 ROOT = Path(__file__).resolve().parents[2]
 TENSOR_PROBE = ROOT / "tests" / "fixtures" / "tensor_integration_probe.rsn"

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV_PY = REPO_ROOT / "scripts" / "dev.py"
 OFFICIAL_UI = REPO_ROOT / "apps" / "reasonscript-ide" / "ui"

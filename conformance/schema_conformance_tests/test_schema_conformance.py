@@ -1,8 +1,8 @@
 import unittest
 
 from conformance.framework import (
-    ConformanceError,
     ROOT,
+    ConformanceError,
     load_json,
     validate_reason_ir,
 )

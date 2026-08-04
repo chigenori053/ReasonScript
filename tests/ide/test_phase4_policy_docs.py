@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS = REPO_ROOT / "docs" / "development"
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"

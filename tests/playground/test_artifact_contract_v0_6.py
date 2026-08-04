@@ -1,5 +1,8 @@
-from playground.backend.main import ARTIFACT_FILES, SourceRequest, _run_pipeline_artifacts
-
+from playground.backend.main import (
+    ARTIFACT_FILES,
+    SourceRequest,
+    _run_pipeline_artifacts,
+)
 
 SOURCE = """
 model Playground {

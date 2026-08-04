@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, is_dataclass
-from enum import Enum
 import json
 import math
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, is_dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from .backend import DataBackend
 from .model import DataError, DatasetRef, MissingValue, Table

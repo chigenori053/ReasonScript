@@ -1,8 +1,6 @@
 import dataclasses
 import unittest
 
-from conformance.framework import ROOT
-from conformance.schema_validator import SchemaValidator
 from computation_model_tests.model import (
     MathState,
     MathTransition,
@@ -11,6 +9,8 @@ from computation_model_tests.model import (
     result_as_dto,
     run_procedure,
 )
+from conformance.framework import ROOT
+from conformance.schema_validator import SchemaValidator
 
 
 class CoreComputationModelValidation(unittest.TestCase):

@@ -4,10 +4,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from toolchain.install_update.package_validator import validate_package_provenance
-
 from tests.install_update.provenance_test_support import STALE_COMMIT, attach_provenance
 from tests.install_update.test_update_core import _write, package
+from toolchain.install_update.package_validator import validate_package_provenance
 
 
 def _codes(report) -> set[str]:

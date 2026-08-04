@@ -7,7 +7,6 @@ from frontend.language_surface.nodes import to_json_value
 from frontend.language_surface.parser import parse
 from playground.backend.engine import build_execution_plan, extract_knowledge, simulate
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 MODULE_SOURCE = """

@@ -1,6 +1,8 @@
 """Visualization contract, resource, and encoding validation."""
 from __future__ import annotations
+
 from runtime.data import DataType, Table
+
 from .model import VisualizationError, VisualizationSpec
 
 CHART_TYPES = {"line", "bar", "bar_horizontal", "scatter", "histogram", "box", "pie", "grouped_bar",

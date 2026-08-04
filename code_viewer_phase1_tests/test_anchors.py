@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from toolchain.code_viewer.anchors import scan_anchors
 
-
 SOURCE = """module CalculationDependency {
   calculation Base {
     result = 21

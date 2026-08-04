@@ -10,14 +10,32 @@ from pathlib import Path
 from typing import Any
 
 from toolchain.diagnostics import diagnostics_document
-from toolchain.reasonunit_file import validate_file, validate_file_format, verify_resources
+from toolchain.reasonunit_file import (
+    validate_file,
+    validate_file_format,
+    verify_resources,
+)
 from toolchain.reasonunit_file.format import encode_file
 from toolchain.reasonunit_file.phase import _complete_object
+
 from .model import (
-    DEFAULT_LIMITS, DTYPES, MEDIA_TYPE, PAYLOAD_PROFILE, PROFILE as TENSOR_PROFILE,
-    VALIDITY_STATES, convert_tensor, encode_mask, logical_digest, make_dense_tensor,
-    make_inline_tensor, select_tensor, tensor_resource_record, validate_tensor,
+    DEFAULT_LIMITS,
+    DTYPES,
+    MEDIA_TYPE,
+    PAYLOAD_PROFILE,
+    VALIDITY_STATES,
+    convert_tensor,
+    encode_mask,
+    logical_digest,
+    make_dense_tensor,
+    make_inline_tensor,
+    select_tensor,
+    tensor_resource_record,
+    validate_tensor,
     verify_resource,
+)
+from .model import (
+    PROFILE as TENSOR_PROFILE,
 )
 
 PROFILE = "reasonscript-reasonunit-tensor/1.0"

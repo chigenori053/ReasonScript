@@ -1,7 +1,18 @@
 import json
 from pathlib import Path
+
 import pytest
-from runtime.data import AggregationSpec, DataBackend, DataError, Field, ResourceLimits, Schema, analyze_titanic, is_missing
+
+from runtime.data import (
+    AggregationSpec,
+    DataBackend,
+    DataError,
+    Field,
+    ResourceLimits,
+    Schema,
+    analyze_titanic,
+    is_missing,
+)
 from toolchain.data_artifacts import data_artifacts
 
 SCHEMA = Schema((Field("id", "int"), Field("group", "string"), Field("value", "float", True)))

@@ -11,7 +11,6 @@ from playground.backend.reasoning_overview import (
     serialize_reasoning_overview_view_model,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 SOURCE = """

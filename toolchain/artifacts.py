@@ -8,7 +8,6 @@ from typing import Any
 
 from toolchain.diagnostics import diagnostic_from_parts, diagnostics_document
 
-
 ARTIFACT_VERSION = "1.0"
 ARTIFACT_SCHEMA = "reasonscript-artifacts/1.0"
 DETERMINISTIC_GENERATED_AT = "1970-01-01T00:00:00Z"

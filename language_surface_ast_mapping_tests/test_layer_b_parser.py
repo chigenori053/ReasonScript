@@ -10,7 +10,6 @@ from frontend.language_surface import (
     tokenize,
 )
 
-
 SOURCE = """
 pub module finance {
     import common.money as money

@@ -11,11 +11,11 @@ import os
 import re
 import tempfile
 import unicodedata
+from collections.abc import Iterable
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable
+from typing import Any
 
 from toolchain.reasonunit_object.model import canonical_digest, validate_object
-
 
 FORMAT_VERSION = "1.0"
 MEDIA_TYPE = "application/vnd.reasonscript.ruo+jsonl"

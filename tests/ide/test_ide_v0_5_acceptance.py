@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 UI_ROOT = REPO_ROOT / "apps" / "reasonscript-ide" / "ui"
 UI_SRC = UI_ROOT / "src"

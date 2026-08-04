@@ -12,7 +12,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-
 EXECUTION_ARCHITECTURE_SCHEMA = "reasonscript-execution-architecture/1.2"
 REASONING_TRACE_SCHEMA = "reasonscript-reasoning-trace/1.0"
 PLATFORM_DIAGNOSTIC_SCHEMA = "reasonscript-platform-diagnostic/1.0"
@@ -81,7 +80,7 @@ class DiagnosticSource:
 
 @dataclass(frozen=True)
 class RuntimeStruct:
-    fields: dict[str, "RuntimeValue"]
+    fields: dict[str, RuntimeValue]
 
 
 @dataclass(frozen=True)
@@ -96,59 +95,59 @@ class RuntimeValue:
     value: Any
 
     @staticmethod
-    def bool(value: bool) -> "RuntimeValue":
+    def bool(value: bool) -> RuntimeValue:
         return RuntimeValue("Bool", value)
 
     @staticmethod
-    def int(value: int) -> "RuntimeValue":
+    def int(value: int) -> RuntimeValue:
         return RuntimeValue("Int", value)
 
     @staticmethod
-    def float(value: float) -> "RuntimeValue":
+    def float(value: float) -> RuntimeValue:
         return RuntimeValue("Float", value)
 
     @staticmethod
-    def string(value: str) -> "RuntimeValue":
+    def string(value: str) -> RuntimeValue:
         return RuntimeValue("String", value)
 
     @staticmethod
-    def struct(fields: dict[str, "RuntimeValue"]) -> "RuntimeValue":
+    def struct(fields: dict[str, RuntimeValue]) -> RuntimeValue:
         return RuntimeValue("Struct", RuntimeStruct(fields))
 
     @staticmethod
-    def enum(enum_name: str, value_name: str) -> "RuntimeValue":
+    def enum(enum_name: str, value_name: str) -> RuntimeValue:
         return RuntimeValue("Enum", RuntimeEnum(enum_name, value_name))
 
     @staticmethod
-    def array(values: list["RuntimeValue"]) -> "RuntimeValue":
+    def array(values: list[RuntimeValue]) -> RuntimeValue:
         return RuntimeValue("Array", values)
 
     @staticmethod
-    def optional(value: "RuntimeValue | None") -> "RuntimeValue":
+    def optional(value: RuntimeValue | None) -> RuntimeValue:
         return RuntimeValue("Optional", value)
 
     @staticmethod
-    def goal(name: str) -> "RuntimeValue":
+    def goal(name: str) -> RuntimeValue:
         return RuntimeValue("GoalValue", {"name": name})
 
     @staticmethod
-    def state(identifier: str) -> "RuntimeValue":
+    def state(identifier: str) -> RuntimeValue:
         return RuntimeValue("StateValue", {"id": identifier})
 
     @staticmethod
-    def constraint(name: str) -> "RuntimeValue":
+    def constraint(name: str) -> RuntimeValue:
         return RuntimeValue("ConstraintValue", {"name": name})
 
     @staticmethod
-    def reason_graph(value: dict[str, Any]) -> "RuntimeValue":
+    def reason_graph(value: dict[str, Any]) -> RuntimeValue:
         return RuntimeValue("ReasonGraphValue", value)
 
     @staticmethod
-    def execution_plan(value: dict[str, Any]) -> "RuntimeValue":
+    def execution_plan(value: dict[str, Any]) -> RuntimeValue:
         return RuntimeValue("ExecutionPlanValue", value)
 
     @staticmethod
-    def input_state(value: Any, state_id: str = "Input1") -> "RuntimeValue":
+    def input_state(value: Any, state_id: str = "Input1") -> RuntimeValue:
         return RuntimeValue(
             "InputState",
             {"state_id": state_id, "state_type": "Input", "value": value},
@@ -157,7 +156,7 @@ class RuntimeValue:
     @staticmethod
     def output_event(
         source_state: str, rendered_value: Any, output_id: str = "Output1"
-    ) -> "RuntimeValue":
+    ) -> RuntimeValue:
         return RuntimeValue(
             "OutputEvent",
             {
@@ -173,10 +172,10 @@ class RuntimeValue:
 class ExecutionDiagnostics:
     entries: tuple[str, ...] = ()
 
-    def add(self, diagnostic: str) -> "ExecutionDiagnostics":
+    def add(self, diagnostic: str) -> ExecutionDiagnostics:
         return ExecutionDiagnostics(self.entries + (diagnostic,))
 
-    def extend(self, diagnostics: tuple[str, ...] | list[str]) -> "ExecutionDiagnostics":
+    def extend(self, diagnostics: tuple[str, ...] | list[str]) -> ExecutionDiagnostics:
         return ExecutionDiagnostics(self.entries + tuple(diagnostics))
 
     def to_dict(self) -> dict[str, Any]:
@@ -220,7 +219,7 @@ class CallFrame:
         arguments: tuple[RuntimeValue, ...] | list[RuntimeValue] = (),
         *,
         return_target: str | None = None,
-    ) -> "CallFrame":
+    ) -> CallFrame:
         args = tuple(arguments)
         names = tuple(parameters)
         bindings = {name: args[index] for index, name in enumerate(names) if index < len(args)}
@@ -233,7 +232,7 @@ class CallFrame:
             return_target=return_target,
         )
 
-    def bind_temporary(self, name: str, value: RuntimeValue) -> "CallFrame":
+    def bind_temporary(self, name: str, value: RuntimeValue) -> CallFrame:
         scope = dict(self.local_scope)
         scope[name] = value
         return CallFrame(
@@ -247,7 +246,7 @@ class CallFrame:
             self.status,
         )
 
-    def returning(self, value: RuntimeValue | None) -> "CallFrame":
+    def returning(self, value: RuntimeValue | None) -> CallFrame:
         return CallFrame(
             self.frame_id,
             self.function_name,
@@ -259,7 +258,7 @@ class CallFrame:
             CallFrameStatus.RETURNING,
         )
 
-    def completed(self) -> "CallFrame":
+    def completed(self) -> CallFrame:
         return CallFrame(
             self.frame_id,
             self.function_name,
@@ -271,7 +270,7 @@ class CallFrame:
             CallFrameStatus.COMPLETED,
         )
 
-    def failed(self) -> "CallFrame":
+    def failed(self) -> CallFrame:
         return CallFrame(
             self.frame_id,
             self.function_name,
@@ -309,17 +308,17 @@ class CallStack:
     max_depth: int = 64
     overflow_policy: str = "FailFast"
 
-    def push(self, frame: CallFrame) -> "CallStack":
+    def push(self, frame: CallFrame) -> CallStack:
         if self.depth() >= self.max_depth:
             raise StackOverflow(f"maximum call stack depth exceeded: {self.max_depth}")
         return CallStack(self.frames + (frame,), self.max_depth, self.overflow_policy)
 
-    def pop(self) -> tuple["CallStack", CallFrame]:
+    def pop(self) -> tuple[CallStack, CallFrame]:
         if not self.frames:
             raise ExecutionArchitectureError("cannot pop an empty call stack")
         return CallStack(self.frames[:-1], self.max_depth, self.overflow_policy), self.frames[-1]
 
-    def replace_current(self, frame: CallFrame) -> "CallStack":
+    def replace_current(self, frame: CallFrame) -> CallStack:
         if not self.frames:
             raise ExecutionArchitectureError("cannot replace current frame on empty call stack")
         return CallStack(self.frames[:-1] + (frame,), self.max_depth, self.overflow_policy)
@@ -395,7 +394,7 @@ class ReasoningTrace:
         category: str,
         operation: str,
         payload: dict[str, Any] | None = None,
-    ) -> "ReasoningTrace":
+    ) -> ReasoningTrace:
         index = len(self.events)
         event = TraceEvent(
             f"{self.trace_id}:event-{index + 1}",
@@ -412,7 +411,7 @@ class ReasoningTrace:
             dict(self.metadata),
         )
 
-    def add_diagnostic(self, diagnostic: PlatformDiagnostic) -> "ReasoningTrace":
+    def add_diagnostic(self, diagnostic: PlatformDiagnostic) -> ReasoningTrace:
         return ReasoningTrace(
             self.trace_id,
             self.request_id,
@@ -421,7 +420,7 @@ class ReasoningTrace:
             dict(self.metadata),
         )
 
-    def extend_events(self, events: tuple[TraceEvent, ...] | list[TraceEvent]) -> "ReasoningTrace":
+    def extend_events(self, events: tuple[TraceEvent, ...] | list[TraceEvent]) -> ReasoningTrace:
         trace = self
         for event in events:
             trace = trace.add_event(event.category, event.operation, event.payload)
@@ -430,7 +429,7 @@ class ReasoningTrace:
     def extend_diagnostics(
         self,
         diagnostics: tuple[PlatformDiagnostic, ...] | list[PlatformDiagnostic],
-    ) -> "ReasoningTrace":
+    ) -> ReasoningTrace:
         trace = self
         for diagnostic in diagnostics:
             trace = trace.add_diagnostic(diagnostic)
@@ -456,7 +455,7 @@ class ExecutionScope:
     created_at: int = 0
     destroyed_at: int | None = None
 
-    def bind_variable(self, name: str, value: RuntimeValue) -> "ExecutionScope":
+    def bind_variable(self, name: str, value: RuntimeValue) -> ExecutionScope:
         variables = dict(self.variables)
         variables[name] = value
         return ExecutionScope(
@@ -468,7 +467,7 @@ class ExecutionScope:
             self.destroyed_at,
         )
 
-    def destroy(self, destroyed_at: int) -> "ExecutionScope":
+    def destroy(self, destroyed_at: int) -> ExecutionScope:
         return ExecutionScope(
             self.scope_id,
             self.scope_type,
@@ -498,7 +497,7 @@ class ExecutionScopeStack:
     scopes: tuple[ExecutionScope, ...] = ()
     trace_events: tuple[TraceEvent, ...] = ()
 
-    def push_scope(self, scope_type: str, scope_id: str | None = None) -> "ExecutionScopeStack":
+    def push_scope(self, scope_type: str, scope_id: str | None = None) -> ExecutionScopeStack:
         index = len(self.trace_events)
         scope = ExecutionScope(
             scope_id or f"scope-{len(self.scopes) + 1}",
@@ -514,7 +513,7 @@ class ExecutionScopeStack:
             {"scope": scope.to_dict()},
         )
 
-    def pop_scope(self) -> tuple["ExecutionScopeStack", ExecutionScope]:
+    def pop_scope(self) -> tuple[ExecutionScopeStack, ExecutionScope]:
         if not self.scopes:
             raise ExecutionArchitectureError("cannot pop an empty scope stack")
         destroyed = self.scopes[-1].destroy(len(self.trace_events))
@@ -529,7 +528,7 @@ class ExecutionScopeStack:
     def current_scope(self) -> ExecutionScope | None:
         return self.scopes[-1] if self.scopes else None
 
-    def bind_variable(self, name: str, value: RuntimeValue) -> "ExecutionScopeStack":
+    def bind_variable(self, name: str, value: RuntimeValue) -> ExecutionScopeStack:
         if not self.scopes:
             raise ExecutionArchitectureError("cannot bind a variable without an active scope")
         current = self.scopes[-1].bind_variable(name, value)
@@ -544,7 +543,7 @@ class ExecutionScopeStack:
             },
         )
 
-    def lookup(self, name: str) -> tuple[RuntimeValue | None, "ExecutionScopeStack"]:
+    def lookup(self, name: str) -> tuple[RuntimeValue | None, ExecutionScopeStack]:
         for scope in reversed(self.scopes):
             if name in scope.variables:
                 stack = self._with_scope_event(
@@ -581,7 +580,7 @@ class ExecutionScopeStack:
         operation: str,
         scope: ExecutionScope | None,
         payload: dict[str, Any],
-    ) -> "ExecutionScopeStack":
+    ) -> ExecutionScopeStack:
         index = len(self.trace_events)
         scope_id = scope.scope_id if scope is not None else "none"
         event = TraceEvent(
@@ -611,7 +610,7 @@ class RuntimeResult:
     execution_plan: dict[str, Any] | None = None
 
     @staticmethod
-    def failure(diagnostic: str) -> "RuntimeResult":
+    def failure(diagnostic: str) -> RuntimeResult:
         return RuntimeResult(False, None, (diagnostic,))
 
 

@@ -1,6 +1,7 @@
 """DAF-8 direct Titanic CSV regression implemented entirely through DataBackend."""
 from pathlib import Path
 from typing import Any
+
 from .backend import DataBackend
 from .model import Field, Schema
 from .result import TitanicAnalysisExecution, TitanicAnalysisResult

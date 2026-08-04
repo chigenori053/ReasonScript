@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any
 
 
 def _canonical(value: Any) -> str:
@@ -20,7 +21,7 @@ class MathState:
     @classmethod
     def create(
         cls, state_id: str, data: Mapping[str, Any], state_type: str = "mathematical"
-    ) -> "MathState":
+    ) -> MathState:
         return cls(state_id, state_type, _canonical(data))
 
     @property

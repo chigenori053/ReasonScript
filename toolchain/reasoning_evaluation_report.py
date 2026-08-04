@@ -12,8 +12,14 @@ from typing import Any
 
 from toolchain.reasoning_model_contract import (
     CONTRACT_SCHEMA as MODEL_SCHEMA,
+)
+from toolchain.reasoning_model_contract import (
     REQUIRED_CHECKS as MODEL_REQUIRED_CHECKS,
+)
+from toolchain.reasoning_model_contract import (
     serialize_reasoning_model,
+)
+from toolchain.reasoning_model_contract import (
     validate as validate_reasoning_model,
 )
 

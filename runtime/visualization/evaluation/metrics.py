@@ -1,14 +1,31 @@
 """Deterministic classification evaluation independent of rendering backends."""
 from __future__ import annotations
-from dataclasses import asdict
+
 import json
 import math
 import statistics
-from typing import Any, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import asdict
+from typing import Any
+
 from runtime.data import Table, is_missing, stable_id
-from .model import (ClassificationEvaluation, ClassificationMetric, ClassMetric, ConfusionMatrix,
-    DecisionPathEvaluation, ErrorGroupEvaluation, EvaluationError, PrecisionRecallCurve, PredictionEvidence,
-    PredictionRecord, RocCurve, RuleEvaluation, ScoreDistribution, ThresholdPoint)
+
+from .model import (
+    ClassificationEvaluation,
+    ClassificationMetric,
+    ClassMetric,
+    ConfusionMatrix,
+    DecisionPathEvaluation,
+    ErrorGroupEvaluation,
+    EvaluationError,
+    PrecisionRecallCurve,
+    PredictionEvidence,
+    PredictionRecord,
+    RocCurve,
+    RuleEvaluation,
+    ScoreDistribution,
+    ThresholdPoint,
+)
 
 
 def evaluate_classification(table: Table, *, actual: str = "actual", predicted: str = "predicted",

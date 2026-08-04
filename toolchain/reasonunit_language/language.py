@@ -8,10 +8,14 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from toolchain.native_runtime import resolve_native_reasonunit_runtime
-
-from frontend.language_surface import compile_program, execution_plan_for, parse, to_json_value
+from frontend.language_surface import (
+    compile_program,
+    execution_plan_for,
+    parse,
+    to_json_value,
+)
 from frontend.language_surface.nodes import ReasonObjectBindingNode
+from toolchain.native_runtime import resolve_native_reasonunit_runtime
 
 PROFILE = "reasonscript-reasonunit-language-integration/1.0"
 NATIVE_PROFILE = "reasonscript-reasonunit-native-runtime/1.0"

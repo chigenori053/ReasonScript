@@ -1,9 +1,14 @@
 """CLI for RUO-U1 universal Object generation and validation."""
 
 from __future__ import annotations
+
 import json
 from pathlib import Path
-from toolchain.reasonunit_object import generate_universal_model, validate_universal_model
+
+from toolchain.reasonunit_object import (
+    generate_universal_model,
+    validate_universal_model,
+)
 
 DEFAULT_OUTPUT = Path("artifacts/reasonunit_object/ruo_u1")
 

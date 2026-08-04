@@ -8,9 +8,17 @@ from pathlib import Path
 import pytest
 
 from toolchain.reasonunit_file import (
-    CANONICAL_ARTIFACTS, RUOFileError, generate_file_format, inspect_file,
-    read_file, select_file, validate_file, validate_file_format, verify_resources,
-    verify_ruo_u1, write_file,
+    CANONICAL_ARTIFACTS,
+    RUOFileError,
+    generate_file_format,
+    inspect_file,
+    read_file,
+    select_file,
+    validate_file,
+    validate_file_format,
+    verify_resources,
+    verify_ruo_u1,
+    write_file,
 )
 from toolchain.reasonunit_file.format import canonical_json_bytes, encode_file
 from toolchain.reasonunit_file.phase import FIXTURE_PATHS, PROFILE, _complete_object

@@ -5,12 +5,26 @@ from pathlib import Path
 
 import pytest
 
-from frontend.language_surface import ReasonObjectBindingNode, SurfaceSyntaxError, compile_program, execution_plan_for, parse, to_json_value
+from frontend.language_surface import (
+    ReasonObjectBindingNode,
+    SurfaceSyntaxError,
+    compile_program,
+    execution_plan_for,
+    parse,
+    to_json_value,
+)
 from toolchain.object_cmd import run as cli_run
 from toolchain.reasonunit_language import (
-    CANONICAL_ARTIFACTS, PROFILE, RUO_FUNCTIONS, RUO_TYPES, bind_source_objects,
-    compile_reason_object_source, format_reason_object_source,
-    generate_language_profile, validate_language_profile, verify_ruo_n1,
+    CANONICAL_ARTIFACTS,
+    PROFILE,
+    RUO_FUNCTIONS,
+    RUO_TYPES,
+    bind_source_objects,
+    compile_reason_object_source,
+    format_reason_object_source,
+    generate_language_profile,
+    validate_language_profile,
+    verify_ruo_n1,
 )
 from toolchain.reasonunit_language.phase import INVALID_CASES
 

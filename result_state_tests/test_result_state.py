@@ -1,13 +1,13 @@
 import unittest
 
 from calculation_semantics_tests.model import (
+    RESULT_STATUSES,
     NumericMode,
     NumericPolicyError,
-    RESULT_STATUSES,
     evaluate_expression,
     parse_expression,
-    result_state,
     result_as_inference_dto,
+    result_state,
     structured_eigen_state,
 )
 from conformance.framework import ROOT

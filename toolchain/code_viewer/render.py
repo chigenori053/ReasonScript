@@ -22,7 +22,6 @@ from pathlib import Path
 from .filetree import flatten_file_tree
 from .model import Anchor, Stage, StageView, ViewerDocument, ViewerState
 
-
 MIN_WIDTH = 40
 MIN_HEIGHT = 10
 

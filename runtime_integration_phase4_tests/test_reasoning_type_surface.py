@@ -20,7 +20,6 @@ from frontend.runtime_integration import (
     runtime_real_registry,
 )
 
-
 PHASE4_SOURCE = """
 package world
 

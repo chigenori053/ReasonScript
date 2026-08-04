@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
-from conformance.framework import ConformanceError, ROOT, load_json
+from conformance.framework import ROOT, ConformanceError, load_json
 from conformance.schema_validator import SchemaValidator
 from frontend.ast import AstValidationError, from_json_value, validate
 

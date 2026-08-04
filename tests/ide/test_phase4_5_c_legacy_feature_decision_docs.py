@@ -4,7 +4,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS = REPO_ROOT / "docs" / "development"
 CHANGELOG = REPO_ROOT / "docs" / "changelog" / "ide_phase_4_5_c_legacy_feature_decision.md"

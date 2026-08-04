@@ -7,8 +7,8 @@ import io
 import json
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 try:
     import tomllib
@@ -19,13 +19,14 @@ from frontend.lsp import Diagnostic, DiagnosticSeverity, Location
 from frontend.lsp.model import point_range
 from toolchain.build_cmd import run as build_run
 from toolchain.check_cmd import run as check_run
-from toolchain.manifest import Manifest, SUPPORTED_BACKENDS
+from toolchain.manifest import SUPPORTED_BACKENDS, Manifest
 from toolchain.run_cmd import run as project_run
 from toolchain.runner_cmd import run as test_run
 from toolchain.workspace import PackageGraphService
 
 from .model import (
     OUTPUT_CHANNELS,
+    SCHEMA,
     BuildResult,
     CheckResult,
     CommandName,
@@ -34,12 +35,10 @@ from .model import (
     IdeConfiguration,
     OutputChannel,
     RunResult,
-    SCHEMA,
     TestResult,
     Workspace,
     WorkspaceStatus,
 )
-
 
 ToolchainFunction = Callable[[Path], int]
 

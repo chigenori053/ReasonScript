@@ -9,9 +9,9 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable
-
+from typing import Any
 
 STATE_OWNERS = {
     "unit_local", "object_shared", "derived", "external_world",

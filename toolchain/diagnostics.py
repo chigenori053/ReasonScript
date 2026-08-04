@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
 import re
-from typing import Any, Iterable
-
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from typing import Any
 
 DIAGNOSTICS_VERSION = "1.0"
 DIAGNOSTICS_SCHEMA = "reasonscript-diagnostics/1.0"
@@ -107,7 +107,7 @@ class Diagnostic:
     metadata: dict[str, Any] = field(default_factory=dict)
     id: str = ""
 
-    def with_id(self, index: int) -> "Diagnostic":
+    def with_id(self, index: int) -> Diagnostic:
         return Diagnostic(
             self.code,
             self.severity,

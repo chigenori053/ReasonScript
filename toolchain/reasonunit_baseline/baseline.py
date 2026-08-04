@@ -18,7 +18,6 @@ from typing import Any
 
 from toolchain.diagnostics import diagnostics_document
 
-
 PROFILE = "reasonscript-reasonunit-baseline/1.0"
 RUO_G1_REQUIRED_ROLES = ("validation_summary", "run_manifest")
 RUO_G1E_REQUIRED_ROLES = ("validation_summary", "run_manifest", "information_density_report")

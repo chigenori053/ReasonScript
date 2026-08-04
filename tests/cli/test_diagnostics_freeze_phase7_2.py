@@ -17,7 +17,6 @@ from toolchain.diagnostics import (
     validate_diagnostics_document,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REASON = REPO_ROOT / "reason"
 DEV = REPO_ROOT / "scripts" / "dev.py"

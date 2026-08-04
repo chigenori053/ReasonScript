@@ -6,7 +6,6 @@ from frontend.language_surface.parser import SurfaceReservedConstructError, pars
 from playground.backend.engine import build_execution_plan, extract_knowledge, simulate
 from playground.backend.main import SourceRequest, _run_pipeline_artifacts
 
-
 MODEL_SOURCE = """
 model Example {
     calculation A {

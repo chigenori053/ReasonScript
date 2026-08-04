@@ -3,7 +3,12 @@ import subprocess
 import sys
 import unittest
 
-from frontend.conformance.framework import ROOT, VALID_FIXTURES, canonical_ast, load_json
+from frontend.conformance.framework import (
+    ROOT,
+    VALID_FIXTURES,
+    canonical_ast,
+    load_json,
+)
 
 sys.path.insert(0, str(ROOT / "frontend" / "dto" / "python"))
 from reasonscript_ast_dto import from_dict, to_dict

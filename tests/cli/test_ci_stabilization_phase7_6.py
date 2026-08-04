@@ -5,8 +5,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from toolchain.ci import VALIDATION_RULES, ci_report, ci_summary, run_pipeline, write_ci_reports
-
+from toolchain.ci import (
+    VALIDATION_RULES,
+    ci_report,
+    ci_summary,
+    run_pipeline,
+    write_ci_reports,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REASON = REPO_ROOT / "reason"

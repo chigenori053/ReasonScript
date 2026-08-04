@@ -12,7 +12,6 @@ from toolchain.workspace_foundation import (
     write_workspace_artifacts,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REASON = REPO_ROOT / "reason"
 

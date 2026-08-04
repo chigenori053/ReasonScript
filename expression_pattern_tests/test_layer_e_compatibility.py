@@ -6,6 +6,7 @@ from conformance.schema_validator import SchemaValidator
 from frontend.language_surface import (
     BinaryExpressionNode,
     BinaryOperator,
+    ResultStatementNode,
     compile_program,
     expression_from_json,
     parse,
@@ -13,7 +14,6 @@ from frontend.language_surface import (
     parse_pattern,
     pattern_from_json,
     project_program,
-    ResultStatementNode,
     to_json_value,
 )
 

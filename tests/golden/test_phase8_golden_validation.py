@@ -8,11 +8,23 @@ import sys
 from pathlib import Path
 
 from toolchain.ci import COMPATIBILITY_TARGETS, run_pipeline
-from toolchain.phase8_golden_validation import CONTRACT_SCHEMA, SCENARIOS, VALID_SCENARIOS, validate_phase8_golden
-from toolchain.reasoning_evaluation_report import serialize_evaluation_report, validate_evaluation_report
-from toolchain.reasoning_model_contract import serialize_reasoning_model, validate as validate_reasoning_model
-from toolchain.reasoning_runtime import run_reasoning_runtime, serialize_reasoning_runtime_result, validate_reasoning_runtime_result
-
+from toolchain.phase8_golden_validation import (
+    CONTRACT_SCHEMA,
+    SCENARIOS,
+    VALID_SCENARIOS,
+    validate_phase8_golden,
+)
+from toolchain.reasoning_evaluation_report import (
+    serialize_evaluation_report,
+    validate_evaluation_report,
+)
+from toolchain.reasoning_model_contract import serialize_reasoning_model
+from toolchain.reasoning_model_contract import validate as validate_reasoning_model
+from toolchain.reasoning_runtime import (
+    run_reasoning_runtime,
+    serialize_reasoning_runtime_result,
+    validate_reasoning_runtime_result,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "examples" / "v0_8" / "reasoning_runtime"

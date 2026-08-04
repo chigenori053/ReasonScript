@@ -2,14 +2,14 @@ import unittest
 
 from frontend.language_surface import (
     BinaryExpressionNode,
+    CalculationNode,
     ExpressionNode,
     ExpressionSyntaxError,
     IdentifierNode,
     LetNode,
-    CalculationNode,
-    ResultStatementNode,
     ModuleNode,
     ProgramNode,
+    ResultStatementNode,
     SurfaceValidationError,
     Visibility,
     parse_expression,

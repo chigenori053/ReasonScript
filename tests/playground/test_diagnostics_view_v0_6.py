@@ -1,6 +1,5 @@
 from playground.backend.main import SourceRequest, _run_pipeline_artifacts
 
-
 MODEL_SOURCE = """
 model Example {
     calculation A {

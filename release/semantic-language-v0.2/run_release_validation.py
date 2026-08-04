@@ -10,7 +10,6 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_ROOT = Path(__file__).resolve().parent
 MANIFEST = RELEASE_ROOT / "manifest.json"

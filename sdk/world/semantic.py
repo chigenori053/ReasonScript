@@ -5,7 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .builder import Relation, Scene, World, WorldObject, add_scene, create_object, replace_scene
+from .builder import (
+    Relation,
+    Scene,
+    World,
+    WorldObject,
+    add_scene,
+    create_object,
+    replace_scene,
+)
 
 
 @dataclass(frozen=True)

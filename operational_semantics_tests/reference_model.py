@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import heapq
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,7 @@ class State:
     @classmethod
     def from_mapping(
         cls, state_id: str, state_type: str, data: Mapping[str, Any]
-    ) -> "State":
+    ) -> State:
         return cls(state_id, state_type, tuple(sorted(data.items())))
 
 

@@ -6,6 +6,11 @@ from pathlib import Path
 
 import pytest
 
+from tests.install_update.provenance_test_support import (
+    DEFAULT_COMMIT,
+    attach_provenance,
+)
+from tests.install_update.test_update_core import engine, installed, package
 from toolchain.install_update.package_provenance import (
     PROVENANCE_MANIFEST_SCHEMA,
     ProvenanceBuildError,
@@ -17,9 +22,6 @@ from toolchain.install_update.package_provenance import (
     sha256_bytes,
 )
 from toolchain.install_update.package_validator import validate_package_provenance
-
-from tests.install_update.provenance_test_support import DEFAULT_COMMIT, attach_provenance
-from tests.install_update.test_update_core import engine, installed, package
 
 
 def _git(root: Path, *args: str) -> None:

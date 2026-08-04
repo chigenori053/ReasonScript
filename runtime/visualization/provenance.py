@@ -1,8 +1,11 @@
 """Visualization provenance and evidence projection."""
 from __future__ import annotations
+
+from collections.abc import Mapping
 from dataclasses import asdict
-from typing import Mapping
+
 from runtime.data import Table, stable_id
+
 from .model import VisualizationEvidence, VisualizationSpec
 from .serialization import export_spec
 

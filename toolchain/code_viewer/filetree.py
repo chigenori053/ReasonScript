@@ -13,7 +13,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-
 # Directories never descended into, regardless of .rsn contents. Matches the
 # ignore list scripts/build_update_package.py already uses for packaging, so
 # there's one convention for "irrelevant project noise" rather than two.
@@ -27,7 +26,7 @@ class FileTreeNode:
     path: Path
     name: str
     is_directory: bool
-    children: tuple["FileTreeNode", ...] = ()
+    children: tuple[FileTreeNode, ...] = ()
 
 
 @dataclass(frozen=True)

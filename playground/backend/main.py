@@ -18,8 +18,8 @@ from pydantic import BaseModel
 try:
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
 except ModuleNotFoundError:  # pragma: no cover - exercised in minimal test envs
     class _MissingFastAPI:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -56,20 +56,23 @@ except ModuleNotFoundError:  # pragma: no cover - exercised in minimal test envs
             self.path = path
 
 from frontend.ast import to_json_value as semantic_to_json_value
+from frontend.language_surface.integration import compile_program, project_program
+from frontend.language_surface.namespace import NamespaceResolutionError
+from frontend.language_surface.nodes import to_json_value as surface_to_json_value
 from frontend.language_surface.parser import (
     SurfaceReservedConstructError,
     SurfaceSyntaxError,
     parse,
 )
-from frontend.language_surface.integration import compile_program, project_program
-from frontend.language_surface.nodes import to_json_value as surface_to_json_value
 from frontend.language_surface.validation import SurfaceValidationError
-from frontend.language_surface.namespace import NamespaceResolutionError
-from playground.backend.engine import build_execution_plan, simulate, extract_knowledge
-from playground.backend.analyzer import analyze_ir
-from playground.backend.language_audit import run_language_audit, write_language_audit_reports
-from playground.backend.reasoning_overview import build_reasoning_overview_view_model
 from playground.backend import workspace as workspace_module
+from playground.backend.analyzer import analyze_ir
+from playground.backend.engine import build_execution_plan, extract_knowledge, simulate
+from playground.backend.language_audit import (
+    run_language_audit,
+    write_language_audit_reports,
+)
+from playground.backend.reasoning_overview import build_reasoning_overview_view_model
 from playground.backend.workspace import WorkspacePathError
 from toolchain.reasoning_runtime import run_reasoning_runtime
 

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from toolchain.agent_protocol import agent_report, render_json, validate_repository, write_agent_report
+from toolchain.agent_protocol import (
+    agent_report,
+    render_json,
+    validate_repository,
+    write_agent_report,
+)
 from toolchain.diagnostics import render_diagnostics
 
 

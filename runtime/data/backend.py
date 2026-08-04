@@ -6,12 +6,29 @@ import csv
 import hashlib
 import json
 import math
-from pathlib import Path
 import statistics
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from pathlib import Path
+from typing import Any
 
-from .model import (AggregationSpec, Column, DataError, DataType, DatasetRef, Field, Group, GroupedTable,
-                    MissingValue, ResourceLimits, Row, Schema, Table, canonical_json, is_missing, stable_id)
+from .model import (
+    AggregationSpec,
+    Column,
+    DataError,
+    DatasetRef,
+    DataType,
+    Field,
+    Group,
+    GroupedTable,
+    MissingValue,
+    ResourceLimits,
+    Row,
+    Schema,
+    Table,
+    canonical_json,
+    is_missing,
+    stable_id,
+)
 
 
 class DataBackend:

@@ -7,7 +7,6 @@ from pathlib import Path
 
 from playground.backend.main import SourceRequest, analyze_endpoint
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV = REPO_ROOT / "scripts" / "dev.py"
 VALID = REPO_ROOT / "examples" / "v0_5" / "002_single_calculation.rsn"

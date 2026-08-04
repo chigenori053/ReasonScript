@@ -13,7 +13,6 @@ from frontend.language_surface import (
     to_json_value,
 )
 
-
 SOURCE = """
 module workflow {
     constraint Adult

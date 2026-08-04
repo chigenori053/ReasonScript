@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 from frontend.language_surface.nodes import (
     ArrayLiteralNode,
@@ -14,8 +14,8 @@ from frontend.language_surface.nodes import (
     BinaryOperator,
     BooleanLiteralNode,
     BreakStatementNode,
-    CallExpressionNode,
     CalculationNode,
+    CallExpressionNode,
     ComparisonExpressionNode,
     ComparisonOperator,
     ConstStatementNode,
@@ -38,8 +38,8 @@ from frontend.language_surface.nodes import (
     MemberAccessNode,
     ParenthesizedExpressionNode,
     ProgramNode,
-    ReturnStatementNode,
     ResultStatementNode,
+    ReturnStatementNode,
     StringLiteralNode,
     StructLiteralNode,
     UnaryExpressionNode,

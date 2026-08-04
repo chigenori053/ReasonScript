@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Any, Mapping, TypeAlias
+from typing import Any, TypeAlias
 
 AST_VERSION = "reasonscript-ast/0.1"
 JsonValue: TypeAlias = Any

@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from toolchain.code_viewer import Stage, project
-from toolchain.code_viewer.projection import ProjectionError
-
 import pytest
 
+from toolchain.code_viewer import Stage, project
+from toolchain.code_viewer.projection import ProjectionError
 
 ROOT = Path(__file__).resolve().parents[1]
 DEPENDENCY_SOURCE = ROOT / "examples" / "v0_5" / "003_calculation_dependency.rsn"

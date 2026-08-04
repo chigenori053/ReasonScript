@@ -12,12 +12,18 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from toolchain.reasonunit_file import read_file, validate_file, write_file
 from toolchain.native_runtime import resolve_native_reasonunit_runtime
+from toolchain.reasonunit_file import read_file, validate_file, write_file
+from toolchain.reasonunit_language import bind_source_objects
 from toolchain.reasonunit_object.model import canonical_digest, validate_object
 from toolchain.reasonunit_object.universal import reference_object
-from toolchain.reasonunit_language import bind_source_objects
-from toolchain.reasonunit_tensor import PAYLOAD_PROFILE, TensorError, make_dense_tensor, tensor_resource_record, validate_tensor
+from toolchain.reasonunit_tensor import (
+    PAYLOAD_PROFILE,
+    TensorError,
+    make_dense_tensor,
+    tensor_resource_record,
+    validate_tensor,
+)
 
 PROFILE = "reasonscript-reasonunit-migration/1.0"
 MAX_SOURCE_FILES = 10_000

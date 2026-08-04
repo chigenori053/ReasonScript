@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
 from frontend.language_surface.integration import compile_program
@@ -8,7 +8,6 @@ from frontend.language_surface.parser import parse
 from playground.backend.analyzer import analyze_ir
 from playground.backend.engine import extract_knowledge, simulate
 from playground.backend.language_audit import run_language_audit
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = """
@@ -78,4 +77,4 @@ def test_tst_005_knowledge_timestamp_format_is_deterministic():
 
 def _is_utc_timestamp(value: str) -> bool:
     parsed = datetime.fromisoformat(value)
-    return parsed.tzinfo is not None and parsed.utcoffset() == timezone.utc.utcoffset(parsed)
+    return parsed.tzinfo is not None and parsed.utcoffset() == UTC.utcoffset(parsed)

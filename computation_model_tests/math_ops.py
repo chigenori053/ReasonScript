@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from fractions import Fraction
-from typing import Iterable
-
 
 Matrix = list[list[float]]
 

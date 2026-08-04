@@ -1,10 +1,10 @@
 import unittest
 
 from frontend.runtime_integration import (
+    EXECUTION_ARCHITECTURE_SCHEMA,
     CallFrame,
     CallFrameStatus,
     CallStack,
-    EXECUTION_ARCHITECTURE_SCHEMA,
     ExecutionCoordinator,
     ExecutionFailureType,
     ExecutionRequest,

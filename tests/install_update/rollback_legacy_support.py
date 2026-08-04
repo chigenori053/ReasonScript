@@ -6,13 +6,13 @@ import json
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from toolchain.install_update.core import UpdateEngine
 from toolchain.install_update.platform import PlatformAdapter
-
 
 SCENARIO_ID = "rollback_legacy_0_5_0_from_0_5_1_failure"
 OBSERVATION_SCHEMA = "reasonscript-rollback-reproduction-observation/1.0"

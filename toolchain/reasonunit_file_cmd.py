@@ -8,8 +8,14 @@ from pathlib import Path
 from typing import Any
 
 from toolchain.reasonunit_file import (
-    FORMAT_VERSION, RUOFileError, inspect_file, read_file, select_file,
-    validate_file, verify_resources, write_file,
+    FORMAT_VERSION,
+    RUOFileError,
+    inspect_file,
+    read_file,
+    select_file,
+    validate_file,
+    verify_resources,
+    write_file,
 )
 
 
@@ -39,7 +45,10 @@ def run(args: list[str], root: Path) -> int:
     operation = args[0]; json_output = "--json" in args
     try:
         if operation in {"generate", "validate-phase"}:
-            from toolchain.reasonunit_file import generate_file_format, validate_file_format
+            from toolchain.reasonunit_file import (
+                generate_file_format,
+                validate_file_format,
+            )
             output = _path(_option(args, "--output") or "artifacts/reasonunit_file/ruo_f1")
             u1_value = _option(args, "--ruo-u1"); u1 = _path(u1_value) if u1_value else None
             raw = generate_file_format(root, output, u1_directory=u1) if operation == "generate" else validate_file_format(root, output, u1_directory=u1)

@@ -1,11 +1,19 @@
 """Public evaluation-first visualization constructors."""
 from __future__ import annotations
+
+from collections.abc import Sequence
 from dataclasses import asdict
-from typing import Any, Sequence
+from typing import Any
+
 from runtime.data import Table, is_missing
+
 from ..model import EncodingSpec, RenderSpec, TitleSpec, VisualizationSpec
 from .metrics import evaluate_classification
-from .model import ClassificationEvaluation, EvaluationError, EvaluationVisualizationSpec
+from .model import (
+    ClassificationEvaluation,
+    EvaluationError,
+    EvaluationVisualizationSpec,
+)
 
 
 def _spec(table: Table, evaluation: ClassificationEvaluation, name: str, base_type: str, prepared: dict,

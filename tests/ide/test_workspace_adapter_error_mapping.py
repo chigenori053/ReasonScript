@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BROWSER_ADAPTER = REPO_ROOT / "apps" / "reasonscript-ide" / "ui" / "src" / "platform" / "browserAdapter.ts"
 

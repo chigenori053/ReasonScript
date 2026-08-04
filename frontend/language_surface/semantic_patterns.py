@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
-from typing import Any, Mapping, TypeAlias
+from typing import Any, TypeAlias
 
 from .namespace import ModuleNamespace, NamespaceResolutionError
 from .nodes import (
@@ -24,8 +25,8 @@ from .nodes import (
     PrimitiveTypeNode,
     QualifiedPatternNode,
     StringLiteralNode,
-    StructDeclarationNode,
     StructBindingPatternNode,
+    StructDeclarationNode,
     StructPatternNode,
     TypeNode,
     WildcardPatternNode,
@@ -68,7 +69,7 @@ class SemanticBindingPattern:
 class SemanticStructFieldPattern:
     field_symbol: str
     field_type: str
-    pattern: "SemanticPattern"
+    pattern: SemanticPattern
 
 
 @dataclass(frozen=True)
@@ -80,7 +81,7 @@ class SemanticStructPattern:
 
 @dataclass(frozen=True)
 class SemanticOrPattern:
-    alternatives: tuple["SemanticPattern", ...]
+    alternatives: tuple[SemanticPattern, ...]
 
 
 SemanticPattern: TypeAlias = (

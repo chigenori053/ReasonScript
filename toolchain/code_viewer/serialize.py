@@ -7,9 +7,10 @@ dataclass/Enum/Mapping/sequence walker, not a bespoke serializer per type.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import fields, is_dataclass
 from enum import Enum
-from typing import Any, Mapping
+from typing import Any
 
 
 def to_json_value(value: Any) -> Any:

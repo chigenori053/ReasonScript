@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .builder import ExecutionPlan, _SCHEMA_VERSION
+from .builder import _SCHEMA_VERSION, ExecutionPlan
 
 
 def validate(plan: ExecutionPlan | dict) -> bool:

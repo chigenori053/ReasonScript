@@ -17,7 +17,6 @@ from frontend.runtime_integration import (
     runtime_value_to_plain,
 )
 
-
 SOURCE = """
 module io {
     fn run() {

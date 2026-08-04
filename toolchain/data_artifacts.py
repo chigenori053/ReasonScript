@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from runtime.data import DataBackend, Table, stable_id
-
 
 DATA_ARTIFACT_SCHEMAS = {
     "table.json": "reasonscript-table/0.1",

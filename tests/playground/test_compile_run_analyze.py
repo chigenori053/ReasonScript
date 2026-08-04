@@ -5,7 +5,6 @@ from frontend.language_surface.parser import parse
 from playground.backend.analyzer import analyze_ir
 from playground.backend.engine import simulate
 
-
 SOURCE = """
 module Playground {
     calculation Value {

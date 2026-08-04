@@ -20,10 +20,9 @@ from __future__ import annotations
 
 import json
 import subprocess
+import unittest
 import zipfile
 from pathlib import Path
-import unittest
-
 
 ROOT = Path(__file__).resolve().parents[1]
 EXT = ROOT / "vscode-extension"

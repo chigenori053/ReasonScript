@@ -1,6 +1,5 @@
 from playground.backend.main import SourceRequest, analyze_endpoint
 
-
 SUCCESS_SOURCE = """
 module Test {
   calculation Value {

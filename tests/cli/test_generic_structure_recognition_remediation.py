@@ -9,7 +9,6 @@ from frontend.language_surface import StructDeclarationNode, parse, to_json_valu
 from toolchain.ci import _check_golden
 from toolchain.golden import run_corpus, validate_corpus
 
-
 ROOT = Path(__file__).resolve().parents[2]
 REASON = ROOT / "reason"
 

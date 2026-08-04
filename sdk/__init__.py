@@ -4,4 +4,4 @@ from sdk import agent, execution_plan, planning, reason_graph, world
 
 SDK_VERSION = "reasonscript-sdk/0.1"
 
-__all__ = ["agent", "reason_graph", "execution_plan", "planning", "world", "SDK_VERSION"]
+__all__ = ["SDK_VERSION", "agent", "execution_plan", "planning", "reason_graph", "world"]

@@ -7,10 +7,10 @@ import cmath
 import json
 import math
 import re
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Iterable, Mapping
-
+from typing import Any
 
 ARITHMETIC_TRANSITIONS = {
     ast.Add: "AddTransition",
@@ -70,7 +70,7 @@ class NumericMode(str, Enum):
 class Expression:
     kind: str
     value: Any = None
-    operands: tuple["Expression", ...] = ()
+    operands: tuple[Expression, ...] = ()
 
     @property
     def references(self) -> tuple[str, ...]:
