@@ -26,6 +26,11 @@ jobs:
             pkg-config
       - run: python3 -m pip install --upgrade pip
       - run: python3 -m pip install -r requirements-dev.txt
+      - name: Fetch Rust dependencies
+        run: |
+          for manifest in */Cargo.toml; do
+            cargo fetch --manifest-path "$manifest"
+          done
       - run: python3 scripts/test_platform.py test
       - run: python3 scripts/test_platform.py regression
       - run: ./reason ci --json
