@@ -6,7 +6,6 @@ from toolchain.code_viewer import Stage, ViewerState, project, render, to_plain_
 from toolchain.code_viewer.filetree import ancestor_directories, scan_project_tree
 from toolchain.code_viewer.render import MIN_HEIGHT, MIN_WIDTH, StyleRole
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DEPENDENCY_SOURCE = ROOT / "examples" / "v0_5" / "003_calculation_dependency.rsn"
 GOLDEN = ROOT / "golden" / "code_viewer" / "calculation_dependency.plain.txt"

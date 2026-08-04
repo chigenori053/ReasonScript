@@ -4,8 +4,10 @@ import json
 import shutil
 from pathlib import Path
 
-from tests.install_update.rollback_legacy_support import INSTALLED_FIXTURE, PACKAGE_FIXTURE
-
+from tests.install_update.rollback_legacy_support import (
+    INSTALLED_FIXTURE,
+    PACKAGE_FIXTURE,
+)
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PHASE_R2_ARTIFACTS = REPOSITORY_ROOT / "artifacts/install_foundation_v1_1_1/phase_r2"

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 PROFILE = "reasonscript-vision-language-integration/0.1"
 VISION_TYPES = ("VisionModel", "VisionObservation", "VisionBuildResult")
 _FUNCTIONS = (

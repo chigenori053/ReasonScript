@@ -8,7 +8,12 @@ import pytest
 
 from toolchain.reasonunit_file import write_file
 from toolchain.reasonunit_object.universal import reference_object
-from toolchain.reasonunit_runtime import CANONICAL_ARTIFACTS, generate_runtime_profile, validate_runtime_profile, verify_ruo_t1
+from toolchain.reasonunit_runtime import (
+    CANONICAL_ARTIFACTS,
+    generate_runtime_profile,
+    validate_runtime_profile,
+    verify_ruo_t1,
+)
 from toolchain.reasonunit_runtime.phase import INVALID_CASES, NATIVE_TYPES, PROFILE
 from toolchain.reasonunit_runtime_cmd import run as cli_run
 

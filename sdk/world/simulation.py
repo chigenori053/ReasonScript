@@ -93,7 +93,7 @@ class SimulationTrace:
 @dataclass(frozen=True)
 class BranchSimulation:
     origin_snapshot: Snapshot
-    branches: dict[str, "WorldSimulationResult"]
+    branches: dict[str, WorldSimulationResult]
 
     def to_dict(self) -> dict[str, Any]:
         return {

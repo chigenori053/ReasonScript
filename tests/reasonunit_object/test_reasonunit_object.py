@@ -8,9 +8,17 @@ from pathlib import Path
 import pytest
 
 from toolchain.reasonunit_object import (
-    CANONICAL_ARTIFACTS, ObjectTransaction, canonical_digest, canonicalize,
-    dependency_closure, generate_execution_projection, generate_universal_model,
-    projection_is_current, query_object, validate_object, validate_universal_model,
+    CANONICAL_ARTIFACTS,
+    ObjectTransaction,
+    canonical_digest,
+    canonicalize,
+    dependency_closure,
+    generate_execution_projection,
+    generate_universal_model,
+    projection_is_current,
+    query_object,
+    validate_object,
+    validate_universal_model,
     verify_ruo_c1,
 )
 from toolchain.reasonunit_object.universal import PROFILE, reference_object

@@ -1,8 +1,8 @@
 """RUO-N2 ReasonUnit Object language and consolidated CLI integration."""
 
 from .language import (
-    PROFILE,
     PRESENCE_STATES,
+    PROFILE,
     RUO_FUNCTIONS,
     RUO_TYPES,
     bind_source_objects,

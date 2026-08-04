@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-
 SCHEMA = "reasonscript-lsp/0.1"
 
 

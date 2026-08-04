@@ -1,10 +1,23 @@
 """Declarative chart constructors and deterministic Table projection."""
 from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
-from typing import Any, Mapping, Sequence
+from typing import Any
+
 from runtime.data import Table, is_missing
-from .model import (AxisSpec, EncodingSpec, LayoutSpec, LegendSpec, RenderSpec, SeriesSpec, TitleSpec,
-                    VisualizationError, VisualizationSpec)
+
+from .model import (
+    AxisSpec,
+    EncodingSpec,
+    LayoutSpec,
+    LegendSpec,
+    RenderSpec,
+    SeriesSpec,
+    TitleSpec,
+    VisualizationError,
+    VisualizationSpec,
+)
 from .validation import validate_or_raise
 
 

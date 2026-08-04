@@ -13,7 +13,6 @@ from frontend.language_surface.integration import compile_program, project_progr
 from frontend.language_surface.parser import parse
 from frontend.tensor.integration import tensor_operations
 
-
 SCHEMA_VERSION = "reasonscript-project-validation/0.1"
 
 

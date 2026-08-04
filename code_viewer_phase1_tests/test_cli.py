@@ -8,7 +8,6 @@ from typing import Any
 from toolchain.code_viewer import Stage
 from toolchain.code_viewer_cmd import run
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DEPENDENCY_SOURCE = "examples/v0_5/003_calculation_dependency.rsn"
 

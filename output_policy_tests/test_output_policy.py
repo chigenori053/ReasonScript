@@ -1,6 +1,11 @@
 import unittest
 
-from computation_model_tests.model import MathState, MathTransition, project, run_procedure
+from computation_model_tests.model import (
+    MathState,
+    MathTransition,
+    project,
+    run_procedure,
+)
 
 
 class OutputPolicyValidation(unittest.TestCase):

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, is_dataclass, replace
-from typing import Any, Mapping
+from typing import Any
 
 from .nodes import (
     CalculationNode,
@@ -52,7 +53,7 @@ class ModuleNamespace:
     module: ModuleNode
     symbols: dict[str, SurfaceSymbol]
     imports: tuple[ImportBinding, ...]
-    _namespaces: Mapping[str, "ModuleNamespace"] = field(
+    _namespaces: Mapping[str, ModuleNamespace] = field(
         default_factory=dict, repr=False, compare=False
     )
 

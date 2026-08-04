@@ -8,12 +8,13 @@ from pathlib import Path
 
 import pytest
 
+from tests.install_update.provenance_test_support import (
+    attach_provenance,
+    write_validation_profile,
+)
 from toolchain.install_update.core import UpdateEngine, UpdateError, compare_versions
 from toolchain.install_update.platform import PlatformAdapter
 from toolchain.installed_permissions import restore_runtime_executables
-
-from tests.install_update.provenance_test_support import attach_provenance, write_validation_profile
-
 
 PASS_VALIDATION = {
     "version": "passed", "doctor": "passed", "install_info": "passed", "install_validate": "passed",

@@ -1,7 +1,10 @@
 from copy import deepcopy
 
-from playground.backend.main import SourceRequest, _projection_summary, _run_pipeline_artifacts
-
+from playground.backend.main import (
+    SourceRequest,
+    _projection_summary,
+    _run_pipeline_artifacts,
+)
 
 SOURCE = """
 module Example {

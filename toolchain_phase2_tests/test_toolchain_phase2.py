@@ -27,7 +27,6 @@ from toolchain.workspace import (
     diagnostic_from_workspace_error,
 )
 
-
 MAIN = """\
 package {name}
 module main {{

@@ -12,12 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from toolchain.init_cmd import run as init_run
 from toolchain.build_cmd import run as build_run
 from toolchain.check_cmd import run as check_run
-from toolchain.runner_cmd import run as suite_run
+from toolchain.init_cmd import run as init_run
+from toolchain.manifest import SUPPORTED_BACKENDS, Manifest, ManifestError
 from toolchain.run_cmd import run as run_run
-from toolchain.manifest import Manifest, ManifestError, SUPPORTED_BACKENDS
+from toolchain.runner_cmd import run as suite_run
 
 _SIMPLE_RSN = """\
 package hello_world

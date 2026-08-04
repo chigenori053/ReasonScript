@@ -48,7 +48,7 @@ def _package_report(archive: Path, *, expected_commit: str | None, allow_develop
             archive_name=archive.name if archive.is_file() else None,
             allow_development=allow_development,
         )
-        file_count = len((package.checksums.get("files") or []))
+        file_count = len(package.checksums.get("files") or [])
         payload: dict[str, Any] = {
             "schema_version": REPORT_SCHEMA,
             "status": "valid" if report.valid and report.manifest is not None else "invalid_package",

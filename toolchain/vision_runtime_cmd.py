@@ -12,7 +12,6 @@ from typing import Any
 from toolchain.reasonunit_object.model import validate_object
 from toolchain.reasonunit_tensor import validate_tensor
 
-
 PROFILE = "reasonscript-vision-runtime/0.1"
 LANGUAGE_PROFILE = "reasonscript-vision-language-integration/0.1"
 

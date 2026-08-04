@@ -4,7 +4,6 @@ from pathlib import Path
 
 from frontend.lsp import SCHEMA, ReasonScriptLanguageServer
 
-
 MAIN_URI = "file:///workspace/main.rsn"
 NAV_URI = "file:///workspace/nav.rsn"
 

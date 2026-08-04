@@ -6,6 +6,7 @@ import os
 import shutil
 from pathlib import Path
 
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     default = Path(os.environ.get("REASONSCRIPT_HOME", Path(os.environ.get("LOCALAPPDATA", Path.home())) / "ReasonScript" if os.name == "nt" else Path.home() / ".reasonscript"))

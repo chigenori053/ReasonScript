@@ -4,7 +4,6 @@ from calculation_semantics_tests.model import lower_program, parse_calculations
 from conformance.framework import ROOT, execute_reason_ir, validate_reason_ir
 from conformance.schema_validator import SchemaValidator
 
-
 BUILDING_COST = """
 pub calculation BuildingCost goal:value {
     let width = 10

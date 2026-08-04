@@ -13,7 +13,6 @@ from toolchain.artifacts import (
     write_artifact_directory,
 )
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV = REPO_ROOT / "scripts" / "dev.py"
 REASON = REPO_ROOT / "reason"

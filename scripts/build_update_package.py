@@ -20,14 +20,18 @@ import sys
 import tarfile
 import tempfile
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from toolchain.distribution_validation import COMPONENTS, DISTRIBUTION_TARGETS, validate_source_targets
+from toolchain.distribution_validation import (
+    COMPONENTS,
+    DISTRIBUTION_TARGETS,
+    validate_source_targets,
+)
 from toolchain.install_update.package_provenance import (
     ProvenanceBuildError,
     build_manifest,
@@ -53,8 +57,8 @@ def _stable_json(path: Path, payload: dict) -> None:
 
 
 def _timestamp(source_date_epoch: int | None) -> str:
-    moment = (datetime.fromtimestamp(source_date_epoch, tz=timezone.utc)
-              if source_date_epoch is not None else datetime.now(timezone.utc))
+    moment = (datetime.fromtimestamp(source_date_epoch, tz=UTC)
+              if source_date_epoch is not None else datetime.now(UTC))
     return moment.isoformat().replace("+00:00", "Z")
 
 

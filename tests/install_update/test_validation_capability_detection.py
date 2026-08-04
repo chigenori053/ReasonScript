@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import shutil
 
+from tests.install_update.validation_profile_test_support import (
+    materialize_profiles,
+    read_declaration,
+    write_declaration,
+)
 from toolchain.install_update.validation_profile import resolve_validation_profile
-from tests.install_update.validation_profile_test_support import materialize_profiles, read_declaration, write_declaration
 
 
 def _codes(profile) -> set[str]:

@@ -13,8 +13,8 @@ from frontend.language_surface.nodes import (
     StringLiteralNode,
     to_json_value,
 )
-from .contracts import PROFILE, VISION_TYPES, public_registry
 
+from .contracts import PROFILE, VISION_TYPES, public_registry
 
 
 class VisionSemanticError(ValueError):

@@ -8,7 +8,14 @@ a catchable ImportError on platforms without curses (design doc §11).
 
 from __future__ import annotations
 
-from .filetree import FileTreeNode, FileTreeRow, ancestor_directories, first_file, flatten_file_tree, scan_project_tree
+from .filetree import (
+    FileTreeNode,
+    FileTreeRow,
+    ancestor_directories,
+    first_file,
+    flatten_file_tree,
+    scan_project_tree,
+)
 from .model import (
     SCHEMA,
     Anchor,

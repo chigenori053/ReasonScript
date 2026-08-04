@@ -9,7 +9,6 @@ jsonschema = pytest.importorskip("jsonschema")
 
 from toolchain.code_viewer import Stage, project, to_json_value
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = json.loads((ROOT / "schemas" / "code_viewer_document.schema.json").read_text(encoding="utf-8"))
 DEPENDENCY_SOURCE = ROOT / "examples" / "v0_5" / "003_calculation_dependency.rsn"

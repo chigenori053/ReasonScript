@@ -7,7 +7,6 @@ from pathlib import Path
 
 from toolchain.reasonunit_baseline import generate_baseline, validate_baseline
 
-
 DEFAULT_OUTPUT = Path("artifacts/reasonunit_baseline/ruo_c0")
 
 

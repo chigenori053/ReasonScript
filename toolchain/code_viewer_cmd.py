@@ -34,7 +34,6 @@ from toolchain.code_viewer import (
 )
 from toolchain.code_viewer.filetree import FileTreeNode
 
-
 _STAGE_NAMES = {stage.value for stage in Stage}
 _VALUE_OPTIONS = ("--stage", "--module", "--width", "--root")
 

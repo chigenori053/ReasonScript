@@ -6,15 +6,14 @@ docs/development/code_viewer_design.md §5 for the design rationale.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Mapping
 
 from frontend.lsp.model import Diagnostic
 
 from .filetree import FileTreeNode
-
 
 SCHEMA = "reasonscript-code-viewer/0.1"
 

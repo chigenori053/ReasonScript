@@ -2,6 +2,7 @@
 
 from .core import ReasonScriptLanguageServer
 from .model import (
+    SCHEMA,
     CompletionItem,
     Diagnostic,
     DiagnosticSeverity,
@@ -10,11 +11,11 @@ from .model import (
     Location,
     Position,
     Range,
-    SCHEMA,
     Symbol,
 )
 
 __all__ = [
+    "SCHEMA",
     "CompletionItem",
     "Diagnostic",
     "DiagnosticSeverity",
@@ -24,6 +25,5 @@ __all__ = [
     "Position",
     "Range",
     "ReasonScriptLanguageServer",
-    "SCHEMA",
     "Symbol",
 ]

@@ -8,10 +8,22 @@ from pathlib import Path
 import pytest
 
 from toolchain.reasonunit_tensor import (
-    CANONICAL_ARTIFACTS, DTYPES, TensorError, convert_tensor, decode_mask,
-    decode_scalar, encode_mask, encode_scalar, generate_tensor_profile,
-    logical_digest, make_dense_tensor, make_inline_tensor, select_tensor,
-    validate_tensor, validate_tensor_profile, verify_ruo_f1,
+    CANONICAL_ARTIFACTS,
+    DTYPES,
+    TensorError,
+    convert_tensor,
+    decode_mask,
+    decode_scalar,
+    encode_mask,
+    encode_scalar,
+    generate_tensor_profile,
+    logical_digest,
+    make_dense_tensor,
+    make_inline_tensor,
+    select_tensor,
+    validate_tensor,
+    validate_tensor_profile,
+    verify_ruo_f1,
 )
 from toolchain.reasonunit_tensor.phase import PROFILE
 from toolchain.reasonunit_tensor_cmd import run as cli_run

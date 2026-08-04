@@ -1,8 +1,14 @@
 import json
 from pathlib import Path
 
-from runtime.data import (DataBackend, Table, analyze_titanic, analyze_titanic_execution,
-                          canonicalize_analysis_result, validate_analysis_result)
+from runtime.data import (
+    DataBackend,
+    Table,
+    analyze_titanic,
+    analyze_titanic_execution,
+    canonicalize_analysis_result,
+    validate_analysis_result,
+)
 
 
 def _csv(tmp_path: Path) -> Path:

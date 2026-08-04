@@ -8,9 +8,17 @@ from pathlib import Path
 from typing import Any
 
 from toolchain.artifacts import stable_json
-from toolchain.ci import CI_SCHEMA, PHASE_ORDER, REPORT_SCHEMA, SUMMARY_SCHEMA, ci_report, ci_summary, run_pipeline, write_ci_reports
+from toolchain.ci import (
+    CI_SCHEMA,
+    PHASE_ORDER,
+    REPORT_SCHEMA,
+    SUMMARY_SCHEMA,
+    ci_report,
+    ci_summary,
+    run_pipeline,
+    write_ci_reports,
+)
 from toolchain.diagnostics import diagnostic_from_parts, diagnostics_document
-
 
 ENTRY_SCHEMA = "reasonscript-ci-entry/1.0"
 

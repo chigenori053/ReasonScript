@@ -11,14 +11,27 @@ from typing import Any
 
 from toolchain.diagnostics import diagnostics_document
 from toolchain.reasonunit_object import validate_universal_model
-from toolchain.reasonunit_object.model import canonical_digest, generate_execution_projection, query_object
-from toolchain.reasonunit_object.universal import reference_object
-from .format import (
-    CANONICALIZATION_PROFILE, FORMAT_VERSION, MEDIA_TYPE, SECTION_ORDER,
-    RUOFileError, canonical_json_bytes, encode_file, read_file, select_file,
-    validate_file, verify_resources, write_file,
+from toolchain.reasonunit_object.model import (
+    canonical_digest,
+    generate_execution_projection,
+    query_object,
 )
+from toolchain.reasonunit_object.universal import reference_object
 
+from .format import (
+    CANONICALIZATION_PROFILE,
+    FORMAT_VERSION,
+    MEDIA_TYPE,
+    SECTION_ORDER,
+    RUOFileError,
+    canonical_json_bytes,
+    encode_file,
+    read_file,
+    select_file,
+    validate_file,
+    verify_resources,
+    write_file,
+)
 
 PROFILE = "reasonscript-reasonunit-file-format/1.0"
 U1_PROFILE = "reasonscript-reasonunit-object-universal/1.0"

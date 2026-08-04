@@ -7,45 +7,57 @@ import re
 from dataclasses import dataclass, fields, is_dataclass
 from typing import Any
 
+from frontend.tensor.integration import (
+    TensorSemanticError,
+    tensor_call_name,
+    validate_tensor_call,
+)
+from frontend.vision.integration import (
+    VisionSemanticError,
+    validate_vision_call,
+    vision_call_name,
+)
+
 from .expressions import MAX_PATTERN_DEPTH, ExpressionSyntaxError, parse_expression
+from .namespace import ModuleNamespace, NamespaceResolutionError, resolve_program
 from .nodes import (
     ActionNode,
     ArrayLiteralNode,
     ArrayTypeNode,
     AssignmentStatementNode,
     AttributeNode,
-    BreakStatementNode,
-    CalculationNode,
     BinaryExpressionNode,
     BinaryOperator,
     BooleanLiteralNode,
+    BreakStatementNode,
+    CalculationNode,
     CallExpressionNode,
     ComparisonExpressionNode,
     ComparisonOperator,
     ConceptNode,
-    ConstraintNode,
     ConstDeclarationNode,
+    ConstraintNode,
     ConstStatementNode,
     ContinueStatementNode,
     DefaultPatternNode,
+    ElseIfStatementNode,
+    ElseStatementNode,
     EnumDeclarationNode,
     EnumValueNode,
     EnumValuePatternNode,
-    ElseIfStatementNode,
-    ElseStatementNode,
     EventNode,
     ExecutionPlanDeclarationNode,
-    ExpressionStatementNode,
     ExpressionNode,
+    ExpressionStatementNode,
     FieldAssignmentStatementNode,
     FloatLiteralNode,
     ForStatementNode,
     FunctionDeclarationNode,
     GoalNode,
     GoalStatementNode,
-    IfStatementNode,
     IdentifierNode,
     IdentifierPatternNode,
+    IfStatementNode,
     ImportNode,
     ImportResolutionNode,
     IndexAccessNode,
@@ -54,8 +66,8 @@ from .nodes import (
     LetStatementNode,
     LiteralPatternNode,
     LogicalExpressionNode,
-    LoopStatementNode,
     LogicalOperator,
+    LoopStatementNode,
     MapEntryNode,
     MapLiteralNode,
     MapTypeNode,
@@ -65,12 +77,12 @@ from .nodes import (
     ModuleNode,
     NamedTypeNode,
     NoneLiteralNode,
+    NullLiteralNode,
     ObjectNode,
     OptionalPatternNode,
-    OptionalValuePatternNode,
     OptionalTypeNode,
+    OptionalValuePatternNode,
     OrPatternNode,
-    NullLiteralNode,
     PackageDeclarationNode,
     ParenthesizedExpressionNode,
     PatternNode,
@@ -78,14 +90,14 @@ from .nodes import (
     PrimitiveKind,
     PrimitiveTypeNode,
     ProgramNode,
-    QualifiedPatternNode,
     QualifiedIdentifierNode,
+    QualifiedPatternNode,
     RangePatternNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
+    ReasonGraphTransitionNode,
     ReasonObjectBindingNode,
     ReasonObjectClauseSpanNode,
-    ReasonGraphTransitionNode,
     RelationNode,
     RelationType,
     RequireStatementNode,
@@ -97,40 +109,28 @@ from .nodes import (
     SetLiteralNode,
     SetTypeNode,
     SomeExpressionNode,
-    StringLiteralNode,
+    SourceSpanNode,
     StateDeclarationNode,
     StateKind,
     StateTypeNode,
-    SourceSpanNode,
-    StructDeclarationNode,
+    StringLiteralNode,
     StructBindingPatternNode,
-    StructFieldPatternNode,
+    StructDeclarationNode,
     StructFieldNode,
+    StructFieldPatternNode,
     StructLiteralFieldNode,
     StructLiteralNode,
     StructPatternNode,
+    TransitionNode,
     TupleLiteralNode,
     TupleTypeNode,
-    TransitionNode,
     UnaryExpressionNode,
     UnaryOperator,
     Visibility,
     WhileStatementNode,
     WildcardPatternNode,
 )
-from .namespace import ModuleNamespace, NamespaceResolutionError, resolve_program
-from frontend.tensor.integration import (
-    TensorSemanticError,
-    tensor_call_name,
-    validate_tensor_call,
-)
-from frontend.vision.integration import (
-    VisionSemanticError,
-    validate_vision_call,
-    vision_call_name,
-)
 from .semantic_patterns import StructPatternSemanticError, resolve_struct_pattern
-
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 QUALIFIED_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
@@ -511,9 +511,7 @@ def _validate_ast_node(node: Any) -> None:
         _expression(node.iterable, "IV-8 ForStatementNode.iterable")
     elif isinstance(node, WhileStatementNode):
         _expression(node.condition, "IV-3 WhileStatementNode.condition")
-    elif isinstance(node, LoopStatementNode):
-        return
-    elif isinstance(node, (BreakStatementNode, ContinueStatementNode)):
+    elif isinstance(node, LoopStatementNode) or isinstance(node, (BreakStatementNode, ContinueStatementNode)):
         return
     elif isinstance(node, IfStatementNode):
         _expression(node.condition, "IfNode.condition")
@@ -2629,9 +2627,7 @@ def _validate_enum_match_exhaustiveness(
     for key in keys:
         if key[0] == "identifier":
             matched.add(key[1])
-        elif key[0] == "enum_value" and key[1] == enum.name:
-            matched.add(key[2])
-        elif key[0] == "qualified" and key[1] == enum.name:
+        elif key[0] == "enum_value" and key[1] == enum.name or key[0] == "qualified" and key[1] == enum.name:
             matched.add(key[2])
     missing = [value.name for value in enum.values if value.name not in matched]
     if missing:
@@ -3237,9 +3233,7 @@ def _pattern_binding_names(pattern: Any) -> tuple[str, ...]:
     names: list[str] = []
 
     def collect(value: Any) -> None:
-        if isinstance(value, OptionalPatternNode) and value.kind == "Some" and value.binding:
-            names.append(value.binding)
-        elif isinstance(value, StructBindingPatternNode):
+        if isinstance(value, OptionalPatternNode) and value.kind == "Some" and value.binding or isinstance(value, StructBindingPatternNode):
             names.append(value.binding)
         elif isinstance(value, IdentifierPatternNode):
             names.append(value.name)

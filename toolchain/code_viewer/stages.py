@@ -10,10 +10,10 @@ classes.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from .model import StageNode
-
 
 AnchorResolver = Callable[[Mapping[str, Any]], "str | None"]
 

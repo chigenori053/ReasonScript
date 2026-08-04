@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from toolchain.install_update.validation_profile import resolve_validation_profile
 from tests.install_update.validation_profile_test_support import materialize_profiles
+from toolchain.install_update.validation_profile import resolve_validation_profile
 
 
 def test_r2_tc_003_declared_0_5_1_profile_resolution(tmp_path) -> None:

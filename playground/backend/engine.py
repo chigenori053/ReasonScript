@@ -1465,8 +1465,7 @@ def _range_pattern_signature(pattern: dict[str, Any]) -> str:
 
 def _range_bound_signature(value: Any) -> str:
     text = str(value)
-    if text.endswith(".0"):
-        text = text[:-2]
+    text = text.removesuffix(".0")
     return text.replace("-", "neg_").replace(".", "_")
 
 

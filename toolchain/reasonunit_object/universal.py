@@ -11,8 +11,15 @@ from typing import Any
 
 from toolchain.diagnostics import diagnostics_document
 from toolchain.reasonunit_compatibility import validate_compatibility
-from .model import ObjectTransaction, canonical_digest, canonicalize, generate_execution_projection, query_object, validate_object
 
+from .model import (
+    ObjectTransaction,
+    canonical_digest,
+    canonicalize,
+    generate_execution_projection,
+    query_object,
+    validate_object,
+)
 
 PROFILE = "reasonscript-reasonunit-object-universal/1.0"
 C1_PROFILE = "reasonscript-reasonunit-compatibility/1.0"

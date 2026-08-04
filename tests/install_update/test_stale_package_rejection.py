@@ -6,11 +6,14 @@ from pathlib import Path
 
 import pytest
 
+from tests.install_update.provenance_test_support import (
+    DEFAULT_COMMIT,
+    STALE_COMMIT,
+    attach_provenance,
+)
+from tests.install_update.test_update_core import PASS_VALIDATION, installed, package
 from toolchain.install_update.core import UpdateEngine, UpdateError
 from toolchain.install_update.package_validator import validate_package_provenance
-
-from tests.install_update.provenance_test_support import DEFAULT_COMMIT, STALE_COMMIT, attach_provenance
-from tests.install_update.test_update_core import PASS_VALIDATION, installed, package
 
 
 def _engine(root: Path, adapter, **kwargs) -> UpdateEngine:

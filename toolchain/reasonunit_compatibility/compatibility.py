@@ -21,7 +21,6 @@ from .model import (
     wrap_legacy_units,
 )
 
-
 PROFILE = "reasonscript-reasonunit-compatibility/1.0"
 C0_PROFILE = "reasonscript-reasonunit-baseline/1.0"
 JSON_ARTIFACTS = (

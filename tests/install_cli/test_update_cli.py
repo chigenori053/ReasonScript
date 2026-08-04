@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from toolchain.install_update.cli import run
 from tests.install_update.test_update_core import installed, package
+from toolchain.install_update.cli import run
 
 
 def test_update_check_json_contract(tmp_path: Path, capsys, monkeypatch) -> None:

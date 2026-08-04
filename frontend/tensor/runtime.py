@@ -11,9 +11,10 @@ import hashlib
 import json
 import math
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 DTYPES = {"bool", "i32", "i64", "f32", "f64"}
 DTYPE_BYTES = {"bool": 1, "i32": 4, "i64": 8, "f32": 4, "f64": 8}

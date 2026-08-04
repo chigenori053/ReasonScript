@@ -9,8 +9,9 @@ import math
 import os
 import struct
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable
+from typing import Any
 
 from toolchain.reasonunit_object.model import canonicalize
 

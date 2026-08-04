@@ -38,17 +38,17 @@ sys.path.insert(0, str(REPO_ROOT))
 # Imports from existing frontend infrastructure
 # ---------------------------------------------------------------------------
 try:
-    from frontend.parser import parse as parse_phase2
-    from frontend.parser import ParserError
     from frontend.ast import to_json_value as ast_to_json
     from frontend.ast import validate as ast_validate
-    from frontend.compiler import compile as compile_ast
     from frontend.compiler import CompilerError
-    from frontend.language_surface import parse as parse_surface
-    from frontend.language_surface import to_json_value as surface_to_json
+    from frontend.compiler import compile as compile_ast
     from frontend.language_surface import compile_program as compile_surface
+    from frontend.language_surface import parse as parse_surface
     from frontend.language_surface import project_program
+    from frontend.language_surface import to_json_value as surface_to_json
     from frontend.language_surface.parser import SurfaceSyntaxError
+    from frontend.parser import ParserError
+    from frontend.parser import parse as parse_phase2
 except ImportError as e:
     print(f"Import error: {e}", file=sys.stderr)
     print(

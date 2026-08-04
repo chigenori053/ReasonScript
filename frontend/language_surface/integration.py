@@ -2,24 +2,40 @@
 
 from __future__ import annotations
 
-from typing import Any
 import hashlib
+from typing import Any
 
 from frontend import ast as semantic
 from frontend.compiler import compile as compile_semantic
+from frontend.tensor.integration import (
+    public_registry as tensor_public_registry,
+)
+from frontend.tensor.integration import (
+    tensor_execution_plan,
+    tensor_operations,
+)
+from frontend.vision.integration import (
+    public_registry as vision_public_registry,
+)
+from frontend.vision.integration import (
+    vision_execution_plan,
+    vision_operations,
+)
 
+from .namespace import resolve_program
 from .nodes import (
-    CalculationNode,
-    AssignmentStatementNode,
     ArrayLiteralNode,
+    AssignmentStatementNode,
     BinaryExpressionNode,
     BinaryOperator,
     BooleanLiteralNode,
     BreakStatementNode,
+    CalculationNode,
     CallExpressionNode,
     ComparisonExpressionNode,
     ComparisonOperator,
     ConstDeclarationNode,
+    ConstraintNode,
     ConstStatementNode,
     ContinueStatementNode,
     DefaultPatternNode,
@@ -27,21 +43,20 @@ from .nodes import (
     EnumValuePatternNode,
     ExecutionPlanDeclarationNode,
     ExpressionNode,
-    ConstraintNode,
     ExpressionStatementNode,
     FieldAssignmentStatementNode,
+    FloatLiteralNode,
     ForStatementNode,
     FunctionDeclarationNode,
     GoalNode,
     GoalStatementNode,
     IdentifierNode,
     IdentifierPatternNode,
-    ImportNode,
     IfStatementNode,
+    ImportNode,
     IndexAccessNode,
     IndexAssignmentStatementNode,
     IntegerLiteralNode,
-    FloatLiteralNode,
     LetStatementNode,
     LiteralPatternNode,
     LogicalExpressionNode,
@@ -50,21 +65,21 @@ from .nodes import (
     MapLiteralNode,
     MatchStatementNode,
     MemberAccessNode,
+    ModuleNode,
     NamedTypeNode,
     NoneLiteralNode,
-    ModuleNode,
     OptionalPatternNode,
     OptionalValuePatternNode,
     OrPatternNode,
-    PatternNode,
     ParenthesizedExpressionNode,
+    PatternNode,
     ProgramNode,
-    QualifiedPatternNode,
     QualifiedIdentifierNode,
+    QualifiedPatternNode,
     RangePatternNode,
+    ReachStatementNode,
     ReasonGraphDeclarationNode,
     ReasonObjectBindingNode,
-    ReachStatementNode,
     RelationNode,
     RequireStatementNode,
     ResultStatementNode,
@@ -74,9 +89,9 @@ from .nodes import (
     RuntimeNamespaceNode,
     SetLiteralNode,
     SomeExpressionNode,
-    StructBindingPatternNode,
-    StringLiteralNode,
     StateDeclarationNode,
+    StringLiteralNode,
+    StructBindingPatternNode,
     StructDeclarationNode,
     StructLiteralNode,
     StructPatternNode,
@@ -93,17 +108,6 @@ from .pattern_decision import PatternDecisionBuilder, pattern_decision_to_json
 from .pattern_evaluator import PatternEvaluator, RuntimeEnumValue, RuntimeStructValue
 from .semantic_patterns import StructPatternSemanticError, resolve_struct_pattern
 from .validation import SurfaceValidationError, validate
-from .namespace import resolve_program
-from frontend.tensor.integration import (
-    public_registry as tensor_public_registry,
-    tensor_execution_plan,
-    tensor_operations,
-)
-from frontend.vision.integration import (
-    public_registry as vision_public_registry,
-    vision_execution_plan,
-    vision_operations,
-)
 
 
 def project_program(program: ProgramNode) -> tuple[semantic.ModuleNode, ...]:
@@ -673,9 +677,7 @@ def _reason_object_operations(module: ModuleNode) -> list[dict[str, Any]]:
 def _walk_ruo_calls(value: Any):
     if isinstance(value, CallExpressionNode) and isinstance(value.callee, MemberAccessNode) and isinstance(value.callee.object, IdentifierNode) and value.callee.object.name == "ruo":
         yield value
-    if isinstance(value, tuple):
-        for item in value: yield from _walk_ruo_calls(item)
-    elif isinstance(value, list):
+    if isinstance(value, tuple) or isinstance(value, list):
         for item in value: yield from _walk_ruo_calls(item)
     elif hasattr(value, "__dataclass_fields__"):
         for field in value.__dataclass_fields__: yield from _walk_ruo_calls(getattr(value, field))
@@ -1464,8 +1466,7 @@ def _range_pattern_label(pattern: dict[str, Any]) -> str:
 
 def _range_bound_label(value: Any) -> str:
     text = str(value)
-    if text.endswith(".0"):
-        text = text[:-2]
+    text = text.removesuffix(".0")
     return text.replace("-", "neg_").replace(".", "_")
 
 

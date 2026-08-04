@@ -1,11 +1,13 @@
 """Canonical JSON projection for visualization values."""
 from __future__ import annotations
-from dataclasses import asdict, is_dataclass
-from enum import Enum
+
 import json
 import math
+from dataclasses import asdict, is_dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Any
+
 from .model import VisualizationError, VisualizationSpec
 
 

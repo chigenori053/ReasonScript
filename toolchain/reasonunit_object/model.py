@@ -7,8 +7,8 @@ import hashlib
 import json
 import math
 import unicodedata
-from typing import Any, Iterable
-
+from collections.abc import Iterable
+from typing import Any
 
 CORE_PREFIXES = {
     "object": "ruo:object:", "unit": "ruo:unit:", "payload": "ruo:payload:",

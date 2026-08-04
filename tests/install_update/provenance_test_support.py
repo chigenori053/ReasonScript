@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from toolchain.install_update.package_provenance import (
     VALIDATION_PROFILE_DECLARATION_SCHEMA,
@@ -73,7 +74,7 @@ def attach_provenance(
         target_platform=platform, target_architecture=architecture,
         archive_format="directory", git_info=git_info, builder=builder,
         validation_profile=profile, file_records=files,
-        timestamp_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        timestamp_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     )
     if mutate is not None and skip_sidecar_refresh:
         write_manifest(package_root, manifest)

@@ -10,11 +10,22 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from toolchain.reasonunit_language import validate_language_profile
 from toolchain.diagnostics import diagnostics_document
 from toolchain.reasonunit_file import read_file, validate_file
+from toolchain.reasonunit_language import validate_language_profile
 from toolchain.reasonunit_tensor import PAYLOAD_PROFILE, validate_tensor
-from .engine import PROFILE, analyze, compare, convert, discover, dry_run, plan, status, validate
+
+from .engine import (
+    PROFILE,
+    analyze,
+    compare,
+    convert,
+    discover,
+    dry_run,
+    plan,
+    status,
+    validate,
+)
 
 JSON_ARTIFACTS = (
     "ruo_n2_input_manifest.json", "migration_program_contract.json", "migration_unit_contract.json", "legacy_source_classification.json", "discovery_inventory_contract.json", "source_freeze_contract.json", "semantic_authority_contract.json", "migration_analysis_contract.json", "mapping_profile_contract.json", "identity_preservation_contract.json", "id_generation_contract.json", "identity_mapping_contract.json", "ownership_containment_mapping_contract.json", "state_mapping_contract.json", "relation_mapping_contract.json", "evidence_provenance_mapping_contract.json", "lifecycle_revision_mapping_contract.json", "constraint_dependency_mapping_contract.json", "tensor_mapping_contract.json", "extension_retention_contract.json", "partial_migration_contract.json", "migration_plan_contract.json", "dry_run_contract.json", "conversion_pipeline_contract.json", "semantic_comparison_contract.json", "acceptance_mode_contract.json", "behavioral_parity_contract.json", "staged_publication_contract.json", "consumer_cutover_contract.json", "rollback_contract.json", "idempotency_resume_contract.json", "batch_atomicity_contract.json", "migration_provenance_contract.json", "migration_cli_contract.json", "resource_security_contract.json", "migration_fixture_manifest.json", "invalid_fixture_manifest.json", "source_inventory.json", "source_freeze_manifest.json", "migration_analysis_report.json", "identity_mapping_report.json", "extension_mapping_report.json", "dry_run_report.json", "semantic_comparison_report.json", "behavioral_parity_report.json", "tensor_migration_report.json", "publication_report.json", "rollback_report.json", "idempotency_report.json", "project_atomicity_report.json", "ruo_stack_compatibility_report.json", "risk_register.json", "deferred_semantics_register.json", "diagnostics.json", "validation_summary.json", "run_manifest.json",

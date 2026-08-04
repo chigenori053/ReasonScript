@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import fields, is_dataclass
-from typing import Any, Mapping
+from typing import Any
 from urllib.parse import urlparse
 
 from .nodes import (

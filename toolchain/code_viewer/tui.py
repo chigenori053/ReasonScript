@@ -25,7 +25,6 @@ from .projection import project
 from .render import MIN_HEIGHT, MIN_WIDTH, render
 from .theme import style_for
 
-
 _STAGE_ORDER = (Stage.SOURCE, Stage.SURFACE, Stage.SEMANTIC, Stage.IR, Stage.PLAN)
 _HEADER_ROWS = 1
 _FOOTER_ROWS = 1
@@ -60,7 +59,7 @@ def run_tui(
     """tree_root/tree/tree_expanded/show_file_tree are set by
     code_viewer_cmd.py (design doc §17): tree_root/tree are scanned once
     before the TUI starts (scanning is I/O — it doesn't belong in the pure
-    render()/​_handle_key() path), and show_file_tree controls whether the
+    render()/\u200b_handle_key() path), and show_file_tree controls whether the
     file picker is the first thing the user sees (when `reason view` was
     given a directory, or no path at all) or starts closed (an explicit
     .rsn file was given, matching every pre-§17 invocation unchanged)."""

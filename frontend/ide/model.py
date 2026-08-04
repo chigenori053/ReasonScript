@@ -8,7 +8,6 @@ from pathlib import Path
 
 from frontend.lsp import Diagnostic
 
-
 SCHEMA = "reasonscript-ide/0.1"
 
 

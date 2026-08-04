@@ -10,9 +10,18 @@ from typing import Any
 
 from toolchain.reasonunit_file import read_file, write_file
 from toolchain.reasonunit_tensor import (
-    MEDIA_TYPE, PAYLOAD_PROFILE, PROFILE, TensorError, convert_tensor,
-    dense_values, encode_values, logical_digest, make_dense_tensor, select_tensor,
-    validate_tensor, verify_resource,
+    MEDIA_TYPE,
+    PAYLOAD_PROFILE,
+    PROFILE,
+    TensorError,
+    convert_tensor,
+    dense_values,
+    encode_values,
+    logical_digest,
+    make_dense_tensor,
+    select_tensor,
+    validate_tensor,
+    verify_resource,
 )
 
 
@@ -54,7 +63,10 @@ def run(args: list[str], root: Path) -> int:
     operation, json_output = args[0], "--json" in args
     try:
         if operation in {"generate", "validate-phase"}:
-            from toolchain.reasonunit_tensor import generate_tensor_profile, validate_tensor_profile
+            from toolchain.reasonunit_tensor import (
+                generate_tensor_profile,
+                validate_tensor_profile,
+            )
             output = _path(_option(args, "--output") or "artifacts/reasonunit_tensor/ruo_t1")
             f1_value = _option(args, "--ruo-f1"); f1 = _path(f1_value) if f1_value else None
             raw = generate_tensor_profile(root, output, f1_directory=f1) if operation == "generate" else validate_tensor_profile(root, output, f1_directory=f1)

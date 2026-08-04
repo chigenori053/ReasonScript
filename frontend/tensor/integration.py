@@ -7,19 +7,20 @@ ExecutionPlan projection.  Numeric execution remains in :mod:`.runtime`.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import fields, is_dataclass
-from typing import Any, Iterable
+from typing import Any
 
 from frontend.language_surface.nodes import (
     ArrayLiteralNode,
+    AssignmentStatementNode,
     CallExpressionNode,
+    ConstStatementNode,
     ExpressionNode,
     FloatLiteralNode,
     IdentifierNode,
     IntegerLiteralNode,
     LetStatementNode,
-    ConstStatementNode,
-    AssignmentStatementNode,
     MemberAccessNode,
     StringLiteralNode,
     UnaryExpressionNode,
@@ -28,7 +29,6 @@ from frontend.language_surface.nodes import (
 )
 
 from .runtime import DTYPES, TensorRuntime
-
 
 LOWERINGS: dict[str, tuple[str, ...]] = {
     "tensor.relu": ("tensor.maximum",),

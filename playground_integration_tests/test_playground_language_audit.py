@@ -3,7 +3,10 @@ from pathlib import Path
 from frontend.ast import to_json_value as semantic_to_json_value
 from frontend.language_surface.integration import compile_program, project_program
 from frontend.language_surface.parser import parse
-from playground.backend.language_audit import run_language_audit, write_language_audit_reports
+from playground.backend.language_audit import (
+    run_language_audit,
+    write_language_audit_reports,
+)
 
 
 def test_function_arrow_return_type_projects_and_lowers():

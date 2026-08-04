@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,8 +20,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from toolchain.distribution_validation import (
-    COMPONENTS, DISTRIBUTION_TARGETS, DistributionError, inventory,
-    validate_source_targets, validate_staged_distribution,
+    COMPONENTS,
+    DISTRIBUTION_TARGETS,
+    DistributionError,
+    inventory,
+    validate_source_targets,
+    validate_staged_distribution,
 )
 from toolchain.install_update.platform import current_adapter
 
@@ -196,7 +200,7 @@ def install(prefix: Path, json_output: bool) -> int:
             (prefix / directory).mkdir(parents=True, exist_ok=True)
         manifest = {"schema_version": "reasonscript-install-manifest/1.0", "install_id": f"rs-install-{uuid.uuid4().hex}",
                     "reason_version": VERSION, "runtime_version": VERSION, "install_foundation_version": "1.0",
-                    "installed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"), "install_method": "source",
+                    "installed_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"), "install_method": "source",
                     "install_root": str(prefix), "platform": {"os": platform.system().lower(), "architecture": platform.machine()},
                     "python": {"version": platform.python_version(), "executable": sys.executable},
                     "components": [{"id": x, "version": VERSION, "required": True, "status": "installed", "path": f"versions/{VERSION}/{p}"}

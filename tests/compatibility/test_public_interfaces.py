@@ -8,7 +8,6 @@ from frontend.language_surface.integration import compile_program, execution_pla
 from frontend.language_surface.parser import parse
 from playground.backend.engine import extract_knowledge, simulate
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = """
 module Compatibility {

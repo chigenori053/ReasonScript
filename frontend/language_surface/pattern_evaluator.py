@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
-from typing import Any, Mapping
+from typing import Any
 
 from .semantic_patterns import (
     SemanticBindingPattern,
@@ -40,7 +41,7 @@ class RuntimeStructValue:
     fields: tuple[RuntimeStructFieldValue, ...]
 
     @staticmethod
-    def from_mapping(type_name: str, fields: Mapping[str, Any]) -> "RuntimeStructValue":
+    def from_mapping(type_name: str, fields: Mapping[str, Any]) -> RuntimeStructValue:
         return RuntimeStructValue(
             type_name,
             tuple(RuntimeStructFieldValue(name, value) for name, value in fields.items()),
@@ -60,7 +61,7 @@ class PatternMatchResult:
     failed_field: str | None = None
     failure_reason: str | None = None
     evaluation_trace: tuple[str, ...] = ()
-    children: tuple["PatternMatchResult", ...] = ()
+    children: tuple[PatternMatchResult, ...] = ()
     bindings: dict[str, Any] | None = None
 
 

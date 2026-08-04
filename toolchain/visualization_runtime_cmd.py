@@ -9,7 +9,6 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-
 PROFILE = "reasonscript-semantic-visualization-runtime/0.1"
 REQUIRED_ARTIFACTS = (
     "visualization_manifest.json",

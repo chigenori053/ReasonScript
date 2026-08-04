@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tests.install_update.rollback_legacy_support import (
+    INSTALLED_FIXTURE,
+    PACKAGE_FIXTURE,
+)
 from toolchain.install_update.core import UpdateEngine
 from toolchain.install_update.platform import PlatformAdapter
-from tests.install_update.rollback_legacy_support import INSTALLED_FIXTURE, PACKAGE_FIXTURE
 
 
 def _read(path: Path) -> dict:

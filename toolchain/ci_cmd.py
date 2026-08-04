@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from toolchain.ci import DEFAULT_TEST_COMMAND, ci_report, ci_summary, run_pipeline, write_ci_reports
+from toolchain.ci import (
+    DEFAULT_TEST_COMMAND,
+    ci_report,
+    ci_summary,
+    run_pipeline,
+    write_ci_reports,
+)
 from toolchain.diagnostics import render_diagnostics
 from toolchain.diagnostics import stable_json as render_json
 

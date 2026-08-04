@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
-from typing import Any, Mapping
-
+from typing import Any
 
 PROFILE_SCHEMA = "reasonscript-validation-profile/1.0"
 DECLARATION_SCHEMA = "reasonscript-validation-profile-declaration/1.0"

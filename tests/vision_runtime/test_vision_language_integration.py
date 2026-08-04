@@ -7,12 +7,16 @@ from pathlib import Path
 
 import pytest
 
-from frontend.language_surface import SurfaceSyntaxError, compile_program, execution_plan_for, parse
+from frontend.language_surface import (
+    SurfaceSyntaxError,
+    compile_program,
+    execution_plan_for,
+    parse,
+)
 from frontend.lsp.core import ReasonScriptLanguageServer
 from frontend.vision.contracts import PROFILE, VISION_TYPES, public_registry
 from toolchain.reasonunit_file import read_file, validate_file
 from toolchain.reasonunit_tensor import validate_tensor
-
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests/fixtures/vision_language"

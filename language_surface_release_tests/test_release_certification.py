@@ -12,7 +12,6 @@ from frontend.language_surface import (
     to_json_value,
 )
 
-
 SOURCE = """
 pub module finance {
     goal LoanApproval

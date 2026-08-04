@@ -9,6 +9,7 @@ from .core import (
     WorkspaceNotFoundError,
 )
 from .model import (
+    SCHEMA,
     BuildResult,
     CheckResult,
     CommandName,
@@ -17,13 +18,13 @@ from .model import (
     IdeConfiguration,
     OutputChannel,
     RunResult,
-    SCHEMA,
     TestResult,
     Workspace,
     WorkspaceStatus,
 )
 
 __all__ = [
+    "SCHEMA",
     "BuildCommand",
     "BuildResult",
     "CheckCommand",
@@ -36,7 +37,6 @@ __all__ = [
     "ReasonScriptIde",
     "RunCommand",
     "RunResult",
-    "SCHEMA",
     "TestCommand",
     "TestResult",
     "Workspace",

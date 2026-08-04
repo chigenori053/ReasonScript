@@ -4,7 +4,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV_PY = REPO_ROOT / "scripts" / "dev.py"
 COMMANDS_DOC = REPO_ROOT / "docs" / "development" / "commands.md"

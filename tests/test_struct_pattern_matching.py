@@ -10,7 +10,6 @@ from frontend.language_surface import (
 from frontend.language_surface.parser import SurfaceSyntaxError, parse
 from playground.backend.engine import build_execution_plan, extract_knowledge, simulate
 
-
 FIXTURE_DIR = Path(__file__).parent
 
 

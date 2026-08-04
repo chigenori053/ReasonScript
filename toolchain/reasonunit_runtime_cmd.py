@@ -7,7 +7,11 @@ import subprocess
 from pathlib import Path
 
 from toolchain.native_runtime import resolve_native_reasonunit_runtime
-from toolchain.reasonunit_runtime import PROFILE, generate_runtime_profile, validate_runtime_profile
+from toolchain.reasonunit_runtime import (
+    PROFILE,
+    generate_runtime_profile,
+    validate_runtime_profile,
+)
 
 
 def _option(args: list[str], name: str) -> str | None:

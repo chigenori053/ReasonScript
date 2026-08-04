@@ -5,8 +5,11 @@ import json
 
 import pytest
 
-from toolchain.install_update.validation_profile import PROFILE_SCHEMA, resolve_validation_profile
 from tests.install_update.validation_profile_test_support import materialize_profiles
+from toolchain.install_update.validation_profile import (
+    PROFILE_SCHEMA,
+    resolve_validation_profile,
+)
 
 
 def test_r2_tc_001_canonical_model_is_immutable_and_serializable(tmp_path) -> None:

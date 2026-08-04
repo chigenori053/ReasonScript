@@ -1,12 +1,15 @@
 """Optional Matplotlib reference renderer with deterministic policy."""
 from __future__ import annotations
-from dataclasses import asdict
-from io import BytesIO
+
 import hashlib
 import importlib.util
+from dataclasses import asdict
+from io import BytesIO
 from pathlib import Path
 from typing import Any
+
 from runtime.data import Table
+
 from .backend import VisualizationBackend
 from .model import VisualizationArtifact, VisualizationError, VisualizationSpec
 from .operations import chart_data

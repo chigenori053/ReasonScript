@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
-
-import json
 
 from toolchain.artifacts import stable_json, validate_artifact_directory
 from toolchain.diagnostics import diagnostic_from_parts, diagnostics_document
 from toolchain.golden import run_corpus
-
 
 PROTOCOL_SCHEMA = "reasonscript-agent-protocol/1.0"
 REPORT_SCHEMA = "reasonscript-agent-report/1.0"

@@ -9,7 +9,6 @@ from typing import Any
 from toolchain.artifacts import write_artifact_directory
 from toolchain.diagnostics import diagnostics_document, diagnostics_summary
 
-
 ARTIFACT_FILENAMES = {
     "language_surface_ast": "language_surface_ast.json",
     "surface_ast": "surface_ast.json",

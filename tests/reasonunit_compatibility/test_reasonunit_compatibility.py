@@ -24,7 +24,6 @@ from toolchain.reasonunit_compatibility import (
 )
 from toolchain.reasonunit_compatibility.model import projection_is_current
 
-
 ROOT = Path(__file__).resolve().parents[2]
 C0 = ROOT / "artifacts/reasonunit_baseline/ruo_c0"
 

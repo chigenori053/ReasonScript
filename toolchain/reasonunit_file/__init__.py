@@ -1,11 +1,21 @@
 """RUO-F1 canonical ReasonUnit Object file format."""
 
 from .format import (
-    FORMAT_VERSION, MEDIA_TYPE, RUOFileError, inspect_file, read_file,
-    select_file, validate_file, verify_resources, write_file,
+    FORMAT_VERSION,
+    MEDIA_TYPE,
+    RUOFileError,
+    inspect_file,
+    read_file,
+    select_file,
+    validate_file,
+    verify_resources,
+    write_file,
 )
 from .phase import (
-    CANONICAL_ARTIFACTS, PROFILE, generate_file_format, validate_file_format,
+    CANONICAL_ARTIFACTS,
+    PROFILE,
+    generate_file_format,
+    validate_file_format,
     verify_ruo_u1,
 )
 

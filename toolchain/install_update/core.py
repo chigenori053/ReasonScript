@@ -11,10 +11,11 @@ import sys
 import tarfile
 import tempfile
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable
+from typing import Any
 
 from .package_provenance import manifest_paths
 from .package_validator import (
@@ -695,7 +696,7 @@ class UpdateEngine:
         return result
 
     def _write_transaction(self, transaction_id: str, from_version: str | None, to_version: str | None,
-                           activation_status: str, started: str, error: "UpdateError | None" = None) -> None:
+                           activation_status: str, started: str, error: UpdateError | None = None) -> None:
         """Persist a provenance-bearing transaction Artifact (spec section 18). Best effort."""
         try:
             report = self._provenance_report
@@ -849,7 +850,7 @@ class UpdateEngine:
 
 
 def _timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _component_for(path: str) -> str:

@@ -10,7 +10,6 @@ from frontend.language_surface.nodes import to_json_value as surface_to_json_val
 from frontend.language_surface.parser import parse
 from playground.backend.engine import build_execution_plan, extract_knowledge, simulate
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "tests" / "fixtures" / "test_platform" / "sample001.rsn"
 GOLDEN = ROOT / "golden" / "sample001"

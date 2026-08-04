@@ -6,7 +6,6 @@ import pytest
 from frontend.language_surface.integration import compile_program
 from frontend.language_surface.parser import SurfaceSyntaxError, parse
 
-
 FIXTURE_DIR = Path(__file__).parent
 
 

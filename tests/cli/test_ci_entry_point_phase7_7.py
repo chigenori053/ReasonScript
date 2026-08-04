@@ -7,7 +7,6 @@ from pathlib import Path
 
 from toolchain.ci_entry import VALIDATION_RULES, validate_entry_point
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REASON = REPO_ROOT / "reason"
 

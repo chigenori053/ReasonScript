@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from frontend.runtime_integration import (
+    PredictionRequest,
     RuntimeEngineRegistry,
     RuntimeValue,
-    PredictionRequest,
 )
 from sdk._engine import resolve_registry
 from sdk.types import SDKPredictionResult

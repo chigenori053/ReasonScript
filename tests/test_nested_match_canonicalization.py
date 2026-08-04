@@ -5,7 +5,6 @@ from frontend.language_surface.integration import compile_program
 from frontend.language_surface.parser import parse
 from playground.backend.engine import build_execution_plan, extract_knowledge, simulate
 
-
 FIXTURE_DIR = Path(__file__).parent
 
 

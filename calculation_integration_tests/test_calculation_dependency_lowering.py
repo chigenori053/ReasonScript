@@ -1,6 +1,11 @@
 import unittest
 
-from frontend.language_surface import SurfaceSyntaxError, compile_program, execution_plan_for, parse
+from frontend.language_surface import (
+    SurfaceSyntaxError,
+    compile_program,
+    execution_plan_for,
+    parse,
+)
 
 
 def _compile(source: str):

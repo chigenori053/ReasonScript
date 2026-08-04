@@ -1,16 +1,17 @@
 import unittest
 
-from frontend.lsp.model import Diagnostic, DiagnosticSeverity as LspSeverity, Location, point_range
+from frontend.lsp.model import Diagnostic, Location, point_range
+from frontend.lsp.model import DiagnosticSeverity as LspSeverity
 from frontend.runtime_integration import (
+    PLATFORM_DIAGNOSTIC_SCHEMA,
+    REASONING_TRACE_SCHEMA,
     DiagnosticSeverity,
     DiagnosticSource,
     ExecutionCoordinator,
     ExecutionRequest,
     ExecutionScope,
     ExecutionScopeStack,
-    PLATFORM_DIAGNOSTIC_SCHEMA,
     PlatformDiagnostic,
-    REASONING_TRACE_SCHEMA,
     RuntimeValue,
     ScopeType,
     TraceCategory,

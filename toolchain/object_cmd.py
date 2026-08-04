@@ -9,9 +9,13 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from toolchain.reasonunit_file import read_file, select_file, validate_file
-from toolchain.reasonunit_language.language import PROFILE, bind_source_objects, compile_reason_object_source
 from toolchain.native_runtime import resolve_native_reasonunit_runtime
+from toolchain.reasonunit_file import read_file, select_file, validate_file
+from toolchain.reasonunit_language.language import (
+    PROFILE,
+    bind_source_objects,
+    compile_reason_object_source,
+)
 
 CLI_VERSION = "reason-object-cli/1.0"
 
@@ -51,7 +55,10 @@ def run(args: list[str], root: Path) -> int:
     json_output = "--json" in args
     try:
         if operation in {"generate", "validate-phase"}:
-            from toolchain.reasonunit_language import generate_language_profile, validate_language_profile
+            from toolchain.reasonunit_language import (
+                generate_language_profile,
+                validate_language_profile,
+            )
             output = _path(_option(args, "--output") or "artifacts/reasonunit_language/ruo_n2")
             raw = generate_language_profile(root, output) if operation == "generate" else validate_language_profile(root, output)
             ok = raw.get("phase_status") == "VALIDATED" if operation == "generate" else bool(raw.get("ok"))

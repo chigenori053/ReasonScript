@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum
 import hashlib
 import json
 import math
-from typing import Any, Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
 
 
 def canonical_json(value: Any) -> str:
@@ -27,7 +28,7 @@ class DataType(str, Enum):
     NULL = "data.null"
 
     @classmethod
-    def parse(cls, value: "DataType | str") -> "DataType":
+    def parse(cls, value: DataType | str) -> DataType:
         if isinstance(value, cls):
             return value
         aliases = {"int": cls.INT, "float": cls.FLOAT, "bool": cls.BOOL, "string": cls.STRING, "null": cls.NULL}
@@ -97,7 +98,7 @@ class Schema:
             object.__setattr__(self, "schema_id", stable_id("sch", [f.to_dict() for f in normalized], self.strict, self.inference_policy))
 
     @classmethod
-    def from_mapping(cls, fields: Mapping[str, Any], *, strict: bool = True) -> "Schema":
+    def from_mapping(cls, fields: Mapping[str, Any], *, strict: bool = True) -> Schema:
         values = []
         for i, (name, spec) in enumerate(fields.items()):
             if isinstance(spec, (str, DataType)):

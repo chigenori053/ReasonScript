@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -35,7 +34,7 @@ def test_dev_dependencies_are_explicitly_managed():
         if line.strip() and not line.strip().startswith("#")
     }
 
-    for package in {"pytest", "jsonschema", "pydantic", "fastapi", "uvicorn"}:
+    for package in ("pytest", "jsonschema", "pydantic", "fastapi", "uvicorn"):
         assert package in requirements
 
 

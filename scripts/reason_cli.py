@@ -13,12 +13,17 @@ from typing import Any
 
 from playground.backend.main import SourceRequest, analyze_endpoint
 from scripts.reason_artifacts import stable_json, write_cli_artifacts
-from toolchain.agent_protocol import agent_report, render_json, validate_repository, write_agent_report
+from toolchain.agent_protocol import (
+    agent_report,
+    render_json,
+    validate_repository,
+    write_agent_report,
+)
 from toolchain.artifacts import validate_artifact_directory
 from toolchain.diagnostics import render_diagnostics
-from toolchain.golden import run_corpus, stable_json as golden_stable_json, update_corpus, validate_corpus
+from toolchain.golden import run_corpus, update_corpus, validate_corpus
+from toolchain.golden import stable_json as golden_stable_json
 from toolchain.workspace_cmd import run as run_workspace_command
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VALID_EXAMPLES_DIR = REPO_ROOT / "examples" / "v0_5"

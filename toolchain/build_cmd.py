@@ -7,7 +7,11 @@ from pathlib import Path
 
 from .manifest import Manifest, ManifestError
 from .pipeline import PipelineError, compile_source
-from .workspace import PackageGraphService, WorkspaceError, diagnostic_from_workspace_error
+from .workspace import (
+    PackageGraphService,
+    WorkspaceError,
+    diagnostic_from_workspace_error,
+)
 
 _CACHE_KEY_FILE = ".reason_build_cache"
 

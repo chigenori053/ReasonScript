@@ -15,7 +15,6 @@ from toolchain.run_cmd import run as run_run
 from toolchain.runner_cmd import run as suite_run
 from toolchain.workspace import PackageGraphService
 
-
 ROOT = Path(__file__).resolve().parents[1]
 EXT = ROOT / "vscode-extension"
 

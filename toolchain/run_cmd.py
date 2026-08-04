@@ -7,7 +7,11 @@ import sys
 from pathlib import Path
 
 from .manifest import Manifest, ManifestError
-from .workspace import PackageGraphService, WorkspaceError, diagnostic_from_workspace_error
+from .workspace import (
+    PackageGraphService,
+    WorkspaceError,
+    diagnostic_from_workspace_error,
+)
 
 
 def run(project_root: Path, package: str | None = None) -> int:
@@ -50,8 +54,8 @@ def _run_package(project_root: Path, *, workspace_package: str | None = None) ->
     try:
         from frontend.runtime_integration import (
             execute_runtime_operations_with_registry,
-            runtime_real_registry,
             hybrid_runtime_registry,
+            runtime_real_registry,
         )
     except ImportError as e:
         print(f"Error:\n\nRuntimeImportError\n\n{e}")

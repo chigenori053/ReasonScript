@@ -4,8 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from toolchain.install_update.validation_profile import ValidationProfileResolutionError, resolve_validation_profile
 from tests.install_update.validation_profile_test_support import materialize_profiles
+from toolchain.install_update.validation_profile import (
+    ValidationProfileResolutionError,
+    resolve_validation_profile,
+)
 
 
 def _inventory(root: Path) -> list[str]:

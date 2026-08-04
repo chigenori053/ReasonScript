@@ -4,7 +4,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 UI_SRC = REPO_ROOT / "apps" / "reasonscript-ide" / "ui" / "src"
 VIEW_MODEL = UI_SRC / "viewModels" / "analysisDiagnostics.ts"

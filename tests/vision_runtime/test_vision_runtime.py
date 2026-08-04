@@ -8,7 +8,6 @@ from toolchain.reasonunit_file import write_file
 from toolchain.reasonunit_object.model import validate_object
 from toolchain.reasonunit_tensor import validate_tensor
 
-
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests/fixtures/vision_runtime/solar_observation.json"
 

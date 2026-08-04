@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from toolchain.reasonunit_compatibility import generate_compatibility, validate_compatibility
-
+from toolchain.reasonunit_compatibility import (
+    generate_compatibility,
+    validate_compatibility,
+)
 
 DEFAULT_OUTPUT = Path("artifacts/reasonunit_compatibility/ruo_c1")
 

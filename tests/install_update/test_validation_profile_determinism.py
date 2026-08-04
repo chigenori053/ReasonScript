@@ -3,8 +3,12 @@ from __future__ import annotations
 import json
 
 from conformance.schema_validator import SchemaValidator
+from tests.install_update.validation_profile_test_support import (
+    PHASE_R2_ARTIFACTS,
+    REPOSITORY_ROOT,
+    materialize_profiles,
+)
 from toolchain.install_update.validation_profile import resolve_validation_profile
-from tests.install_update.validation_profile_test_support import PHASE_R2_ARTIFACTS, REPOSITORY_ROOT, materialize_profiles
 
 
 def test_r2_tc_013_profiles_are_deterministic_and_canonical(tmp_path) -> None:

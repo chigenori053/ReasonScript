@@ -1,19 +1,25 @@
 """ReasonScript Install Foundation v1.0 CLI contracts."""
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
 import shutil
+import subprocess
 import sys
 import tempfile
-import subprocess
-import hashlib
 from pathlib import Path
 from typing import Any
 
-from toolchain.distribution_validation import (COMPONENTS, EVALUATION_IMPORTS, EVALUATION_PUBLIC_API,
-    EVALUATION_SCHEMAS, REQUIRED_IMPORTS, validate_staged_distribution)
+from toolchain.distribution_validation import (
+    COMPONENTS,
+    EVALUATION_IMPORTS,
+    EVALUATION_PUBLIC_API,
+    EVALUATION_SCHEMAS,
+    REQUIRED_IMPORTS,
+    validate_staged_distribution,
+)
 
 FOUNDATION_VERSION = "1.1"
 SCHEMA_PREFIX = "reasonscript-"

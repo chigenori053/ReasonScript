@@ -10,8 +10,9 @@ degrade to a diagnostic instead of taking the whole viewer down.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from frontend.ast import to_json_value as semantic_to_json_value
 from frontend.language_surface.integration import (

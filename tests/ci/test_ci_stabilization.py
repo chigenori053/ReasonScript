@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
@@ -10,12 +9,12 @@ def _workflow(name: str) -> str:
 
 
 def test_required_workflows_exist():
-    for name in {"lint.yml", "build.yml", "test.yml", "release.yml"}:
+    for name in ("lint.yml", "build.yml", "test.yml", "release.yml"):
         assert (WORKFLOWS / name).exists(), name
 
 
 def test_workflows_install_shared_dev_requirements():
-    for name in {"lint.yml", "build.yml", "test.yml", "release.yml"}:
+    for name in ("lint.yml", "build.yml", "test.yml", "release.yml"):
         content = _workflow(name)
         assert "python3 -m pip install --upgrade pip" in content
         assert "python3 -m pip install -r requirements-dev.txt" in content

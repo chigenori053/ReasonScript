@@ -11,8 +11,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from toolchain.reasonunit_file import read_file, validate_file, verify_resources
 from toolchain.native_runtime import resolve_native_reasonunit_runtime
+from toolchain.reasonunit_file import read_file, validate_file, verify_resources
 from toolchain.reasonunit_tensor import validate_tensor_profile
 
 PROFILE = "reasonscript-reasonunit-native-runtime/1.0"

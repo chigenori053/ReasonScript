@@ -4,14 +4,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from frontend.integrated_computation_runtime import execute_program
 from frontend.language_surface import compile_program, parse, to_json_value
 from frontend.tensor import TensorError, TensorRuntime
 from frontend.tensor.integration import tensor_execution_plan, tensor_operations
-from toolchain.artifacts import stable_json, validate_artifact_directory, write_artifact_directory
+from toolchain.artifacts import (
+    stable_json,
+    validate_artifact_directory,
+    write_artifact_directory,
+)
 from toolchain.diagnostics import diagnostics_document
 from toolchain.project_validation import validate_project
 

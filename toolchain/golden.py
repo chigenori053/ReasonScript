@@ -9,7 +9,6 @@ from typing import Any
 from playground.backend.main import SourceRequest, analyze_endpoint
 from toolchain.diagnostics import diagnostic_from_parts, diagnostics_document
 
-
 GOLDEN_VERSION = "1.0"
 GOLDEN_SCHEMA = "reasonscript-golden-tests/1.0"
 SUPPORTED_CATEGORIES = {

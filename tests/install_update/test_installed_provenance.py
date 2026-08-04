@@ -4,11 +4,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from toolchain.install_foundation import _package_provenance_summary
-from toolchain.install_update.package_provenance import canonical_manifest_sha256
-
 from tests.install_update.provenance_test_support import DEFAULT_COMMIT
 from tests.install_update.test_update_core import engine, installed, package
+from toolchain.install_foundation import _package_provenance_summary
+from toolchain.install_update.package_provenance import canonical_manifest_sha256
 
 
 def _update(tmp_path: Path):

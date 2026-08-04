@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 from typing import Any
 
 try:
@@ -19,7 +19,6 @@ from frontend.runtime_integration import (
 )
 
 from .manifest import Manifest, ManifestError
-
 
 PACKAGE_GRAPH_SCHEMA = "reasonscript-package-graph/0.1"
 TOOLCHAIN_SCHEMA = "reasonscript-toolchain/0.2"
@@ -61,7 +60,7 @@ class WorkspaceManifest:
     default_package: str | None = None
 
     @staticmethod
-    def load(root: Path) -> "WorkspaceManifest":
+    def load(root: Path) -> WorkspaceManifest:
         path = root / "reason.workspace.toml"
         if not path.exists():
             raise WorkspaceManifestError(f"reason.workspace.toml not found in {root}")
