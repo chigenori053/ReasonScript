@@ -31,6 +31,10 @@ def test_t1_prerequisite_is_verified_and_required(tmp_path: Path) -> None:
 def test_native_core_build_and_unit_tests_pass() -> None:
     completed = subprocess.run(["cargo", "test", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert completed.returncode == 0, completed.stderr
+    # `cargo test` alone does not guarantee the `[[bin]]` target is built on a
+    # fresh checkout; later tests load it directly from target/debug.
+    built = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    assert built.returncode == 0, built.stderr
 
 
 def test_native_types_are_compiled_and_safe_rust() -> None:
