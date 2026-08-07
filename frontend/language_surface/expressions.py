@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from frontend.tensor.operations import operation_signature
+
 from .nodes import (
     ArrayLiteralNode,
     BinaryExpressionNode,
@@ -607,16 +609,13 @@ class _Parser:
                 name = self.take().value
                 self.take()
                 function = _tensor_callee_name(callee)
-                positions = {
-                    "tensor.create": ("values", "dtype", "device"),
-                    "tensor.softmax": ("input", "axis"),
-                    "tensor.linear": ("input", "weight", "bias"),
-                }
-                if function not in positions or name not in positions[function]:
+                signature = operation_signature(function or "")
+                positions = signature.arguments if signature is not None else ()
+                if name not in positions:
                     raise ExpressionSyntaxError(f"TSF-016 unsupported Tensor argument: {name}")
                 if name in named_arguments:
                     raise ExpressionSyntaxError(f"TSF-016 duplicate Tensor argument: {name}")
-                if positions[function].index(name) != len(arguments):
+                if positions.index(name) != len(arguments):
                     raise ExpressionSyntaxError(f"TSF-016 Tensor named argument is out of order: {name}")
                 named_arguments.add(name)
             arguments.append(self.parse(0))
@@ -673,10 +672,17 @@ def _tokenize(source: str) -> tuple[_Token, ...]:
             tokens.append(_Token(_Kind.STRING, source[start:index], start))
             continue
         if char.isdigit():
-            match = re.match(r"\d+(?:\.\d+)?", source[index:])
+            match = re.match(
+                r"\d+(?:\.\d+)?(?:[eE][+-]?\d+)?",
+                source[index:],
+            )
             assert match is not None
             value = match.group(0)
-            kind = _Kind.FLOAT if "." in value else _Kind.INTEGER
+            kind = (
+                _Kind.FLOAT
+                if any(marker in value for marker in (".", "e", "E"))
+                else _Kind.INTEGER
+            )
             tokens.append(_Token(kind, value, index))
             index += len(value)
             continue

@@ -22,6 +22,8 @@ class LayerAExpressionNodeTests(unittest.TestCase):
         cases = {
             "42": (IntegerLiteralNode, 42),
             "3.14": (FloatLiteralNode, 3.14),
+            "7.9e-05": (FloatLiteralNode, 7.9e-05),
+            "1E+3": (FloatLiteralNode, 1e3),
             "true": (BooleanLiteralNode, True),
             '"hello"': (StringLiteralNode, "hello"),
             "null": (NullLiteralNode, None),

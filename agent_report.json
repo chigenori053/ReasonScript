@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "ReasonScript v0.5.2.4 release",
-  "tests_passed": 1102,
+  "task": "Tensor Training Foundation v0.2",
+  "tests_passed": 1116,
   "version": "1.0"
 }

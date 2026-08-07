@@ -1,6 +1,26 @@
 # Changelog
 
-## Unreleased
+## v0.5.4.5 — 2026-08-07
+
+### Added
+
+- Added Tensor Training Foundation v0.2 with NCHW Conv2d, MaxPool2d,
+  AvgPool2d, reverse-mode automatic differentiation, slice/gather, stateless
+  seeded random Tensor creation, and bounded autograd lifecycle management.
+- Added the checksum-verified `.rstensor` file profile, capability-checked
+  `tensor.load` / `tensor.save`, and `reason tensor import|inspect|verify`
+  commands for JSON, CSV, and optional NumPy input.
+
+### Fixed
+
+- Released Tensor backend values after they become unreachable from integrated
+  runtime environments, preventing iterative tensor programs from exhausting
+  the 1,000-live-value policy.
+- Kept loop trace snapshots bounded by serializing Tensor metadata instead of
+  implicitly materializing every element through `tensor.to_array`.
+- Accepted decimal scientific notation in ReasonScript numeric literals.
+- Propagated parsed Tensor call locations into runtime diagnostics and tensor
+  trace source references.
 
 ### Changed
 

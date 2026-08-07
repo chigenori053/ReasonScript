@@ -29,6 +29,7 @@ from frontend.language_surface.nodes import (
 )
 
 from .runtime import DTYPES, TensorRuntime
+from .operations import operation_signature
 
 LOWERINGS: dict[str, tuple[str, ...]] = {
     "tensor.relu": ("tensor.maximum",),
@@ -40,6 +41,14 @@ LOWERINGS: dict[str, tuple[str, ...]] = {
         "tensor.divide",
     ),
     "tensor.linear": ("tensor.matmul", "tensor.add"),
+    "tensor.conv2d": (
+        "tensor.im2col",
+        "tensor.matmul",
+        "tensor.reshape",
+    ),
+    "tensor.max_pool2d": ("tensor.window", "tensor.max"),
+    "tensor.avg_pool2d": ("tensor.window", "tensor.mean"),
+    "tensor.grad": ("tensor.reverse_mode_vjp",),
 }
 
 
@@ -81,16 +90,8 @@ def validate_tensor_call(value: CallExpressionNode) -> None:
     if name not in contracts:
         raise TensorSemanticError("NS-030", f"qualified Tensor symbol not found: {name}")
 
-    limits = {
-        "tensor.create": (1, 3),
-        "tensor.relu": (1, 1),
-        "tensor.softmax": (1, 2),
-        "tensor.linear": (2, 3),
-        "tensor.reshape": (2, 2),
-        "tensor.transpose": (1, 3),
-        "tensor.matmul": (2, 2),
-    }
-    minimum, maximum = limits.get(name, (1, 3))
+    signature = operation_signature(name)
+    minimum, maximum = signature.limits if signature is not None else (1, 3)
     if not minimum <= len(value.arguments) <= maximum:
         raise TensorSemanticError(
             "TSF-016",
@@ -111,6 +112,17 @@ def validate_tensor_call(value: CallExpressionNode) -> None:
         "tensor.matmul": 2,
         "tensor.reshape": 1,
         "tensor.transpose": 1,
+        "tensor.slice": 1,
+        "tensor.narrow": 1,
+        "tensor.gather": 2,
+        "tensor.save": 1,
+        "tensor.parameter": 1,
+        "tensor.detach": 1,
+        "tensor.requires_grad": 1,
+        "tensor.grad": 1,
+        "tensor.conv2d": 2,
+        "tensor.max_pool2d": 1,
+        "tensor.avg_pool2d": 1,
     }.get(name, 0)
     for argument in value.arguments[:tensor_argument_count]:
         literal = _literal(argument)
@@ -165,8 +177,27 @@ def infer_tensor_shape(
             literal = _literal(value.arguments[0])
             if literal is not _UNKNOWN:
                 return _literal_shape(literal)
-        if name in {"tensor.relu", "tensor.softmax"}:
+        if name in {
+            "tensor.relu",
+            "tensor.softmax",
+            "tensor.parameter",
+            "tensor.detach",
+        }:
             return infer_tensor_shape(value.arguments[0], bindings)
+        if name in {
+            "tensor.random_uniform",
+            "tensor.random_normal",
+            "tensor.random_bernoulli",
+        }:
+            shape = _literal(value.arguments[0])
+            if isinstance(shape, list) and all(
+                isinstance(item, int) and item > 0 for item in shape
+            ):
+                return tuple(shape)
+        if name == "tensor.random_permutation":
+            size = _literal(value.arguments[0])
+            if isinstance(size, int) and size > 0:
+                return (size,)
         if name in {"tensor.matmul", "tensor.linear"}:
             left = infer_tensor_shape(value.arguments[0], bindings)
             right = infer_tensor_shape(value.arguments[1], bindings)
@@ -176,6 +207,79 @@ def infer_tensor_shape(
             target = _literal(value.arguments[1])
             if isinstance(target, list) and all(isinstance(item, int) and item >= 0 for item in target):
                 return tuple(target)
+        if name == "tensor.gather":
+            source = infer_tensor_shape(value.arguments[0], bindings)
+            indices = infer_tensor_shape(value.arguments[1], bindings)
+            axis = _literal(value.arguments[2]) if len(value.arguments) > 2 else 0
+            if source is not None and indices is not None and isinstance(axis, int):
+                normalized = axis if axis >= 0 else axis + len(source)
+                if 0 <= normalized < len(source):
+                    return source[:normalized] + indices + source[normalized + 1 :]
+        if name == "tensor.narrow":
+            source = infer_tensor_shape(value.arguments[0], bindings)
+            axis = _literal(value.arguments[1])
+            length = _literal(value.arguments[3])
+            if source is not None and isinstance(axis, int) and isinstance(length, int):
+                normalized = axis if axis >= 0 else axis + len(source)
+                if 0 <= normalized < len(source) and length > 0:
+                    result = list(source)
+                    result[normalized] = length
+                    return tuple(result)
+        if name == "tensor.slice":
+            source = infer_tensor_shape(value.arguments[0], bindings)
+            starts = _literal(value.arguments[1])
+            ends = _literal(value.arguments[2])
+            axes = (
+                _literal(value.arguments[3])
+                if len(value.arguments) > 3
+                else list(range(len(starts) if isinstance(starts, list) else 0))
+            )
+            steps = (
+                _literal(value.arguments[4])
+                if len(value.arguments) > 4
+                else [1] * (len(starts) if isinstance(starts, list) else 0)
+            )
+            if (
+                source is not None
+                and all(isinstance(item, list) for item in (starts, ends, axes, steps))
+                and len(starts) == len(ends) == len(axes) == len(steps)
+            ):
+                result = list(source)
+                try:
+                    for start, end, axis, step in zip(starts, ends, axes, steps):
+                        normalized = axis if axis >= 0 else axis + len(source)
+                        result[normalized] = len(
+                            range(*slice(start, end, step).indices(source[normalized]))
+                        )
+                except (IndexError, TypeError, ValueError):
+                    return None
+                return tuple(result)
+        if name == "tensor.conv2d":
+            source = infer_tensor_shape(value.arguments[0], bindings)
+            weight = infer_tensor_shape(value.arguments[1], bindings)
+            if source is not None and weight is not None and len(source) == len(weight) == 4:
+                stride = _literal(value.arguments[3]) if len(value.arguments) > 3 else [1, 1]
+                padding = _literal(value.arguments[4]) if len(value.arguments) > 4 else [0, 0]
+                dilation = _literal(value.arguments[5]) if len(value.arguments) > 5 else [1, 1]
+                if all(isinstance(item, list) and len(item) == 2 for item in (stride, padding, dilation)):
+                    out_h = (source[2] + 2 * padding[0] - dilation[0] * (weight[2] - 1) - 1) // stride[0] + 1
+                    out_w = (source[3] + 2 * padding[1] - dilation[1] * (weight[3] - 1) - 1) // stride[1] + 1
+                    return (source[0], weight[0], out_h, out_w)
+        if name in {"tensor.max_pool2d", "tensor.avg_pool2d"}:
+            source = infer_tensor_shape(value.arguments[0], bindings)
+            kernel = _literal(value.arguments[1])
+            stride = _literal(value.arguments[2]) if len(value.arguments) > 2 else kernel
+            padding = _literal(value.arguments[3]) if len(value.arguments) > 3 else [0, 0]
+            if source is not None and len(source) == 4 and all(
+                isinstance(item, list) and len(item) == 2
+                for item in (kernel, stride, padding)
+            ):
+                return (
+                    source[0],
+                    source[1],
+                    (source[2] + 2 * padding[0] - kernel[0]) // stride[0] + 1,
+                    (source[3] + 2 * padding[1] - kernel[1]) // stride[1] + 1,
+                )
     return None
 
 

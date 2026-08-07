@@ -7,19 +7,30 @@ from frontend.tensor import TensorError, TensorPolicy, TensorRuntime
 
 def test_registry_contains_complete_required_set():
     runtime = TensorRuntime()
-    assert len(runtime.function_ids()) == 49
+    assert len(runtime.function_ids()) == 65
     assert "tensor.create" in runtime.function_ids()
     assert "tensor.matmul" in runtime.function_ids()
-    assert {"tensor.relu", "tensor.softmax", "tensor.linear"} <= set(runtime.function_ids())
-    assert all(contract.version == "0.1" for contract in runtime.contracts.values())
-    assert all(
-        contract.deterministic and not contract.side_effects
-        for contract in runtime.contracts.values()
-    )
-    assert all(
-        contract.to_dict()["diagnostic_policy"] == "TSF"
-        for contract in runtime.contracts.values()
-    )
+    assert {
+        "tensor.relu",
+        "tensor.softmax",
+        "tensor.linear",
+        "tensor.conv2d",
+        "tensor.max_pool2d",
+        "tensor.avg_pool2d",
+        "tensor.grad",
+        "tensor.load",
+        "tensor.save",
+    } <= set(runtime.function_ids())
+    assert {contract.version for contract in runtime.contracts.values()} == {
+        "0.1",
+        "0.2",
+    }
+    assert all(contract.deterministic for contract in runtime.contracts.values())
+    assert {
+        name
+        for name, contract in runtime.contracts.items()
+        if contract.side_effects
+    } == {"tensor.load", "tensor.save"}
 
 
 def test_create_metadata_and_external_runtime_value():

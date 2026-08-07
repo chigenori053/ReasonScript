@@ -36,6 +36,8 @@ from frontend.language_surface.nodes import (
     LogicalOperator,
     LoopStatementNode,
     MemberAccessNode,
+    NoneLiteralNode,
+    NullLiteralNode,
     ParenthesizedExpressionNode,
     ProgramNode,
     ResultStatementNode,
@@ -120,7 +122,11 @@ def execute_program(
     filesystem_read: bool = False,
     filesystem_write: bool = False,
 ) -> IntegratedComputationResult:
-    runtime = TensorRuntime()
+    runtime = TensorRuntime(
+        resource_root=resource_root or Path.cwd(),
+        filesystem_read=filesystem_read,
+        filesystem_write=filesystem_write,
+    )
     vision_runtime = VisionRuntimeBridge(resource_root or Path.cwd(), filesystem_read=filesystem_read, filesystem_write=filesystem_write)
     loop_trace: list[dict[str, Any]] = []
     calculations: dict[str, Any] = {}
@@ -149,6 +155,9 @@ def execute_program(
                 )
             except _Result as result:
                 calculations[calculation.name] = result.value
+                runtime.collect(calculations)
+            else:
+                runtime.collect(calculations)
     value = next(reversed(calculations.values()), None) if calculations else None
     return IntegratedComputationResult(value, runtime, loop_trace, calculations, vision_runtime)
 
@@ -266,6 +275,7 @@ def _statements(
                     selected, env, runtime, trace, limit, scope, vision_runtime,
                     functions, max_call_depth, call_depth,
                 )
+        runtime.collect(env)
 
 
 def _while_loop(
@@ -289,7 +299,7 @@ def _while_loop(
         if iteration >= limit:
             raise LoopLimitError(f"loop iteration limit exceeded: {limit}")
         iteration += 1
-        previous = _plain_env(env, runtime)
+        previous = _trace_env(env)
         broke = False
         continued = False
         try:
@@ -301,7 +311,7 @@ def _while_loop(
             continued = True
         except _Break:
             broke = True
-        trace.append(_loop_event(loop_id, iteration, previous, env, runtime, broke, continued))
+        trace.append(_loop_event(loop_id, iteration, previous, env, broke, continued))
         if broke:
             break
 
@@ -327,7 +337,7 @@ def _loop(
         if values is not None and iterator is not None:
             env[iterator] = values[iteration]
         iteration += 1
-        previous = _plain_env(env, runtime)
+        previous = _trace_env(env)
         broke = False
         continued = False
         try:
@@ -339,7 +349,7 @@ def _loop(
             continued = True
         except _Break:
             broke = True
-        trace.append(_loop_event(loop_id, iteration, previous, env, runtime, broke, continued))
+        trace.append(_loop_event(loop_id, iteration, previous, env, broke, continued))
         if broke:
             break
 
@@ -356,6 +366,8 @@ def _expression(
     value = value.expression if isinstance(value, ExpressionNode) else value
     if isinstance(value, (IntegerLiteralNode, FloatLiteralNode, BooleanLiteralNode, StringLiteralNode)):
         return value.value
+    if isinstance(value, (NoneLiteralNode, NullLiteralNode)):
+        return None
     if isinstance(value, IdentifierNode):
         if value.name not in env:
             raise IntegratedRuntimeError("RT-NAME-001", f"unknown runtime name: {value.name}")
@@ -486,13 +498,18 @@ def _expression(
                 )
                 for argument in value.arguments
             ]
-            result = runtime.call(function, *arguments)
+            source_location = getattr(value, "_source_location", None)
+            result = runtime.call(
+                function,
+                *arguments,
+                _source_location=source_location,
+            )
             runtime.trace[-1].update(
                 {
                     "operation_id": f"op_tensor_call_{len(runtime.trace):03d}",
                     "semantic_operation": function,
                     "lowered_operations": list(LOWERINGS.get(function, (function,))),
-                    "source_ref": {"line": None, "column": None},
+                    "source_ref": source_location,
                 }
             )
             return result
@@ -547,18 +564,19 @@ def _expression(
                 for parameter, argument in zip(function_node.parameters, arguments)
             }
             try:
-                _statements(
-                    function_node.body,
-                    local_env,
-                    runtime,
-                    [],
-                    10_000,
-                    f"fn.{function_node.name}",
-                    vision_runtime,
-                    functions,
-                    max_call_depth,
-                    call_depth + 1,
-                )
+                with runtime.protect(env):
+                    _statements(
+                        function_node.body,
+                        local_env,
+                        runtime,
+                        [],
+                        10_000,
+                        f"fn.{function_node.name}",
+                        vision_runtime,
+                        functions,
+                        max_call_depth,
+                        call_depth + 1,
+                    )
             except _Return as returned:
                 return returned.value
             raise IntegratedRuntimeError(
@@ -659,7 +677,6 @@ def _loop_event(
     iteration: int,
     previous: dict[str, Any],
     env: dict[str, Any],
-    runtime: TensorRuntime,
     broke: bool,
     continued: bool,
 ) -> dict[str, Any]:
@@ -668,14 +685,13 @@ def _loop_event(
         "iteration": iteration,
         "condition": True,
         "previous_state": previous,
-        "updated_state": _plain_env(env, runtime),
+        "updated_state": _trace_env(env),
         "break_triggered": broke,
         "continue_triggered": continued,
     }
 
-
-def _plain_env(env: dict[str, Any], runtime: TensorRuntime) -> dict[str, Any]:
-    return {name: _plain(value, runtime) for name, value in sorted(env.items())}
+def _trace_env(env: dict[str, Any]) -> dict[str, Any]:
+    return {name: _trace_plain(value) for name, value in sorted(env.items())}
 
 
 def _plain(value: Any, runtime: TensorRuntime) -> Any:
@@ -693,6 +709,26 @@ def _plain(value: Any, runtime: TensorRuntime) -> Any:
         }
     if isinstance(value, list):
         return [_plain(item, runtime) for item in value]
+    return value
+
+
+def _trace_plain(value: Any) -> Any:
+    if isinstance(value, TensorValueRef):
+        return value.runtime_value()
+    if isinstance(value, RuntimeStruct):
+        return {
+            name: _trace_plain(item)
+            for name, item in sorted(value.fields.items())
+        }
+    if isinstance(value, dict):
+        return {
+            str(name): _trace_plain(item)
+            for name, item in sorted(value.items(), key=lambda item: str(item[0]))
+        }
+    if isinstance(value, list):
+        return [_trace_plain(item) for item in value]
+    if isinstance(value, tuple):
+        return [_trace_plain(item) for item in value]
     return value
 
 

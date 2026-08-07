@@ -130,6 +130,10 @@ def main() -> int:
         from toolchain.reasonunit_tensor_cmd import run
         return run(args[1:], project_root)
 
+    if command == "tensor":
+        from toolchain.tensor_cmd import run
+        return run(args[1:], project_root)
+
     if command == "reasonunit-runtime":
         from toolchain.reasonunit_runtime_cmd import run
         return run(args[1:], project_root)
@@ -210,6 +214,7 @@ def _usage() -> None:
     print("  reasonunit-object Generate or validate the RUO-U1 universal Object model")
     print("  reasonunit-file Read, write, validate, inspect, select, and verify canonical .ruo files")
     print("  reasonunit-tensor Encode, validate, inspect, decode, select, convert, and verify Tensor payloads")
+    print("  tensor        Import, inspect, and verify canonical .rstensor files")
     print("  reasonunit-runtime Load, query, revise, project, and validate native ReasonUnit Objects")
     print("  vision        Validate observations and construct RUO/Tensor vision artifacts")
     print("  visualization Project semantic scenes and render deterministic SVG artifacts")

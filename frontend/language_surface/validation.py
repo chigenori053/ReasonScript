@@ -1986,6 +1986,23 @@ def _expression_type(
                 validate_tensor_call(value)
             except TensorSemanticError as error:
                 raise SurfaceValidationError(str(error)) from error
+            tensor_function = tensor_call_name(value)
+            if tensor_function == "tensor.grad":
+                return ArrayTypeNode(NamedTypeNode("Tensor"))
+            if tensor_function == "tensor.requires_grad":
+                return PrimitiveTypeNode(PrimitiveKind.BOOL)
+            if tensor_function == "tensor.shape":
+                return ArrayTypeNode(PrimitiveTypeNode(PrimitiveKind.INT))
+            if tensor_function in {
+                "tensor.rank",
+                "tensor.size",
+                "tensor.dimension",
+            }:
+                return PrimitiveTypeNode(PrimitiveKind.INT)
+            if tensor_function == "tensor.dtype":
+                return PrimitiveTypeNode(PrimitiveKind.STRING)
+            if tensor_function == "tensor.save":
+                return NamedTypeNode("TensorArtifactReceipt")
             return NamedTypeNode("Tensor")
         if vision_call_name(value) is not None:
             try:

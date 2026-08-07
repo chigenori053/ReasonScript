@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict, deque
+from contextvars import ContextVar
 from dataclasses import dataclass
+from dataclasses import fields, is_dataclass
 from pathlib import PurePosixPath
 
 from .expressions import (
@@ -133,6 +136,7 @@ def _reserved_construct_message(construct: str) -> str:
 @dataclass
 class _Cursor:
     lines: list[str]
+    locations: list[tuple[int, int, str]]
     index: int = 0
 
     def current(self) -> str:
@@ -142,8 +146,15 @@ class _Cursor:
 
     def take(self) -> str:
         value = self.current()
+        _CURRENT_SOURCE_LINE.set(self.locations[self.index])
         self.index += 1
         return value
+
+
+_CURRENT_SOURCE_LINE: ContextVar[tuple[int, int, str] | None] = ContextVar(
+    "reasonscript_current_source_line",
+    default=None,
+)
 
 
 def parse(source: str) -> ProgramNode:
@@ -151,7 +162,8 @@ def parse(source: str) -> ProgramNode:
         tokenize(source)
     except ValueError as error:
         raise SurfaceSyntaxError(str(error)) from error
-    cursor = _Cursor(_logical_lines(source))
+    logical_lines, locations = _logical_lines(source)
+    cursor = _Cursor(logical_lines, locations)
     modules: list[ModuleNode] = []
     package: PackageDeclarationNode | None = None
     while cursor.index < len(cursor.lines):
@@ -163,12 +175,59 @@ def parse(source: str) -> ProgramNode:
         _reject_reserved_top_level_construct(cursor.current())
         modules.append(_parse_module(cursor))
     program = ProgramNode(tuple(modules), package)
+    source_locations = _source_location_index(program)
     try:
         program, _ = resolve_program(program)
+        _restore_source_locations(program, source_locations)
         validate(program)
     except (SurfaceValidationError, NamespaceResolutionError) as error:
         raise SurfaceSyntaxError(str(error)) from error
     return program
+
+
+def _source_location_index(
+    value,
+) -> dict[tuple[type, str], deque[dict[str, int]]]:
+    locations: dict[tuple[type, str], deque[dict[str, int]]] = defaultdict(deque)
+
+    def visit(item) -> None:
+        if not is_dataclass(item):
+            return
+        location = getattr(item, "_source_location", None)
+        if isinstance(item, CallExpressionNode) and location is not None:
+            locations[(type(item), repr(item))].append(dict(location))
+        for descriptor in fields(item):
+            child = getattr(item, descriptor.name)
+            if isinstance(child, tuple):
+                for element in child:
+                    visit(element)
+            else:
+                visit(child)
+
+    visit(value)
+    return locations
+
+
+def _restore_source_locations(
+    value,
+    locations: dict[tuple[type, str], deque[dict[str, int]]],
+) -> None:
+    def visit(item) -> None:
+        if not is_dataclass(item):
+            return
+        if isinstance(item, CallExpressionNode):
+            candidates = locations.get((type(item), repr(item)))
+            if candidates:
+                object.__setattr__(item, "_source_location", candidates.popleft())
+        for descriptor in fields(item):
+            child = getattr(item, descriptor.name)
+            if isinstance(child, tuple):
+                for element in child:
+                    visit(element)
+            else:
+                visit(child)
+
+    visit(value)
 
 
 def _parse_package(cursor: _Cursor) -> PackageDeclarationNode:
@@ -189,16 +248,23 @@ def _reject_reserved_top_level_construct(line: str) -> None:
         raise SurfaceReservedConstructError(match.group(1))
 
 
-def _logical_lines(source: str) -> list[str]:
+def _logical_lines(
+    source: str,
+) -> tuple[list[str], list[tuple[int, int, str]]]:
     lines: list[str] = []
-    for raw in source.splitlines():
-        line = _strip_line_comment(raw).strip()
+    locations: list[tuple[int, int, str]] = []
+    for line_number, raw in enumerate(source.splitlines(), start=1):
+        uncommented = _strip_line_comment(raw)
+        line = uncommented.strip()
         if not line:
             continue
         line = re.sub(r"}\s*(elif\b)", r"}\n\1", line)
         line = re.sub(r"}\s*(else\b)", r"}\n\1", line)
-        lines.extend(part.strip() for part in line.splitlines() if part.strip())
-    return lines
+        base_column = len(uncommented) - len(uncommented.lstrip()) + 1
+        for part in (part.strip() for part in line.splitlines() if part.strip()):
+            lines.append(part)
+            locations.append((line_number, base_column + line.find(part), part))
+    return lines, locations
 
 
 def _strip_line_comment(raw: str) -> str:
@@ -358,6 +424,7 @@ def _validate_reason_object_path(value: str) -> None:
 
 def _collect_simple_statement(cursor: _Cursor) -> str:
     parts = [cursor.take()]
+    first_location = _CURRENT_SOURCE_LINE.get()
     balance = _expression_delimiter_balance(parts[0])
     while balance > 0 and cursor.index < len(cursor.lines):
         next_line = cursor.take()
@@ -365,6 +432,7 @@ def _collect_simple_statement(cursor: _Cursor) -> str:
         balance += _expression_delimiter_balance(next_line)
     if balance != 0:
         raise SurfaceSyntaxError("EX-201A-002 invalid struct literal syntax")
+    _CURRENT_SOURCE_LINE.set(first_location)
     return " ".join(parts)
 
 
@@ -936,10 +1004,34 @@ def _pattern_brace_delta(line: str) -> int:
 
 def _expression(source: str):
     try:
-        expression = parse_expression(source.strip(), allow_tuple_access=True)
-        return ExpressionNode(_normalize_runtime_expression(expression.expression))
+        stripped = source.strip()
+        expression = parse_expression(stripped, allow_tuple_access=True)
+        normalized = _normalize_runtime_expression(expression.expression)
+        current = _CURRENT_SOURCE_LINE.get()
+        if current is not None:
+            line, base_column, text = current
+            offset = text.find(stripped)
+            location = {
+                "line": line,
+                "column": base_column + max(offset, 0),
+            }
+            _attach_source_location(normalized, location)
+        return ExpressionNode(normalized)
     except ExpressionSyntaxError as error:
         raise SurfaceSyntaxError(str(error)) from error
+
+
+def _attach_source_location(value, location: dict[str, int]) -> None:
+    if not is_dataclass(value):
+        return
+    object.__setattr__(value, "_source_location", dict(location))
+    for descriptor in fields(value):
+        child = getattr(value, descriptor.name)
+        if isinstance(child, tuple):
+            for item in child:
+                _attach_source_location(item, location)
+        else:
+            _attach_source_location(child, location)
 
 
 def _normalize_runtime_expression(value):

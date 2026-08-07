@@ -1,0 +1,23 @@
+module TensorTrainingFoundation {
+  calculation OneTrainingStep {
+    let input = tensor.load("data/image-batch.rstensor")
+    let target = tensor.load("data/target-batch.rstensor")
+    let conv_weight = tensor.parameter(tensor.random_normal([8, 1, 3, 3], 0.0, 0.02, 42, 0, "f32"))
+    let dense_weight = tensor.parameter(tensor.random_normal([1352, 10], 0.0, 0.02, 42, 1, "f32"))
+    let features = tensor.conv2d(input, conv_weight, null, [1, 1], [0, 0], [1, 1], 1)
+    let activated = tensor.relu(features)
+    let pooled = tensor.max_pool2d(activated, [2, 2], [2, 2], [0, 0])
+    let flattened = tensor.reshape(pooled, [1, 1352])
+    let prediction = tensor.linear(flattened, dense_weight)
+    let error = tensor.subtract(prediction, target)
+    let loss = tensor.mean(tensor.power(error, 2.0))
+    let gradients = tensor.grad(loss, [conv_weight, dense_weight])
+    let next_conv = tensor.subtract(conv_weight, tensor.multiply(gradients[0], 0.001))
+    let next_dense = tensor.subtract(dense_weight, tensor.multiply(gradients[1], 0.001))
+    conv_weight = tensor.parameter(tensor.detach(next_conv))
+    dense_weight = tensor.parameter(tensor.detach(next_dense))
+    tensor.save(conv_weight, "checkpoints/conv-weight.rstensor")
+    tensor.save(dense_weight, "checkpoints/dense-weight.rstensor")
+    result = loss
+  }
+}

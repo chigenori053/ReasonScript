@@ -146,6 +146,57 @@ def test_iterative_state_probe_and_loop_limit():
         execute_program(infinite, max_loop_iterations=3)
 
 
+def test_tensor_iteration_releases_overwritten_values_and_traces_metadata_only():
+    row = "[" + ", ".join(["0.0"] * 20) + "]"
+    matrix = "[" + ", ".join([row] * 20) + "]"
+    program = parse(
+        f"""
+        module TensorIterationStress {{
+          calculation Answer {{
+            let iteration = 0
+            let value = tensor.create({matrix})
+            while iteration < 1100 {{
+              value = tensor.relu(value)
+              iteration = iteration + 1
+            }}
+            result = iteration
+          }}
+        }}
+        """
+    )
+
+    executed = execute_program(program, max_loop_iterations=1200)
+    payload = executed.to_dict()
+
+    assert payload["result"] == 1100
+    assert len(payload["loop_trace"]) == 1100
+    assert (
+        payload["loop_trace"][0]["previous_state"]["value"]["metadata"]["shape"]
+        == [20, 20]
+    )
+    assert executed.runtime._refs == {}
+
+
+def test_runtime_tensor_diagnostic_includes_call_source_location():
+    program = parse(
+        """module InvalidTensor {
+  calculation Answer {
+    let values = []
+    result = tensor.create(values)
+  }
+}
+"""
+    )
+
+    with pytest.raises(TensorError) as captured:
+        execute_program(program)
+
+    assert captured.value.diagnostic.to_dict()["source_location"] == {
+        "line": 4,
+        "column": 14,
+    }
+
+
 def test_standalone_project_validation_does_not_require_repository_workflow():
     report = validate_project(STANDALONE)
     assert report["status"] == "passed"

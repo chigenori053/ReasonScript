@@ -50,6 +50,31 @@ Evaluates a ReasoningModel or validates an existing `reasonscript-reasoning-eval
 
 Generates, evaluates, or validates Phase 8 runtime reasoning artifacts.
 
+## Tensor data files
+
+```sh
+./reason tensor import --from json --input data.json --output data.rstensor
+./reason tensor import --from csv --input data.csv --output data.rstensor --dtype f32
+./reason tensor import --from npy --input data.npy --output data.rstensor
+./reason tensor inspect data.rstensor --json
+./reason tensor verify data.rstensor --json
+```
+
+`reason tensor import` converts rectangular JSON arrays, CSV rows, or NumPy
+arrays into the canonical checksum-bearing `.rstensor` profile. NumPy import
+requires the optional `numpy` package; JSON and CSV import are dependency-free.
+Existing output files are rejected unless `--overwrite` is supplied.
+
+ReasonScript source reads and writes these files with `tensor.load` and
+`tensor.save`. Runtime file access remains opt-in:
+
+```sh
+./reason run train.rsn --allow-read --allow-write --json
+```
+
+Paths are resolved relative to the source file directory and cannot be absolute
+or escape that resource root.
+
 ## CodeViewer
 
 ```sh
