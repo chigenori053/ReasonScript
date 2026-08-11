@@ -109,6 +109,9 @@ discuss the change.
 
 ## License
 
-A repository-wide `LICENSE` has not been finalized yet. The
-`vscode-extension/` package is MIT-licensed; treat the rest of the
-repository as all-rights-reserved until a root `LICENSE` file is added.
+ReasonScript is licensed under the
+[Apache License 2.0](LICENSE).
+
+The `vscode-extension/` package is separately MIT-licensed; see
+[`vscode-extension/LICENSE`](vscode-extension/LICENSE). Third-party
+dependencies retain their own licenses.
