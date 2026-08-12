@@ -55,6 +55,16 @@ def main() -> int:
     package = _package_arg(args[1:])
 
     if command in {"check", "run"} and _source_file_arg(args[1:]) is not None:
+        source_arg = _source_file_arg(args[1:])
+        source_path = Path(source_arg) if source_arg is not None else None
+        if command == "run" and source_path is not None:
+            try:
+                from toolchain.reason_object_graph.language import is_graph_operation_source
+                if source_path.suffix == ".rsn" and is_graph_operation_source(source_path.read_text(encoding="utf-8")):
+                    from toolchain.reason_object_graph_cmd import run
+                    return run(["source-run", *args[1:]], project_root)
+            except OSError:
+                pass
         from scripts.reason_cli import main as reason_main
         return reason_main(args)
 
@@ -120,6 +130,10 @@ def main() -> int:
 
     if command == "reasonunit-object":
         from toolchain.reasonunit_object_cmd import run
+        return run(args[1:], project_root)
+
+    if command == "reason-object-graph":
+        from toolchain.reason_object_graph_cmd import run
         return run(args[1:], project_root)
 
     if command == "reasonunit-file":
@@ -212,6 +226,7 @@ def _usage() -> None:
     print("  reasonunit-baseline Generate or validate the RUO-C0 compatibility baseline")
     print("  reasonunit-compatibility Generate or validate the RUO-C1 compatibility foundation")
     print("  reasonunit-object Generate or validate the RUO-U1 universal Object model")
+    print("  reason-object-graph Generate or validate the MRA Reason Object Graph profile")
     print("  reasonunit-file Read, write, validate, inspect, select, and verify canonical .ruo files")
     print("  reasonunit-tensor Encode, validate, inspect, decode, select, convert, and verify Tensor payloads")
     print("  tensor        Import, inspect, and verify canonical .rstensor files")

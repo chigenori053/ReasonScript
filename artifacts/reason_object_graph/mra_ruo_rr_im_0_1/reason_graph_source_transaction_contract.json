@@ -1,0 +1,13 @@
+{
+  "data": {
+    "atomic_publication": true,
+    "capability_requirements": [
+      "filesystem_read",
+      "filesystem_write"
+    ],
+    "supported_proposal": "graph_updates.metadata",
+    "syntax": "transact GRAPH PROPOSAL EXPECTED_HASH TRANSACTION_ID;"
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-reason-graph-source-transaction-contract/0.1"
+}

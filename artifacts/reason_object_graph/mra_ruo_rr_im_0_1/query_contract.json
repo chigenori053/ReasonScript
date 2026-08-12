@@ -1,0 +1,55 @@
+{
+  "data": {
+    "operations": [
+      "summary",
+      "entity",
+      "outgoing",
+      "incoming",
+      "neighbors"
+    ],
+    "profile": "reasonscript-reason-object-graph-query/0.1",
+    "read_only": true,
+    "reference_result": {
+      "entity_id": "ruo:unit:text",
+      "graph_hash": "sha256:ee08dcd0625fbb5313c606e764a39b919df5e42fd58c678fef22e45c19eee8da",
+      "graph_id": "ruo:graph:4df94eb1c0f04c20b0c6a1ef",
+      "profile": "reasonscript-reason-object-graph-query/0.1",
+      "query": "outgoing",
+      "read_only": true,
+      "result": [
+        {
+          "direction": "directed",
+          "evidence_refs": [
+            "ruo:evidence:observation"
+          ],
+          "lifecycle": "active",
+          "metadata": {
+            "compatibility": {
+              "original_relation_id": "ruo:relation:text-numeric",
+              "original_relation_type": "ruo.relation:describes/1"
+            }
+          },
+          "provenance": {
+            "created_at": "1970-01-01T00:00:00Z",
+            "origin": "import",
+            "producer": "compatibility-adapter",
+            "source_ref": "legacy-relation:relations[0]"
+          },
+          "relation_id": "ruo:relation:text-numeric",
+          "relation_type": "domain:legacy:ruo-relation-describes-1",
+          "source": {
+            "entity_id": "ruo:unit:text",
+            "entity_kind": "unit"
+          },
+          "target": {
+            "entity_id": "ruo:unit:numeric",
+            "entity_kind": "unit"
+          },
+          "validation_state": "unverified"
+        }
+      ]
+    }
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-query-contract/0.1"
+}

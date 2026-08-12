@@ -1,0 +1,11 @@
+{
+  "data": {
+    "capability_requirement": "filesystem_read",
+    "entry_point": "reason run SOURCE.rsn --allow-read",
+    "execution_profile": "reasonscript-reason-object-graph-language/0.1",
+    "read_only": true,
+    "routing": "explicit_reason_graph_query_source_only"
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-reason-graph-generic-run-contract/0.1"
+}

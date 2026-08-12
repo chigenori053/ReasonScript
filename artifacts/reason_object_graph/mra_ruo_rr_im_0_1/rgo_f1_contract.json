@@ -1,0 +1,11 @@
+{
+  "data": {
+    "canonicalization_profile": "reason-object-graph-canonical-jsonl/1",
+    "file_sha256": "sha256:b6f4c87ede9eafb5aad0c6ea5728e536fe4ab0414578fde30ca4589c7244a77f",
+    "format_version": "1.0",
+    "media_type": "application/vnd.reasonscript.reason-graph+jsonl",
+    "roundtrip_graph_hash": "sha256:ea55d523770bbbc2f514bd6f92249f9c10255efa51eb7dc7d4192eeedca5f7e5"
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-rgo-f1-contract/0.1"
+}

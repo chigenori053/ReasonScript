@@ -79,6 +79,7 @@ from .nodes import (
     RangePatternNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
+    ReasonGraphBindingNode,
     ReasonObjectBindingNode,
     RelationNode,
     RequireStatementNode,
@@ -137,6 +138,7 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
     module_tensor_operations = tensor_operations(module)
     module_vision_operations = vision_operations(module)
     reason_object_bindings = _reason_object_bindings(module, namespace)
+    reason_graph_bindings = _reason_graph_bindings(module, namespace)
     reason_object_operations = _reason_object_operations(module)
     declarations.append(
         semantic.GoalNode(
@@ -335,6 +337,7 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                 (semantic.MetadataNode(f"{namespace}-reason-object-bindings", "reason_object_bindings", reason_object_bindings),)
                 if reason_object_bindings else ()
             ),
+            *((semantic.MetadataNode(f"{namespace}-reason-graph-bindings", "reason_graph_bindings", reason_graph_bindings),) if reason_graph_bindings else ()),
             *(
                 (semantic.MetadataNode(f"{namespace}-reason-object-operations", "reason_object_operations", reason_object_operations),)
                 if reason_object_operations else ()
@@ -659,6 +662,16 @@ def _reason_object_bindings(module: ModuleNode, namespace: str) -> list[dict[str
             "determinism": "deterministic_for_verified_inputs",
             "source_span": to_json_value(node.source_span),
         })
+    return result
+
+
+def _reason_graph_bindings(module: ModuleNode, namespace: str) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for node in module.body:
+        if not isinstance(node, ReasonGraphBindingNode):
+            continue
+        binding_id = "rgo-binding:" + hashlib.sha256(f"{namespace}:{node.name}".encode()).hexdigest()[:24]
+        result.append({"node_type": "ReasonGraphBindingIR", "binding_id": binding_id, "lexical_name": node.name, "logical_source_ref": node.source_path, "expected_graph_id": node.expected_graph_id, "capability_requirements": ["filesystem_read"], "input_type": "ReasonGraphBinding", "output_type": "ReasonGraph", "read_only": True, "source_span": to_json_value(node.source_span)})
     return result
 
 

@@ -1,0 +1,30 @@
+{
+  "data": {
+    "read_only": true,
+    "reason_ir_metadata_key": "reason_graph_bindings",
+    "reference_binding": {
+      "binding_id": "rgo-binding:1afb616c4da0a43d203bc00f",
+      "capability_requirements": [
+        "filesystem_read"
+      ],
+      "expected_graph_id": "ruo:graph:phase2-fixture",
+      "input_type": "ReasonGraphBinding",
+      "lexical_name": "graph",
+      "logical_source_ref": "graph.rgraph",
+      "node_type": "ReasonGraphBindingIR",
+      "output_type": "ReasonGraph",
+      "read_only": true,
+      "source_span": {
+        "end_column": 70,
+        "end_line": 2,
+        "node_type": "SourceSpanNode",
+        "start_column": 1,
+        "start_line": 2
+      }
+    },
+    "surface_parser": "frontend.language_surface",
+    "syntax_version": "reason-graph-binding/0.1"
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-reason-graph-surface-binding-contract/0.1"
+}

@@ -758,6 +758,15 @@ class ReasonObjectBindingNode:
     syntax_version: str = "reason-object-binding/1.0"
 
 
+@dataclass(frozen=True)
+class ReasonGraphBindingNode:
+    name: str
+    source_path: str
+    expected_graph_id: str | None
+    source_span: SourceSpanNode
+    syntax_version: str = "reason-graph-binding/0.1"
+
+
 AstNode: TypeAlias = (
     ImportNode
     | ConceptNode
@@ -778,6 +787,7 @@ AstNode: TypeAlias = (
     | CalculationNode
     | FunctionDeclarationNode
     | ReasonObjectBindingNode
+    | ReasonGraphBindingNode
 )
 
 
@@ -833,6 +843,7 @@ _NODE_TYPES = {
         SourceSpanNode,
         ReasonObjectClauseSpanNode,
         ReasonObjectBindingNode,
+        ReasonGraphBindingNode,
         GoalNode,
         GoalStatementNode,
         IdentifierNode,

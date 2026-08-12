@@ -1,0 +1,107 @@
+{
+  "data": {
+    "reference_fragment": {
+      "fragment_hash": "sha256:bde2f9617632984a9484fd6b2180a4c745d29b8d160aac07842797b01ef20da4",
+      "fragment_kind": "relation",
+      "graph": {
+        "graph_id": "ruo:graph:phase2-fixture",
+        "lifecycle": "active",
+        "metadata": {},
+        "provenance": {
+          "created_at": "1970-01-01T00:00:00Z",
+          "derivation_ref": "fixture:derivation:0",
+          "origin": "inference",
+          "producer": "reason-object-graph-fixture",
+          "source_ref": "fixture:phase2"
+        },
+        "relations": [
+          {
+            "direction": "directed",
+            "evidence_refs": [
+              "ruo:evidence:a"
+            ],
+            "lifecycle": "active",
+            "metadata": {},
+            "provenance": {
+              "created_at": "1970-01-01T00:00:00Z",
+              "derivation_ref": "fixture:derivation:0",
+              "origin": "inference",
+              "producer": "reason-object-graph-fixture",
+              "source_ref": "fixture:phase2"
+            },
+            "relation_id": "ruo:relation:a-causes-b",
+            "relation_type": "causes",
+            "source": {
+              "entity_id": "ruo:unit:a",
+              "entity_kind": "unit"
+            },
+            "strength": 0.8,
+            "target": {
+              "entity_id": "ruo:unit:b",
+              "entity_kind": "unit"
+            },
+            "temporal_scope": {
+              "kind": "persistent"
+            },
+            "validation_state": "validated"
+          }
+        ],
+        "root_refs": [
+          {
+            "entity_id": "ruo:unit:a",
+            "entity_kind": "unit"
+          }
+        ],
+        "units": [
+          {
+            "evidence_refs": [
+              "ruo:evidence:a"
+            ],
+            "lifecycle": "active",
+            "metadata": {},
+            "payload": {
+              "symbol": "A"
+            },
+            "provenance": {
+              "created_at": "1970-01-01T00:00:00Z",
+              "derivation_ref": "fixture:derivation:0",
+              "origin": "inference",
+              "producer": "reason-object-graph-fixture",
+              "source_ref": "fixture:phase2"
+            },
+            "state": {
+              "status": "ready"
+            },
+            "unit_id": "ruo:unit:a",
+            "unit_type": "claim"
+          },
+          {
+            "evidence_refs": [],
+            "lifecycle": "active",
+            "metadata": {},
+            "payload": {
+              "symbol": "B"
+            },
+            "provenance": {
+              "created_at": "1970-01-01T00:00:00Z",
+              "derivation_ref": "fixture:derivation:0",
+              "origin": "inference",
+              "producer": "reason-object-graph-fixture",
+              "source_ref": "fixture:phase2"
+            },
+            "state": {
+              "status": "ready"
+            },
+            "unit_id": "ruo:unit:b",
+            "unit_type": "claim"
+          }
+        ]
+      },
+      "schema": "mra-mirp-graph-fragment/0.1"
+    },
+    "schema": "mra-mirp-graph-fragment/0.1",
+    "transport": "out_of_scope"
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-mirp-fragment-contract/0.1"
+}

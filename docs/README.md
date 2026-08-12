@@ -75,6 +75,36 @@ documentation for the ReasonScript language and platform.
 features (pattern matching, exhaustiveness, guards, enum resolution, and
 others). Additional versioned specifications live in `specifications/`.
 
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Integrated_Model_v0_1.md`
+  — accepted Phase 1 contract for the graph-native ReasonUnit / ReasonRelation
+  data model.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_RUO_U1_Integration_Phase8_v0_1.md`
+  — accepted Phase 8 read-only RUO-U1 integration boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_RUO_F1_Integration_Phase9_v0_1.md`
+  — accepted Phase 9 read-only RUO-F1 file integration boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Native_Runtime_Handoff_Phase10_v0_1.md`
+  — accepted Phase 10 Native Runtime / ReasonGraph read-only handoff.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Query_Phase11_v0_1.md`
+  — accepted Phase 11 deterministic ReasonGraph query boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_MIRP_Transport_Phase12_v0_1.md`
+  — accepted Phase 12 canonical local MIRP exchange boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Persistence_Transaction_Phase13_v0_1.md`
+  — accepted Phase 13 atomic RGO-F1 transaction boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Native_Graph_Loader_Phase14_v0_1.md`
+  — accepted Phase 14 immutable Native Runtime RGO-F1 loader boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Native_Graph_Query_Phase15_v0_1.md`
+  — accepted Phase 15 Native Runtime read-only query parity boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Native_Graph_Transaction_Phase16_v0_1.md`
+  — accepted Phase 16 Native Runtime atomic metadata transaction boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Language_Query_Phase17_v0_1.md`
+  — accepted Phase 17 capability-gated ReasonScript graph query boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Surface_Binding_Phase18_v0_1.md`
+  — accepted Phase 18 Surface AST and Reason IR graph-binding boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Generic_Run_Phase19_v0_1.md`
+  — accepted Phase 19 generic `reason run` graph-query boundary.
+- `specifications/ReasonScript_MRA_RUO_ReasonRelation_Source_Transaction_Phase20_v0_1.md`
+  — accepted Phase 20 capability-gated source metadata transaction boundary.
+
 ## Other Directories
 
 - `guides/` — User-facing guides.

@@ -1,0 +1,111 @@
+{
+  "data": {
+    "capability_requirement": "filesystem_read",
+    "profile": "reasonscript-reason-object-graph-language/0.1",
+    "read_only": true,
+    "reference_compilation": {
+      "bindings": [
+        {
+          "capability_requirements": [
+            "filesystem_read"
+          ],
+          "expected_graph_id": "ruo:graph:phase2-fixture",
+          "name": "graph",
+          "node_type": "ReasonGraphBindingIR",
+          "source_line": 2,
+          "source_path": "graph.rgraph"
+        }
+      ],
+      "capability_requirements": [
+        "filesystem_read"
+      ],
+      "module": "GraphProbe",
+      "operations": [
+        {
+          "binding_name": "graph",
+          "entity_id": "ruo:unit:a",
+          "node_type": "ReasonGraphQueryIR",
+          "query": "neighbors",
+          "read_only": true,
+          "source_line": 3
+        }
+      ],
+      "read_only": true,
+      "schema_version": "reasonscript-reason-object-graph-language/0.1"
+    },
+    "reference_execution": {
+      "capability_decisions": [
+        "filesystem_read:allowed"
+      ],
+      "module": "GraphProbe",
+      "profile": "reasonscript-reason-object-graph-language/0.1",
+      "read_only": true,
+      "results": [
+        {
+          "binding_name": "graph",
+          "entity_id": "ruo:unit:a",
+          "native_query": {
+            "exit_status": 0,
+            "native_execution_provenance": "reasonscript-reasonunit-native-runtime/1.0",
+            "native_query_profile": "reasonscript-reason-object-graph-native-query/0.1",
+            "native_reason_graph_profile": "reasonscript-reason-object-graph-native/0.1",
+            "ok": true,
+            "operation": "query-graph",
+            "query_result": {
+              "entity_id": "ruo:unit:a",
+              "graph_hash": "sha256:7ebe291d6540ecc7c47a104a68b554e2e338ffbb7f3122a4bfd51316c6fafd69",
+              "graph_id": "ruo:graph:phase2-fixture",
+              "profile": "reasonscript-reason-object-graph-native-query/0.1",
+              "query": "neighbors",
+              "read_only": true,
+              "result": [
+                {
+                  "direction": "outgoing",
+                  "entity_ref": {
+                    "entity_id": "ruo:unit:b",
+                    "entity_kind": "unit"
+                  },
+                  "relation_id": "ruo:relation:a-causes-b"
+                }
+              ]
+            },
+            "read_only": true
+          },
+          "query": "neighbors",
+          "result": {
+            "entity_id": "ruo:unit:a",
+            "graph_hash": "sha256:7ebe291d6540ecc7c47a104a68b554e2e338ffbb7f3122a4bfd51316c6fafd69",
+            "graph_id": "ruo:graph:phase2-fixture",
+            "profile": "reasonscript-reason-object-graph-query/0.1",
+            "query": "neighbors",
+            "read_only": true,
+            "result": [
+              {
+                "direction": "outgoing",
+                "entity_ref": {
+                  "entity_id": "ruo:unit:b",
+                  "entity_kind": "unit"
+                },
+                "relation_id": "ruo:relation:a-causes-b"
+              }
+            ]
+          },
+          "result_parity": true
+        }
+      ]
+    },
+    "supported_queries": [
+      "summary",
+      "entity",
+      "outgoing",
+      "incoming",
+      "neighbors"
+    ],
+    "syntax": [
+      "reason_graph NAME from PATH (as GRAPH_ID)?;",
+      "query NAME OPERATION (ENTITY_ID)?;"
+    ]
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-reason-graph-language-contract/0.1"
+}

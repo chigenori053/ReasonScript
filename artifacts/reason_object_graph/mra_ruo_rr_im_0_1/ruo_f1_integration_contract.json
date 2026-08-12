@@ -1,0 +1,66 @@
+{
+  "data": {
+    "profile": "reasonscript-reason-object-graph-ruo-f1/0.1",
+    "read_only": true,
+    "reference_report": {
+      "canonical_coverage": true,
+      "compatibility_profile": "reasonscript-reason-object-graph-compatibility/0.1",
+      "graph_hash": "sha256:ee08dcd0625fbb5313c606e764a39b919df5e42fd58c678fef22e45c19eee8da",
+      "loss_records": [],
+      "lossless": true,
+      "profile": "reasonscript-reason-object-graph-ruo-f1/0.1",
+      "promoted_relation_policy": "resolved_unit_to_unit_only",
+      "relation_counts": {
+        "promoted": 1,
+        "retained_for_reverse_projection": 0,
+        "source": 1
+      },
+      "relation_identity_mappings": [
+        {
+          "graph_id": "ruo:relation:text-numeric",
+          "promoted": true,
+          "source_id": "ruo:relation:text-numeric"
+        }
+      ],
+      "retained_relation_policy": "lossless_reverse_projection_extension",
+      "ruo_u1_integration_profile": "reasonscript-reason-object-graph-ruo-u1/0.1",
+      "source_digest": "sha256:f03feddadccc6684df47b9aedaf4668f42c188f19fc884d44dab73313ae4de5a",
+      "source_file_verification": {
+        "content_stream_sha256": "117a2ee90230c2dc8828c821e2d207921e49c4455b81c0a2f390adb17b6af314",
+        "format_version": "1.0",
+        "logical_object_digest": "sha256:f03feddadccc6684df47b9aedaf4668f42c188f19fc884d44dab73313ae4de5a",
+        "object_id": "ruo:object:universal-fixture",
+        "object_revision_id": "ruo:revision:0"
+      },
+      "source_object_id": "ruo:object:universal-fixture",
+      "source_path": "source.ruo",
+      "source_profile": "reasonscript-reasonunit-object-file/1.0",
+      "source_revision": "ruo:revision:0",
+      "unit_identity_mappings": [
+        {
+          "graph_id": "ruo:unit:abstract",
+          "preserved": true,
+          "source_id": "ruo:unit:abstract"
+        },
+        {
+          "graph_id": "ruo:unit:numeric",
+          "preserved": true,
+          "source_id": "ruo:unit:numeric"
+        },
+        {
+          "graph_id": "ruo:unit:root",
+          "preserved": true,
+          "source_id": "ruo:unit:root"
+        },
+        {
+          "graph_id": "ruo:unit:text",
+          "preserved": true,
+          "source_id": "ruo:unit:text"
+        }
+      ]
+    },
+    "source_validation": "complete canonical RUO-F1 required"
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-ruo-f1-integration-contract/0.1"
+}

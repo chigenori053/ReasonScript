@@ -95,8 +95,10 @@ from .nodes import (
     RangePatternNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
+    ReasonGraphBindingNode,
     ReasonGraphTransitionNode,
     ReasonObjectBindingNode,
+    ReasonGraphBindingNode,
     ReasonObjectClauseSpanNode,
     RelationNode,
     RelationType,
@@ -174,6 +176,7 @@ DECLARATION_NODES = (
     FunctionDeclarationNode,
     TransitionNode,
     ReasonObjectBindingNode,
+    ReasonGraphBindingNode,
 )
 KNOWN_NODE_TYPES = (
     ProgramNode,

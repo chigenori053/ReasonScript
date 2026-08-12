@@ -1,0 +1,158 @@
+{
+  "data": {
+    "statuses": {
+      "determinism": "THREE_RUN_BYTE_IDENTICAL",
+      "phase_status": "VALIDATED",
+      "transition_decision": "PROCEED_TO_RUO_INTEGRATION"
+    },
+    "summary": {
+      "failed": 0,
+      "passed": 28,
+      "total": 28
+    },
+    "tests": [
+      {
+        "requirement": "Unit-to-Unit Relation",
+        "status": "pass",
+        "test_id": "RRI-001"
+      },
+      {
+        "requirement": "Directed Relation",
+        "status": "pass",
+        "test_id": "RRI-002"
+      },
+      {
+        "requirement": "Symmetric Relation",
+        "status": "pass",
+        "test_id": "RRI-003"
+      },
+      {
+        "requirement": "Relation Evidence",
+        "status": "pass",
+        "test_id": "RRI-004"
+      },
+      {
+        "requirement": "Relation Provenance",
+        "status": "pass",
+        "test_id": "RRI-005"
+      },
+      {
+        "requirement": "Temporal Relation",
+        "status": "pass",
+        "test_id": "RRI-006"
+      },
+      {
+        "requirement": "Relation Lifecycle",
+        "status": "pass",
+        "test_id": "RRI-007"
+      },
+      {
+        "requirement": "Relation Validation State",
+        "status": "pass",
+        "test_id": "RRI-008"
+      },
+      {
+        "requirement": "Contradictory Relations",
+        "status": "pass",
+        "test_id": "RRI-009"
+      },
+      {
+        "requirement": "Unit-to-Relation",
+        "status": "pass",
+        "test_id": "RRI-010"
+      },
+      {
+        "requirement": "Illegal recursion rejection",
+        "status": "pass",
+        "test_id": "RRI-011"
+      },
+      {
+        "requirement": "Missing Unit rejection",
+        "status": "pass",
+        "test_id": "RRI-012"
+      },
+      {
+        "requirement": "Duplicate Unit ID rejection",
+        "status": "pass",
+        "test_id": "RRI-013"
+      },
+      {
+        "requirement": "Duplicate Relation ID rejection",
+        "status": "pass",
+        "test_id": "RRI-014"
+      },
+      {
+        "requirement": "Legacy RUO migration",
+        "status": "pass",
+        "test_id": "RRI-015"
+      },
+      {
+        "requirement": "Reverse projection",
+        "status": "pass",
+        "test_id": "RRI-016"
+      },
+      {
+        "requirement": "Migration loss detection",
+        "status": "pass",
+        "test_id": "RRI-017"
+      },
+      {
+        "requirement": "Atomic Graph update",
+        "status": "pass",
+        "test_id": "RRI-018"
+      },
+      {
+        "requirement": "Rollback",
+        "status": "pass",
+        "test_id": "RRI-019"
+      },
+      {
+        "requirement": "Canonical serialization",
+        "status": "pass",
+        "test_id": "RRI-020"
+      },
+      {
+        "requirement": "Three-run byte identity",
+        "status": "pass",
+        "test_id": "RRI-021"
+      },
+      {
+        "requirement": "Input-order independence",
+        "status": "pass",
+        "test_id": "RRI-022"
+      },
+      {
+        "requirement": "UnitHash stability",
+        "status": "pass",
+        "test_id": "RRI-023"
+      },
+      {
+        "requirement": "RelationHash stability",
+        "status": "pass",
+        "test_id": "RRI-024"
+      },
+      {
+        "requirement": "GraphHash stability",
+        "status": "pass",
+        "test_id": "RRI-025"
+      },
+      {
+        "requirement": "Domain Relation",
+        "status": "pass",
+        "test_id": "RRI-026"
+      },
+      {
+        "requirement": "Invalid namespace rejection",
+        "status": "pass",
+        "test_id": "RRI-027"
+      },
+      {
+        "requirement": "MIRP Graph fragment projection",
+        "status": "pass",
+        "test_id": "RRI-028"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-validation-summary/0.1"
+}

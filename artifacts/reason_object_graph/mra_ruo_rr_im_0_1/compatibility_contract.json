@@ -1,0 +1,57 @@
+{
+  "data": {
+    "projection_report": {
+      "canonical_coverage": true,
+      "loss_records": [],
+      "lossless": true,
+      "profile": "reasonscript-reason-object-graph-compatibility/0.1",
+      "relation_counts": {
+        "promoted": 1,
+        "retained_for_reverse_projection": 0,
+        "source": 1
+      },
+      "relation_identity_mappings": [
+        {
+          "graph_id": "ruo:relation:97f50cf3a822f50599306181",
+          "promoted": true,
+          "source_id": "units[0].relations[0]"
+        }
+      ],
+      "unit_identity_mappings": [
+        {
+          "graph_id": "ruo:unit:legacy-a",
+          "preserved": true,
+          "source_id": "ruo:unit:legacy-a"
+        },
+        {
+          "graph_id": "ruo:unit:legacy-b",
+          "preserved": true,
+          "source_id": "ruo:unit:legacy-b"
+        }
+      ]
+    },
+    "reverse_projection": {
+      "loss_records": [],
+      "lossless": true,
+      "value": {
+        "units": [
+          {
+            "relations": [
+              {
+                "target": "ruo:unit:legacy-b",
+                "type": "causes"
+              }
+            ],
+            "unit_id": "ruo:unit:legacy-a"
+          },
+          {
+            "unit_id": "ruo:unit:legacy-b"
+          }
+        ]
+      }
+    },
+    "unsupported_endpoint_policy": "retain_with_canonical_coverage_false"
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-compatibility-contract/0.1"
+}

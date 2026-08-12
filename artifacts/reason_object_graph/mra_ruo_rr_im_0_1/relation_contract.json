@@ -1,0 +1,30 @@
+{
+  "data": {
+    "core_types": [
+      "causes",
+      "contains",
+      "contradicts",
+      "depends_on",
+      "derived_from",
+      "equivalent_to",
+      "observes",
+      "part_of",
+      "precedes",
+      "supports"
+    ],
+    "directions": [
+      "directed",
+      "bidirectional",
+      "symmetric"
+    ],
+    "max_relation_depth": 1,
+    "temporal_kinds": [
+      "instant",
+      "interval",
+      "persistent",
+      "unknown"
+    ]
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-relation-contract/0.1"
+}

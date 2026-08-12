@@ -1,0 +1,20 @@
+{
+  "data": {
+    "compare_and_commit": true,
+    "input_format": "RGO-F1",
+    "profile": "reasonscript-reason-object-graph-persistence/0.1",
+    "reference_transaction": {
+      "before_graph_hash": "sha256:ea55d523770bbbc2f514bd6f92249f9c10255efa51eb7dc7d4192eeedca5f7e5",
+      "changed_relation_ids": [],
+      "changed_unit_ids": [],
+      "committed": true,
+      "graph_hash": "sha256:a9a6979792a4fb4cc4528785ef7aa1c07a7209eef108b8181d04b24e6afb2769",
+      "partial_commit_count": 0,
+      "source_bytes_unchanged": false,
+      "transaction_id": "ruo:transaction:phase-thirteen"
+    },
+    "rejected_source_bytes_unchanged": true
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-persistence-transaction-contract/0.1"
+}

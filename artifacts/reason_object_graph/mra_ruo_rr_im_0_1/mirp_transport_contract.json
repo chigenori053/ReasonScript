@@ -1,0 +1,11 @@
+{
+  "data": {
+    "format_version": "1.0",
+    "media_type": "application/vnd.reasonscript.mirp-graph-fragment+jsonl",
+    "message_sha256": "sha256:fcf740239177bf642187c8ebab8b3191fc05a10ef8d78b67afe968eae13c724b",
+    "network_transport": "out_of_scope",
+    "roundtrip_fragment_hash": "sha256:bde2f9617632984a9484fd6b2180a4c745d29b8d160aac07842797b01ef20da4"
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-mirp-transport-contract/0.1"
+}

@@ -1,0 +1,34 @@
+{
+  "data": {
+    "operations": [
+      "summary",
+      "entity",
+      "outgoing",
+      "incoming",
+      "neighbors"
+    ],
+    "profile": "reasonscript-reason-object-graph-native-query/0.1",
+    "read_only": true,
+    "reference_result": {
+      "entity_id": "ruo:unit:a",
+      "graph_hash": "sha256:ea55d523770bbbc2f514bd6f92249f9c10255efa51eb7dc7d4192eeedca5f7e5",
+      "graph_id": "ruo:graph:phase2-fixture",
+      "profile": "reasonscript-reason-object-graph-query/0.1",
+      "query": "neighbors",
+      "read_only": true,
+      "result": [
+        {
+          "direction": "outgoing",
+          "entity_ref": {
+            "entity_id": "ruo:unit:b",
+            "entity_kind": "unit"
+          },
+          "relation_id": "ruo:relation:a-causes-b"
+        }
+      ]
+    },
+    "result_parity": true
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-native-graph-query-contract/0.1"
+}

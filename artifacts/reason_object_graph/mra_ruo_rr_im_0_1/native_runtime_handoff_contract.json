@@ -1,0 +1,31 @@
+{
+  "data": {
+    "native_logical_digest_parity": true,
+    "native_unit_identity_parity": true,
+    "profile": "reasonscript-reason-object-graph-native-handoff/0.1",
+    "read_only": true,
+    "reference_handoff": {
+      "logical_object_digest": "sha256:f03feddadccc6684df47b9aedaf4668f42c188f19fc884d44dab73313ae4de5a",
+      "profile": "reasonscript-reason-object-graph-native-handoff/0.1",
+      "read_only": true,
+      "relations": [
+        {
+          "endpoint_resolution": "resolved",
+          "relation_id": "ruo:relation:text-numeric",
+          "source_id": "ruo:unit:text",
+          "target_id": "ruo:unit:numeric"
+        }
+      ],
+      "source_object_id": "ruo:object:universal-fixture",
+      "source_revision": "ruo:revision:0",
+      "unit_ids": [
+        "ruo:unit:abstract",
+        "ruo:unit:numeric",
+        "ruo:unit:root",
+        "ruo:unit:text"
+      ]
+    }
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-native-runtime-handoff-contract/0.1"
+}

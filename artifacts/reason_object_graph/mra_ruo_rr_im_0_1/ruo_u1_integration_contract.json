@@ -1,0 +1,330 @@
+{
+  "data": {
+    "profile": "reasonscript-reason-object-graph-ruo-u1/0.1",
+    "promoted_relation_policy": "resolved_unit_to_unit_only",
+    "reference_report": {
+      "canonical_coverage": true,
+      "compatibility_profile": "reasonscript-reason-object-graph-compatibility/0.1",
+      "graph_hash": "sha256:04735a69775e388624c0e4ac828bcfaa91267475fcb8817b5628b094a8ea6094",
+      "loss_records": [],
+      "lossless": true,
+      "profile": "reasonscript-reason-object-graph-ruo-u1/0.1",
+      "promoted_relation_policy": "resolved_unit_to_unit_only",
+      "relation_counts": {
+        "promoted": 1,
+        "retained_for_reverse_projection": 0,
+        "source": 1
+      },
+      "relation_identity_mappings": [
+        {
+          "graph_id": "ruo:relation:text-numeric",
+          "promoted": true,
+          "source_id": "ruo:relation:text-numeric"
+        }
+      ],
+      "retained_relation_policy": "lossless_reverse_projection_extension",
+      "source_digest": "sha256:f03feddadccc6684df47b9aedaf4668f42c188f19fc884d44dab73313ae4de5a",
+      "source_object_id": "ruo:object:universal-fixture",
+      "source_profile": "reasonscript-reasonunit-object-universal/1.0",
+      "source_revision": "ruo:revision:0",
+      "unit_identity_mappings": [
+        {
+          "graph_id": "ruo:unit:root",
+          "preserved": true,
+          "source_id": "ruo:unit:root"
+        },
+        {
+          "graph_id": "ruo:unit:text",
+          "preserved": true,
+          "source_id": "ruo:unit:text"
+        },
+        {
+          "graph_id": "ruo:unit:numeric",
+          "preserved": true,
+          "source_id": "ruo:unit:numeric"
+        },
+        {
+          "graph_id": "ruo:unit:abstract",
+          "preserved": true,
+          "source_id": "ruo:unit:abstract"
+        }
+      ]
+    },
+    "retained_relation_policy": "lossless_reverse_projection_extension",
+    "reverse_projection": {
+      "loss_records": [],
+      "lossless": true,
+      "value": {
+        "constraints": [],
+        "current_revision": "ruo:revision:0",
+        "dependency_graph": [
+          {
+            "source_id": "ruo:state:committed",
+            "target_id": "ruo:payload:numeric"
+          }
+        ],
+        "evidence_registry": [
+          {
+            "confidence": 0.9,
+            "confidence_contract": {
+              "aggregation": "none",
+              "interpretation": "fixture reliability",
+              "scale": [
+                0,
+                1
+              ]
+            },
+            "created_revision": "ruo:revision:0",
+            "dependencies": [],
+            "entity_kind": "evidence",
+            "evidence_id": "ruo:evidence:observation",
+            "extensions": {},
+            "last_modified_revision": "ruo:revision:0",
+            "lifecycle_state": "active",
+            "provenance": {
+              "kind": "observed",
+              "source": "fixture:observation"
+            },
+            "schema_version": "1.0",
+            "supports": [
+              "ruo:payload:text",
+              "ruo:payload:numeric"
+            ],
+            "validity": "current"
+          }
+        ],
+        "extension_registry": [
+          {
+            "authority": "fixture",
+            "canonical_ordering": "key",
+            "compatibility": "retain",
+            "entity_kinds": [
+              "payload"
+            ],
+            "namespace": "project",
+            "opaque_retention": true,
+            "version": "1"
+          }
+        ],
+        "extensions": {},
+        "lifecycle_state": "active",
+        "model_version": "reasonscript-reasonunit-object/1.0",
+        "object_identity": {
+          "created_revision": "ruo:revision:0",
+          "entity_id": "ruo:object:universal-fixture",
+          "entity_kind": "reasonunit_object",
+          "extensions": {},
+          "last_modified_revision": "ruo:revision:0",
+          "lifecycle_state": "active",
+          "schema_version": "1.0"
+        },
+        "object_type": "ruo.object:universal",
+        "partial_loading": {
+          "entity_status": {},
+          "is_partial": false,
+          "unattached_retained_entities": []
+        },
+        "payloads": [
+          {
+            "constraints": [],
+            "extensions": {},
+            "owner_id": "ruo:unit:text",
+            "payload_id": "ruo:payload:text",
+            "profile_id": "ruo.payload.text/1",
+            "profile_version": "1",
+            "provenance_refs": [
+              "ruo:evidence:observation"
+            ],
+            "semantic_role": "ruo.role:description",
+            "value": {
+              "language": "en",
+              "offset_indexing": "unicode-code-point",
+              "segments": [],
+              "text": "universal"
+            },
+            "value_presence": "present"
+          },
+          {
+            "constraints": [],
+            "extensions": {},
+            "owner_id": "ruo:unit:numeric",
+            "payload_id": "ruo:payload:numeric",
+            "profile_id": "ruo.payload.numeric/1",
+            "profile_version": "1",
+            "provenance_refs": [
+              "ruo:evidence:observation"
+            ],
+            "semantic_role": "ruo.role:observation",
+            "value": {
+              "dimensions": [
+                3
+              ],
+              "reference_frame": "frame:fixture",
+              "unit": "unit:dimensionless",
+              "validity_mask": [
+                true,
+                true,
+                true
+              ],
+              "values": [
+                1,
+                2,
+                3
+              ]
+            },
+            "value_presence": "present"
+          },
+          {
+            "constraints": [],
+            "extensions": {},
+            "owner_id": "ruo:object:universal-fixture",
+            "payload_id": "ruo:payload:temporal",
+            "profile_id": "ruo.payload.temporal/1",
+            "profile_version": "1",
+            "provenance_refs": [
+              "ruo:evidence:observation"
+            ],
+            "semantic_role": "ruo.role:time",
+            "value": {
+              "end": "T1",
+              "kind": "interval",
+              "reference_frame": "frame:logical",
+              "start": "T0"
+            },
+            "value_presence": "present"
+          },
+          {
+            "constraints": [],
+            "extensions": {},
+            "owner_id": "ruo:unit:abstract",
+            "payload_id": "ruo:payload:abstract",
+            "profile_id": "ruo.payload.abstract/1",
+            "profile_version": "1",
+            "provenance_refs": [
+              "ruo:evidence:observation"
+            ],
+            "semantic_role": "project:claim",
+            "value": {
+              "schema": "fixture.abstract/1",
+              "symbol": "claim",
+              "vocabulary": "project.fixture/1"
+            },
+            "value_presence": "present"
+          }
+        ],
+        "projection_descriptors": [],
+        "relations": [
+          {
+            "created_revision": "ruo:revision:0",
+            "directionality": "directed",
+            "endpoint_resolution": "resolved",
+            "entity_kind": "relation",
+            "evidence_refs": [
+              "ruo:evidence:observation"
+            ],
+            "extensions": {},
+            "last_modified_revision": "ruo:revision:0",
+            "lifecycle_state": "active",
+            "multiplicity": "many-to-many",
+            "relation_class": "internal",
+            "relation_id": "ruo:relation:text-numeric",
+            "relation_type": "ruo.relation:describes/1",
+            "schema_version": "1.0",
+            "source_id": "ruo:unit:text",
+            "target_id": "ruo:unit:numeric"
+          }
+        ],
+        "revisions": [
+          {
+            "changed_entities": [],
+            "revision_id": "ruo:revision:0",
+            "source_revision": null,
+            "transaction_id": "ruo:transaction:initial"
+          }
+        ],
+        "root_units": [
+          "ruo:unit:root"
+        ],
+        "states": [
+          {
+            "created_revision": "ruo:revision:0",
+            "dependency_refs": [],
+            "entity_kind": "state",
+            "evidence_refs": [
+              "ruo:evidence:observation"
+            ],
+            "extensions": {},
+            "last_modified_revision": "ruo:revision:0",
+            "lifecycle_eligibility": [
+              "active"
+            ],
+            "lifecycle_state": "active",
+            "owner_id": "ruo:object:universal-fixture",
+            "schema_version": "1.0",
+            "source_revision": "ruo:revision:0",
+            "source_revisions": {},
+            "state_class": "object_shared",
+            "state_id": "ruo:state:committed",
+            "validity": "current",
+            "value": {
+              "status": "ready"
+            }
+          }
+        ],
+        "units": [
+          {
+            "children": [
+              "ruo:unit:text",
+              "ruo:unit:numeric",
+              "ruo:unit:abstract"
+            ],
+            "created_revision": "ruo:revision:0",
+            "entity_id": "ruo:unit:root",
+            "entity_kind": "composite_reasonunit",
+            "extensions": {},
+            "last_modified_revision": "ruo:revision:0",
+            "lifecycle_state": "active",
+            "owner_object_id": "ruo:object:universal-fixture",
+            "schema_version": "1.0"
+          },
+          {
+            "children": [],
+            "created_revision": "ruo:revision:0",
+            "entity_id": "ruo:unit:text",
+            "entity_kind": "atomic_reasonunit",
+            "extensions": {},
+            "last_modified_revision": "ruo:revision:0",
+            "lifecycle_state": "active",
+            "owner_object_id": "ruo:object:universal-fixture",
+            "schema_version": "1.0"
+          },
+          {
+            "children": [],
+            "created_revision": "ruo:revision:0",
+            "entity_id": "ruo:unit:numeric",
+            "entity_kind": "atomic_reasonunit",
+            "extensions": {},
+            "last_modified_revision": "ruo:revision:0",
+            "lifecycle_state": "active",
+            "owner_object_id": "ruo:object:universal-fixture",
+            "schema_version": "1.0"
+          },
+          {
+            "children": [],
+            "created_revision": "ruo:revision:0",
+            "entity_id": "ruo:unit:abstract",
+            "entity_kind": "atomic_reasonunit",
+            "extensions": {},
+            "last_modified_revision": "ruo:revision:0",
+            "lifecycle_state": "active",
+            "owner_object_id": "ruo:object:universal-fixture",
+            "schema_version": "1.0"
+          }
+        ]
+      }
+    },
+    "source_validation": "RUO-U1 validation required"
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-ruo-u1-integration-contract/0.1"
+}

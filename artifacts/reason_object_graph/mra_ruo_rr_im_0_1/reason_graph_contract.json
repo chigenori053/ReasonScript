@@ -1,0 +1,13 @@
+{
+  "data": {
+    "connectivity_source_of_truth": "ReasonGraph.relations",
+    "graph_validation": [],
+    "reason_object_kinds": [
+      "unit",
+      "relation"
+    ],
+    "unit_relation_refs": "derived_only"
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-reason-graph-contract/0.1"
+}

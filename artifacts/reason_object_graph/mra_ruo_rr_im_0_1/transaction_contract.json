@@ -1,0 +1,17 @@
+{
+  "data": {
+    "copy_on_write": true,
+    "partial_commit_allowed": false,
+    "reference_transaction": {
+      "before_graph_hash": "sha256:ea55d523770bbbc2f514bd6f92249f9c10255efa51eb7dc7d4192eeedca5f7e5",
+      "changed_relation_ids": [],
+      "changed_unit_ids": [],
+      "committed": true,
+      "graph_hash": "sha256:b8f09cd053c8a898c54b837aa32043db48ad4941f84411fc7c764c4cdf302d1c",
+      "partial_commit_count": 0,
+      "transaction_id": "ruo:transaction:phase-six"
+    }
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-transaction-contract/0.1"
+}

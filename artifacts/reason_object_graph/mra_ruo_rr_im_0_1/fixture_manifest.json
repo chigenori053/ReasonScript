@@ -1,0 +1,21 @@
+{
+  "data": {
+    "invalid": [
+      "duplicate_unit",
+      "duplicate_relation",
+      "dangling_endpoint",
+      "illegal_recursion",
+      "invalid_namespace"
+    ],
+    "valid": [
+      "unit_to_unit",
+      "symmetric",
+      "temporal",
+      "relation_reference",
+      "domain_relation",
+      "mirp_fragment"
+    ]
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-fixture-manifest/0.1"
+}

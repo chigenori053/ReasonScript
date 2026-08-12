@@ -1,0 +1,29 @@
+{
+  "data": {
+    "graph_entity_identity_parity": true,
+    "graph_identity_parity": true,
+    "input_format": "RGO-F1",
+    "profile": "reasonscript-reason-object-graph-native/0.1",
+    "read_only": true,
+    "reference_native_graph": {
+      "exit_status": 0,
+      "graph_hash": "sha256:ea55d523770bbbc2f514bd6f92249f9c10255efa51eb7dc7d4192eeedca5f7e5",
+      "graph_id": "ruo:graph:phase2-fixture",
+      "native_execution_provenance": "reasonscript-reasonunit-native-runtime/1.0",
+      "native_reason_graph_profile": "reasonscript-reason-object-graph-native/0.1",
+      "ok": true,
+      "operation": "load-graph",
+      "read_only": true,
+      "relation_ids": [
+        "ruo:relation:a-causes-b"
+      ],
+      "resource_status": "metadata_verified",
+      "unit_ids": [
+        "ruo:unit:a",
+        "ruo:unit:b"
+      ]
+    }
+  },
+  "profile_version": "reasonscript-reason-object-graph/0.1",
+  "schema_version": "reasonscript-reason-object-graph-native-graph-loader-contract/0.1"
+}

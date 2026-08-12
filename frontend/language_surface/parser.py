@@ -72,6 +72,7 @@ from .nodes import (
     ProgramNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
+    ReasonGraphBindingNode,
     ReasonGraphTransitionNode,
     ReasonObjectBindingNode,
     ReasonObjectClauseSpanNode,
@@ -321,7 +322,7 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
         elif line.startswith("transition "):
             nodes.append(_parse_transition(cursor))
         elif line.startswith("reason_graph "):
-            nodes.append(_parse_reason_graph(cursor))
+            nodes.append(_parse_reason_graph_binding(cursor) if " from " in line else _parse_reason_graph(cursor))
         elif line.startswith("reason_object "):
             if context != "module":
                 raise SurfaceSyntaxError("RUO-N2-002 invalid reason_object lexical context")
@@ -404,6 +405,21 @@ def _parse_reason_object(cursor: _Cursor) -> ReasonObjectBindingNode:
         raise SurfaceSyntaxError("RUO-N2-005 invalid expected Object ID assertion")
     end_line = start_index + len(parts)
     return ReasonObjectBindingNode(name, source_path, resource_root, mode, expected, SourceSpanNode(start_index + 1, 1, end_line, len(parts[-1]) + 1), tuple(clause_spans))
+
+
+def _parse_reason_graph_binding(cursor: _Cursor) -> ReasonGraphBindingNode:
+    index = cursor.index
+    line = cursor.take()
+    match = re.fullmatch(r'^reason_graph\s+([A-Za-z_][A-Za-z0-9_]*)\s+from\s+"([^"\\]+)"(?:\s+as\s+"([^"\\]+)")?;?$', line)
+    if not match:
+        raise SurfaceSyntaxError("RGO-LANG-001 invalid reason_graph binding")
+    name, source_path, expected = match.groups()
+    _validate_reason_object_path(source_path)
+    if not source_path.endswith(".rgraph"):
+        raise SurfaceSyntaxError("RGO-LANG-002 reason_graph source must use lowercase .rgraph")
+    if expected is not None and (not expected.startswith("ruo:graph:") or any(char.isspace() for char in expected)):
+        raise SurfaceSyntaxError("RGO-LANG-006 invalid expected graph ID assertion")
+    return ReasonGraphBindingNode(name, source_path, expected, SourceSpanNode(index + 1, 1, index + 1, len(line) + 1))
 
 
 def _reason_object_string(literal: str) -> str:

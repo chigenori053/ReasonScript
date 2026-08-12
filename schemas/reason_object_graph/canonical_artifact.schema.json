@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/reason-object-graph-canonical-artifact-0.1.json",
+  "title": "Reason Object Graph v0.1 canonical artifact",
+  "type": "object",
+  "required": ["schema_version", "profile_version", "data"],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^reasonscript-reason-object-graph-[a-z0-9-]+/0\\.1$"},
+    "profile_version": {"const": "reasonscript-reason-object-graph/0.1"},
+    "data": {"type": "object"}
+  },
+  "additionalProperties": false
+}
