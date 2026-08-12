@@ -2095,6 +2095,9 @@ class TensorRuntime:
             raise TensorError("TSF-020", "Tensor artifact storage failed") from error
         metadata.update(
             {
+                "value_kind": "external",
+                "external_type": "tensor",
+                "artifact_profile": "reasonscript-tensor-artifact/1.0",
                 "storage_ref": str(path),
                 "checksum": f"sha256:{hashlib.sha256(payload).hexdigest()}",
                 "byte_size": len(payload),

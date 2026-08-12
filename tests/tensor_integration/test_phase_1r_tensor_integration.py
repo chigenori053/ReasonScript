@@ -58,6 +58,50 @@ def test_tensor_named_arguments_are_accepted_and_duplicates_rejected():
         )
 
 
+def test_tensor_named_arguments_can_skip_optional_slots_and_accept_none():
+    program = parse(
+        """
+        module SparseTensorArguments {
+          calculation Answer {
+            let input = tensor.create([[[[3.0]]]], dtype = "f64")
+            let weight = tensor.create([[[[2.0]]]], dtype = "f64")
+            result = tensor.conv2d(
+              input = input,
+              weight = weight,
+              padding = [0, 0],
+              bias = none
+            )
+          }
+        }
+        """
+    )
+
+    call = program.modules[0].body[0].body[-1].expression.expression
+    assert len(call.arguments) == 5
+    assert execute_program(program).to_dict()["result"] == [[[[6.0]]]]
+
+
+def test_large_result_is_returned_as_a_checksum_verified_external_tensor(tmp_path: Path):
+    program = parse(
+        """
+        module LargeResult {
+          calculation Answer {
+            result = tensor.random_uniform([257], seed = 17)
+          }
+        }
+        """
+    )
+
+    result = execute_program(program, result_artifact_dir=tmp_path).to_dict()["result"]
+
+    assert result["value_kind"] == "external"
+    assert result["external_type"] == "tensor"
+    assert result["shape"] == [257]
+    assert Path(result["storage_ref"]).is_file()
+    restored = execute_program(program).runtime.load_artifact(result)
+    assert restored.shape == (257,)
+
+
 def test_reason_ir_and_execution_plan_keep_tensor_traceability():
     program = _program(TENSOR_PROBE)
     reason_ir = compile_program(program)[0]

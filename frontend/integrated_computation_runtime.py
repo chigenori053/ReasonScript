@@ -54,6 +54,7 @@ from frontend.tensor.integration import LOWERINGS, tensor_call_name
 from frontend.tensor.runtime import TensorError, TensorRuntime, TensorValueRef
 from frontend.vision.integration import vision_call_name
 from frontend.vision.runtime import VisionRuntimeBridge
+from frontend.optimizer import OptimizerError, call_optimizer, optimizer_call_name
 
 
 class _Break(Exception):
@@ -103,12 +104,13 @@ class IntegratedComputationResult:
     loop_trace: list[dict[str, Any]]
     calculation_results: dict[str, Any]
     vision_runtime: VisionRuntimeBridge | None = None
+    result_artifact_dir: Path | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema_version": "reasonscript-integrated-runtime/0.1",
             "status": "success",
-            "result": _plain(self.value, self.runtime),
+            "result": _plain(self.value, self.runtime, self.result_artifact_dir),
             "tensor_metadata": [
                 ref.metadata()
                 for ref in sorted(self.runtime._refs.values(), key=lambda item: item.tensor_id)
@@ -117,7 +119,7 @@ class IntegratedComputationResult:
             "loop_trace": list(self.loop_trace),
             "vision_trace": list(self.vision_runtime.trace) if self.vision_runtime is not None else [],
             "calculations": {
-                name: _plain(value, self.runtime)
+                name: _plain(value, self.runtime, self.result_artifact_dir)
                 for name, value in sorted(self.calculation_results.items())
             },
         }
@@ -129,6 +131,7 @@ def execute_program(
     resource_root: Path | None = None,
     filesystem_read: bool = False,
     filesystem_write: bool = False,
+    result_artifact_dir: Path | None = None,
 ) -> IntegratedComputationResult:
     runtime = TensorRuntime(
         resource_root=resource_root or Path.cwd(),
@@ -187,7 +190,9 @@ def execute_program(
             else:
                 runtime.collect(calculations)
     value = next(reversed(calculations.values()), None) if calculations else None
-    return IntegratedComputationResult(value, runtime, loop_trace, calculations, vision_runtime)
+    return IntegratedComputationResult(
+        value, runtime, loop_trace, calculations, vision_runtime, result_artifact_dir
+    )
 
 
 def _statements(
@@ -501,12 +506,27 @@ def _expression(
                     f"unknown field {value.member} on {owner.type_name}",
                 )
             return owner.fields[value.member]
+        if isinstance(owner, dict) and value.member in owner:
+            return owner[value.member]
         if isinstance(owner, (list, tuple, dict)) and value.member == "length":
             return len(owner)
         raise IntegratedRuntimeError(
             "RT-FIELD-001", f"member access is unsupported: {value.member}"
         )
     if isinstance(value, CallExpressionNode):
+        optimizer_function = optimizer_call_name(value)
+        if optimizer_function is not None:
+            arguments: list[Any] = []
+            with runtime.protect(arguments):
+                for argument in value.arguments:
+                    arguments.append(_expression(
+                        argument, env, runtime, vision_runtime,
+                        functions, max_call_depth, call_depth,
+                    ))
+                try:
+                    return call_optimizer(optimizer_function, runtime, *arguments)
+                except OptimizerError as error:
+                    raise IntegratedRuntimeError(error.code, str(error)) from error
         vision_function = vision_call_name(value)
         if vision_function is not None:
             arguments: list[Any] = []
@@ -737,21 +757,31 @@ def _trace_env(env: dict[str, Any]) -> dict[str, Any]:
     return {name: _trace_plain(value) for name, value in sorted(env.items())}
 
 
-def _plain(value: Any, runtime: TensorRuntime) -> Any:
+def _plain(
+    value: Any, runtime: TensorRuntime, result_artifact_dir: Path | None = None
+) -> Any:
     if isinstance(value, TensorValueRef):
+        if len(runtime._tensor(value).data) > runtime.policy.inline_elements:
+            if result_artifact_dir is None:
+                return {
+                    **value.runtime_value(),
+                    "materialization": "required",
+                    "reason": "Tensor exceeds inline result policy",
+                }
+            return runtime.artifact(value, result_artifact_dir)
         return runtime.to_array(value)
     if isinstance(value, RuntimeStruct):
         return {
-            name: _plain(item, runtime)
+            name: _plain(item, runtime, result_artifact_dir)
             for name, item in sorted(value.fields.items())
         }
     if isinstance(value, dict):
         return {
-            str(name): _plain(item, runtime)
+            str(name): _plain(item, runtime, result_artifact_dir)
             for name, item in sorted(value.items(), key=lambda item: str(item[0]))
         }
     if isinstance(value, list):
-        return [_plain(item, runtime) for item in value]
+        return [_plain(item, runtime, result_artifact_dir) for item in value]
     return value
 
 
