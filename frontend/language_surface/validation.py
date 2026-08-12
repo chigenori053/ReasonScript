@@ -279,6 +279,10 @@ RUNTIME_RESULT_TYPES = {
     "SimulationResult",
     "PredictionResult",
     "PlanningResult",
+    "Tensor",
+    "TensorArtifactReceipt",
+    "VisionObservation",
+    "VisionBuildResult",
 }
 
 
@@ -1557,10 +1561,21 @@ def _validate_calculation_expression(
                 return
             if isinstance(value.object, RuntimeNamespaceNode):
                 raise SurfaceValidationError("RV-4 UnknownRuntimeMethod")
+            parts = _member_access_parts(value)
+            if callee and len(parts) >= 2 and _CURRENT_NAMESPACE is not None:
+                try:
+                    target = _CURRENT_NAMESPACE.resolve_qualified(
+                        QualifiedIdentifierNode(tuple(parts[:-1]), parts[-1])
+                    )
+                except NamespaceResolutionError:
+                    target = None
+                if target is not None and isinstance(target.node, FunctionDeclarationNode):
+                    raise SurfaceValidationError(
+                        "FN-011 qualified user-function calls use ::, not ."
+                    )
             enum_reference = _enum_variant_reference(value, symbols)
             if enum_reference is not None:
                 return
-            parts = _member_access_parts(value)
             if (
                 len(parts) == 2
                 and parts[0] not in bindings
@@ -2013,36 +2028,56 @@ def _expression_type(
             except VisionSemanticError as error:
                 raise SurfaceValidationError(str(error)) from error
             return NamedTypeNode("VisionObservation" if vision_call_name(value) == "vision.infer" else "VisionBuildResult")
-        if isinstance(value.callee, IdentifierNode):
-            if value.callee.name == _CURRENT_FUNCTION:
+        function = _callable_function(value.callee, symbols)
+        if function is not None:
+            if isinstance(value.callee, IdentifierNode) and value.callee.name == _CURRENT_FUNCTION:
                 raise SurfaceValidationError("FN-007 recursive function calls are rejected")
-            function = symbols.get(value.callee.name)
-            if isinstance(function, FunctionDeclarationNode):
-                if len(value.arguments) != len(function.parameters):
-                    raise SurfaceValidationError(
-                        f"FN-005 function argument count mismatch: {value.callee.name}"
-                    )
-                for argument, parameter in zip(value.arguments, function.parameters):
-                    expected_type = _function_parameter_type(parameter)
-                    argument_expression = (
-                        argument if isinstance(argument, ExpressionNode) else ExpressionNode(argument)
-                    )
-                    actual_type = _expression_type(
-                        argument_expression.expression,
+            if len(value.arguments) != len(function.parameters):
+                raise SurfaceValidationError(
+                    f"FN-005 function argument count mismatch: {_callable_name(value.callee)}"
+                )
+            for argument, parameter in zip(value.arguments, function.parameters):
+                expected_type = _function_parameter_type(parameter)
+                argument_expression = (
+                    argument if isinstance(argument, ExpressionNode) else ExpressionNode(argument)
+                )
+                actual_type = _expression_type(
+                    argument_expression.expression,
+                    symbols,
+                    bindings,
+                )
+                if expected_type is not None:
+                    _require_compatible(
+                        expected_type,
+                        actual_type,
+                        argument_expression,
                         symbols,
-                        bindings,
+                        "FN-005 function argument mismatch",
                     )
-                    if expected_type is not None:
-                        _require_compatible(
-                            expected_type,
-                            actual_type,
-                            argument_expression,
-                            symbols,
-                            "FN-005 function argument mismatch",
-                        )
-                return function.return_type or _UNKNOWN_TYPE
+            return function.return_type or _UNKNOWN_TYPE
         return _UNKNOWN_TYPE
     return _UNKNOWN_TYPE
+
+
+def _callable_function(callee: Any, symbols: dict[str, Any]) -> FunctionDeclarationNode | None:
+    """Resolve local, imported, and ``module::function`` user callables."""
+    declaration: Any | None = None
+    if isinstance(callee, IdentifierNode):
+        declaration = symbols.get(callee.name)
+        if declaration is None and _CURRENT_NAMESPACE is not None:
+            imported = _CURRENT_NAMESPACE.imported(callee.name)
+            declaration = imported.node if imported is not None else None
+    elif isinstance(callee, QualifiedIdentifierNode) and _CURRENT_NAMESPACE is not None:
+        declaration = _CURRENT_NAMESPACE.resolve_qualified(callee).node
+    return declaration if isinstance(declaration, FunctionDeclarationNode) else None
+
+
+def _callable_name(callee: Any) -> str:
+    if isinstance(callee, IdentifierNode):
+        return callee.name
+    if isinstance(callee, QualifiedIdentifierNode):
+        return callee.resolved_name or "::".join((*callee.path, callee.symbol))
+    return type(callee).__name__
 
 
 def _require_compatible(

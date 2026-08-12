@@ -159,6 +159,24 @@ _CURRENT_SOURCE_LINE: ContextVar[tuple[int, int, str] | None] = ContextVar(
 
 
 def parse(source: str) -> ProgramNode:
+    program = parse_unresolved(source)
+    source_locations = _source_location_index(program)
+    try:
+        program, _ = resolve_program(program)
+        _restore_source_locations(program, source_locations)
+        validate(program)
+    except (SurfaceValidationError, NamespaceResolutionError) as error:
+        raise SurfaceSyntaxError(str(error)) from error
+    return program
+
+
+def parse_unresolved(source: str) -> ProgramNode:
+    """Parse one source unit without requiring its imports to be present.
+
+    Package compilation collects these units and resolves them together.  The
+    public :func:`parse` entry point deliberately remains a closed-program
+    parser for single-source callers.
+    """
     try:
         tokenize(source)
     except ValueError as error:
@@ -175,15 +193,7 @@ def parse(source: str) -> ProgramNode:
             continue
         _reject_reserved_top_level_construct(cursor.current())
         modules.append(_parse_module(cursor))
-    program = ProgramNode(tuple(modules), package)
-    source_locations = _source_location_index(program)
-    try:
-        program, _ = resolve_program(program)
-        _restore_source_locations(program, source_locations)
-        validate(program)
-    except (SurfaceValidationError, NamespaceResolutionError) as error:
-        raise SurfaceSyntaxError(str(error)) from error
-    return program
+    return ProgramNode(tuple(modules), package)
 
 
 def _source_location_index(

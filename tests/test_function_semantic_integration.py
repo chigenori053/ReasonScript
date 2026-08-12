@@ -6,6 +6,8 @@ from frontend.language_surface.nodes import to_json_value as surface_to_json_val
 from frontend.language_surface.parser import SurfaceSyntaxError, parse
 from playground.backend.analyzer import analyze_ir
 from playground.backend.engine import build_execution_plan, extract_knowledge, simulate
+from frontend.integrated_computation_runtime import execute_program
+from toolchain.pipeline import compile_package_sources
 
 
 def _pipeline(source: str):
@@ -333,3 +335,118 @@ def test_fsi_009_multiline_typed_parameter_list_is_supported():
         if item["transition_id"] == "Add.return"
     )
     assert function_return["effect"]["return_value"] == 3
+
+
+def test_fsi_cross_file_public_function_is_resolved_and_executed(tmp_path):
+    model = tmp_path / "model.rsn"
+    train = tmp_path / "train.rsn"
+    model_source = """
+        pub module model {
+            pub fn Forward(value: int) -> int {
+                return value * 2
+            }
+        }
+    """
+    train_source = """
+        module train {
+            import model
+            calculation Answer {
+                result = model::Forward(21)
+            }
+        }
+    """
+
+    compiled = compile_package_sources([(model_source, model), (train_source, train)])
+    result = execute_program(compiled.surface_ast).to_dict()
+
+    call = compiled.surface_ast.modules[1].body[1].body[0].expression.expression
+    assert call.callee.resolved_name == "model::Forward"
+    assert result["result"] == 42
+    train_ir = next(
+        ir for ir in compiled.reason_irs if ir["metadata"]["module"] == "train"
+    )
+    assert train_ir["metadata"]["function_calls"][0]["function"] == "model.Forward"
+
+
+def test_fsi_cross_file_dot_function_call_has_actionable_diagnostic(tmp_path):
+    with pytest.raises(Exception, match="FN-011"):
+        compile_package_sources(
+            [
+                (
+                    """pub module Model {
+  pub fn Forward(value: int) -> int {
+    return value
+  }
+}
+""",
+                    tmp_path / "model.rsn",
+                ),
+                (
+                    """module train {
+  import Model
+  calculation Answer {
+    result = Model.Forward(1)
+  }
+}
+""",
+                    tmp_path / "train.rsn",
+                ),
+            ]
+        )
+
+
+def test_fsi_cross_file_symbol_import_is_callable(tmp_path):
+    compiled = compile_package_sources(
+        [
+            (
+                """pub module model {
+  pub fn Forward(value: int) -> int {
+    return value + 1
+  }
+}
+""",
+                tmp_path / "model.rsn",
+            ),
+            (
+                """module infer {
+  import model.Forward
+  calculation Answer {
+    result = Forward(41)
+  }
+}
+""",
+                tmp_path / "infer.rsn",
+            ),
+        ]
+    )
+
+    assert execute_program(compiled.surface_ast).to_dict()["result"] == 42
+
+
+def test_fsi_cross_file_package_qualified_function_executes(tmp_path):
+    compiled = compile_package_sources(
+        [
+            (
+                """package vision
+pub module model {
+  pub fn Forward(value: int) -> int {
+    return value * 2
+  }
+}
+""",
+                tmp_path / "model.rsn",
+            ),
+            (
+                """module infer {
+  import vision.model
+  calculation Answer {
+    result = model::Forward(21)
+  }
+}
+""",
+                tmp_path / "infer.rsn",
+            ),
+        ]
+    )
+
+    assert execute_program(compiled.surface_ast).to_dict()["result"] == 42

@@ -28,6 +28,7 @@ from frontend.language_surface.nodes import (
     FunctionDeclarationNode,
     IdentifierNode,
     IfStatementNode,
+    ImportNode,
     IndexAccessNode,
     IndexAssignmentStatementNode,
     IntegerLiteralNode,
@@ -40,6 +41,7 @@ from frontend.language_surface.nodes import (
     NullLiteralNode,
     ParenthesizedExpressionNode,
     ProgramNode,
+    QualifiedIdentifierNode,
     ResultStatementNode,
     ReturnStatementNode,
     StringLiteralNode,
@@ -89,6 +91,12 @@ class RuntimeStruct:
 
 
 @dataclass
+class RuntimeFunction:
+    node: FunctionDeclarationNode
+    bindings: dict[str, "RuntimeFunction"]
+
+
+@dataclass
 class IntegratedComputationResult:
     value: Any
     runtime: TensorRuntime
@@ -130,12 +138,32 @@ def execute_program(
     vision_runtime = VisionRuntimeBridge(resource_root or Path.cwd(), filesystem_read=filesystem_read, filesystem_write=filesystem_write)
     loop_trace: list[dict[str, Any]] = []
     calculations: dict[str, Any] = {}
+    function_registry: dict[str, RuntimeFunction] = {}
+    package_prefix = f"{program.package.name}." if program.package is not None else ""
     for module in program.modules:
-        functions = {
-            item.name: item
-            for item in module.body
-            if isinstance(item, FunctionDeclarationNode)
-        }
+        for item in module.body:
+            if isinstance(item, FunctionDeclarationNode):
+                function_registry[f"{package_prefix}{module.name}::{item.name}"] = RuntimeFunction(item, {})
+    module_functions: dict[str, dict[str, RuntimeFunction]] = {}
+    for module in program.modules:
+        bindings = dict(function_registry)
+        for item in module.body:
+            if isinstance(item, FunctionDeclarationNode):
+                bindings[item.name] = function_registry[f"{package_prefix}{module.name}::{item.name}"]
+            elif isinstance(item, ImportNode) and item.resolution is not None:
+                for exposed_name in item.resolution.exposed_names:
+                    canonical = f"{item.resolution.namespace}::{item.resolution.symbol or exposed_name}"
+                    if canonical in function_registry:
+                        bindings[exposed_name] = function_registry[canonical]
+        module_functions[module.name] = bindings
+    for function in function_registry.values():
+        module_name = next(
+            name for name, module in ((module.name, module) for module in program.modules)
+            if any(item is function.node for item in module.body)
+        )
+        function.bindings = module_functions[module_name]
+    for module in program.modules:
+        functions = module_functions[module.name]
         for calculation in (
             item for item in module.body if isinstance(item, CalculationNode)
         ):
@@ -170,7 +198,7 @@ def _statements(
     limit: int,
     scope: str,
     vision_runtime: VisionRuntimeBridge,
-    functions: dict[str, FunctionDeclarationNode],
+    functions: dict[str, RuntimeFunction],
     max_call_depth: int,
     call_depth: int,
 ) -> None:
@@ -286,7 +314,7 @@ def _while_loop(
     limit: int,
     scope: str,
     vision_runtime: VisionRuntimeBridge,
-    functions: dict[str, FunctionDeclarationNode],
+    functions: dict[str, RuntimeFunction],
     max_call_depth: int,
     call_depth: int,
 ) -> None:
@@ -326,7 +354,7 @@ def _loop(
     values: list[Any] | None,
     iterator: str | None,
     vision_runtime: VisionRuntimeBridge,
-    functions: dict[str, FunctionDeclarationNode],
+    functions: dict[str, RuntimeFunction],
     max_call_depth: int,
     call_depth: int,
 ) -> None:
@@ -481,38 +509,42 @@ def _expression(
     if isinstance(value, CallExpressionNode):
         vision_function = vision_call_name(value)
         if vision_function is not None:
-            arguments = [
-                _expression(
-                    argument, env, runtime, vision_runtime,
-                    functions, max_call_depth, call_depth,
-                )
-                for argument in value.arguments
-            ]
-            return vision_runtime.call(vision_function, *arguments)
+            arguments: list[Any] = []
+            # A sibling argument can invoke a user function, whose statement
+            # boundary collection would otherwise release an earlier temporary
+            # Tensor argument.  Keep the growing argument list live until the
+            # enclosing call consumes every value.
+            with runtime.protect(arguments):
+                for argument in value.arguments:
+                    arguments.append(_expression(
+                        argument, env, runtime, vision_runtime,
+                        functions, max_call_depth, call_depth,
+                    ))
+                return vision_runtime.call(vision_function, *arguments)
         function = tensor_call_name(value)
         if function is not None:
-            arguments = [
-                _expression(
-                    argument, env, runtime, vision_runtime,
-                    functions, max_call_depth, call_depth,
+            arguments = []
+            with runtime.protect(arguments):
+                for argument in value.arguments:
+                    arguments.append(_expression(
+                        argument, env, runtime, vision_runtime,
+                        functions, max_call_depth, call_depth,
+                    ))
+                source_location = getattr(value, "_source_location", None)
+                result = runtime.call(
+                    function,
+                    *arguments,
+                    _source_location=source_location,
                 )
-                for argument in value.arguments
-            ]
-            source_location = getattr(value, "_source_location", None)
-            result = runtime.call(
-                function,
-                *arguments,
-                _source_location=source_location,
-            )
-            runtime.trace[-1].update(
-                {
-                    "operation_id": f"op_tensor_call_{len(runtime.trace):03d}",
-                    "semantic_operation": function,
-                    "lowered_operations": list(LOWERINGS.get(function, (function,))),
-                    "source_ref": source_location,
-                }
-            )
-            return result
+                runtime.trace[-1].update(
+                    {
+                        "operation_id": f"op_tensor_call_{len(runtime.trace):03d}",
+                        "semantic_operation": function,
+                        "lowered_operations": list(LOWERINGS.get(function, (function,))),
+                        "source_ref": source_location,
+                    }
+                )
+                return result
         if (
             isinstance(value.callee, MemberAccessNode)
             and isinstance(value.callee.object, IdentifierNode)
@@ -523,25 +555,30 @@ def _expression(
                 raise IntegratedRuntimeError(
                     "RT-CALL-002", "array.append expects two arguments"
                 )
-            collection = _expression(
-                value.arguments[0], env, runtime, vision_runtime,
-                functions, max_call_depth, call_depth,
+            arguments = []
+            with runtime.protect(arguments):
+                for argument in value.arguments:
+                    arguments.append(_expression(
+                        argument, env, runtime, vision_runtime,
+                        functions, max_call_depth, call_depth,
+                    ))
+                collection, item = arguments
+                if not isinstance(collection, list):
+                    raise IntegratedRuntimeError(
+                        "RT-CALL-002", "array.append first argument must be an array"
+                    )
+                return [*collection, copy.deepcopy(item)]
+        if isinstance(value.callee, (IdentifierNode, QualifiedIdentifierNode)):
+            function_ref = (
+                functions.get(value.callee.name)
+                if isinstance(value.callee, IdentifierNode)
+                else functions.get(value.callee.resolved_name or "::".join((*value.callee.path, value.callee.symbol)))
             )
-            item = _expression(
-                value.arguments[1], env, runtime, vision_runtime,
-                functions, max_call_depth, call_depth,
-            )
-            if not isinstance(collection, list):
+            if function_ref is None:
                 raise IntegratedRuntimeError(
-                    "RT-CALL-002", "array.append first argument must be an array"
+                    "RT-CALL-001", f"unknown runtime function: {_callee_label(value.callee)}"
                 )
-            return [*collection, copy.deepcopy(item)]
-        if isinstance(value.callee, IdentifierNode):
-            function_node = functions.get(value.callee.name)
-            if function_node is None:
-                raise IntegratedRuntimeError(
-                    "RT-CALL-001", f"unknown runtime function: {value.callee.name}"
-                )
+            function_node = function_ref.node
             if len(value.arguments) != len(function_node.parameters):
                 raise IntegratedRuntimeError(
                     "RT-CALL-002",
@@ -552,33 +589,33 @@ def _expression(
                     "RT-CALL-003",
                     f"function call depth exceeded: {max_call_depth}",
                 )
-            arguments = [
-                _expression(
-                    argument, env, runtime, vision_runtime,
-                    functions, max_call_depth, call_depth,
-                )
-                for argument in value.arguments
-            ]
-            local_env = {
-                _parameter_name(parameter): argument
-                for parameter, argument in zip(function_node.parameters, arguments)
-            }
-            try:
-                with runtime.protect(env):
-                    _statements(
-                        function_node.body,
-                        local_env,
-                        runtime,
-                        [],
-                        10_000,
-                        f"fn.{function_node.name}",
-                        vision_runtime,
-                        functions,
-                        max_call_depth,
-                        call_depth + 1,
-                    )
-            except _Return as returned:
-                return returned.value
+            arguments = []
+            with runtime.protect(arguments):
+                for argument in value.arguments:
+                    arguments.append(_expression(
+                        argument, env, runtime, vision_runtime,
+                        functions, max_call_depth, call_depth,
+                    ))
+                local_env = {
+                    _parameter_name(parameter): argument
+                    for parameter, argument in zip(function_node.parameters, arguments)
+                }
+                try:
+                    with runtime.protect(env):
+                        _statements(
+                            function_node.body,
+                            local_env,
+                            runtime,
+                            [],
+                            10_000,
+                            f"fn.{function_node.name}",
+                            vision_runtime,
+                            function_ref.bindings,
+                            max_call_depth,
+                            call_depth + 1,
+                        )
+                except _Return as returned:
+                    return returned.value
             raise IntegratedRuntimeError(
                 "RT-CALL-004", f"function returned no value: {function_node.name}"
             )
@@ -587,6 +624,12 @@ def _expression(
 
 def _parameter_name(parameter: Any) -> str:
     return parameter["name"] if isinstance(parameter, dict) else str(parameter)
+
+
+def _callee_label(callee: IdentifierNode | QualifiedIdentifierNode) -> str:
+    if isinstance(callee, IdentifierNode):
+        return callee.name
+    return callee.resolved_name or "::".join((*callee.path, callee.symbol))
 
 
 def _index_value(collection: Any, index: Any, runtime: TensorRuntime) -> Any:
@@ -613,7 +656,7 @@ def _assign_index(
     env: dict[str, Any],
     runtime: TensorRuntime,
     vision_runtime: VisionRuntimeBridge,
-    functions: dict[str, FunctionDeclarationNode],
+    functions: dict[str, RuntimeFunction],
     max_call_depth: int,
     call_depth: int,
 ) -> None:

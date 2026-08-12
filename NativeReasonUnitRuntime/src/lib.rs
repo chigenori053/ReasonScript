@@ -692,6 +692,7 @@ pub fn load_reason_graph(path: &Path) -> Result<NativeReasonGraph, NativeError> 
     }
     let expected_types = ["file_header", "graph", "file_seal"];
     let mut bodies = Vec::new();
+    let mut raw_bodies = Vec::new();
     for (ordinal, line) in lines.iter().enumerate() {
         let envelope: RgoEnvelope = serde_json::from_slice(line)
             .map_err(|_| NativeError::new("RGO-N1-001", FailureClass::Load, "invalid RGO-F1 envelope"))?;
@@ -704,9 +705,12 @@ pub fn load_reason_graph(path: &Path) -> Result<NativeReasonGraph, NativeError> 
         }
         let value: Value = serde_json::from_str(raw)
             .map_err(|_| NativeError::new("RGO-N1-001", FailureClass::Load, "invalid RGO-F1 body"))?;
-        if serde_json::to_string(&value).map_err(|_| NativeError::new("RGO-N1-001", FailureClass::Load, "cannot canonicalize RGO-F1 body"))? != raw {
-            return Err(NativeError::new("RGO-N1-002", FailureClass::Integrity, "RGO-F1 body is not canonical JSON"));
-        }
+        // The RGO-F1 writer defines canonical bytes.  Do not re-serialize a
+        // parsed Value here: JSON implementations may choose a different but
+        // numerically equivalent spelling for f64 values.  That would reject
+        // valid Python-writer output and would make the digest implementation
+        // dependent rather than format dependent.
+        raw_bodies.push(raw.to_owned());
         bodies.push(value);
     }
     let header = &bodies[0];
@@ -727,8 +731,7 @@ pub fn load_reason_graph(path: &Path) -> Result<NativeReasonGraph, NativeError> 
         || seal.get("graph_id").and_then(Value::as_str) != Some(graph_id.as_str()) {
         return Err(NativeError::new("RGO-N1-002", FailureClass::Integrity, "RGO-F1 graph identity mismatch"));
     }
-    let graph_body = serde_json::to_string(&logical).map_err(|_| NativeError::new("RGO-N1-001", FailureClass::Load, "cannot encode RGO-F1 graph"))?;
-    let graph_hash = sha256(graph_body.as_bytes());
+    let graph_hash = sha256(raw_bodies[1].as_bytes());
     if seal.get("graph_hash").and_then(Value::as_str) != Some(graph_hash.as_str()) {
         return Err(NativeError::new("RGO-N1-002", FailureClass::Integrity, "RGO-F1 graph digest mismatch"));
     }
