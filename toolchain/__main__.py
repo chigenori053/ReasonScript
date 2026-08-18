@@ -22,7 +22,7 @@ def main() -> int:
 
     if command == "init":
         if len(args) < 2:
-            print("Usage: reason init <project_name>")
+            print("Usage: reason init <project_name> [--template minimal|agent]")
             return 1
         from toolchain.init_cmd import run
         return run(args[1], args[2:])
@@ -201,7 +201,7 @@ def _usage() -> None:
     print()
     print("Commands:")
     print("  help          Show this help")
-    print("  init <name>   Create a new ReasonScript project")
+    print("  init <name>   Create a new ReasonScript project (minimal or agent template)")
     print("  doctor        Diagnose the installed environment")
     print("  install-info  Show the installation manifest")
     print("  install-validate Validate the installation contract")

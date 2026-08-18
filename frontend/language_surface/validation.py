@@ -1895,6 +1895,11 @@ def _expression_type(
             raise SurfaceValidationError(
                 "TYPE-V004 TYPE-001 mixed or non-numeric arithmetic invalid"
             )
+        # The runtime implements division as true division, including for two
+        # Int operands.  Keep the surface type in sync with that behavior so
+        # an Int result is never inferred for a value that is actually Float.
+        if value.operator == BinaryOperator.DIVIDE:
+            return PrimitiveTypeNode(PrimitiveKind.FLOAT)
         return left
     if isinstance(value, ComparisonExpressionNode):
         left = _expression_type(value.left, symbols, bindings)
@@ -2025,6 +2030,12 @@ def _expression_type(
                 return PrimitiveTypeNode(PrimitiveKind.INT)
             if tensor_function == "tensor.dtype":
                 return PrimitiveTypeNode(PrimitiveKind.STRING)
+            if tensor_function == "tensor.scalar":
+                # Tensor dtype is not represented in the surface type system.
+                # The runtime can therefore return an Int, Float, or Bool;
+                # preserve that uncertainty instead of incorrectly claiming
+                # that the result is a Tensor.
+                return _UNKNOWN_TYPE
             if tensor_function == "tensor.save":
                 return NamedTypeNode("TensorArtifactReceipt")
             return NamedTypeNode("Tensor")
@@ -2108,6 +2119,11 @@ def _require_compatible(
         )
     if isinstance(actual, OptionalTypeNode):
         raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
+    if expected is _UNKNOWN_TYPE:
+        # Untyped legacy bindings remain compatible with concrete values.  The
+        # previous implementation only treated an unknown *actual* value as
+        # compatible, making compatibility asymmetric for reassignment.
+        return
     if isinstance(expected, ArrayTypeNode) and isinstance(actual, ArrayTypeNode):
         _require_type_equal(expected.element_type, actual.element_type, location)
         return

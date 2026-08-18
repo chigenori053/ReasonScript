@@ -1,0 +1,2943 @@
+{
+  "build": {
+    "timestamp_utc": "2026-08-18T14:06:50.419667Z"
+  },
+  "builder": {
+    "implementation_sha256": "2799683119892af0aba7739f6c847dc3a432340fc263793ab54294473d00ebda",
+    "name": "build_update_package.py",
+    "runtime": "python",
+    "runtime_version": "3.14.0",
+    "version": "1.0.0"
+  },
+  "integrity": {
+    "files": [
+      {
+        "executable": false,
+        "path": "payload/NativeReasonUnitRuntime/Cargo.lock",
+        "sha256": "bc6f14af6444570b05d6d9a09f38419f79c285cbb8179d2e77010901075b0ac1",
+        "size_bytes": 4915
+      },
+      {
+        "executable": false,
+        "path": "payload/NativeReasonUnitRuntime/Cargo.toml",
+        "sha256": "f4c84b61498b04122e619d831d68a13dc17012331db97c71fb6a227618b4e2c3",
+        "size_bytes": 412
+      },
+      {
+        "executable": false,
+        "path": "payload/NativeReasonUnitRuntime/src/lib.rs",
+        "sha256": "b21edc045768dae25bc4562904e083490de7aeadef1138470e1514c36ff89a0d",
+        "size_bytes": 43894
+      },
+      {
+        "executable": false,
+        "path": "payload/NativeReasonUnitRuntime/src/main.rs",
+        "sha256": "4b993277c21a5751fb71c47caddd9c197729d4c2a028854c6e42488ae1394c99",
+        "size_bytes": 6503
+      },
+      {
+        "executable": false,
+        "path": "payload/VERSION",
+        "sha256": "1484ef54056d8473421e770cf8d8e8b1da77afaf8c55f49632e4c32e7db749f7",
+        "size_bytes": 8
+      },
+      {
+        "executable": false,
+        "path": "payload/VisionRuntime/Cargo.lock",
+        "sha256": "28a45f25cecfab8a3b81e2bdda4a93b5087f3eb9de98fb3d46c86137c3c410e4",
+        "size_bytes": 4904
+      },
+      {
+        "executable": false,
+        "path": "payload/VisionRuntime/Cargo.toml",
+        "sha256": "e496913f0e0ed745212ca21174a3e61061554ebaa3331da6b321de800fc1f2b5",
+        "size_bytes": 339
+      },
+      {
+        "executable": false,
+        "path": "payload/VisionRuntime/src/lib.rs",
+        "sha256": "19fea52d8664a4507d7b24cb9fd1cdbd45a706dfd539242b52b2ccd413954fde",
+        "size_bytes": 30436
+      },
+      {
+        "executable": false,
+        "path": "payload/VisionRuntime/src/main.rs",
+        "sha256": "1a5e65d00cf095b3e25d6b66d1bdbf47edeef6be60c5d1b4aa1ec2be54b34b67",
+        "size_bytes": 3335
+      },
+      {
+        "executable": false,
+        "path": "payload/VisualizationRuntime/Cargo.lock",
+        "sha256": "28eaad491f3ade49ff38323c1a08771f50f6e16095759be296fb934209dffb1a",
+        "size_bytes": 5073
+      },
+      {
+        "executable": false,
+        "path": "payload/VisualizationRuntime/Cargo.toml",
+        "sha256": "c19e6aefc8b088cbba8c913b6760e3d7471bda3252501cc376f1bdae800bf85a",
+        "size_bytes": 437
+      },
+      {
+        "executable": false,
+        "path": "payload/VisualizationRuntime/src/lib.rs",
+        "sha256": "b1b6a9c6233f8b523b87c9ca2ac72f3831b5f1205f6754b15e576c1631991ade",
+        "size_bytes": 35140
+      },
+      {
+        "executable": false,
+        "path": "payload/VisualizationRuntime/src/main.rs",
+        "sha256": "449f666eba7bcce8ae35d6ca990ae185990491311e64ae1326d24c07733fdb74",
+        "size_bytes": 2867
+      },
+      {
+        "executable": true,
+        "path": "payload/bin/reason-runtime",
+        "sha256": "21214536a0840019e0032d888504aa19b4373f4b7fbe2b4a3aada783f34728ce",
+        "size_bytes": 185
+      },
+      {
+        "executable": true,
+        "path": "payload/bin/reason-updater",
+        "sha256": "76e9b9056f3ff6b6973209f382c263e5a8f66f74976ffc4654af772cdf1e1dfd",
+        "size_bytes": 466560
+      },
+      {
+        "executable": true,
+        "path": "payload/bin/reason-vision",
+        "sha256": "b639a912750e1a9475a31de5fb2ff0ec6c11645fae8665a6cb25b4e02935a1b3",
+        "size_bytes": 903808
+      },
+      {
+        "executable": true,
+        "path": "payload/bin/reason-visualization",
+        "sha256": "fa28c24f0918c2e408fbd5305d3e42eff9e1c954c246bbd2724297f146d96ccf",
+        "size_bytes": 1005632
+      },
+      {
+        "executable": true,
+        "path": "payload/bin/reasonunit-runtime-native",
+        "sha256": "36728ec4620e237562ddeeb66722ab8c1821b705a3437d1756e4de26cece6a15",
+        "size_bytes": 853312
+      },
+      {
+        "executable": false,
+        "path": "payload/canonical_fixtures/phase1r/iterative_state_probe.rsn",
+        "sha256": "449054c6a424e89d279d1b1a3139fed6d290193db14f76a51f7f843b0c366416",
+        "size_bytes": 168
+      },
+      {
+        "executable": false,
+        "path": "payload/canonical_fixtures/phase1r/standalone_project/reason.toml",
+        "sha256": "06fb86375f50bc854abd6dd52fb06ebdd22ac815fa104c917b0832d3fd3e81f2",
+        "size_bytes": 126
+      },
+      {
+        "executable": false,
+        "path": "payload/canonical_fixtures/phase1r/standalone_project/src/main.rsn",
+        "sha256": "a46ab60a435b22760c7513b0408431a0c5e7207efaeef91f4d824e67c17385cf",
+        "size_bytes": 246
+      },
+      {
+        "executable": false,
+        "path": "payload/canonical_fixtures/phase1r/tensor_integration_probe.rsn",
+        "sha256": "d1b4176f83d85a49058b04d86261ee86ef05758db09253f8e8076895cb411bbc",
+        "size_bytes": 380
+      },
+      {
+        "executable": false,
+        "path": "payload/canonical_fixtures/phase1r/tensor_namespace_probe.rsn",
+        "sha256": "a0cf1141e4c13a44e2b56f5d3214fcc4ea0bc04ec410dc9617f55e55207a735f",
+        "size_bytes": 119
+      },
+      {
+        "executable": false,
+        "path": "payload/canonical_fixtures/vision_runtime/solar_observation.json",
+        "sha256": "e5280e429a7a649549be36ec24ced2c931a6dd96417198c00eabd3352f393117",
+        "size_bytes": 1168
+      },
+      {
+        "executable": false,
+        "path": "payload/canonical_fixtures/visualization_runtime/person_structure.json",
+        "sha256": "a0c4610a55de27e67de9c5f36455110284b8fc71ab25a99ed5634a8b8e3f4a39",
+        "size_bytes": 2382
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/README.md",
+        "sha256": "8786bff2e7cbb208b0621caa6f09358c1c54f3c4510149bbbb7623c6d3ed3d04",
+        "size_bytes": 1019
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/__init__.py",
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "size_bytes": 1
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/adapters/python_adapter.py",
+        "sha256": "3344262646478954e7b63555477becbc116fb0a0577b7c6b43d452e2ef0eee85",
+        "size_bytes": 482
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/adapters/typescript_adapter.ts",
+        "sha256": "b35de70ba0c36b1e2f6a684d71c3ae80313bcb43cfe668a5034775587b2928a0",
+        "size_bytes": 1074
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/certification/model.json",
+        "sha256": "86aa5c22a6e1d81ba7cbb2d22a8ed8d0784b1aeb1c9913b8c9551713f00d7d4c",
+        "size_bytes": 872
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/dto/README.md",
+        "sha256": "0bc74f9a5514f7fc1eb159b34ef23a5477f1418ff52a7746d516a01b516f20d6",
+        "size_bytes": 163
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/dto_conformance_tests/__init__.py",
+        "sha256": "fc6df41456df74a358b799819d8ddb6f0dff137b94ef45b8902edeeac7bb138a",
+        "size_bytes": 37
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/dto_conformance_tests/test_dto_conformance.py",
+        "sha256": "c1d4df77650f02df51a5391cfade4597c39cb99461ec3e5fe29e915d4e8378ca",
+        "size_bytes": 2216
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/dto_roundtrip_tests/__init__.py",
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "size_bytes": 1
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/dto_roundtrip_tests/test_python_dto.py",
+        "sha256": "9fb39cc9804a3100c69d7c929738fda2b8dd395ca8323583a2bd176b4a840c44",
+        "size_bytes": 3356
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/fixture_tests/__init__.py",
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "size_bytes": 1
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/fixture_tests/test_binding_shapes.py",
+        "sha256": "a441d1d7d414e375a4207d015fa91fe7b27a4a0ad085c3cd65c029325b885c04",
+        "size_bytes": 1767
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/fixtures/manifest.json",
+        "sha256": "7cda3b16b5114951d02c0fd9a6906e0ca9cd78d9c94ab57271ba19d4e75ef162",
+        "size_bytes": 1114
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/fixtures/transactions/basic_commit.json",
+        "sha256": "c1d5ffe3b7e8757d05533fe09180f5921146a20f5f107385f150bd96f7e28565",
+        "size_bytes": 469
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/fixtures/transactions/multiple_commit.json",
+        "sha256": "7697d9e797bef1821d4318940ce67601061ca6a8fd89a4dae11656563d2924ca",
+        "size_bytes": 730
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/fixtures/transactions/rollback.json",
+        "sha256": "24d2f60a4bb6dbafdfd969c2a1edec75456a351c874325c524178fb320f0b37e",
+        "size_bytes": 549
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/fixtures/transactions/trace_consistency.json",
+        "sha256": "da8214917a43764ccdbda3344b5f0e8f513f0b9c6af8a9efddf2401449d5a35c",
+        "size_bytes": 449
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/framework.py",
+        "sha256": "6480da88da9db17a911c197ee32470d1be9f990e2752654c3cddc16202967379",
+        "size_bytes": 10416
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/platform_conformance_tests/__init__.py",
+        "sha256": "c57dac8f23be64dc135875b63695c5fd393e578745f4e3c1eab9b1fc1b5003ba",
+        "size_bytes": 43
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/platform_conformance_tests/test_platform_conformance.py",
+        "sha256": "76c51b0abef2e3870fd6b35c540a2ce5ce4c98e65d8e7f84b7270c49f5fb7889",
+        "size_bytes": 2897
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/reports/Conformance_Report_v0.1.md",
+        "sha256": "5c1144dfe87951feb04ce58cc923f20e8e734180a889d914f29ff8302afe6978",
+        "size_bytes": 1148
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/reports/conformance_results_v0.1.json",
+        "sha256": "361952adb33a775390956e09edb0c71ac7c8ad69382340fccfeab5eec80c039c",
+        "size_bytes": 4566
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/run_conformance.py",
+        "sha256": "747d7c6e6e2008d59a1fac8beebb0eddec3b70db527ab3e01719c590c078054f",
+        "size_bytes": 4534
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/runtime/README.md",
+        "sha256": "120c2170c2aacc0d5cd719f03fe7248137c920ab87cbb246635dba2a82006aad",
+        "size_bytes": 173
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/runtime_conformance_tests/__init__.py",
+        "sha256": "cba38879503db5f6739cc8d3c3d98f3a7c7ad691f7d13486f7a0f91b677ff5ca",
+        "size_bytes": 41
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/runtime_conformance_tests/test_runtime_conformance.py",
+        "sha256": "2e02e3d60cf025f9b4ff7ffa66d4687b27a7c96670ab679aea959e410cbf43a4",
+        "size_bytes": 1023
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/schema_conformance_tests/__init__.py",
+        "sha256": "5db2b7fdb30d6461a55813df9a16d0a6bb05a4e7f319019aeb79c87091a50632",
+        "size_bytes": 40
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/schema_conformance_tests/test_schema_conformance.py",
+        "sha256": "cec84f8ec165b86aa39f78c2d90a4f514679ee47d250a04a2cc97a81b8c56786",
+        "size_bytes": 3348
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/schema_validator.py",
+        "sha256": "60159cb4f6049f1babe9b068426bd9112e48dc986e6c9d5d2fdfed4dc165ae78",
+        "size_bytes": 5107
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/schemas/README.md",
+        "sha256": "7da832cf4dc905658c93549d9e93f2cd2f66293a5f63e98fc6322d4cc4f8eb2b",
+        "size_bytes": 174
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/transaction/README.md",
+        "sha256": "ee20d155f6f7a6909cfe19d421f0b527513e4c19881e8cd775356bfa8eb0d5e5",
+        "size_bytes": 174
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/transaction_conformance_tests/__init__.py",
+        "sha256": "74debb92331a1de9eb1fbe9ee432914f1b589d2cd86af5d07256c2f3ff596b87",
+        "size_bytes": 45
+      },
+      {
+        "executable": false,
+        "path": "payload/conformance/transaction_conformance_tests/test_transaction_conformance.py",
+        "sha256": "a3f170f413bbeef96735d39629982b8443103fe33019b16b10f3335d93fa48be",
+        "size_bytes": 1066
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/function_basic.rsn",
+        "sha256": "4cffe067d226073953958991cdf26e909ac465594caff9132a902c8aee6184cf",
+        "size_bytes": 68
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/function_call_from_calculation.rsn",
+        "sha256": "a3d9b117294200b28c3ef40f58777bc110bc9f2495939b09f4196cd1c57436d4",
+        "size_bytes": 125
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/proof_failure.rsn",
+        "sha256": "4af5d118976751e7eaab2db8128771638d01a3d650b41dd640ca8dfd97e5273d",
+        "size_bytes": 355
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/scalar_arithmetic.rsn",
+        "sha256": "760afd7ade2ddac56f93a941c402527ab3193b5d3eb357dd057bebe8a852f39a",
+        "size_bytes": 78
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/scalar_literals.rsn",
+        "sha256": "c545dde3496436318ea00a8d61c6530205ef8a49ce49816ad0976cdd95b392bb",
+        "size_bytes": 164
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/session_fix.rsn",
+        "sha256": "e060b465dd9073538c29498830bc0c3d407c47f42adb49aca14d6f2aebb1adc3",
+        "size_bytes": 220
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/001_minimal_module.rsn",
+        "sha256": "93d6b3f2e9bf1197840eb836966f49b4f107cd91f9e37b7366371b5b8eff6e1b",
+        "size_bytes": 62
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/002_single_calculation.rsn",
+        "sha256": "4ea3e5a45d4a050d70f4dc7c7e6402579f81804822204384f6b4c8d116fa788b",
+        "size_bytes": 76
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/003_calculation_dependency.rsn",
+        "sha256": "878b9318d96d07f33ea0c5ab36520afcc0cbee0f775c0a9b11e9743a85683cc0",
+        "size_bytes": 124
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/004_function_call.rsn",
+        "sha256": "4c0595c994ec775d4a1d2bcd3760efdf22928814009c8c740c8b3c680f0db796",
+        "size_bytes": 113
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/005_branching_function.rsn",
+        "sha256": "e55f2b87e56fca324011f44f26ca9b18d349863a773f9f9026175189f6145428",
+        "size_bytes": 168
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/006_runtime_input_print.rsn",
+        "sha256": "2f78439b1358ea37a8befb93e627123ef0293bef8bb7b7993f4c8f4c31496609",
+        "size_bytes": 92
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/007_runtime_operation.rsn",
+        "sha256": "0a6b9c8a8c2fdb9125bf818250576fa74c150b725774a3cdf46a13645c76ceec",
+        "size_bytes": 84
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/008_struct_pattern.rsn",
+        "sha256": "c5a39ec9f6d71d80c6ed239b4e9e145c49542713586c6df276fc796f908bfc29",
+        "size_bytes": 267
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/009_optional_match.rsn",
+        "sha256": "4f6a12eca0a4643b328ce97d3a8ed66c2830d1abb7e3566ed28bc418f33f77f0",
+        "size_bytes": 201
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/invalid/calculation_cycle.rsn",
+        "sha256": "88cede1884387dfa458a3b94c83fef07de58d31f612955d5c6f7e9d6e5948592",
+        "size_bytes": 103
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/invalid/duplicate_symbol.rsn",
+        "sha256": "706e889102d713b269ff43962be630662a34c9c0472ee829f116fccaad6fb442",
+        "size_bytes": 112
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/invalid/function_missing_return.rsn",
+        "sha256": "1bb7a84bb7c8258b4637a2bd4dfbcf0241c0d59183a47e20920b604776b4f16d",
+        "size_bytes": 158
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/invalid/missing_module.rsn",
+        "sha256": "2b341fb6a67125577e42ee035d544432d346d08ca94b490f51071a0a1993a80c",
+        "size_bytes": 37
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/invalid/reserved_top_level_construct.rsn",
+        "sha256": "8fad57fd94776224892885a78871a0ccc67ed5d9acc29e63d73b1a20cadb2c75",
+        "size_bytes": 22
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/invalid/undefined_dependency.rsn",
+        "sha256": "965cb48851eff2ed1644d740d6d816e154919bd3b5cbac64777be05450e0692c",
+        "size_bytes": 83
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_5/tensor_training_foundation.rsn",
+        "sha256": "0718eeefb7dc0f58a5d93103ac0fb8b83db8c6e4e3b3f554e5736ad94094d698",
+        "size_bytes": 1321
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_8/reasoning_runtime/animal_isa.rsn",
+        "sha256": "fbaea80551c99a25dce62d1e2ce0115e62a9046019b73a8809f6dc07e6a9a4f5",
+        "size_bytes": 125
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_8/reasoning_runtime/branch_selection.rsn",
+        "sha256": "3551af3e996b6ac2146ad965cd05760b89af93de029907caae0ce0752ff64c90",
+        "size_bytes": 167
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_8/reasoning_runtime/calculation_chain.rsn",
+        "sha256": "232d6c95acf74886341fa3631fc6eaf593687a49b3d409d931f8f2c3310b77a8",
+        "size_bytes": 108
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_8/reasoning_runtime/function_return.rsn",
+        "sha256": "d8f58e0925ebe693f326e0b0aecb82c03885e5017c1cca25d6e73bff022bd341",
+        "size_bytes": 115
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_8/reasoning_runtime/invalid_parse.rsn",
+        "sha256": "d5e23551fb701222ab3c6c0b9f9c22f19fa1ccad33d040d9260845ffde2738fd",
+        "size_bytes": 64
+      },
+      {
+        "executable": false,
+        "path": "payload/examples/v0_8/reasoning_runtime/unreachable_goal.rsn",
+        "sha256": "8b19e5a08914903b488d84a4708210d166000564f8144d2aad259c419e3d813a",
+        "size_bytes": 69
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/__init__.py",
+        "sha256": "f426dddee2d64b8f56853c0904cbef681ea6e1a828ea805a0a1efc19d619de6c",
+        "size_bytes": 50
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/ast/__init__.py",
+        "sha256": "b75c12c8b927f84080ef7dde46fb47bd114ce26387909b1910d76322772d3990",
+        "size_bytes": 660
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/ast/mapping.py",
+        "sha256": "2107da499cf64dc5ad44efb805f10f806dba238f2e1b12cb4b60f1d1ef3201b3",
+        "size_bytes": 2964
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/ast/nodes.py",
+        "sha256": "4b68f954d91c8874a0feb9908a76ba2467b104135884d6b6cf7aebb3096e1f28",
+        "size_bytes": 4193
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/ast/validation.py",
+        "sha256": "33278a1186aa1c0fa0a36eb65afa1e8687542586a26c32ec46048eb6509ca530",
+        "size_bytes": 6094
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/ast_validator/__init__.py",
+        "sha256": "5ff6de903c5503cdfce3e4dde7d9bed0e12d9889e0d74c806b8596a008205435",
+        "size_bytes": 1140
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/ast_validator/__main__.py",
+        "sha256": "4fa1a5d9ef3f6e3926afadd24c832c0bca2474ee7b13a99760b327c1957f76e1",
+        "size_bytes": 500
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler/__init__.py",
+        "sha256": "b93e8016f9d4b4ba42d6ff8b4705e87e3cff5f342130bb58c8fd26330b3427b8",
+        "size_bytes": 392
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler/__main__.py",
+        "sha256": "dcf9900e4418884ba57aaad9465cad89784269cc0f7e69337ec2fe37da0670cb",
+        "size_bytes": 1211
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler/compiler.py",
+        "sha256": "1d32052a5ec784d040a09ea1c8b0a13cb93b6ec8d318d8c38f89dd4142604f14",
+        "size_bytes": 1537
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler/errors.py",
+        "sha256": "3ec650fb8461a9508fa26ae44a5f3a713cda20487648b671dab05e8fb695463b",
+        "size_bytes": 800
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler/expander.py",
+        "sha256": "c7ab050e6a1e21792c5b2ba39ec753da72fec3751622e9024502017d266956c9",
+        "size_bytes": 1324
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler/injector.py",
+        "sha256": "34908ef697588964753a02b484c48f9812673d6dd6b3e12d2938de49c41d0d02",
+        "size_bytes": 3675
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler/lowering.py",
+        "sha256": "a583fb796f7c0b4e0aa3f1a0a1a3ac06adfd279ae9c82ad4c63694947e4f2849",
+        "size_bytes": 3113
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler/validator.py",
+        "sha256": "9e0f24f0f97f7bd20b0661012784faf90ba1ec9a3aff30ced7b360f338108e6f",
+        "size_bytes": 1817
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_conformance/__init__.py",
+        "sha256": "2775d95ddb1c004421a104d26a3d3b5dab25f3b57d8f67099bf5a07bc417db01",
+        "size_bytes": 59
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_conformance/ast_validation_tests/test_ast_validation.py",
+        "sha256": "772cc22311056678ebf24cde8f39bf75c4082019b948f74e04defce994ac50e3",
+        "size_bytes": 1537
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_conformance/default_expansion_tests/test_defaults.py",
+        "sha256": "8c51df4ed27dbe412cfe56ef15f6222b49a36e340b445f3fce58172f28931258",
+        "size_bytes": 1204
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_conformance/end_to_end_tests/test_end_to_end.py",
+        "sha256": "f7a63d04491f6b14a1d908e093f0d48ad33d75f12e0a1e516d72413f0e201f1a",
+        "size_bytes": 1584
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_conformance/framework.py",
+        "sha256": "d8b14a8d51a60fbc477bb3ca13a9c4738af7504f77933d9728cbb53c7d13983a",
+        "size_bytes": 487
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_conformance/lowering_tests/test_lowering.py",
+        "sha256": "251049253a73c3b9bbf66c540e26b9908231f4f2c95c00358f69c8f02d2b7fc3",
+        "size_bytes": 1520
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_conformance/policy_tests/test_policy.py",
+        "sha256": "9ba4ec3e733b8d5b5b57d03cd4dbefadca18ed402aacf66c50f091d8e653fa39",
+        "size_bytes": 2106
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_conformance/reason_ir_tests/test_reason_ir.py",
+        "sha256": "ce21eea19777cfac911467bc9ff0664c9218760b35c3b127becdecdfa222fefc",
+        "size_bytes": 1149
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_conformance/reports/compiler_conformance_results_v0.1.json",
+        "sha256": "61bcd5641c40666f5f055b7e1b1bab3a2263610f514fdcf9240c4d5f5c0257af",
+        "size_bytes": 3675
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_conformance/run_conformance.py",
+        "sha256": "076b0a7ea52772b6d123dc63649d8b2b3e7260b528d0923fbf4e8136b8493d29",
+        "size_bytes": 1864
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/expected/basic_inference.ir.json",
+        "sha256": "fe044034a6267a73ef146a310f600559c72aae63cc3337e16705ef539520ef94",
+        "size_bytes": 751
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/expected/constraint.ir.json",
+        "sha256": "ac369e48ffe86451c0e06edbbf2e98e0c87957c7f0e7363911d36b76f82ac5d8",
+        "size_bytes": 729
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/expected/context_reference.ir.json",
+        "sha256": "ca6e33a99307e4c60599e4fc2c13a01cc92c8173cf1c60446b4e0fe6db050a6b",
+        "size_bytes": 616
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/expected/dbm_planning.ir.json",
+        "sha256": "d7733eff2bee37c4c2fbef4cd2a245058b2391eb796fb8cd94bbb629993ee2e4",
+        "size_bytes": 754
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/expected/tool_integration.ir.json",
+        "sha256": "35cf8ad042386f516d86d52035cecf3eed0f80d0798143c47e4738ce2e8eea23",
+        "size_bytes": 883
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/expected/worldmodel_transition.ir.json",
+        "sha256": "b886dd8d04a80e283513720e7719e0dd73f632cbc3ec88bb0ad9a4c6f914715a",
+        "size_bytes": 674
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/invalid/duplicate_node_id.json",
+        "sha256": "07da73fb58c5f1b95e5c395a1af94244c949ac063811add2c2fe35e147add54d",
+        "size_bytes": 320
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/invalid/invalid_ast_version.json",
+        "sha256": "14c5a6b4997fa251bbde08cecb300eb64fe1a020cc1dfb226796d7972d491259",
+        "size_bytes": 311
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/invalid/invalid_constraint.json",
+        "sha256": "507adb1b651eaf75485523aa8aa830917d7f68d1ae4a96c06b0920661a5d9cef",
+        "size_bytes": 441
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/invalid/invalid_context.json",
+        "sha256": "99f19c1443defff4c39b25729ca04a256aef4c50b0a6ede2bbc04975712d17c6",
+        "size_bytes": 438
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/invalid/invalid_transition.json",
+        "sha256": "c32ca24e32307a334254556f45a336b00184bb22b14ea2a6a227a4e75aa80c29",
+        "size_bytes": 467
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/invalid/unsupported_node.json",
+        "sha256": "c14a1213b870e9613ca7e596dd3672177371b5ed5d431535afb964d1e1bdb03f",
+        "size_bytes": 385
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/valid/basic_inference.ast.json",
+        "sha256": "a0a4ad8d55884a2bd61c5361abba0c21b85be6260a69796054d7d3095ee5c315",
+        "size_bytes": 652
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/valid/constraint.ast.json",
+        "sha256": "24dbfe9e07b1d42d02ed5e77c83df17b678621960a1d9bdbe2f746a59c8573b7",
+        "size_bytes": 630
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/valid/context_reference.ast.json",
+        "sha256": "2bf964cee45b8da38c8eea2f9ef1f959642b81a00fee5d8881066d85123b4627",
+        "size_bytes": 475
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/valid/dbm_planning.ast.json",
+        "sha256": "7e1e9c4ea96c60271fb8a195fafb49aef0abf005cc0748a35051161472bdfcdc",
+        "size_bytes": 648
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/valid/tool_integration.ast.json",
+        "sha256": "55ccc290151ed245de4758a5ac008706b3ee7dabc98fb5718d0287e4cf2d9760",
+        "size_bytes": 871
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/compiler_fixtures/valid/worldmodel_transition.ast.json",
+        "sha256": "185876ec81a2c2055a5fe3e7d32d32247cdd1cd3426c32d3e363cacecac6d420",
+        "size_bytes": 559
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/conformance/__init__.py",
+        "sha256": "d69c4877a340b111365c6fc7c878940ae7661ce4b92b3513588d684cfe6ee00d",
+        "size_bytes": 54
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/conformance/adapters/typescript_adapter.ts",
+        "sha256": "f2ddcc8e2589930eaf4abbacac9236b14b714922af32e5e9b3b4158d9eb6cffe",
+        "size_bytes": 492
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/conformance/cross_language_tests/test_cross_language.py",
+        "sha256": "1d02599bb9f3389b12f9471850f75e6f69552e6a48c8fcde7ee9920092ad2fe5",
+        "size_bytes": 2151
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/conformance/dto_tests/test_dto.py",
+        "sha256": "e3fe0b719b186b3d1c8a53595af3c910ffcdf80e1f1f5887ab296ad653de6ac6",
+        "size_bytes": 2446
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/conformance/framework.py",
+        "sha256": "521a4bdc24d1e09ae57ff710a15d38b7f7016ab7451144efd09a09884d04009c",
+        "size_bytes": 1087
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/conformance/lowering_tests/test_lowering.py",
+        "sha256": "1f0db6dd962ebb0a013e9d7c988575fbc6ac118be133c459f29abc8fa7226f2a",
+        "size_bytes": 1021
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/conformance/reason_ir_tests/test_reason_ir.py",
+        "sha256": "e0ba612507ce6668212076078546ecc300fa7ac5390076afb6d2a57807f63a05",
+        "size_bytes": 1332
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/conformance/reports/ast_conformance_results_v0.1.json",
+        "sha256": "d665d72932b4740936346aba4c8debb1a15aeb0403bdee9a7709dcce8b019b40",
+        "size_bytes": 2827
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/conformance/run_conformance.py",
+        "sha256": "6d2f7157aa390b5f8e05f968c15a3b9ae3f37338c994ac0c6adaddd0045dfd14",
+        "size_bytes": 1662
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/conformance/schema_tests/test_schema.py",
+        "sha256": "6e78fbce65ef9e52eb029b15dfe7b9810ecb4f8dafc9ed9b8b34f18abc82c3ee",
+        "size_bytes": 648
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/dto/go/dto.go",
+        "sha256": "a32d6e28726828c63a2fb21a6d4c29eb023b168dea150cc5cfec8dcfb5fc08f5",
+        "size_bytes": 1951
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/dto/go/go.mod",
+        "sha256": "99d487631b19c55b1dbcb729a37db89919ed9418e193292f5d9f215d8d4bcd97",
+        "size_bytes": 40
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/dto/java/src/org/reasonscript/ast/AstDtos.java",
+        "sha256": "ba90805f7519ea9f7d365c86e414b38b3a0ed8f8c9971be48dfb1de0a962aaa0",
+        "size_bytes": 1807
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/dto/python/reasonscript_ast_dto/__init__.py",
+        "sha256": "c3bfd85fff8aadb5259cab7caa49058be6d7f63b2b3b64eeb50dbe1d82e2c50d",
+        "size_bytes": 581
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/dto/rust/Cargo.lock",
+        "sha256": "014eed8a2a2665e2eba43d47192ee70d461ec75a202d5b542a87424a25d46963",
+        "size_bytes": 2679
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/dto/rust/Cargo.toml",
+        "sha256": "ab40142c3fddc30b7b01df0320baf81d1cd98ee7104363d42a155847db65a7bf",
+        "size_bytes": 200
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/dto/rust/src/bin/roundtrip.rs",
+        "sha256": "591f0530448a7f254fe0643c0097f4484a9bfa5981b3d9decce2d8abb67f045a",
+        "size_bytes": 323
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/dto/rust/src/lib.rs",
+        "sha256": "8d41b9988e3b413235cf29ebbfc59dd8dad69751186a13735e6fb0a58efe45d5",
+        "size_bytes": 1949
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/dto/typescript/index.ts",
+        "sha256": "97cd272a1470a09ad42cfac8671836b8ba02a2ff201b1e1744ae2b5e439743e0",
+        "size_bytes": 1835
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/invalid/duplicate_node_id.json",
+        "sha256": "07da73fb58c5f1b95e5c395a1af94244c949ac063811add2c2fe35e147add54d",
+        "size_bytes": 320
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/invalid/invalid_uri.json",
+        "sha256": "99f19c1443defff4c39b25729ca04a256aef4c50b0a6ede2bbc04975712d17c6",
+        "size_bytes": 438
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/invalid/invalid_version.json",
+        "sha256": "14c5a6b4997fa251bbde08cecb300eb64fe1a020cc1dfb226796d7972d491259",
+        "size_bytes": 311
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/invalid/missing_goal.json",
+        "sha256": "bac9afa0525e9d5785c44d858ca5641bc1fc39cc4542b972a43e90839d3c3360",
+        "size_bytes": 223
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/invalid/missing_initial_state.json",
+        "sha256": "7b88a04f4794aaa365417914253d4b9dfaca289fbd53b41c55aaa8d3ff25f181",
+        "size_bytes": 204
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/invalid/negative_cost.json",
+        "sha256": "c32ca24e32307a334254556f45a336b00184bb22b14ea2a6a227a4e75aa80c29",
+        "size_bytes": 467
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/valid/basic_inference.json",
+        "sha256": "615f1a4647bde95527cdef53801bfcd26d047d1e72814a43c5b55a6e98c8cee2",
+        "size_bytes": 731
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/valid/constraint.json",
+        "sha256": "24dbfe9e07b1d42d02ed5e77c83df17b678621960a1d9bdbe2f746a59c8573b7",
+        "size_bytes": 630
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/valid/context_reference.json",
+        "sha256": "2bf964cee45b8da38c8eea2f9ef1f959642b81a00fee5d8881066d85123b4627",
+        "size_bytes": 475
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/valid/dbm_planning.json",
+        "sha256": "7e1e9c4ea96c60271fb8a195fafb49aef0abf005cc0748a35051161472bdfcdc",
+        "size_bytes": 648
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/valid/tool_integration.json",
+        "sha256": "182f07f863631f2fc14e68dc2bb25590af75f42ba5990bc6137f55b61ed529e2",
+        "size_bytes": 862
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/fixtures/valid/worldmodel_transition.json",
+        "sha256": "185876ec81a2c2055a5fe3e7d32d32247cdd1cd3426c32d3e363cacecac6d420",
+        "size_bytes": 559
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/ide/__init__.py",
+        "sha256": "234f4085f1b890c6d0422a4027fb7139e4939498f631b8af74cf064b1290e148",
+        "size_bytes": 795
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/ide/core.py",
+        "sha256": "bff7e5ce53fb83332715afd725193f1cfb68b5a86c5f4f8d23c2b2974c734062",
+        "size_bytes": 10420
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/ide/model.py",
+        "sha256": "d152c5eb45803a133fe0fd4a64e7d1545126c3bd8a1309f4d9e74ef0728e6d05",
+        "size_bytes": 1891
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/integrated_computation_runtime.py",
+        "sha256": "a7ae30d51f7ef66d0056a0708b20a41666067ab9a0a7adc50e8c0ed33bb5d190",
+        "size_bytes": 30754
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language/__init__.py",
+        "sha256": "19a7ef7331c5d292e18e8274e8c9cc211dda370d5a4a9e978db3908db44e5d2c",
+        "size_bytes": 448
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language/module_system.py",
+        "sha256": "87317da7f1ea607dd9e62893d229d8436115cf6c332fe7e25ec025147c525092",
+        "size_bytes": 4950
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/__init__.py",
+        "sha256": "3c48f6f998896573c62ee0c532bbb0d758a61adf4429c5c196312cec52b2d2ef",
+        "size_bytes": 8245
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/expressions.py",
+        "sha256": "81bf1d9ecb1e9a9c5484891050e3fd394e7eda0ca8486a1b9889ec5d4ed1f4b9",
+        "size_bytes": 30676
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/integration.py",
+        "sha256": "8c159c92717e0e37240593ff08b5a1540c53adb32edc6ad1b34d5667ce2dcaf9",
+        "size_bytes": 111934
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/lexer.py",
+        "sha256": "c89c1e00967ff258fd8d7f60de5fcad9a05394f7bda78b7466f5f19c405a20da",
+        "size_bytes": 4754
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/namespace.py",
+        "sha256": "4dc48f4e485e4b9d9127bc98b3ef668d62a983e0bea14d0f5a8354cba9a1a082",
+        "size_bytes": 14655
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/nodes.py",
+        "sha256": "06843f3c30419894a542228cf6b9f716c39305629d703eaa17b0b23c12e578c1",
+        "size_bytes": 37464
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/parser.py",
+        "sha256": "bc22b3a9e0490ab20b534b5fb2e6dc76eb7c803780ef0038c0e67504f9751edf",
+        "size_bytes": 51104
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/pattern_decision.py",
+        "sha256": "8c33d98fe872e7f29eeeb3522efaa2c3940af8553651e028df83d78d1aff8c76",
+        "size_bytes": 2828
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/pattern_evaluator.py",
+        "sha256": "cee47d15cc4f0746fe25e4ade97c0c6deda35d682b04881286b85f8f352fb670",
+        "size_bytes": 10461
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/semantic_patterns.py",
+        "sha256": "a31a33a095238d09aaa28d77bc89c45fc494eac67739274b1fb05c20ca10f2ae",
+        "size_bytes": 13093
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/language_surface/validation.py",
+        "sha256": "9f18b91b3876d5f650e57a81840244efe15f3bb3089720ba28e937a41cced0e2",
+        "size_bytes": 139669
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/lsp/__init__.py",
+        "sha256": "95a7e57d6d4d0ebde0d17976a550705ca1b13c64fb44115a4c469f26c21a5e41",
+        "size_bytes": 497
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/lsp/__main__.py",
+        "sha256": "5788b0f24bd28fafabf67b903b58bfba213742dbc331b897e0f52de9ef315943",
+        "size_bytes": 128
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/lsp/core.py",
+        "sha256": "9ef43a8100ce5bde212650ed39fa13e2a57db0aa93b5a8a553d22d46f0e4c96e",
+        "size_bytes": 14310
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/lsp/model.py",
+        "sha256": "8c31205dc5769b24e533cc81b27b0edae596bf6d161a648bb40fed53e3af74a2",
+        "size_bytes": 1595
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/lsp/server.py",
+        "sha256": "a4c1c3e4a4c5a622f4c1efcfe829fec03ebd000884836d46001f859dbbd38908",
+        "size_bytes": 5077
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/optimizer/__init__.py",
+        "sha256": "13341262a364c9dffb591a2cf9fedadd21a7e2054379c901f20e561639dd375f",
+        "size_bytes": 226
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/optimizer/runtime.py",
+        "sha256": "7c3a2cbb1a3f7d10bdeb3ba30c999eaaa0361a5ceb151f1dff5cc26a804960fe",
+        "size_bytes": 8594
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser/__init__.py",
+        "sha256": "410c82c221564debe8b906efb03f366cae06e5f94df34ab416fcf3ada76ef19c",
+        "size_bytes": 332
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser/__main__.py",
+        "sha256": "a1f0fe98d1af64c656fb5759899ed224fb008124adc94bbb777120de7dae87fb",
+        "size_bytes": 931
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser/ast_builder.py",
+        "sha256": "bbfbb532cca953ca1695c77a3ac2ed57c266a24ab3b09ae14b775edaf95909fb",
+        "size_bytes": 4137
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser/errors.py",
+        "sha256": "b623bae0ccff4bb0deba8a0d03b5a7e28558285163b8ad014a4e0de0fd89745b",
+        "size_bytes": 1052
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser/lexer.py",
+        "sha256": "f1ed0bd234df126bb608418f72a40877cd14d0f3b7de6040d7653e49393aaaca",
+        "size_bytes": 2972
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser/parser.py",
+        "sha256": "d028eed4403870585ef8d1de69dcb9a6f2d00b7530d824077b25f79053344beb",
+        "size_bytes": 4090
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_conformance/__init__.py",
+        "sha256": "d6503e73783a520f9b2acd91191d94e12c02a04bad66ef2e55cd10c80ba87b81",
+        "size_bytes": 65
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_conformance/ast_abi_tests/test_ast_abi.py",
+        "sha256": "5738dd17406f120063bb49ba9899223cb98ab02a9fc8f09068151b5001057116",
+        "size_bytes": 507
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_conformance/end_to_end_tests/test_end_to_end.py",
+        "sha256": "26f7230c8dad8c127d9ed371bfaaec6f34c21182b59b37a973b16ad1ad7551a9",
+        "size_bytes": 1221
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_conformance/framework.py",
+        "sha256": "a381f7053ed2f2946608b48b01b3d7e3d6d4a7598b490efd6ee0c17255c39f2c",
+        "size_bytes": 312
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_conformance/lexer_tests/test_lexer.py",
+        "sha256": "151af8492353576ef73b6f94681bf60fdf17a83ba1fb5c08717c8b148c381d89",
+        "size_bytes": 1384
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_conformance/lowering_tests/test_lowering.py",
+        "sha256": "cc75a71a46d10d34e76e2805901940d7317084b5a454958fae7365401e607b96",
+        "size_bytes": 1057
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_conformance/parser_tests/test_parser.py",
+        "sha256": "5660ee86917df712ed532699282827915bce57e90a0f08e6401f0f5fd90dc7a6",
+        "size_bytes": 2998
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_conformance/reports/parser_conformance_results_v0.1.json",
+        "sha256": "8b323210a9f4ee315f5db8597f59db4599b56b372c9cde9d90eeb914bd67db67",
+        "size_bytes": 2904
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_conformance/run_conformance.py",
+        "sha256": "e3980c5f9c0d683be1491f14e54353c60907cf13490fd8d6ec4c2c6ef857edf1",
+        "size_bytes": 1809
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/invalid/duplicate_goal.rsn",
+        "sha256": "02ab2c5bea2edc2eb177b155220d7dfeeea955e16453c6825ab9ea5219f6a9c5",
+        "size_bytes": 34
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/invalid/invalid_transition.rsn",
+        "sha256": "5e4b7b7a6b713a5d9538eb0e95fc9218cb32d7055ab24327451eb887c70a035d",
+        "size_bytes": 41
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/invalid/invalid_uri.rsn",
+        "sha256": "1bf211c6a73f4b7022fd204f2177505f14c04ef36e9ddbbb31c283597ad0b314",
+        "size_bytes": 38
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/invalid/missing_goal.rsn",
+        "sha256": "74cf1e989ff0544e3a2be0a2c94e680368b1bbb3db35e986d29e817ffd38915e",
+        "size_bytes": 36
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/invalid/missing_state.rsn",
+        "sha256": "f033daaf66f95589014bfb25d53e66b7ef33020064c5d0cc48661e4e365025c0",
+        "size_bytes": 12
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/invalid/unknown_keyword.rsn",
+        "sha256": "6988536f6e428a45455b481ba2335d1227cf49a5ead965890bda5f0013e3fea4",
+        "size_bytes": 36
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/valid/basic_inference.rsn",
+        "sha256": "ca37e30a8ea9e40a988ec2707e3cdb7b0aa42eb2b932e45955f4b8f5def3c3ee",
+        "size_bytes": 77
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/valid/constraint.rsn",
+        "sha256": "4b098c2008e404463a01761cab60c6e3ae07fba08bedaa1ea67ea6cc8fe06eb1",
+        "size_bytes": 46
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/valid/context.rsn",
+        "sha256": "fc96af7e1543ab5ec3cff33c1ab141af1e0488f707b7c8258e7545548edd2e4e",
+        "size_bytes": 47
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/valid/dbm_planning.rsn",
+        "sha256": "207ff649eda9367189778aecaeaeb022692cdb806609fd2dd16b96c90673fed5",
+        "size_bytes": 97
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/valid/tool_integration.rsn",
+        "sha256": "e372bef2e791cc2c03604c2bf63ba6ff4acc07331ecbc0704d1031f0d1655341",
+        "size_bytes": 138
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/parser_fixtures/valid/worldmodel_transition.rsn",
+        "sha256": "134e084c9141284479465d6415bb770a22198de785f59580b1708b014f854373",
+        "size_bytes": 63
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/runtime_integration.py",
+        "sha256": "a7f9b9af7510b7403d28dd91fa1390c0eab3c5ed62ad5cac7fa082e6041da17e",
+        "size_bytes": 65822
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/ast.schema.json",
+        "sha256": "c291726d603d45b4527acf6e8383274f5e02d4ce12e228b9b7ab68eff28ad75a",
+        "size_bytes": 187
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/calculation.schema.json",
+        "sha256": "19f302325463c0ab3078e22a12e6e130022667121476ad3b64c0add5457c9107",
+        "size_bytes": 236
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/constraint.schema.json",
+        "sha256": "9ead909b753f84a359be0634db88b8b092038adb4301dec06ce6d817cc04514e",
+        "size_bytes": 503
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/context.schema.json",
+        "sha256": "25a30fd873d891d52269c34ef53d55e8b1a0a18740756f918a07020496d88f67",
+        "size_bytes": 510
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/expression.schema.json",
+        "sha256": "43932870eb82e73dece039be09b125fb2ecb075aacda6e28657e8975c02dcf63",
+        "size_bytes": 233
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/goal.schema.json",
+        "sha256": "d42c6b7ccd1a4f11797d4d0304cdc10950573df6404ec7798af16e2c43ca5c48",
+        "size_bytes": 409
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/language_surface_ast.schema.json",
+        "sha256": "4f4051bc0b97a1982540f80efc6bda49c9c02c51254b8902e39686d36ec3c5b0",
+        "size_bytes": 39078
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/metadata.schema.json",
+        "sha256": "41663c9ff23d6f2633a5af892ab027f6f0b7d3b536308e4bbda11c24cdd361a3",
+        "size_bytes": 383
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/module.schema.json",
+        "sha256": "b4fce2f5243c931b4672e64d1ac1500553cedd50dbb6927d765eaf525cfa0645",
+        "size_bytes": 1010
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/pattern.schema.json",
+        "sha256": "489e838b3174e4b8bd2530a58208c3093ecf400f27acb77fb75186403a22fcfb",
+        "size_bytes": 224
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/qualified_identifier.schema.json",
+        "sha256": "9f27ed9ca59b038fda49e6c43b2207c486a86901c7cea4f3af9ec52548624f96",
+        "size_bytes": 263
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/reasoning_evaluation_report.schema.json",
+        "sha256": "2021893021c865cafe34e5ff69c62549b3ca10e0307db078c415e5a283c9aed3",
+        "size_bytes": 3671
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/reasoning_model.schema.json",
+        "sha256": "2bc24ce04966aeb5768f7272baf9bcb3794e50215d69a59c6c0de2178e186741",
+        "size_bytes": 6276
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/reasoning_runtime_result.schema.json",
+        "sha256": "f84465727d65a6da402abd92b9d64f4312fe41f1a8eab15802071b017d36b904",
+        "size_bytes": 2665
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/semantic_pattern.schema.json",
+        "sha256": "0ccc3159ac3418f2e7f36a82529bd1f2505f6d9df61434dac2c9a1e3a25a4805",
+        "size_bytes": 2721
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/state.schema.json",
+        "sha256": "5d241c2da6a4873767bd6e2fe56125cb9f5f9576bec6419fbe625c59ca07c0d8",
+        "size_bytes": 453
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/statement.schema.json",
+        "sha256": "7769a8d9305edaefbbed909c5ff4562e6d661b68bc1b87a948af2da1333a04ee",
+        "size_bytes": 230
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/transition.schema.json",
+        "sha256": "085a332939a9197d45b648d3b6f329802d38e813ad07360c4f932380dedbb02e",
+        "size_bytes": 705
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/schemas/type.schema.json",
+        "sha256": "3dd082ec1e8d51222443b0079e8f6f30ab64065d7c78c422064390e3f4d0d0bc",
+        "size_bytes": 220
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/tensor/__init__.py",
+        "sha256": "8956c7a00b2155cc645abc6aae18301e1176325c18df09dbb122244fc26092d0",
+        "size_bytes": 419
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/tensor/integration.py",
+        "sha256": "63cd29d3a1f39ddfe4de588cc9e470b15f6b7b002f98dee120f98ebd75f51090",
+        "size_bytes": 19723
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/tensor/operations.py",
+        "sha256": "a98f73be4f63e093334b800e30f37f4ffdabe6bb59c5b043b6b6442a5745a276",
+        "size_bytes": 3557
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/tensor/runtime.py",
+        "sha256": "11d118287d155004b1712eeb91b4dd468edb3cb8cf7523fbba58728931ebf6f2",
+        "size_bytes": 97470
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/vision/__init__.py",
+        "sha256": "8028e6798201a29a7486380ed2d61fd8e8ce5408379bf61ffbe2e7e8c7bfc6c4",
+        "size_bytes": 194
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/vision/contracts.py",
+        "sha256": "3ff97b09c7d992722e193be12cdf865389eede0e1cb54dfe940d6904a6c07958",
+        "size_bytes": 912
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/vision/integration.py",
+        "sha256": "0b5e6d35b7479ea3ee70912123e4164af6474677deba4baa54e3b8e04c1dc388",
+        "size_bytes": 4779
+      },
+      {
+        "executable": false,
+        "path": "payload/frontend/vision/runtime.py",
+        "sha256": "58838d11abe2a88908d15055663b06daa72c3e48f18136d2ad4bef3cfa89c87c",
+        "size_bytes": 8698
+      },
+      {
+        "executable": false,
+        "path": "payload/metadata/release_manifest.json",
+        "sha256": "89566d8bdad586b0e13b3ad50f8f7a445d79227774cec7a0f00751c9ec5e6930",
+        "size_bytes": 1498
+      },
+      {
+        "executable": false,
+        "path": "payload/metadata/validation_profile.json",
+        "sha256": "2964a954a44205c430e5d469d898c25bc4261f6a7779fb90599fe2303f02f3a4",
+        "size_bytes": 4648
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/.gitignore",
+        "sha256": "c235826b30f7bb3deccc935edbbe9cc9f0a3f332aa42d7e31a24b9cde10dc50f",
+        "size_bytes": 80
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/__init__.py",
+        "sha256": "234ecfea821cefb2fc0f1cc7d27376c48d3be9f43e7cb3a580b593b25c4c98ca",
+        "size_bytes": 64
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/audits/playground_language_surface_v0_5_matrix.json",
+        "sha256": "214ffe89a5ff4f05b095ddea0b63cba71805629ef4181e490419bb7b5701b950",
+        "size_bytes": 2044
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/audits/playground_pattern_identity_normalization_matrix.json",
+        "sha256": "85a16305cb5f8e784271766509c5ee038c244e6cae438b508a8d5236d7400a9a",
+        "size_bytes": 1369
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/audits/playground_range_pattern_matrix.json",
+        "sha256": "b2cf39c5c536e56b0591b4501edaefbea89bfe1ac4394063780038c08d6d0d61",
+        "size_bytes": 1206
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/audits/playground_repository_stabilization_matrix.json",
+        "sha256": "240d82cbf746abc07628a399160d1ee1acc15715cde3e95e00330be463e794a5",
+        "size_bytes": 1911
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/backend/__init__.py",
+        "sha256": "d6e9ed336862a1d05745994cb44a85ac0342dd19d655bccd072063a7eebe7d7f",
+        "size_bytes": 63
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/backend/analyzer.py",
+        "sha256": "2f11cfc77cbb387cd103a6a111ca60405abb40b1cf1f60483fbdc256d2ae9213",
+        "size_bytes": 24508
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/backend/engine.py",
+        "sha256": "d2755168b26325ac3e40921c72abc9047d8fbb4bb46c2d6a0eed22c4cfa7dcf2",
+        "size_bytes": 59907
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/backend/language_audit.py",
+        "sha256": "5b5efd0d86e6a242fdac614658e675b3cce1606f1fc7e54f8e24a01dde9f95c0",
+        "size_bytes": 18145
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/backend/main.py",
+        "sha256": "58ae69c340cd9c9bd49628e426ed1f3bb33f884a759dd7d448df1bede6be0830",
+        "size_bytes": 48891
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/backend/reasoning_overview.py",
+        "sha256": "90c748810b58243cc3e72d752b0de7a3570f6f1bfa2c9371c5b2bfd85c763e60",
+        "size_bytes": 12263
+      },
+      {
+        "executable": false,
+        "path": "payload/playground/backend/workspace.py",
+        "sha256": "53d0bfb1c4e39d012101e4e625346065e23a91441c8377aa56bf98c944a75b00",
+        "size_bytes": 7659
+      },
+      {
+        "executable": true,
+        "path": "payload/playground/start.sh",
+        "sha256": "296550bdcc16e7083f542dc0e7782e08b7de38b660b1cf90bc24844aaaa48505",
+        "size_bytes": 1241
+      },
+      {
+        "executable": false,
+        "path": "payload/pyproject.toml",
+        "sha256": "d11a9fc0b8bd9b5acfeddc957793575a6a60d2718027ba669876f4d8b42149da",
+        "size_bytes": 788
+      },
+      {
+        "executable": true,
+        "path": "payload/reason",
+        "sha256": "c2c69211ff8b373c5078462f32bc21707b12dfa6c09b73b9e767c61a46bb1b78",
+        "size_bytes": 729
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/__init__.py",
+        "sha256": "84964ba19f90ff908ab75eccf0fb3a0cb132446f0d1e330edd2ae0cd8fef99e5",
+        "size_bytes": 302
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/data/__init__.py",
+        "sha256": "8c5ac4ce5b575e9056e43de6109318605c5d29efddd23bbf02509223d771c8b2",
+        "size_bytes": 2236
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/data/backend.py",
+        "sha256": "089272979a568758d21c02ae99de3f20fe9839d1ceb5fe089567275156fcf343",
+        "size_bytes": 27393
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/data/model.py",
+        "sha256": "8f7346b582edfca09743272a3f43ef084b13e483065414c01840f26749fb5131",
+        "size_bytes": 8619
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/data/result.py",
+        "sha256": "42e7497572736899997151f2fe84a577172481ae6e18596d43847dd22086b384",
+        "size_bytes": 519
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/data/serialization.py",
+        "sha256": "938a72b1e72b2ebe272b91567ba17827951927049d08d94260a295afdf6a67ee",
+        "size_bytes": 6044
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/data/titanic.py",
+        "sha256": "179fe319936a3d558410c597df2473eef7279c4fee7c144d334f113022ed3a6c",
+        "size_bytes": 4884
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/__init__.py",
+        "sha256": "fa31b4ab69b86906c955e24b2f9723e50bc2d781f0a8d545c80f553fa534f24d",
+        "size_bytes": 2627
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/artifacts.py",
+        "sha256": "aae2b19b5b142710b7a5116cf49a765974ceacf438f5e482301019c6f9ebe0d5",
+        "size_bytes": 5657
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/backend.py",
+        "sha256": "9ed8b3c760571a723af53d70bc4fcb6600086f43f43ed1e981a9c555eb80e35b",
+        "size_bytes": 616
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/evaluation/__init__.py",
+        "sha256": "354c7683038d834f87b72aa981480172b4fc347a8cb8a923ee15f7c3a42e5fb0",
+        "size_bytes": 857
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/evaluation/artifacts.py",
+        "sha256": "d19b4ac99f42c57ec91d97f4793280182e33c54b78a3f4dbbe023101ef455572",
+        "size_bytes": 5993
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/evaluation/metrics.py",
+        "sha256": "28b0212f1aa3133ff933c23093af8ad5e74f5b7675464f3d37575e8f47b9fc8e",
+        "size_bytes": 16800
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/evaluation/model.py",
+        "sha256": "531f42974d5ffbd135103b1c938d1b27f82506086a4ef096cdf6bf9dc11684f8",
+        "size_bytes": 5485
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/evaluation/operations.py",
+        "sha256": "5d4d3bf8f73cd4ebb48cc7d61a9ed180b82e4b97106b7456986e94d6773dbdae",
+        "size_bytes": 7673
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/matplotlib_backend.py",
+        "sha256": "66f52bb246a787dbffed61a58a3f4fd48c9df47a010435e957d3dc1d21670fac",
+        "size_bytes": 6214
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/model.py",
+        "sha256": "9293aa0a813e9852fc463588b17ca21e1aad5ee82cc3c7e0be50f8af3fd546bb",
+        "size_bytes": 3504
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/operations.py",
+        "sha256": "62ad45d936b5e892fe29f0ae338eb98362cf2a2ee474b6f202166fbd2b9c326a",
+        "size_bytes": 11194
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/provenance.py",
+        "sha256": "8147db07124ab09c668cb1eeae3f43a82a07a21c00f6c03303451bfdc7f82a4a",
+        "size_bytes": 1456
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/serialization.py",
+        "sha256": "7ec38211e02724b77e448ca240b3806d3f60bfbb8234ed6a47e6ebbd74caa80a",
+        "size_bytes": 1276
+      },
+      {
+        "executable": false,
+        "path": "payload/runtime/visualization/validation.py",
+        "sha256": "4849c58ba72803c3acec56ff338309d390f55282bedd25c8ef40ae0b50179f82",
+        "size_bytes": 2529
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/aggregation.schema.json",
+        "sha256": "e7906317698a916d1a9d896fc9e6ebc8c05bca380cae0f54f65e3137678d6bd5",
+        "size_bytes": 745
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/classification_evaluation.schema.json",
+        "sha256": "2da8a7b56b7a21c4d9957549c117e5451390ba5a93e42017399b6fc59fca4861",
+        "size_bytes": 960
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/classification_metrics.schema.json",
+        "sha256": "ebdc84137ebc39dafb3058088652476d53bdde11e672ada2dee17b504e1c84f7",
+        "size_bytes": 642
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/cluster_config.schema.json",
+        "sha256": "31c99b8555fc4c56e1c892e9f98e4a7d8b5c46f03907c462496713e34355f4a0",
+        "size_bytes": 1452
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/cluster_evaluation_report.schema.json",
+        "sha256": "8e695f8bdbbb0756cb46d25b9910a21119c671606336927e75a06a777fb950ef",
+        "size_bytes": 768
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/cluster_manifest.schema.json",
+        "sha256": "247964430bcd09bb89e646c62fb61488531b7de43fd4d2b4691045f0eff0048c",
+        "size_bytes": 969
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/cluster_message.schema.json",
+        "sha256": "1a5a8f13d0d269758bc8abbf76e86f009b2a0ef943b1a45fc0576b43819822f2",
+        "size_bytes": 1131
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/cluster_plan.schema.json",
+        "sha256": "a76f5b68159d0a55dd7c013958ed7d04b50ea85a0e98855caa47879fb59b3460",
+        "size_bytes": 998
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/cluster_state.schema.json",
+        "sha256": "4acb4c6e6128d9f6bac12a049fa94c47534f696eee9e503b3664251094c870e7",
+        "size_bytes": 951
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/code_viewer_document.schema.json",
+        "sha256": "0677ce09824b44d9591db85e24156ba04336a8593b02a23d0a56b4701328688d",
+        "size_bytes": 3135
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/column.schema.json",
+        "sha256": "82667ef843eb5f20c8dc2581d387677bd6a662bf9074b5d7fef481f2552b53a1",
+        "size_bytes": 538
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/confusion_matrix.schema.json",
+        "sha256": "3f92408bd4522fd80e43b8b41b3d91de2dce026299a566b6a3a07d3c4ef6da14",
+        "size_bytes": 562
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/current_installation.schema.json",
+        "sha256": "bbe05d62f6a22761cc42a100786acc0ae0178e95a28db530addb36d7b0e36d95",
+        "size_bytes": 525
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/data_analysis_result.schema.json",
+        "sha256": "04072e48de23d8327ab10bec5a01509ac07b16a8df86fb9ed640515881ceafa9",
+        "size_bytes": 771
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/data_evidence.schema.json",
+        "sha256": "59ae0c8b46eb83c14b02265b2f66b956b6eec603152e6426c1d33ff55714e3e3",
+        "size_bytes": 682
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/data_provenance.schema.json",
+        "sha256": "b50e5684deaa150a96b39045d871bf3361eb1d2f103dc698c42f6a88aa439756",
+        "size_bytes": 596
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/data_source.schema.json",
+        "sha256": "e42fc5df99849558683b3ec8170870d9df9b76ef5e2afcfc874a437919e56f1d",
+        "size_bytes": 612
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/decision_path_evaluation.schema.json",
+        "sha256": "d5ac32de79f337caab6e5d148f3223d7432079a945fe50425549eecf3395aaf9",
+        "size_bytes": 452
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/doctor.schema.json",
+        "sha256": "414d2bf06c4c6fcd3a0219582467df63aa0d82259eecc53e3113995a8c7a15ae",
+        "size_bytes": 506
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/dynamic_branch_graph.schema.json",
+        "sha256": "e46b3838affa26ec2ee2349280f0878e1880e8cae849deb15d4158e2fb3984c7",
+        "size_bytes": 517
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/dynamic_convergence_report.schema.json",
+        "sha256": "04b39134befbc04d30f74633ddd5ebf0c351a3c49630a5f71e9dac10a7d467b4",
+        "size_bytes": 569
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/dynamic_execution_summary.schema.json",
+        "sha256": "7e4223c3837788e45d7edfda625e1dbd17e3e56dc33f6270efecffa2b5e8b3af",
+        "size_bytes": 837
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/dynamic_plan_revision.schema.json",
+        "sha256": "2cfe14902197faaed2144a9c4262f1d43efd700b5c247ede4e92848ba6b85e1b",
+        "size_bytes": 875
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/dynamic_reason_unit_cluster_config.schema.json",
+        "sha256": "795d5d117e6a2727e173db2d29730ad715f211281bcf2095904391d3b7c9447e",
+        "size_bytes": 1038
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/dynamic_state_proposal.schema.json",
+        "sha256": "b45bba73db652e3dbc12bbdb9e91d4de0ca07e66318036e39366722bee824756",
+        "size_bytes": 663
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/dynamic_unit_lifecycle.schema.json",
+        "sha256": "e2b91bbf199b43f538bcb3825a83004966713acd385db882b195c4266bc3f2ad",
+        "size_bytes": 792
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/dynamic_unit_proposal.schema.json",
+        "sha256": "3410c2cb8d2d555c8e5a2958c52803fe261a167b3b6b86ddeb0fc978541b4aae",
+        "size_bytes": 1101
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/evaluation_render_plan.schema.json",
+        "sha256": "8daa3dcfe1bc15b4ae70d11213913868ec68747e0fa71d5ccaf804cd28d72833",
+        "size_bytes": 370
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/evaluation_visualization_ir.schema.json",
+        "sha256": "cf4ab4708ddb1c49039a3dd9da7287f7b999c817256a52ccec4939faeac83408",
+        "size_bytes": 436
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/evaluation_visualization_result.schema.json",
+        "sha256": "a1f52f30986d3b6f3cbbb318774c9617e5b35e052a2931d672a224010f9c6f1f",
+        "size_bytes": 647
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/evaluation_visualization_spec.schema.json",
+        "sha256": "9eb36792894a9ba27fcb02495fc9153fbb1d0f7f5831dd166bd53bcdd61414fe",
+        "size_bytes": 549
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/execution_plan.schema.json",
+        "sha256": "5ce979115b7e60f0aebaafb0e6642f0133ddee342c9309c23552b5d4e070ad68",
+        "size_bytes": 1703
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/generation_rule.schema.json",
+        "sha256": "38e64bd2d823bb45a4341ee4867506c116c159d4f0d6b87dcb25778e58a021d6",
+        "size_bytes": 919
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/grouped_table.schema.json",
+        "sha256": "21d354e7e4754768793305f3774957248593dbf0bc5e63178403680c80677168",
+        "size_bytes": 466
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/inference_result.schema.json",
+        "sha256": "91176717acc18b12aafafab323ab11416de744fbb700725b268d87f7a05495a4",
+        "size_bytes": 1737
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/install_manifest.schema.json",
+        "sha256": "880e891ae8972899800676e07948d481221b5a5dad0934b75ed9029978568e5b",
+        "size_bytes": 1218
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/install_manifest_v1_1.schema.json",
+        "sha256": "405fa93a771cf6eb4935e958837a63ee7f8d78a8c2d160d6f3f65ede55855388",
+        "size_bytes": 878
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/install_report.schema.json",
+        "sha256": "f3eb9aa096d87743daaf2f3cdccd990c16cddd81760c50681e4989c0b6f70554",
+        "size_bytes": 343
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/install_state.schema.json",
+        "sha256": "769207eb6870a36b1b49d222d00cb1029442c60959c26f571232e8c63bbec30d",
+        "size_bytes": 968
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/install_validation.schema.json",
+        "sha256": "3a3fe9b8866e50aebb3ee47ce2f70b7efe1cfbf8e65987a0769939b8a78c00ec",
+        "size_bytes": 418
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/installed_files.schema.json",
+        "sha256": "c93a8b562e247b8a1565c774a4d54892715654147797c276717d9d06ca9f476b",
+        "size_bytes": 658
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/package_checksums.schema.json",
+        "sha256": "3c95eaa4d70cd54507cf7f0b9ce79d8085eee31963a46803ffe8dd5e225e9392",
+        "size_bytes": 617
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/precision_recall_curve.schema.json",
+        "sha256": "453961056b6fee2a77c79bab36200445492ac16453cf75a85a7f03f18192ad0b",
+        "size_bytes": 628
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/prediction_evidence.schema.json",
+        "sha256": "66f67cd8fa55f1f36e64d6cba1528c6e34ad1b6f8cf86756255e15027d4f7d13",
+        "size_bytes": 690
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reason_ir.schema.json",
+        "sha256": "32be257a5779b0b57b4b48c43ae003ef924167322fa3ce9b6fae07d93ce4fa91",
+        "size_bytes": 5839
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reason_object_graph/canonical_artifact.schema.json",
+        "sha256": "769cafd40f1f11a48608cb78b6edc66cf171370db23b3e4b1972d40cadd07f94",
+        "size_bytes": 565
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reasonunit_baseline/canonical_artifact.schema.json",
+        "sha256": "14194b54c7b7f3b2965f626565217dc1548b262697ac118b3568a32eb242cce4",
+        "size_bytes": 576
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reasonunit_compatibility/canonical_artifact.schema.json",
+        "sha256": "9984cf134536d0f7c40d1c14901a35d1d7d49454eac6563af294bf083d26ac09",
+        "size_bytes": 615
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reasonunit_file/canonical_artifact.schema.json",
+        "sha256": "8f58802871321137e89032e9f266aa0fd572f248e18270d19537cf82e1cb9275",
+        "size_bytes": 567
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reasonunit_language/canonical_artifact.schema.json",
+        "sha256": "7a816a18195ff0f1c5d5189e86aea7ed9526ddf0bc58be2c174797db1f782115",
+        "size_bytes": 567
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reasonunit_migration/canonical_artifact.schema.json",
+        "sha256": "b6d86d30b32ba45b982983b01c4126b93adea79b2c7eb0e608860039617f4ecb",
+        "size_bytes": 545
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reasonunit_native_runtime/canonical_artifact.schema.json",
+        "sha256": "2bdd6bac022713b19d6b71215a5c655e7b4e6fd075185395ac4bbd8e1d2208ef",
+        "size_bytes": 561
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reasonunit_object/canonical_artifact.schema.json",
+        "sha256": "02ef9bb94f0f3e4ac2c750e97c08f55122a9d36720bb7ae66e4f81d413ad819b",
+        "size_bytes": 612
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reasonunit_tensor/artifact.schema.json",
+        "sha256": "66597b9a120bb5dcd905452b133d4c89bedcda0da8cf0bd0e2e227fa2918e886",
+        "size_bytes": 548
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/reasonunit_tensor/tensor_payload.schema.json",
+        "sha256": "1d65c7ae44fad346c9c0ff4bea716bc4c7f93cf5e2154639b28ac9e480d5abcd",
+        "size_bytes": 1354
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/release_manifest.schema.json",
+        "sha256": "de2e01425d8232c5c3d9127fd6fba8552ac93b627dbdac0c401bf2e24be677e2",
+        "size_bytes": 957
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/roc_curve.schema.json",
+        "sha256": "d793b3ee758a726d37d0d0101c0880bc98b14f942e78a3ded5560c8f58dd43c8",
+        "size_bytes": 574
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/row.schema.json",
+        "sha256": "f2434fb51b5526fee5ff16233645ac363207728e79acec54c9de8cc5bfa561cc",
+        "size_bytes": 402
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/rule_evaluation.schema.json",
+        "sha256": "91e55619223b1fa877cfb2afae53f9a272d95aa5e62603ac00153655b28d744e",
+        "size_bytes": 478
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/state_delta.schema.json",
+        "sha256": "eab31eb58cf6261300401dcf5be5ba3d3673fc379d8e8b738489cbfa3fcd508b",
+        "size_bytes": 730
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/table.schema.json",
+        "sha256": "7606f824d955cc0778f09b9321566b7082a8607cdb8a9b2668e36e349bb13cec",
+        "size_bytes": 718
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/table_schema.schema.json",
+        "sha256": "03fefeb9814bcac66b019bfd8102195f972d1fd7f39617c3be6f0c2d28526cb5",
+        "size_bytes": 763
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/titanic_analysis_result.schema.json",
+        "sha256": "c50f8bef01ab9b9be52733f4bf0f463467aff4b4e862d4f92b56ed22f3b50ce3",
+        "size_bytes": 1332
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/trace.schema.json",
+        "sha256": "2042313370ff05a845f2e4c66221909e3263dbd11c6b272e6f8d251737407972",
+        "size_bytes": 2734
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/transaction_record.schema.json",
+        "sha256": "63a87005db97bfa11ad26224c500563cf96aab92aaecaaf5f766fdc660fafd93",
+        "size_bytes": 1115
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/update_history.schema.json",
+        "sha256": "a71e29e67bbbc342b8d8115f6f9095e8ccddd45c22c828e167a8e4a6396ecdc5",
+        "size_bytes": 465
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/update_package_manifest.schema.json",
+        "sha256": "506df6ad233af61053c3f706a74306592f795bc2603b8c8e80d29c98c0dacc38",
+        "size_bytes": 3903
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/update_report.schema.json",
+        "sha256": "a606ab8ffee91f727cf548c414819ba1cd367cef4790596e62f0d5e639c21957",
+        "size_bytes": 507
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/update_transaction.schema.json",
+        "sha256": "b78e4d4e383e160063006b87cbc8b55d2356b48c7f73675812821fd839947cec",
+        "size_bytes": 1916
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/validation_profile.schema.json",
+        "sha256": "82fd0cda2f4c1807129e79fedf2dc980ba8344d43b39093df9889a2572b03127",
+        "size_bytes": 3466
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/validation_profile_declaration.schema.json",
+        "sha256": "f765a8f79bb9d0909c1b6eda90827e85a38aa69eb1f6414921db6690522d3b8a",
+        "size_bytes": 982
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/version_validation.schema.json",
+        "sha256": "6096108f48b92ef604612f34cd0d336062a02305b2bf218d3750095f128e87ae",
+        "size_bytes": 432
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/vision_observation.schema.json",
+        "sha256": "70d6629ca697a7f71c42bc7f8481ffe23587348eb15629b84719233cf3d90d2e",
+        "size_bytes": 2631
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/visualization_artifact_manifest.schema.json",
+        "sha256": "9e14cd7583641a2246425c58d8c1641ac4c853fc21a5aa8325f44ef5b3e31f9b",
+        "size_bytes": 533
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/visualization_evidence.schema.json",
+        "sha256": "1dc82bf185da3e7098b4ceb60bd97d36794fea7a522f7e27350d64d392652e56",
+        "size_bytes": 695
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/visualization_ir.schema.json",
+        "sha256": "1a36c6727831513360d85204f0fea81c51a4060144875526cfc8bbac6cedf585",
+        "size_bytes": 406
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/visualization_render_plan.schema.json",
+        "sha256": "15c60925b5bfbb6ae232e54af170071b560014b3c0fa2a0851e3f26be915fcfb",
+        "size_bytes": 433
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/visualization_result.schema.json",
+        "sha256": "32719def67eb154d3c54872a6591f6de964ffe3d4bdc2412989d6cc138ec4a2f",
+        "size_bytes": 674
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/visualization_spec.schema.json",
+        "sha256": "6b7bd27999e0d752c3424ca8f7b4230e5c0879f258397845e32fd20bde800eb5",
+        "size_bytes": 837
+      },
+      {
+        "executable": false,
+        "path": "payload/schemas/visualization_validation.schema.json",
+        "sha256": "235e50c3a888604f8b47d946ab075d7d2218da656e0348c8de7d2c2df01eb1ff",
+        "size_bytes": 430
+      },
+      {
+        "executable": false,
+        "path": "payload/scripts/__init__.py",
+        "sha256": "50105eede36b99ada40acfc890b9f819607e8a5faca86575fc6329111a4fad10",
+        "size_bytes": 51
+      },
+      {
+        "executable": false,
+        "path": "payload/scripts/build_update_package.py",
+        "sha256": "2799683119892af0aba7739f6c847dc3a432340fc263793ab54294473d00ebda",
+        "size_bytes": 16350
+      },
+      {
+        "executable": false,
+        "path": "payload/scripts/check_environment.py",
+        "sha256": "291780665c70fe6a0a495512e64d33a67a08b637957f7fecf25e266411217caa",
+        "size_bytes": 3930
+      },
+      {
+        "executable": false,
+        "path": "payload/scripts/dev.py",
+        "sha256": "e7eff9eb4695e27a33ef43661a0bad700089b942801486f9ce3d2aa08031a49e",
+        "size_bytes": 7377
+      },
+      {
+        "executable": false,
+        "path": "payload/scripts/install.ps1",
+        "sha256": "8b622a638d6af9e02db4b9d19b5500365fddc1afa4041e3a0c270b10067cf830",
+        "size_bytes": 385
+      },
+      {
+        "executable": true,
+        "path": "payload/scripts/install.sh",
+        "sha256": "5c909cb8285a21b1a23ebcb838eb0d8ea352bb2c8d4c8d2a3b531a666c3e5364",
+        "size_bytes": 124
+      },
+      {
+        "executable": true,
+        "path": "payload/scripts/install_common.py",
+        "sha256": "c56658ffe4fbf29457524524f0b3d84c2de80a161f8cc0584a9413263c5b0eab",
+        "size_bytes": 14359
+      },
+      {
+        "executable": false,
+        "path": "payload/scripts/reason_artifacts.py",
+        "sha256": "ebf142ad3110f9679b2a1c55076043593e8b0432e794669cd1fe62c5e58c7d1f",
+        "size_bytes": 2263
+      },
+      {
+        "executable": false,
+        "path": "payload/scripts/reason_cli.py",
+        "sha256": "a8446052f557cad58f3a2ace92055645efd7b75f35ab2e97d2cef2cc2bd127d1",
+        "size_bytes": 26922
+      },
+      {
+        "executable": false,
+        "path": "payload/scripts/test_platform.py",
+        "sha256": "97a669eec136eed083800dd3678595fc0616436977dd24a7f24dcb5b66a9bbf9",
+        "size_bytes": 9846
+      },
+      {
+        "executable": false,
+        "path": "payload/scripts/uninstall.ps1",
+        "sha256": "c176a5c8a23a46ab891cb9d6dbb736ce034a661bad8b3f46b857ded53932f363",
+        "size_bytes": 254
+      },
+      {
+        "executable": true,
+        "path": "payload/scripts/uninstall.py",
+        "sha256": "7d447426af3608a4d12cc1821d5c96fd528976b5839e0d126d89672cf2fcda77",
+        "size_bytes": 1868
+      },
+      {
+        "executable": true,
+        "path": "payload/scripts/uninstall.sh",
+        "sha256": "b24d75d74ff88c1981d077fd4f248a3871253d23593d78f9763b5877acb92900",
+        "size_bytes": 119
+      },
+      {
+        "executable": false,
+        "path": "payload/standard_library/README.md",
+        "sha256": "ae61acf27d349d00c49a6b60fc37a79daf601efc380a8d18c6edbc9ffd5adf16",
+        "size_bytes": 469
+      },
+      {
+        "executable": false,
+        "path": "payload/standard_library/install_smoke_test.rsn",
+        "sha256": "24c05ef3dfdb61878a0dbcd85db22c383f8be7804369dfab20b72ea718d20961",
+        "size_bytes": 88
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/__init__.py",
+        "sha256": "3186077efd663383ddc7e8fe622a11eaf0a3e947c4e3d5fb9aedd1434fda97e5",
+        "size_bytes": 747
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/__main__.py",
+        "sha256": "a2b9cc40cf72b9793418d54b5e702f9cbd5f96bf302d7393c9a263ebfff3157d",
+        "size_bytes": 11413
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/agent_protocol.py",
+        "sha256": "ad136014bf40ce6bad8e5b6139802b14463684507d622985f432b63ec3031e40",
+        "size_bytes": 6341
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/agent_protocol_cmd.py",
+        "sha256": "41651d78e69de1c354fb391a79444168aec1b1f9f336e71d3077bd1006739324",
+        "size_bytes": 2666
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/artifacts.py",
+        "sha256": "db4470be95c82260955aa910571380157a2c80cc85a5285629b38e817d8ab9ff",
+        "size_bytes": 12001
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/build_cmd.py",
+        "sha256": "97d9dc3caff83a5ad9ce1146343c560f45e7dd0002d87eac56b85175b403464a",
+        "size_bytes": 5161
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/check_cmd.py",
+        "sha256": "eebfc6f38c7653cd05cf9fffd00a94fb3583aa4fc10ffc1018d23100e802365d",
+        "size_bytes": 2464
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/ci.py",
+        "sha256": "a9ed6551805e5d0a41578f9d1a6bc6f9611ae678cd74101aaf5f2f9e32ab00f4",
+        "size_bytes": 13605
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/ci_cmd.py",
+        "sha256": "4d654e9f72d0578b1b2f423fb22d01185a691593ed84f5420321fa4e92d8cfec",
+        "size_bytes": 1799
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/ci_entry.py",
+        "sha256": "8e41581fa1563a8561c14a88fa7a53dec3d7281050dd7176a5911f8e19024666",
+        "size_bytes": 4720
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/ci_entry_cmd.py",
+        "sha256": "14b1569a9ffec642ba58c329ec913cae48544790845666d0802cbba32b003887",
+        "size_bytes": 951
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/cluster_runtime_cmd.py",
+        "sha256": "1d6e162de4df42510c6553a2a97b92221667c4ca4a64ab1557a4877f7f6b6458",
+        "size_bytes": 6280
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer/__init__.py",
+        "sha256": "525ebed998bf3d7ef5c6d61289fd6d046b9f6235e660aea038232b8c71eceb71",
+        "size_bytes": 1292
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer/anchors.py",
+        "sha256": "04c5c5ecba8dd26fed0b3ca40249021a46575169e193070f7dfe8c244153ed7b",
+        "size_bytes": 3156
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer/filetree.py",
+        "sha256": "87718728bb8a3dd04396fb3ec9455fd4e1a1f120c56d1bb0b4657964eeaa4b4b",
+        "size_bytes": 4733
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer/model.py",
+        "sha256": "9cccdaff5d1c4647c83e2f1a59ee2c703ba41b726a1cf1bd44102b0667c01d0d",
+        "size_bytes": 3302
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer/projection.py",
+        "sha256": "e7d8722177688143474eaa00c40b7b77b63b94da5169dd922472cddbe993c24c",
+        "size_bytes": 9998
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer/render.py",
+        "sha256": "2b372c07ee5b7a40ed868151bfe86a6d5d08a73aec7aaacd68dc6f36b2459e35",
+        "size_bytes": 13388
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer/serialize.py",
+        "sha256": "5732824ec2b5d11741eef4c0aa8b98d9bb8ad12731fb7cf8d1ff5b65d191ba78",
+        "size_bytes": 983
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer/stages.py",
+        "sha256": "2d03790f6fd5768c7ca55ef43887841bf8e36fa54d404974e2e0ebafac68139a",
+        "size_bytes": 2749
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer/theme.py",
+        "sha256": "bdbb5abbcd64fd350e48114db5501e9b16846c0f2ee03b32a28985dbc44137fd",
+        "size_bytes": 1555
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer/tui.py",
+        "sha256": "82d391a9711a0e6a487381967e2fddbc1ea94b52e1f35561b8cb6f07f389390b",
+        "size_bytes": 19583
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/code_viewer_cmd.py",
+        "sha256": "8e64069d1172571b96b61c3d2d68502a5cfe0b3978ce908c9553da3bde5eda46",
+        "size_bytes": 6742
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/data_artifacts.py",
+        "sha256": "ad1e4dfcc839449cdf1e51a5c3e0b7f492b629b2cc6be0c9fdb25cd4da2d48f9",
+        "size_bytes": 4813
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/diagnostics.py",
+        "sha256": "e009ddb75d4b334e9b61fd542401bd1c6e9f66a73be081936486fa06e3ec57c9",
+        "size_bytes": 14056
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/distribution_validation.py",
+        "sha256": "a7c3cca6a5af0bdee65aebf3c6482b8bc20ca4e0bc8f72fceb723b389a668389",
+        "size_bytes": 13056
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/golden.py",
+        "sha256": "5e2b28325289767d385ca4e85aeef6982655c445093f62e6eb46905a655c55c5",
+        "size_bytes": 11049
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/golden_cmd.py",
+        "sha256": "2abf6cc5ea58f920b24de61cc91a177a7167eb691c7a77c0abf23b9c84881a35",
+        "size_bytes": 1995
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/init_cmd.py",
+        "sha256": "383e7c1f1819f7f5e033ac8500de4b2b3d3acd142c52fd496934f49054968bf9",
+        "size_bytes": 5759
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/install_foundation.py",
+        "sha256": "33b0a1c4a7256e7e9ced4f45b6211e4384841d36f57999c5615e8e1e5563a5cd",
+        "size_bytes": 19541
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/install_update/__init__.py",
+        "sha256": "a83d76a3b762979cb46b2cac886d298671d07ed027d5dbf971b909205a9119ca",
+        "size_bytes": 200
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/install_update/cli.py",
+        "sha256": "543edd3755c352ed83aff0545f931c382d3d7433baaebc60fb9475cc8e2c10b3",
+        "size_bytes": 6084
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/install_update/core.py",
+        "sha256": "5bcac22ed34ccc88d85be4393b8fce39250a57c3a7707d1091c3c38cd8a5d91c",
+        "size_bytes": 49494
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/install_update/package_provenance.py",
+        "sha256": "f37da11977a41aee9407682e75384cb06ea3f4f1c6214bcd16a617402dc6454a",
+        "size_bytes": 9635
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/install_update/package_validator.py",
+        "sha256": "36cad47305ee756f118798ccd9a3fefe2f1fb62f7dd2589f5bcb1287fae91fd5",
+        "size_bytes": 16866
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/install_update/platform.py",
+        "sha256": "4d4de6f657b1eced7873c8b9820e29801dbec687ed0d1f0ee31b26e3f7b28f68",
+        "size_bytes": 5985
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/install_update/report.py",
+        "sha256": "b7b1db88ed174281587c07512e724081f3663fabb773f5086a9f2744b2268b8b",
+        "size_bytes": 1731
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/install_update/validation_profile.py",
+        "sha256": "3244041abfed3caffafc8edcbddda3f6f4252b144ff3bc03c3523180b927a954",
+        "size_bytes": 25250
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/installed_permissions.py",
+        "sha256": "cd608ba92c7920d78ed1e5c7f528e9afa18554342c055579bd68a6e47022557d",
+        "size_bytes": 1032
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/manifest.py",
+        "sha256": "a6a751df941df166ceb2d6450496f8b17cbd273d21490fc72f4fcf498506629d",
+        "size_bytes": 1680
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/native_runtime.py",
+        "sha256": "dd895294b2790f76938e17273895c908dd9e2a2055f59ce2948171d6bd62a0e6",
+        "size_bytes": 1557
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/object_cmd.py",
+        "sha256": "1952cc34dc34d84f1b9406ee222573736d40b97b7448708fac8f44eab3a54c4a",
+        "size_bytes": 10265
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/phase1r_validation.py",
+        "sha256": "856033020cbc996d8e42818495a8c1063705d82b727a7206adccee732172a211",
+        "size_bytes": 8135
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/phase1r_validation_cmd.py",
+        "sha256": "3dd4d58675c86c773a479c0725649701f42cd76c0fa39a58382023edfc43e06c",
+        "size_bytes": 516
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/phase8_golden_cmd.py",
+        "sha256": "1f11dc6968e9e7f0bf77095460401e64a005da05ab3e11d167d8072cc85bcf40",
+        "size_bytes": 1142
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/phase8_golden_validation.py",
+        "sha256": "6c76b9f08e53d63b73d99fcfce6866614d19c4417cf3328d0eafe69f0934dc50",
+        "size_bytes": 9136
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/pipeline.py",
+        "sha256": "7cee4a930be301afb830a09152b5fbce995c9e8dbd64c95021b6e57d4e99f5e1",
+        "size_bytes": 4529
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/project_validate_cmd.py",
+        "sha256": "9cd6338e29655dd607228933f83670ab764063fd393af15423df3f618b5aa9fc",
+        "size_bytes": 817
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/project_validation.py",
+        "sha256": "ba9727f3de5358ccada72a4b7b6758e3b24680807ae8785e6e39433fa3f3aef2",
+        "size_bytes": 6556
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/__init__.py",
+        "sha256": "473ed2b6d39bd6a5d28e9d61280a409f97a31fa173818aa20557de5d1dc63a4b",
+        "size_bytes": 2879
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/compatibility.py",
+        "sha256": "c1531fe3bf129303dfb477ed4be2694133aefb548688f63bb93d85abccd31f82",
+        "size_bytes": 12333
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/format.py",
+        "sha256": "8f7dad8010d349d588b5a944a693ca0327fd58950894f187f4916dca3da9f7b6",
+        "size_bytes": 7148
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/language.py",
+        "sha256": "19a6f5496b38458749cec75bf4d6dc39d83dbfd6a38799ecc89db9515d722297",
+        "size_bytes": 6999
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/mirp_projection.py",
+        "sha256": "dfc44687c1608fa1f490e2ba84136f2c2d2e7deea1ad09220888cb7e6a9da4f5",
+        "size_bytes": 3973
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/mirp_transport.py",
+        "sha256": "623999b3ef4c112ad7ea3496d2bcca766d4f044614ac5531e0bd58411c8e64af",
+        "size_bytes": 7045
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/model.py",
+        "sha256": "0e2c0097d48bd272da094dbd79951ad3f6f6ed548a504f861c82ec6f1b1fdce8",
+        "size_bytes": 13367
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/native.py",
+        "sha256": "2e65f74391d528d76801511da1615b0c84dd2213e0feb3cde0c9ce57616d49f2",
+        "size_bytes": 2743
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/native_graph.py",
+        "sha256": "6c7cf6e0a2b508cfb1bd1e060d988c55ce9f63e497d642c8a98b5df6e228a585",
+        "size_bytes": 6705
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/persistence.py",
+        "sha256": "a30becf7bfa0cd3bb422cd50163894ef89b4d3d51902d093e1aa5b2d9d8f5636",
+        "size_bytes": 1219
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/phase.py",
+        "sha256": "d199dcc8385fafe8355eaa93a66825d6d5ab014408bb68c9dc9806adc82a9c0e",
+        "size_bytes": 21324
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/query.py",
+        "sha256": "58e651188ba5604b0dec7cba5e5d38872c080305b0de1af40420808777b76fca",
+        "size_bytes": 2438
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/ruo_f1.py",
+        "sha256": "59233edeb319d95662de687447ea3a377635fb7e99cec87b03740f4957e5340e",
+        "size_bytes": 1967
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/ruo_u1.py",
+        "sha256": "3246898e9c2c96728fb01fcbba37d280843a73037ab4452dcadeccd3d92e7863",
+        "size_bytes": 2674
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph/transaction.py",
+        "sha256": "ee72a473fd0e55928d5bf28ff945db1523ca8766d9b6e56efad5af8238a991a7",
+        "size_bytes": 5835
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reason_object_graph_cmd.py",
+        "sha256": "4938268cd91cfe6aeb1095da137c1100f2441e861f520fb76d38614a5234ec75",
+        "size_bytes": 10359
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasoning_evaluation_cmd.py",
+        "sha256": "ea79319cb23fe1ecd52857ff0b12abac93754fdc421e1534e406615f4d8089e6",
+        "size_bytes": 1993
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasoning_evaluation_report.py",
+        "sha256": "d64e98564d6f5ccde43dd085f43f4c9723fcb95d0a5497f32bcbcd76ddf01b8a",
+        "size_bytes": 33221
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasoning_model_cmd.py",
+        "sha256": "c7420a15659671ac1cf749405440b5db205335d3ade467002f45619505b97f1e",
+        "size_bytes": 1379
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasoning_model_contract.py",
+        "sha256": "5dd7fa4d88cd9410f1b6aed611e82435bdb04bf6c20008dbab1f2b50f43511dd",
+        "size_bytes": 17921
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasoning_runtime.py",
+        "sha256": "10f4d19b50628d7bf1c8ac46f91d64c53c94a384aa824c1279ad0a71b8e55062",
+        "size_bytes": 28261
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasoning_runtime_cmd.py",
+        "sha256": "c7939132469d918e6119ff9dfbf808251df67f4426da56d9ffe67f29dcaeb242",
+        "size_bytes": 3446
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_baseline/__init__.py",
+        "sha256": "914d9b6ea7471f36dbe9803308e35ea208a44e85989bb79d2471a9769f526164",
+        "size_bytes": 172
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_baseline/baseline.py",
+        "sha256": "804fcb668bf65b13f9d6ec127548cbfb44bd13418e77f64ac08a2bb6ef0f234d",
+        "size_bytes": 49971
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_baseline_cmd.py",
+        "sha256": "eb9a383bdf8b81891058d4b848f619997d72eff0bd35fcc4c52b3b3cf857a844",
+        "size_bytes": 1645
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_compatibility/__init__.py",
+        "sha256": "807fb77cd57f17db57463f091fdf89cb1f421f38be9cb84e2777010c7aac7262",
+        "size_bytes": 855
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_compatibility/compatibility.py",
+        "sha256": "741771c54c6f9ceb1bb0fb371bcf659ed370b67e7ca27b70f44634a247a3bd55",
+        "size_bytes": 32035
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_compatibility/model.py",
+        "sha256": "5070e19aa9c35cdd941dc89e136ef212673874a5a730623d1b24dbe3fa54d1ed",
+        "size_bytes": 22364
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_compatibility_cmd.py",
+        "sha256": "d7f50088f87a00e40704fec03d49efab2b47a3012b00f322d962d44cdbd20cb9",
+        "size_bytes": 1677
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_file/__init__.py",
+        "sha256": "ddafa30851560a51c1128e666663968e6337154f606823b4908a79d92dac54e9",
+        "size_bytes": 645
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_file/format.py",
+        "sha256": "7ea7e1adcdcb2be1c3778b3ef90eb363a209a438df6a8d531461ab7067b29da1",
+        "size_bytes": 30163
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_file/phase.py",
+        "sha256": "2f5c3fe703ba22ae5ee3d07eb6b1d5063909f458fe2c7e055e7dc568d99e18ac",
+        "size_bytes": 31979
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_file_cmd.py",
+        "sha256": "3dccc539fb4a271848bd98a885d19c7ac531c42f89e936b5640578589e6a8f18",
+        "size_bytes": 6549
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_language/__init__.py",
+        "sha256": "159db2689204e2b3cf74f21de2247de77ff8d75cacd62f1049b2644decde1aa4",
+        "size_bytes": 459
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_language/language.py",
+        "sha256": "8e73d89cc91e24cbe1f174ccafabef47f66f023047d77479976129d91372f75e",
+        "size_bytes": 7055
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_language/phase.py",
+        "sha256": "0c91842861d083c609a5ba8753beb25c39edb6b1682152ef8db3f4a912f9c6c0",
+        "size_bytes": 28927
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_migration/__init__.py",
+        "sha256": "1779dccbea0a150601efda823477faf18018d7f57b03813159fa12fe314d45e3",
+        "size_bytes": 489
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_migration/engine.py",
+        "sha256": "b216c270bc68267eab6b9ef88d41cf83e8bb022fd1bcca80274675c20c9b08e0",
+        "size_bytes": 21778
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_migration/phase.py",
+        "sha256": "53472c576541c0fc226ec4efbf678df63d1805ea61277416d3c6a952bfba9479",
+        "size_bytes": 24712
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_migration_cmd.py",
+        "sha256": "a8fbc9623cf4dd7a7324c1dc752d50bb56699a64cc9555334cfff07eb25cb1ba",
+        "size_bytes": 4548
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_object/__init__.py",
+        "sha256": "68e72125a933188a28c87b776b1b16ed3c8de7168810ca4d1fea9ddcb87f460c",
+        "size_bytes": 766
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_object/model.py",
+        "sha256": "f06666994776508852236896c0d8cfa3bd75075c3e45fdf2c3a2665c9df42021",
+        "size_bytes": 19163
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_object/universal.py",
+        "sha256": "63a6c8be4dd7ebff6b741e1f91329446ccb4718ab01ab64dd1f4fe39adab41a8",
+        "size_bytes": 30379
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_object_cmd.py",
+        "sha256": "ade6b636f8fd76a06ebb4ecc2caaf2f65e325fd26913dcc2b4b7ca1facad8c83",
+        "size_bytes": 1445
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_runtime/__init__.py",
+        "sha256": "868816d70b9b8f745badeb8723ab12bdcbc1d16344911c6c301c90a95d562b7e",
+        "size_bytes": 263
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_runtime/phase.py",
+        "sha256": "61e0bd6b5fb6fee0f564904e5d5abdbd32c957af26422ae95701d11bfcdb7345",
+        "size_bytes": 27361
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_runtime_cmd.py",
+        "sha256": "1a7c25da74906b014172c200fec1d9bf43a2e377a4a1b97e9298e0f926af2e10",
+        "size_bytes": 2836
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_tensor/__init__.py",
+        "sha256": "7132fa8e7f9298c9cb63d7ceaaefd64110c211b8240d478f5ca89525a1cf1c42",
+        "size_bytes": 811
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_tensor/model.py",
+        "sha256": "21aa8b54a9b7a6f9803449fd79b678de3f8791b8cd8945632fdabbfdaaca4b12",
+        "size_bytes": 38679
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_tensor/phase.py",
+        "sha256": "72538ea4073fa5d38042e658f681d896b7b20f57c06727f4b8b0c5b761306689",
+        "size_bytes": 31874
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/reasonunit_tensor_cmd.py",
+        "sha256": "d525384fc0063d891fd862ef77f281700acdc6eb772ba80e74a800edd6099d6d",
+        "size_bytes": 10871
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/run_cmd.py",
+        "sha256": "0eda55ad77e480a554c9650fe3f80295e3da98b627ce98f45bebfd34dae2c60d",
+        "size_bytes": 4755
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/runner_cmd.py",
+        "sha256": "05c13442d90730ca57ff80804e03e2df4912302c1ecf8ee4177345808f5985a5",
+        "size_bytes": 2780
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/tensor_cmd.py",
+        "sha256": "e0dd2e61ceffa9141852712db27f2afd6749ef86385fbaf7eee3fc517b26d8a6",
+        "size_bytes": 4877
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/version_validation.py",
+        "sha256": "3debc37aa1c5e854f85328cef90d762cf74419cddd11fee695fac4164782d5b8",
+        "size_bytes": 3488
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/vision_runtime_cmd.py",
+        "sha256": "47446b9f001689e977096b3be3ca250dc38d2e35a5313cf9ff9d00357634565d",
+        "size_bytes": 8572
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/visualization_runtime_cmd.py",
+        "sha256": "59f429f6b321ede6d6975a82a1fd5f17049550597fd2dc654a5c3e669abb98a2",
+        "size_bytes": 6541
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/workspace.py",
+        "sha256": "7cd64d343e943a5dcc61ef9d0f0bd317185bcb94efaf6788b96af43735aa016d",
+        "size_bytes": 13296
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/workspace_cmd.py",
+        "sha256": "3f000b467b68e17c238bd589a33d43d247bc02e7486743f3c2a0900d4eb5acae",
+        "size_bytes": 3587
+      },
+      {
+        "executable": false,
+        "path": "payload/toolchain/workspace_foundation.py",
+        "sha256": "5c9b1ed7bfc8ce35b8d88b461a4ccf3f94fc578b2cc847ff0616df39a13ce017",
+        "size_bytes": 20141
+      }
+    ],
+    "hash_algorithm": "sha256",
+    "payload_sha256": "144e1b86520de278cbe3861823d4eaa3aab466a0a0c23b426074dc812700d2d7"
+  },
+  "package_class": "development",
+  "package_id": "reasonscript-0.5.4.9-macos-arm64",
+  "release": {
+    "expected_commit": "90d79f9cc85535b347c97e413cc3bbcfbd13f4f4",
+    "expected_version": "0.5.4.9"
+  },
+  "repository": {
+    "branch": "codex/v0.5.4.7-language-runtime-fixes",
+    "name": "ReasonScript"
+  },
+  "schema_version": "reasonscript-update-package-manifest/1.0",
+  "source_commit": {
+    "sha": "90d79f9cc85535b347c97e413cc3bbcfbd13f4f4",
+    "short_sha": "90d79f9"
+  },
+  "source_tree": {
+    "dirty": true,
+    "submodule_changes": false,
+    "tracked_changes": true,
+    "untracked_files": true
+  },
+  "target": {
+    "architecture": "arm64",
+    "archive_format": "zip",
+    "os": "macos"
+  },
+  "validation_profile": {
+    "profile_id": "reasonscript-validation-profile",
+    "profile_path": "payload/metadata/validation_profile.json",
+    "profile_sha256": "2964a954a44205c430e5d469d898c25bc4261f6a7779fb90599fe2303f02f3a4",
+    "profile_version": "0.5.4.9",
+    "schema_version": "reasonscript-validation-profile-declaration/1.0"
+  }
+}
