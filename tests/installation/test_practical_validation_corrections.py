@@ -19,7 +19,48 @@ def test_release_metadata_is_consistent():
     payload = validate_version(ROOT)
     assert payload["schema_version"] == "reasonscript-version-validation/1.0"
     assert payload["status"] == "pass"
-    assert [item["id"] for item in payload["checks"]] == [f"VER-{i:03d}" for i in range(1, 7)]
+    assert [item["id"] for item in payload["checks"]] == [
+        *(f"VER-{i:03d}" for i in range(1, 10)),
+        "VER-011",
+        "VER-012",
+    ]
+
+
+def test_release_documentation_drift_is_reported(tmp_path: Path):
+    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    version_token = version.replace(".", "_")
+    for relative in (
+        "VERSION",
+        "pyproject.toml",
+        "metadata/release_manifest.json",
+        "README.md",
+        "docs/README.md",
+        "CHANGELOG.md",
+        f"release/RELEASE_NOTES_v{version_token}.md",
+    ):
+        source = ROOT / relative
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source.read_bytes())
+
+    readme = tmp_path / "README.md"
+    readme.write_text(
+        readme.read_text(encoding="utf-8").replace(
+            f"Current release: **v{version}**",
+            "Current release: **v0.0.0**",
+        ),
+        encoding="utf-8",
+    )
+
+    payload = validate_version(tmp_path)
+    checks = {item["id"]: item for item in payload["checks"]}
+    assert payload["status"] == "fail"
+    assert checks["VER-007"] == {
+        "id": "VER-007",
+        "status": "fail",
+        "actual": "0.0.0",
+        "expected": version,
+    }
 
 
 def test_hyphenated_project_and_artifact_resolution(tmp_path: Path):

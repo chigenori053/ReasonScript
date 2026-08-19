@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "ReasonScript v0.5.4.9 package and local update",
-  "tests_passed": 1211,
+  "task": "Synchronize v0.5.4.9 release documentation",
+  "tests_passed": 1212,
   "version": "1.0"
 }

@@ -37,8 +37,32 @@ def validate_version(root: Path, *, tag: str | None = None) -> dict[str, Any]:
         else ""
     )
     _add(checks, "VER-006", str(release.get("runtime_compatibility", "")), compatibility)
+    version_token = canonical.replace(".", "_")
+    readme = _text(root / "README.md")
+    docs_index = _text(root / "docs" / "README.md")
+    changelog = _text(root / "CHANGELOG.md")
+    _add(
+        checks,
+        "VER-007",
+        _match(readme, r"Current release: \*\*v([^*]+)\*\*"),
+        canonical,
+    )
+    installation_path = f"docs/installation/ReasonScript_v{version_token}_Installation.md"
+    _add(checks, "VER-008", installation_path if installation_path in readme else "", installation_path)
+    docs_installation = f"installation/ReasonScript_v{version_token}_Installation.md"
+    _add(checks, "VER-009", docs_installation if docs_installation in docs_index else "", docs_installation)
     if tag is not None:
         _add(checks, "VER-010", tag.removeprefix("v"), canonical)
+    changelog_heading = f"## v{canonical}"
+    _add(checks, "VER-011", changelog_heading if changelog_heading in changelog else "", changelog_heading)
+    release_notes = root / "release" / f"RELEASE_NOTES_v{version_token}.md"
+    release_title = f"ReasonScript {canonical}"
+    _add(
+        checks,
+        "VER-012",
+        release_title if release_title in _text(release_notes) else "",
+        release_title,
+    )
     failed = sum(item["status"] == "fail" for item in checks)
     return {"schema_version": SCHEMA_VERSION, "status": "pass" if not failed else "fail",
             "canonical_version": canonical, "checks": checks,
@@ -80,6 +104,18 @@ def _json(path: Path) -> dict[str, Any]:
         return value if isinstance(value, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def _text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _match(text: str, pattern: str) -> str:
+    match = re.search(pattern, text)
+    return match.group(1) if match else ""
 
 
 def _option(args: list[str], name: str) -> str | None:

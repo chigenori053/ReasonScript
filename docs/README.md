@@ -5,13 +5,14 @@ documentation for the ReasonScript language and platform.
 
 ## Current Release
 
-- `specifications/ReasonScript_v0_5_4_2_Release_Definition.md` — normative
-  v0.5.4.2 release scope and acceptance criteria.
-- `installation/ReasonScript_v0_5_4_2_Installation.md` — official macOS arm64
+- `../release/RELEASE_NOTES_v0_5_4_9.md` — ReasonScript v0.5.4.9 release
+  scope, compatibility notes, and package location.
+- `changelog/reasonscript_v0_5_4_9.md` — concise v0.5.4.9 changelog.
+- `installation/ReasonScript_v0_5_4_9_Installation.md` — official macOS arm64
   package update and validation procedure.
-- `reports/ReasonScript_v0_5_2_4_Release_Report.md` — package provenance,
-  validation, and local installation results.
-- `changelog/reasonscript_v0_5_2_4.md` — concise maintenance changelog.
+- `specifications/ReasonScript_Transformer_Validation_Remediation_v0_1.md` and
+  `specifications/ReasonScript_Agent_Project_Template_v0_1.md` — accepted
+  specifications for the v0.5.4.9 corrections and Agent project template.
 
 ## Language
 

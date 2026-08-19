@@ -5,7 +5,7 @@
   "golden": true,
   "schema": "reasonscript-ci-summary/1.0",
   "status": "PASS",
-  "tests": 1085,
+  "tests": 1212,
   "version": "1.0",
   "workspace": true
 }
