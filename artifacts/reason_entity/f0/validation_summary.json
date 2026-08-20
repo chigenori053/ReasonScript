@@ -1,0 +1,10 @@
+{
+  "data": {
+    "determinism_status": "PENDING_VERIFICATION",
+    "fixture_count": 14,
+    "invalid_fixture_count": 1,
+    "phase_status": "GENERATED"
+  },
+  "profile_version": "reasonscript-reason-entity-baseline/1.0",
+  "schema_version": "reasonscript-reason-entity-baseline-validation-summary/1.0"
+}

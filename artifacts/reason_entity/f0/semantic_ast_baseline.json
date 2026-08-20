@@ -1,0 +1,64 @@
+{
+  "data": {
+    "fixtures": [
+      {
+        "path": "examples/function_basic.rsn",
+        "semantic_ast_digest": "sha256:20f29ccecc784d093aee31079c4d116db67b07dacf5c1502c6225bf8bc879874"
+      },
+      {
+        "path": "examples/function_call_from_calculation.rsn",
+        "semantic_ast_digest": "sha256:b1b7625873fe19ddb8f7a4b89ce5840602406ee89b15b313985885e678ad9299"
+      },
+      {
+        "path": "examples/scalar_arithmetic.rsn",
+        "semantic_ast_digest": "sha256:963fe64a1ba7d2bd4e9952fecdf09665e0e59feaa813e2047641b0052ccb0a62"
+      },
+      {
+        "path": "examples/scalar_literals.rsn",
+        "semantic_ast_digest": "sha256:dd92e0998e6f9fbc658074bfa3dca36e38a0147702af38413d9d518b05c47a04"
+      },
+      {
+        "path": "examples/session_fix.rsn",
+        "semantic_ast_digest": "sha256:ef81a344c11994098153219b91e694a1075d6e166488aeecd25e27b3f43ad9e8"
+      },
+      {
+        "path": "examples/v0_5/001_minimal_module.rsn",
+        "semantic_ast_digest": "sha256:54b56b02eea4e21e0c069fcd9e3eae0ec4a44746c632ab8bca09021d6705b83f"
+      },
+      {
+        "path": "examples/v0_5/002_single_calculation.rsn",
+        "semantic_ast_digest": "sha256:1cf23ec6e27f1d621172e4eb821e097de788bfb97544a4da53c582142dc068cd"
+      },
+      {
+        "path": "examples/v0_5/003_calculation_dependency.rsn",
+        "semantic_ast_digest": "sha256:78408061709a65d0183644cbf8e0034c033275ff37b9f144cc98e5cf23114997"
+      },
+      {
+        "path": "examples/v0_5/004_function_call.rsn",
+        "semantic_ast_digest": "sha256:1d622dd8e1502c69584faa4a945a31224a8b139b320a63a6d1ed5408507bd78c"
+      },
+      {
+        "path": "examples/v0_5/005_branching_function.rsn",
+        "semantic_ast_digest": "sha256:6f7c6aaedd1fe24ea3914ddc34b8a2a872127bbf64b8d4c5d75d885e3eb20dfa"
+      },
+      {
+        "path": "examples/v0_5/006_runtime_input_print.rsn",
+        "semantic_ast_digest": "sha256:476e9f9c330ac4ad02106b4935a14449ad0ffa55c35c7c5b7c66349aa90adc50"
+      },
+      {
+        "path": "examples/v0_5/007_runtime_operation.rsn",
+        "semantic_ast_digest": "sha256:6741a1d341234976bb4653d703805b024390cbf4719fabb17de36bf484c773eb"
+      },
+      {
+        "path": "examples/v0_5/008_struct_pattern.rsn",
+        "semantic_ast_digest": "sha256:dd075c729f4a4027070700beec188156a1f3279c57e1751ec55729279057bbe4"
+      },
+      {
+        "path": "examples/v0_5/009_optional_match.rsn",
+        "semantic_ast_digest": "sha256:81fdf5fbf87025773285135c2812b352df53926b19bf124a6df4bbadd609e4d6"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reason-entity-baseline/1.0",
+  "schema_version": "reasonscript-reason-entity-baseline-semantic-ast-baseline/1.0"
+}

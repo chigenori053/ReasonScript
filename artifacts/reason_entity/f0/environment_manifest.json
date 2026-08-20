@@ -1,0 +1,46 @@
+{
+  "data": {
+    "canonical_commands": [
+      "reason reason-entity-baseline generate",
+      "reason reason-entity-baseline validate",
+      "reason ci"
+    ],
+    "environment_metadata": {
+      "operating_system": "darwin",
+      "python": "3.14.0"
+    },
+    "fixture_corpus": {
+      "invalid": [
+        "examples/proof_failure.rsn"
+      ],
+      "tensor_numeric": [
+        "conv2d_train_step",
+        "matmul_relu_mean"
+      ],
+      "valid": [
+        "examples/function_basic.rsn",
+        "examples/function_call_from_calculation.rsn",
+        "examples/scalar_arithmetic.rsn",
+        "examples/scalar_literals.rsn",
+        "examples/session_fix.rsn",
+        "examples/v0_5/001_minimal_module.rsn",
+        "examples/v0_5/002_single_calculation.rsn",
+        "examples/v0_5/003_calculation_dependency.rsn",
+        "examples/v0_5/004_function_call.rsn",
+        "examples/v0_5/005_branching_function.rsn",
+        "examples/v0_5/006_runtime_input_print.rsn",
+        "examples/v0_5/007_runtime_operation.rsn",
+        "examples/v0_5/008_struct_pattern.rsn",
+        "examples/v0_5/009_optional_match.rsn"
+      ]
+    },
+    "profiles": [
+      "reasonscript-reason-entity-baseline/1.0"
+    ],
+    "reason_version": "0.5.4.6",
+    "repository_branch": "claude/reasonscript-entity-foundation-d37396",
+    "repository_revision": "181ba17048b837b81c6cb6ca3a401c036276afeb"
+  },
+  "profile_version": "reasonscript-reason-entity-baseline/1.0",
+  "schema_version": "reasonscript-reason-entity-baseline-environment-manifest/1.0"
+}

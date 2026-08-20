@@ -1,0 +1,64 @@
+{
+  "data": {
+    "fixtures": [
+      {
+        "execution_plan_digest": "sha256:bda07adb0c901b875e40249287a7371133ccbe3a2810799e270b09f754447446",
+        "path": "examples/function_basic.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:0cb36aaab2374ada626576a43faa6e8defc6db19c5a1d9d87fbda0f2c48763c6",
+        "path": "examples/function_call_from_calculation.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:519714123a8cff8ce399fc8b30c969c992529026b30eb98ca103cd6857bf5b54",
+        "path": "examples/scalar_arithmetic.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:7813a2175f7d096a68f808294ba1e0eeb661a112dace42a688d0cd9d34a39987",
+        "path": "examples/scalar_literals.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:ff2c7c197cd952da4c06acb18aab3acfbcdc62dfbf82ca160981a3988af727fb",
+        "path": "examples/session_fix.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:6bdfc8d57ce93123988e60f3b7c5d80396d301d85170cf987ace91d76b2be094",
+        "path": "examples/v0_5/001_minimal_module.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:c9fc909e7318976690ad4806d50c0c641b954e1f5b5c3c8a0a29ddf33ec7cec5",
+        "path": "examples/v0_5/002_single_calculation.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:d3c8c7d4465bccde73366333923a307b49e171966fef434bc96bfe73b8f1ff09",
+        "path": "examples/v0_5/003_calculation_dependency.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:ea71b7304dc1824c686b7972bee216aa7207337394715ed1d91e9a918e043551",
+        "path": "examples/v0_5/004_function_call.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:52d344994963956a482e9969d6892b1f04c13a82a8989c720270def436f4e897",
+        "path": "examples/v0_5/005_branching_function.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:41bac3fc9dea1363a527ebe729aa813426f3ce60d1d810d1e0c80494fe255403",
+        "path": "examples/v0_5/006_runtime_input_print.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:72703a318f2e8174a8b999da50ce1dc12fef9e0c5e6bdcd5855f4a56522577b7",
+        "path": "examples/v0_5/007_runtime_operation.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:d6160385101b30e1a0eafe904b3f01a4219a54709610b3fe472223b2a3f84e8d",
+        "path": "examples/v0_5/008_struct_pattern.rsn"
+      },
+      {
+        "execution_plan_digest": "sha256:b6a0a2190e6fb73ec847881c0d3732b3ac956e5552ade5e5d5755690e6500cae",
+        "path": "examples/v0_5/009_optional_match.rsn"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reason-entity-baseline/1.0",
+  "schema_version": "reasonscript-reason-entity-baseline-execution-plan-baseline/1.0"
+}

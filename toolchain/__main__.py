@@ -124,6 +124,10 @@ def main() -> int:
         from toolchain.reasonunit_baseline_cmd import run
         return run(args[1:], project_root)
 
+    if command == "reason-entity-baseline":
+        from toolchain.reason_entity_baseline_cmd import run
+        return run(args[1:], project_root)
+
     if command == "reasonunit-compatibility":
         from toolchain.reasonunit_compatibility_cmd import run
         return run(args[1:], project_root)

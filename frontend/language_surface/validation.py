@@ -9,6 +9,8 @@ from typing import Any
 
 from frontend.tensor.integration import (
     TensorSemanticError,
+    infer_tensor_dtype,
+    infer_tensor_shape,
     tensor_call_name,
     validate_tensor_call,
 )
@@ -1746,6 +1748,65 @@ def _validate_runtime_reasoning_argument(
         raise SurfaceValidationError("RuntimeReasoningTypeMismatch")
 
 
+_TENSOR_DTYPE_PRIMITIVES = {
+    "bool": PrimitiveKind.BOOL,
+    "i32": PrimitiveKind.INT,
+    "i64": PrimitiveKind.INT,
+    "f32": PrimitiveKind.FLOAT,
+    "f64": PrimitiveKind.FLOAT,
+}
+
+
+def _to_array_result_type(value: CallExpressionNode) -> Any:
+    """`tensor.to_array(x)` result type: nested Array of the element dtype.
+
+    Shape/dtype are inferred best-effort (RS-RE-FSM-001 §6.4). An
+    unresolvable shape defaults to rank 1 and an unresolvable dtype
+    defaults to the Tensor runtime's own default (`f32` -> Float), so the
+    result is always indexable instead of falling back to Unknown.
+    """
+    argument = value.arguments[0] if value.arguments else None
+    shape = infer_tensor_shape(argument) if argument is not None else None
+    dtype = infer_tensor_dtype(argument) if argument is not None else None
+    element_kind = _TENSOR_DTYPE_PRIMITIVES.get(dtype, PrimitiveKind.FLOAT)
+    element_type: Any = PrimitiveTypeNode(element_kind)
+    rank = len(shape) if shape else 1
+    for _ in range(rank):
+        element_type = ArrayTypeNode(element_type)
+    return element_type
+
+
+_NUMERIC_CONVERSION_BUILTINS = {"float", "int"}
+
+
+def _validate_numeric_conversion_call(
+    value: CallExpressionNode,
+    name: str,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> Any:
+    if len(value.arguments) != 1:
+        raise SurfaceValidationError(
+            f"FN-012 {name}() expects exactly one argument"
+        )
+    argument = value.arguments[0]
+    argument_expression = (
+        argument if isinstance(argument, ExpressionNode) else ExpressionNode(argument)
+    )
+    argument_type = _expression_type(argument_expression.expression, symbols, bindings)
+    numeric = {
+        PrimitiveTypeNode(PrimitiveKind.INT),
+        PrimitiveTypeNode(PrimitiveKind.FLOAT),
+    }
+    if argument_type is not _UNKNOWN_TYPE and argument_type not in numeric:
+        raise SurfaceValidationError(
+            f"FN-013 {name}() argument must be Int or Float"
+        )
+    return PrimitiveTypeNode(
+        PrimitiveKind.FLOAT if name == "float" else PrimitiveKind.INT
+    )
+
+
 _UNKNOWN_TYPE = object()
 
 
@@ -1874,6 +1935,8 @@ def _expression_type(
             raise SurfaceValidationError(
                 "TYPE-V004 TYPE-001 mixed or non-numeric arithmetic invalid"
             )
+        if value.operator == BinaryOperator.DIVIDE:
+            return PrimitiveTypeNode(PrimitiveKind.FLOAT)
         return left
     if isinstance(value, ComparisonExpressionNode):
         left = _expression_type(value.left, symbols, bindings)
@@ -2006,6 +2069,8 @@ def _expression_type(
                 return PrimitiveTypeNode(PrimitiveKind.STRING)
             if tensor_function == "tensor.save":
                 return NamedTypeNode("TensorArtifactReceipt")
+            if tensor_function == "tensor.to_array":
+                return _to_array_result_type(value)
             return NamedTypeNode("Tensor")
         if vision_call_name(value) is not None:
             try:
@@ -2016,6 +2081,10 @@ def _expression_type(
         if isinstance(value.callee, IdentifierNode):
             if value.callee.name == _CURRENT_FUNCTION:
                 raise SurfaceValidationError("FN-007 recursive function calls are rejected")
+            if value.callee.name in _NUMERIC_CONVERSION_BUILTINS:
+                return _validate_numeric_conversion_call(
+                    value, value.callee.name, symbols, bindings
+                )
             function = symbols.get(value.callee.name)
             if isinstance(function, FunctionDeclarationNode):
                 if len(value.arguments) != len(function.parameters):

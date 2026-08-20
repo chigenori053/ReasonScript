@@ -1,0 +1,66 @@
+{
+  "data": {
+    "compile_timings": [
+      {
+        "compile_seconds": 0.001711,
+        "path": "examples/function_basic.rsn"
+      },
+      {
+        "compile_seconds": 0.002169,
+        "path": "examples/function_call_from_calculation.rsn"
+      },
+      {
+        "compile_seconds": 0.001928,
+        "path": "examples/scalar_arithmetic.rsn"
+      },
+      {
+        "compile_seconds": 0.002459,
+        "path": "examples/scalar_literals.rsn"
+      },
+      {
+        "compile_seconds": 0.00286,
+        "path": "examples/session_fix.rsn"
+      },
+      {
+        "compile_seconds": 0.001866,
+        "path": "examples/v0_5/001_minimal_module.rsn"
+      },
+      {
+        "compile_seconds": 0.001886,
+        "path": "examples/v0_5/002_single_calculation.rsn"
+      },
+      {
+        "compile_seconds": 0.002123,
+        "path": "examples/v0_5/003_calculation_dependency.rsn"
+      },
+      {
+        "compile_seconds": 0.002146,
+        "path": "examples/v0_5/004_function_call.rsn"
+      },
+      {
+        "compile_seconds": 0.002876,
+        "path": "examples/v0_5/005_branching_function.rsn"
+      },
+      {
+        "compile_seconds": 0.00191,
+        "path": "examples/v0_5/006_runtime_input_print.rsn"
+      },
+      {
+        "compile_seconds": 0.001859,
+        "path": "examples/v0_5/007_runtime_operation.rsn"
+      },
+      {
+        "compile_seconds": 0.004149,
+        "path": "examples/v0_5/008_struct_pattern.rsn"
+      },
+      {
+        "compile_seconds": 0.003052,
+        "path": "examples/v0_5/009_optional_match.rsn"
+      }
+    ],
+    "fixture_count": 14,
+    "note": "Wall-clock measurements; informational only, not a determinism target."
+  },
+  "profile_version": "reasonscript-reason-entity-baseline/1.0",
+  "schema_version": "reasonscript-reason-entity-baseline-performance-baseline/1.0"
+}

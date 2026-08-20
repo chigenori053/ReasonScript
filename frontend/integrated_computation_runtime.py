@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -536,6 +537,20 @@ def _expression(
                     "RT-CALL-002", "array.append first argument must be an array"
                 )
             return [*collection, copy.deepcopy(item)]
+        if (
+            isinstance(value.callee, IdentifierNode)
+            and value.callee.name in {"float", "int"}
+            and value.callee.name not in functions
+        ):
+            argument = _expression(
+                value.arguments[0], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            return (
+                float(argument)
+                if value.callee.name == "float"
+                else math.trunc(argument)
+            )
         if isinstance(value.callee, IdentifierNode):
             function_node = functions.get(value.callee.name)
             if function_node is None:

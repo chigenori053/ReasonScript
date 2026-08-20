@@ -1,0 +1,70 @@
+{
+  "data": {
+    "artifact_count": 11,
+    "artifacts": [
+      {
+        "bytes": 818,
+        "path": "diagnostic_code_inventory.json",
+        "sha256": "sha256:90e9ce969da007823b6e496d5b6574997e7dcf6a0c0f4e5d12c74bfc1e2d120a"
+      },
+      {
+        "bytes": 1542,
+        "path": "environment_manifest.json",
+        "sha256": "sha256:6c66a9c6803aaf0cdcc5a68331278f3522d4993c22c3459e9db97b0d3e5ccd83"
+      },
+      {
+        "bytes": 2709,
+        "path": "execution_plan_baseline.json",
+        "sha256": "sha256:d16a2b8460e2ca1608d93b647a5ae97854557675e32b9e348f2e273512992295"
+      },
+      {
+        "bytes": 1035,
+        "path": "final_report.md",
+        "sha256": "sha256:dbf2bd2167a146b9faa1cf649141886024d3c453bc7181479b10744cead4d003"
+      },
+      {
+        "bytes": 1828,
+        "path": "performance_baseline.json",
+        "sha256": "sha256:21eb1b07e1208bc039acd604846bf563c8c35b0bb9b57a6af5582f820d6aa83b"
+      },
+      {
+        "bytes": 2634,
+        "path": "reason_ir_baseline.json",
+        "sha256": "sha256:3da2b80b71e5bc3987c8ba5c6f33f19e8dbae8df43fd2703ae115e0ba11db826"
+      },
+      {
+        "bytes": 1370,
+        "path": "ruo_compatibility_baseline.json",
+        "sha256": "sha256:0b517ef09116e44ceaf477a5af93535ab19d5844e500790ae5f2dc0fccbbd9f9"
+      },
+      {
+        "bytes": 2679,
+        "path": "semantic_ast_baseline.json",
+        "sha256": "sha256:874b2101ae7082a6dde1b1ecc5c405f36a17a337f4413f5ed51aa026df61c91d"
+      },
+      {
+        "bytes": 8404,
+        "path": "surface_ast_baseline.json",
+        "sha256": "sha256:f043d2e14597571c56856a86fe6b191e3fac030e6ca4e096a580e91659e083f0"
+      },
+      {
+        "bytes": 806,
+        "path": "tensor_numeric_baseline.json",
+        "sha256": "sha256:110870411118a60bb03a37011d38ba3518de4731ea372ba9f472a4cc33808bb3"
+      },
+      {
+        "bytes": 305,
+        "path": "validation_summary.json",
+        "sha256": "sha256:8aa0128ad8ce835847b73d30f88b65905a632ce563af3b24699342e0d1d3c93b"
+      }
+    ],
+    "canonicalization": {
+      "encoding": "UTF-8",
+      "json_keys": "sorted",
+      "line_endings": "LF",
+      "non_finite_numbers": "rejected"
+    }
+  },
+  "profile_version": "reasonscript-reason-entity-baseline/1.0",
+  "schema_version": "reasonscript-reason-entity-baseline-run-manifest/1.0"
+}

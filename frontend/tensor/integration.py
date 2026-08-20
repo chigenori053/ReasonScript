@@ -177,6 +177,10 @@ def infer_tensor_shape(
             literal = _literal(value.arguments[0])
             if literal is not _UNKNOWN:
                 return _literal_shape(literal)
+        if name in {"tensor.zeros", "tensor.ones", "tensor.full"} and value.arguments:
+            literal = _literal(value.arguments[0])
+            if literal is not _UNKNOWN:
+                return _literal_shape(literal)
         if name in {
             "tensor.relu",
             "tensor.softmax",
@@ -280,6 +284,76 @@ def infer_tensor_shape(
                     (source[2] + 2 * padding[0] - kernel[0]) // stride[0] + 1,
                     (source[3] + 2 * padding[1] - kernel[1]) // stride[1] + 1,
                 )
+    return None
+
+
+_DTYPE_LAST_ARGUMENT_CALLS = {
+    "tensor.zeros",
+    "tensor.ones",
+    "tensor.full",
+    "tensor.random_uniform",
+    "tensor.random_normal",
+    "tensor.random_bernoulli",
+}
+_DTYPE_PASSTHROUGH_FIRST_ARGUMENT_CALLS = {
+    "tensor.relu",
+    "tensor.softmax",
+    "tensor.parameter",
+    "tensor.detach",
+    "tensor.reshape",
+    "tensor.transpose",
+    "tensor.slice",
+    "tensor.narrow",
+    "tensor.gather",
+    "tensor.matmul",
+    "tensor.linear",
+    "tensor.add",
+    "tensor.subtract",
+    "tensor.multiply",
+    "tensor.divide",
+    "tensor.power",
+    "tensor.mean",
+    "tensor.sum",
+    "tensor.max",
+    "tensor.min",
+    "tensor.conv2d",
+    "tensor.max_pool2d",
+    "tensor.avg_pool2d",
+    "tensor.im2col",
+    "tensor.window",
+    "tensor.maximum",
+    "tensor.exp",
+}
+
+
+def infer_tensor_dtype(value: Any, bindings: dict[str, str] | None = None) -> str | None:
+    """Best-effort dtype inference used to type `tensor.to_array` results.
+
+    Unresolvable cases fall back to ``None`` rather than raising: callers
+    default to the Tensor runtime's own default dtype (``f32``).
+    """
+    bindings = bindings or {}
+    value = value.expression if isinstance(value, ExpressionNode) else value
+    if isinstance(value, IdentifierNode):
+        return bindings.get(value.name)
+    if not isinstance(value, CallExpressionNode):
+        return None
+    name = tensor_call_name(value)
+    if name is None:
+        return None
+    if name == "tensor.create":
+        if len(value.arguments) >= 2:
+            dtype = _literal(value.arguments[1])
+            if isinstance(dtype, str) and dtype in DTYPES:
+                return dtype
+        return None
+    if name in _DTYPE_LAST_ARGUMENT_CALLS and value.arguments:
+        dtype = _literal(value.arguments[-1])
+        if isinstance(dtype, str) and dtype in DTYPES:
+            return dtype
+        return "f32"
+    if name in _DTYPE_PASSTHROUGH_FIRST_ARGUMENT_CALLS and value.arguments:
+        return infer_tensor_dtype(value.arguments[0], bindings)
     return None
 
 

@@ -1,0 +1,20 @@
+{
+  "data": {
+    "fixtures": [
+      {
+        "name": "conv2d_train_step",
+        "result_value": -0.009756864875830685,
+        "runtime_result_digest": "sha256:e7bb8bb264327b0b3c2fcef16cd076c1197f252e1f7eeb9e839973171a0af1c3",
+        "source_sha256": "sha256:1bbbe0322fba7c8bfaa993159c9be7700f56896b9011f5c45ac836ec604fa0b8"
+      },
+      {
+        "name": "matmul_relu_mean",
+        "result_value": 0.3548001892277823,
+        "runtime_result_digest": "sha256:42db50c2abda359b5323f202226e7ed2c1841d74cf23e483b6618335ce9a54b4",
+        "source_sha256": "sha256:3da9dbf631928acd07f00b6f1784a1f77a81fd3ebc3f93ce1f5524a7d6d3aa77"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reason-entity-baseline/1.0",
+  "schema_version": "reasonscript-reason-entity-baseline-tensor-numeric-baseline/1.0"
+}

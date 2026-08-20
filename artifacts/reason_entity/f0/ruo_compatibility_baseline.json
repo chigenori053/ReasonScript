@@ -1,0 +1,49 @@
+{
+  "data": {
+    "note": "Existing RUO-C0/C1/U1/F1/T1/N1/N2 artifacts are unmodified by this Phase.",
+    "referenced_paths": [
+      {
+        "available": false,
+        "path": "schemas/reasonunit_object"
+      },
+      {
+        "available": false,
+        "path": "schemas/reasonunit_file"
+      },
+      {
+        "available": false,
+        "path": "schemas/reasonunit_language"
+      },
+      {
+        "available": false,
+        "path": "schemas/reasonunit_native_runtime"
+      },
+      {
+        "available": false,
+        "path": "schemas/reasonunit_baseline"
+      },
+      {
+        "available": false,
+        "path": "schemas/reasonunit_compatibility"
+      },
+      {
+        "available": false,
+        "path": "schemas/reasonunit_tensor"
+      },
+      {
+        "available": true,
+        "bytes": 30379,
+        "path": "toolchain/reasonunit_object/universal.py",
+        "sha256": "sha256:63a6c8be4dd7ebff6b741e1f91329446ccb4718ab01ab64dd1f4fe39adab41a8"
+      },
+      {
+        "available": true,
+        "bytes": 19163,
+        "path": "toolchain/reasonunit_object/model.py",
+        "sha256": "sha256:f06666994776508852236896c0d8cfa3bd75075c3e45fdf2c3a2665c9df42021"
+      }
+    ]
+  },
+  "profile_version": "reasonscript-reason-entity-baseline/1.0",
+  "schema_version": "reasonscript-reason-entity-baseline-ruo-compatibility-baseline/1.0"
+}
