@@ -46,6 +46,7 @@ CODE_CATEGORY_PREFIXES = {
     "ST": "Language",
     "AST": "Language",
     "SEM": "Semantic",
+    "RE": "Semantic",
     "IR": "ReasonIR",
     "EP": "ExecutionPlan",
     "SIM": "Simulation",

@@ -577,7 +577,7 @@ evaluate(derived):
 |---|---|---|
 | F0 Baseline Freeze | **完了** | [toolchain/reason_entity_baseline/](toolchain/reason_entity_baseline/) 実装。`reason reason-entity-baseline generate/validate` で 3 回生成 byte-identical を確認済み（`performance_baseline.json` は §7 の方針どおり比較対象外）。テストは [tests/reason_entity_baseline/](tests/reason_entity_baseline/)。 |
 | F1 Type Foundation Repair | **部分完了**（D-3・D-4・D-5 実装、D-1・D-2 は保留） | 詳細は各 F1-N 節の「実装時の訂正」を参照。テストは [type_foundation_repair_tests/](type_foundation_repair_tests/)。 |
-| F2 Surface Prerequisite Foundation | 未着手 | |
+| F2 Surface Prerequisite Foundation | **完了**（F2-3 のみ範囲縮小） | 演算子継続（D-6）、`<-` 語彙化、[frontend/entity/](frontend/entity/) の Canonical ID・`EntityTable` を実装。詳細は F2-3 節の「実装時の訂正」を参照。テストは [surface_prerequisite_foundation_tests/](surface_prerequisite_foundation_tests/)。 |
 | E0 Internal Reason Entity Model | 未着手 | |
 | E1 Surface Model v0.1 | 未着手 | |
 | E2 Integration | 未着手（§2.2 の Q2 に依存） | |
@@ -809,6 +809,19 @@ result_type(tensor.to_array(x)):
   （所有グラフ、依存グラフ、循環検出、衝突検出）。
 - `namespace.py` の `resolve_program` に Entity スコープチェーンを追加する。
   **この時点では Entity 宣言が存在しないため、動作は完全に no-op である。**
+
+**実装時の訂正（範囲の縮小）**: `namespace.py` の `resolve_program` への
+フックは実装しなかった。この関数は Entity を含まない既存プログラムの
+名前解決を毎回通る、極めて高頻度に実行される中核関数である。E1-1 で
+`ReasonEntityDeclarationNode` が Surface AST に追加されるまでは、
+このフックが実際にマッチしうる AST ノード型が存在しないため、
+「完全な no-op」という設計上の前提そのものは正しいが、
+**その no-op を実証するためだけにこの中核関数へ変更を加えることは、
+得られる利益がゼロのままリスクだけを負う**と判断した。
+`frontend/entity/identity.py` / `registry.py` は Surface 非依存で
+完全に独立してテスト可能であるため（本節冒頭の 2 項目）、
+`namespace.py` との接続は、実際に接続すべき Surface ノードが存在する
+E1-2（§4 Phase E1）まで延期する。
 
 #### F2-4: 診断基盤
 

@@ -438,11 +438,27 @@ def _validate_reason_object_path(value: str) -> None:
         raise SurfaceSyntaxError("RUO-N2-006 unsafe or non-relative Object path")
 
 
+_CONTINUATION_OPERATORS = (
+    "->", "<-", "&&", "||", "==", "!=", "<=", ">=",
+    "+", "-", "*", "/", "%", "<", ">", "=", ",", ".",
+)
+
+
+def _ends_with_continuation_operator(line: str) -> bool:
+    for operator in _CONTINUATION_OPERATORS:
+        if line.endswith(operator):
+            return True
+    return False
+
+
 def _collect_simple_statement(cursor: _Cursor) -> str:
     parts = [cursor.take()]
     first_location = _CURRENT_SOURCE_LINE.get()
     balance = _expression_delimiter_balance(parts[0])
-    while balance > 0 and cursor.index < len(cursor.lines):
+    while cursor.index < len(cursor.lines) and (
+        balance > 0
+        or (cursor.current() != "}" and _ends_with_continuation_operator(parts[-1]))
+    ):
         next_line = cursor.take()
         parts.append(next_line)
         balance += _expression_delimiter_balance(next_line)

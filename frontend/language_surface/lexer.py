@@ -138,6 +138,7 @@ def tokenize(source: str) -> tuple[SurfaceToken, ...]:
                     "::",
                     ">=",
                     "<=",
+                    "<-",
                     "==",
                     "!=",
                     "&&",
