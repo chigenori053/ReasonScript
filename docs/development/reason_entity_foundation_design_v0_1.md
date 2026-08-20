@@ -578,7 +578,7 @@ evaluate(derived):
 | F0 Baseline Freeze | **完了** | [toolchain/reason_entity_baseline/](toolchain/reason_entity_baseline/) 実装。`reason reason-entity-baseline generate/validate` で 3 回生成 byte-identical を確認済み（`performance_baseline.json` は §7 の方針どおり比較対象外）。テストは [tests/reason_entity_baseline/](tests/reason_entity_baseline/)。 |
 | F1 Type Foundation Repair | **部分完了**（D-3・D-4・D-5 実装、D-1・D-2 は保留） | 詳細は各 F1-N 節の「実装時の訂正」を参照。テストは [type_foundation_repair_tests/](type_foundation_repair_tests/)。 |
 | F2 Surface Prerequisite Foundation | **完了**（F2-3 のみ範囲縮小） | 演算子継続（D-6）、`<-` 語彙化、[frontend/entity/](frontend/entity/) の Canonical ID・`EntityTable` を実装。詳細は F2-3 節の「実装時の訂正」を参照。テストは [surface_prerequisite_foundation_tests/](surface_prerequisite_foundation_tests/)。 |
-| E0 Internal Reason Entity Model | 未着手 | |
+| E0 Internal Reason Entity Model | **完了** | [frontend/entity/](frontend/entity/) を完成（`model.py` / `slot.py` / `diagnostics.py` / `lowering.py` を追加）。[schemas/reason_entity.schema.json](schemas/reason_entity.schema.json) を新設。仕様 §13 Phase E0 の受け入れ条件（全 Entity Kind 生成、3 回生成 byte-identical、スキーマ通過、RUO-U1 `validate_object` 診断 0 件）をすべて満たすことを [reason_entity_tests/test_entity_model.py](reason_entity_tests/test_entity_model.py) で実証。Parser には一切触れていない。 |
 | E1 Surface Model v0.1 | 未着手 | |
 | E2 Integration | 未着手（§2.2 の Q2 に依存） | |
 
@@ -868,6 +868,37 @@ E1-2（§4 Phase E1）まで延期する。
 - RUO-U1 `validate_object` に投影して診断 0 件であること
   （RUO-U1 との構造互換の実証）。
 
+**実装時の訂正・確定事項**:
+
+- **`ReasonEntityDecl` / `model.py` の扱い**: §3.2 の当初案は
+  `ReasonEntityDecl` を `model.py` に置くとしていたが、F2 で先に
+  `registry.py` の `EntityRecord` として実装・テスト済みであったため、
+  同じ役割を果たす型を `model.py` へ移動（リネームのみ）することは
+  何の振る舞いも変えずにリスクだけを負う。`EntityRecord` は
+  `registry.py` に残し、`model.py` は F2 未実装だった 2 点
+  （`EntityRelation` 型と RUO-U1 投影関数）に専念させた。
+- **RUO のネスト投影は対象外**: `project_to_ruo_u1` は Entity Kind が
+  `RUO` の宣言を含む `EntityTable` を拒否する（`RE-RUO-002`、新設）。
+  RUO-U1 は 1 文書につき 1 つの `object_identity` のみを持つため、
+  RUO を入れ子にした Reason Entity 構成をこの平坦な投影へ写すことは
+  未定義になる。これは仕様 §10 Q4/Q5（RUO の永続化・RUS→RUO 明示変換の
+  詳細仕様が Deferred）と整合する境界であり、v0.1 の非目標
+  （§2.3「RUOの暗黙的実行」「完全な所有権推論」）を超えて先取りしない。
+- **Derived Entity の依存循環検出の実効範囲**: `EntityTable.declare` は
+  宣言順の単一パスであり、未宣言の Entity への依存は
+  `RE-REL-001`（不明な依存）として先に拒否されるため、複数ノードを跨ぐ
+  A↔B 循環は構造的に `_creates_dependency_cycle` の走査へ到達し得ない
+  （到達できるのは自己参照のみ）。これは Surface 言語自体が前方参照を
+  禁止していること（`let`/`const` と同様）と整合しており、Phase E1 で
+  Surface の `derive:` を接続しても同じ制約が保たれる。走査ロジック自体は
+  将来 2 パス方式の登録 API を導入した場合に備えて一般形のまま残した
+  （`frontend/entity/registry.py` のコメント参照）。
+- **Tensor 型の Entity 遷移は E0 では実 Tensor を使わない**: Appendix A
+  の `loss: Tensor` は、E0 のフィクスチャでは Tensor Runtime を配線せず
+  スカラー値で代用した。Entity の propose-validate-commit 機構自体は
+  値の型に依存しないため、これで仕様が要求する遷移メカニクスの検証は
+  成立する。実際の Tensor 値との接続は Phase E1（Runtime 配線）で行う。
+
 ---
 
 ### Phase E1 — Surface Model v0.1
@@ -991,6 +1022,8 @@ elif re.match(r"^[A-Za-z_]\w*\s*<-\s*", line):
 | `RE-REL-001` | Semantic | 存在しない Entity への Relation | 仕様 §14 |
 | `RE-LOWER-001` | Semantic | 決定論的に Lowering できない構文 | 仕様 §14 |
 | **`RE-DERIVE-001`** | Semantic | **Derived Entity の循環依存** | **本設計で追加**（§3.9） |
+| **`RE-DERIVE-002`** | Semantic | **Derived Entity 宣言に評価器（evaluator）が無い** | **Phase E0 実装時に追加**（`frontend/entity/slot.py`。Surface 接続前の内部 API 制約） |
+| **`RE-RUO-002`** | Semantic | **RUO-U1 投影が RUO のネストを含む Entity 構成を拒否** | **Phase E0 実装時に追加**（`frontend/entity/model.py`。§10 Q4/Q5 に伴う投影境界） |
 | **`TYPE-020`** | Type | **関数引数の型注釈が必要（推論不能）** | **本設計で追加**（F1-1） |
 | **`TYPE-021`** | Type | **戻り値型が経路間で不一致** | **本設計で追加**（F1-2） |
 | ~~`TYPE-022`~~ | Type | ~~`tensor.to_array` の結果型に注釈が必要~~ | **未実装**（F1-3 実装時に、注釈要求ではなく既定値フォールバックへ縮小） |

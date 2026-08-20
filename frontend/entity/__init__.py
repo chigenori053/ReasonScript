@@ -9,7 +9,10 @@ tested standalone first (Phase F2/E0), per RS-RE-FSM-001 ADR-101/102/103.
 
 from .identity import CanonicalIdError, canonical_entity_id, parse_canonical_entity_id
 from .kinds import EntityKind, PersistencePolicy, TransitionPolicy
+from .lowering import entity_plan_for, lower_entities, lower_environment
+from .model import EntityRelation, implicit_containment_relations, project_to_ruo_u1
 from .registry import EntityRecord, EntityRegistryError, EntityTable
+from .slot import EntityEnvironment, EntitySlotError, RUSlot
 
 __all__ = [
     "CanonicalIdError",
@@ -21,4 +24,13 @@ __all__ = [
     "EntityRecord",
     "EntityRegistryError",
     "EntityTable",
+    "EntityRelation",
+    "implicit_containment_relations",
+    "project_to_ruo_u1",
+    "RUSlot",
+    "EntityEnvironment",
+    "EntitySlotError",
+    "lower_entities",
+    "lower_environment",
+    "entity_plan_for",
 ]

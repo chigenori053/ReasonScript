@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .kinds import EntityKind
+from .kinds import EntityKind, PersistencePolicy
 
 
 class EntityRegistryError(ValueError):
@@ -26,6 +26,9 @@ class EntityRecord:
     owner_id: str | None
     dependencies: tuple[str, ...] = ()
     value_type: Any = None
+    declared_type: Any = None
+    persistence_policy: PersistencePolicy = PersistencePolicy.SESSION
+    lifecycle: str = "active"
 
 
 @dataclass

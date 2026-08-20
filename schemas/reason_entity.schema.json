@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schema/reason-entity/0.1",
+  "title": "Reason Entity IR Payload 0.1",
+  "description": "Payload of the Reason IR `metadata.reason_entities` field (RS-RE-FSM-001 ADR-103).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "entities", "relations"],
+  "properties": {
+    "schema_version": {
+      "const": "reasonscript-reason-entity/0.1"
+    },
+    "entities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entity" }
+    },
+    "relations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/relation" }
+    },
+    "instructions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/instruction" },
+      "default": []
+    }
+  },
+  "$defs": {
+    "entity_kind": {
+      "type": "string",
+      "enum": [
+        "AtomicReasonUnit",
+        "ReasonUnitStructure",
+        "ReasonUnitObject",
+        "DerivedReasonUnit"
+      ]
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_id", "kind", "identifier", "owner_id",
+        "value_type", "declared_type", "transition_policy",
+        "persistence_policy", "lifecycle", "revision",
+        "members", "dependencies"
+      ],
+      "properties": {
+        "canonical_id": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/entity_kind" },
+        "identifier": { "type": "string", "minLength": 1 },
+        "owner_id": { "type": ["string", "null"] },
+        "value_type": {},
+        "declared_type": {},
+        "transition_policy": {
+          "type": "string",
+          "enum": ["InitializeOnly", "Explicit"]
+        },
+        "persistence_policy": {
+          "type": "string",
+          "enum": ["Session", "Persistent"]
+        },
+        "lifecycle": {
+          "type": "string",
+          "enum": [
+            "proposed", "active", "suspended", "reactivated", "replaced",
+            "pruned", "retired", "converged", "terminated", "deleted"
+          ]
+        },
+        "revision": { "type": "integer", "minimum": 0 },
+        "members": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "source_span": {
+          "oneOf": [
+            { "$ref": "#/$defs/source_span" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "source_span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_line", "start_column", "end_line", "end_column"],
+      "properties": {
+        "start_line": { "type": "integer", "minimum": 1 },
+        "start_column": { "type": "integer", "minimum": 1 },
+        "end_line": { "type": "integer", "minimum": 1 },
+        "end_column": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation_id", "source", "target", "relation_type",
+        "relation_class", "validity", "evidence_refs",
+        "provenance_ref", "revision"
+      ],
+      "properties": {
+        "relation_id": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "relation_type": { "type": "string", "minLength": 1 },
+        "relation_class": {
+          "type": "string",
+          "enum": ["internal", "cross_payload", "cross_object", "external", "project_local"]
+        },
+        "validity": { "type": "string", "minLength": 1 },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "provenance_ref": { "type": ["string", "null"] },
+        "revision": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "instruction": {
+      "type": "object",
+      "required": ["op", "entity"],
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": [
+            "DeclareEntity",
+            "InitializeEntityState",
+            "ReadEntityState",
+            "ProposeEntityTransition",
+            "ValidateEntityTransition",
+            "CommitEntityTransition",
+            "DeclareDerivedEntity",
+            "EvaluateDerivedEntity",
+            "CreateStructure",
+            "CreateObject",
+            "ProjectEntity"
+          ]
+        },
+        "entity": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
