@@ -22,6 +22,8 @@ from itertools import product
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
+from frontend.entity.slot import RUSlot
+
 from .operations import operation_signature
 
 DTYPES = {"bool", "i32", "i64", "f32", "f64"}
@@ -440,6 +442,9 @@ class TensorRuntime:
         def visit(value: Any) -> None:
             if isinstance(value, TensorValueRef):
                 reachable.add(value.tensor_id)
+                return
+            if isinstance(value, RUSlot):
+                visit(value.current_value)
                 return
             if isinstance(value, (str, bytes, bool, int, float, type(None))):
                 return

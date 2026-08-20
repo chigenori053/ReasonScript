@@ -202,6 +202,12 @@ class EntityEnvironment:
     def slot(self, canonical_id: str) -> RUSlot:
         return self._require_slot(canonical_id)
 
+    def all_slots(self) -> tuple[RUSlot, ...]:
+        """Every RU Slot currently held, for a Tensor Runtime's `collect()`
+        reachability walk to treat as live roots (RS-RE-FSM-001 §3.8 C-5).
+        """
+        return tuple(self._slots.values())
+
     def _require_slot(self, canonical_id: str) -> RUSlot:
         slot = self._slots.get(canonical_id)
         if slot is None:

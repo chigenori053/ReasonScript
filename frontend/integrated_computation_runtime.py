@@ -4,10 +4,20 @@ from __future__ import annotations
 
 import copy
 import math
-from dataclasses import dataclass
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from frontend.entity import (
+    EntityKind as ReasonEntityModelKind,
+    EntityRecord,
+    canonical_entity_id,
+)
+from frontend.entity.slot import EntityEnvironment as ReasonEntityEnvironment
+from frontend.language_surface.integration import (
+    _expression_identifiers as _reason_expression_identifiers,
+)
 from frontend.language_surface.nodes import (
     ArrayLiteralNode,
     AssignmentStatementNode,
@@ -19,6 +29,7 @@ from frontend.language_surface.nodes import (
     CallExpressionNode,
     ComparisonExpressionNode,
     ComparisonOperator,
+    ConstDeclarationNode,
     ConstStatementNode,
     ContinueStatementNode,
     ExpressionNode,
@@ -37,10 +48,14 @@ from frontend.language_surface.nodes import (
     LogicalOperator,
     LoopStatementNode,
     MemberAccessNode,
+    ModuleNode,
     NoneLiteralNode,
     NullLiteralNode,
     ParenthesizedExpressionNode,
     ProgramNode,
+    ReasonEntityDeclarationNode,
+    ReasonEntityKind,
+    ReasonStateTransitionNode,
     ResultStatementNode,
     ReturnStatementNode,
     StringLiteralNode,
@@ -48,11 +63,36 @@ from frontend.language_surface.nodes import (
     UnaryExpressionNode,
     UnaryOperator,
     WhileStatementNode,
+    entity_value_type_label,
 )
 from frontend.tensor.integration import LOWERINGS, tensor_call_name
 from frontend.tensor.runtime import TensorError, TensorRuntime, TensorValueRef
 from frontend.vision.integration import vision_call_name
 from frontend.vision.runtime import VisionRuntimeBridge
+
+_SURFACE_TO_MODEL_ENTITY_KIND = {
+    ReasonEntityKind.RU: ReasonEntityModelKind.RU,
+    ReasonEntityKind.RUS: ReasonEntityModelKind.RUS,
+    ReasonEntityKind.RUO: ReasonEntityModelKind.RUO,
+    ReasonEntityKind.DERIVE: ReasonEntityModelKind.DERIVE,
+}
+
+
+@dataclass
+class _RuntimeEntityScope:
+    """Companion index mapping a module's Entity identifiers to their
+    Canonical IDs, alongside the RU Slot runtime that owns their state.
+    Threaded through recursive evaluation via a ContextVar rather than an
+    added parameter on every one of the ~46 mutually-recursive `_statements`/
+    `_expression` call sites in this module (RS-RE-FSM-001 §3.8 C-5)."""
+
+    environment: ReasonEntityEnvironment
+    identifiers: dict[str, str] = field(default_factory=dict)
+
+
+_CURRENT_ENTITY_SCOPE: ContextVar["_RuntimeEntityScope | None"] = ContextVar(
+    "reasonscript_current_entity_scope", default=None
+)
 
 
 class _Break(Exception):
@@ -131,36 +171,143 @@ def execute_program(
     vision_runtime = VisionRuntimeBridge(resource_root or Path.cwd(), filesystem_read=filesystem_read, filesystem_write=filesystem_write)
     loop_trace: list[dict[str, Any]] = []
     calculations: dict[str, Any] = {}
+    package = program.package.name if program.package else None
     for module in program.modules:
         functions = {
             item.name: item
             for item in module.body
             if isinstance(item, FunctionDeclarationNode)
         }
-        for calculation in (
-            item for item in module.body if isinstance(item, CalculationNode)
-        ):
-            env = dict(calculations)
-            try:
-                _statements(
-                    calculation.body,
-                    env,
-                    runtime,
-                    loop_trace,
-                    max_loop_iterations,
-                    calculation.name,
-                    vision_runtime,
-                    functions,
-                    max_call_depth,
-                    0,
-                )
-            except _Result as result:
-                calculations[calculation.name] = result.value
-                runtime.collect(calculations)
-            else:
-                runtime.collect(calculations)
+        scope = _RuntimeEntityScope(environment=ReasonEntityEnvironment())
+        token = _CURRENT_ENTITY_SCOPE.set(scope)
+        try:
+            module_bindings = _declare_module_bindings(
+                module, package, scope, runtime, vision_runtime, functions, max_call_depth,
+            )
+            for calculation in (
+                item for item in module.body if isinstance(item, CalculationNode)
+            ):
+                env = {**module_bindings, **calculations}
+                try:
+                    _statements(
+                        calculation.body,
+                        env,
+                        runtime,
+                        loop_trace,
+                        max_loop_iterations,
+                        calculation.name,
+                        vision_runtime,
+                        functions,
+                        max_call_depth,
+                        0,
+                    )
+                except _Result as result:
+                    calculations[calculation.name] = result.value
+                    runtime.collect(calculations, scope.environment.all_slots())
+                else:
+                    runtime.collect(calculations, scope.environment.all_slots())
+        finally:
+            _CURRENT_ENTITY_SCOPE.reset(token)
     value = next(reversed(calculations.values()), None) if calculations else None
     return IntegratedComputationResult(value, runtime, loop_trace, calculations, vision_runtime)
+
+
+def _declare_module_bindings(
+    module: ModuleNode,
+    package: str | None,
+    scope: _RuntimeEntityScope,
+    runtime: TensorRuntime,
+    vision_runtime: VisionRuntimeBridge,
+    functions: dict[str, FunctionDeclarationNode],
+    max_call_depth: int,
+) -> dict[str, Any]:
+    """Resolve module-level `const` and Reason Entity declarations before
+    any calculation runs (fixes D-7: module-level bindings were previously
+    invisible to calculation bodies). Assumes `_CURRENT_ENTITY_SCOPE` is
+    already set to `scope` by the caller."""
+    module_bindings: dict[str, Any] = {}
+    for node in module.body:
+        if isinstance(node, ConstDeclarationNode):
+            module_bindings[node.name] = _expression(
+                node.expression, module_bindings, runtime, vision_runtime,
+                functions, max_call_depth, 0,
+            )
+        elif isinstance(node, ReasonEntityDeclarationNode):
+            _declare_runtime_entity(
+                node, (), None, module.name, package, scope, module_bindings,
+                runtime, vision_runtime, functions, max_call_depth,
+            )
+    return module_bindings
+
+
+def _declare_runtime_entity(
+    node: ReasonEntityDeclarationNode,
+    owner_path: tuple[str, ...],
+    owner_canonical_id: str | None,
+    module_name: str,
+    package: str | None,
+    scope: _RuntimeEntityScope,
+    module_bindings: dict[str, Any],
+    runtime: TensorRuntime,
+    vision_runtime: VisionRuntimeBridge,
+    functions: dict[str, FunctionDeclarationNode],
+    max_call_depth: int,
+) -> None:
+    canonical_id = canonical_entity_id(
+        kind=_SURFACE_TO_MODEL_ENTITY_KIND[node.kind],
+        package=package,
+        module=module_name,
+        owner_path=owner_path,
+        identifier=node.identifier,
+    )
+    if node.kind in (ReasonEntityKind.RUS, ReasonEntityKind.RUO):
+        scope.environment.declare_structure(EntityRecord(
+            canonical_id=canonical_id,
+            kind=_SURFACE_TO_MODEL_ENTITY_KIND[node.kind],
+            identifier=node.identifier,
+            owner_id=owner_canonical_id,
+        ))
+        for member in node.members:
+            _declare_runtime_entity(
+                member, (*owner_path, node.identifier), canonical_id,
+                module_name, package, scope, module_bindings,
+                runtime, vision_runtime, functions, max_call_depth,
+            )
+        return
+    dependencies: tuple[str, ...] = ()
+    if node.kind is ReasonEntityKind.DERIVE and node.initializer is not None:
+        referenced = _reason_expression_identifiers(node.initializer)
+        dependencies = tuple(
+            scope.identifiers[name] for name in sorted(referenced) if name in scope.identifiers
+        )
+    record = EntityRecord(
+        canonical_id=canonical_id,
+        kind=_SURFACE_TO_MODEL_ENTITY_KIND[node.kind],
+        identifier=node.identifier,
+        owner_id=owner_canonical_id,
+        dependencies=dependencies,
+        value_type=entity_value_type_label(node.type_annotation),
+        declared_type=entity_value_type_label(node.type_annotation),
+    )
+    if node.kind is ReasonEntityKind.DERIVE:
+        initializer = node.initializer
+        assert initializer is not None
+        scope.environment.declare(
+            record,
+            derive_evaluator=lambda: _expression(
+                initializer, module_bindings, runtime, vision_runtime,
+                functions, max_call_depth, 0,
+            ),
+        )
+    else:
+        assert node.initializer is not None
+        value = _expression(
+            node.initializer, module_bindings, runtime, vision_runtime,
+            functions, max_call_depth, 0,
+        )
+        scope.environment.declare(record, initial_value=value)
+    if owner_canonical_id is None:
+        scope.identifiers[node.identifier] = canonical_id
 
 
 def _statements(
@@ -175,7 +322,7 @@ def _statements(
     max_call_depth: int,
     call_depth: int,
 ) -> None:
-    for statement in statements:
+    for statement_index, statement in enumerate(statements, start=1):
         if isinstance(statement, (LetStatementNode, ConstStatementNode)):
             env[statement.identifier] = _expression(
                 statement.expression, env, runtime, vision_runtime,
@@ -185,6 +332,21 @@ def _statements(
             env[statement.target] = _expression(
                 statement.expression, env, runtime, vision_runtime,
                 functions, max_call_depth, call_depth,
+            )
+        elif isinstance(statement, ReasonStateTransitionNode):
+            entity_scope = _CURRENT_ENTITY_SCOPE.get()
+            if entity_scope is None or statement.target not in entity_scope.identifiers:
+                raise IntegratedRuntimeError(
+                    "RT-ENTITY-001", f"unknown runtime entity: {statement.target}"
+                )
+            proposed = _expression(
+                statement.expression, env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            entity_scope.environment.propose_transition(
+                entity_scope.identifiers[statement.target],
+                proposed,
+                site=f"{scope}#{statement_index}",
             )
         elif isinstance(statement, IndexAssignmentStatementNode):
             _assign_index(
@@ -370,6 +532,9 @@ def _expression(
     if isinstance(value, (NoneLiteralNode, NullLiteralNode)):
         return None
     if isinstance(value, IdentifierNode):
+        scope = _CURRENT_ENTITY_SCOPE.get()
+        if scope is not None and value.name in scope.identifiers:
+            return scope.environment.read(scope.identifiers[value.name])
         if value.name not in env:
             raise IntegratedRuntimeError("RT-NAME-001", f"unknown runtime name: {value.name}")
         return env[value.name]

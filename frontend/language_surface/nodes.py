@@ -24,6 +24,13 @@ class RelationType(str, Enum):
     SIMILAR = "Similar"
 
 
+class ReasonEntityKind(str, Enum):
+    RU = "ru"
+    RUS = "rus"
+    RUO = "ruo"
+    DERIVE = "derive"
+
+
 class UnaryOperator(str, Enum):
     NEGATE = "Negate"
     NOT = "Not"
@@ -576,6 +583,15 @@ class AssignmentStatementNode:
 
 
 @dataclass(frozen=True)
+class ReasonStateTransitionNode:
+    """`<identifier> <- <expression>` (RS-RE-FSM-001 §5.3)."""
+
+    target: str
+    expression: ExpressionNode
+    source_span: SourceSpanNode
+
+
+@dataclass(frozen=True)
 class FieldAssignmentStatementNode:
     target: ExpressionNode
     expression: ExpressionNode
@@ -681,6 +697,7 @@ StatementNode: TypeAlias = (
     LetStatementNode
     | ConstStatementNode
     | AssignmentStatementNode
+    | ReasonStateTransitionNode
     | FieldAssignmentStatementNode
     | IndexAssignmentStatementNode
     | ResultStatementNode
@@ -767,6 +784,25 @@ class ReasonGraphBindingNode:
     syntax_version: str = "reason-graph-binding/0.1"
 
 
+@dataclass(frozen=True)
+class ReasonEntityDeclarationNode:
+    """`ru:`/`rus:`/`ruo:`/`derive:` declaration (RS-RE-FSM-001 §5).
+
+    A single node type covers all four kinds rather than four near-
+    duplicate node classes: `initializer` carries the `ru:`/`derive:`
+    right-hand side (None for `rus:`/`ruo:`), and `members` carries the
+    nested declarations of a `rus:`/`ruo:` body (empty for `ru:`/`derive:`).
+    """
+
+    kind: ReasonEntityKind
+    identifier: str
+    type_annotation: TypeNode | None
+    initializer: ExpressionNode | None
+    members: tuple["ReasonEntityDeclarationNode", ...]
+    visibility: Visibility
+    source_span: SourceSpanNode
+
+
 AstNode: TypeAlias = (
     ImportNode
     | ConceptNode
@@ -788,6 +824,7 @@ AstNode: TypeAlias = (
     | FunctionDeclarationNode
     | ReasonObjectBindingNode
     | ReasonGraphBindingNode
+    | ReasonEntityDeclarationNode
 )
 
 
@@ -824,6 +861,8 @@ _NODE_TYPES = {
         ContinueStatementNode,
         DefaultPatternNode,
         AssignmentStatementNode,
+        ReasonStateTransitionNode,
+        ReasonEntityDeclarationNode,
         FieldAssignmentStatementNode,
         IndexAssignmentStatementNode,
         IndexAccessNode,
@@ -923,6 +962,18 @@ _NODE_TYPES.update(
 )
 
 
+def entity_value_type_label(type_node: TypeNode | None) -> str | None:
+    """`PrimitiveTypeNode` -> its own enum value ("Int"/"Float"/"Bool"/
+    "String"), matching `frontend.entity.slot._LABEL_PYTHON_TYPES`'s
+    vocabulary exactly. Anything else (composite/state types) returns
+    None -- Reason Entity runtime type-checking only covers primitives in
+    v0.1; other declared types are simply not checked (RS-RE-FSM-001 §6.1
+    treats this as a v0.1 scope boundary, not a defect)."""
+    if isinstance(type_node, PrimitiveTypeNode):
+        return type_node.kind.value
+    return None
+
+
 def to_json_value(value: Any) -> Any:
     if isinstance(value, Enum):
         return value.value
@@ -968,6 +1019,7 @@ def statement_from_json(value: Mapping[str, Any]) -> StatementNode:
             LetStatementNode,
             ConstStatementNode,
             AssignmentStatementNode,
+            ReasonStateTransitionNode,
             FieldAssignmentStatementNode,
             IndexAssignmentStatementNode,
             ResultStatementNode,

@@ -7,6 +7,13 @@ from typing import Any
 
 from frontend import ast as semantic
 from frontend.compiler import compile as compile_semantic
+from frontend.entity import (
+    EntityKind as ReasonEntityModelKind,
+    EntityRecord,
+    EntityTable,
+    canonical_entity_id,
+    lower_entities as lower_reason_entities,
+)
 from frontend.tensor.integration import (
     public_registry as tensor_public_registry,
 )
@@ -78,9 +85,12 @@ from .nodes import (
     QualifiedPatternNode,
     RangePatternNode,
     ReachStatementNode,
+    ReasonEntityDeclarationNode,
+    ReasonEntityKind,
     ReasonGraphDeclarationNode,
     ReasonGraphBindingNode,
     ReasonObjectBindingNode,
+    ReasonStateTransitionNode,
     RelationNode,
     RequireStatementNode,
     ResultStatementNode,
@@ -103,6 +113,7 @@ from .nodes import (
     Visibility,
     WhileStatementNode,
     WildcardPatternNode,
+    entity_value_type_label,
     to_json_value,
 )
 from .pattern_decision import PatternDecisionBuilder, pattern_decision_to_json
@@ -138,6 +149,7 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
     module_tensor_operations = tensor_operations(module)
     module_vision_operations = vision_operations(module)
     reason_object_bindings = _reason_object_bindings(module, namespace)
+    reason_entities = _reason_entities_metadata(module, package=package, namespace=namespace)
     reason_graph_bindings = _reason_graph_bindings(module, namespace)
     reason_object_operations = _reason_object_operations(module)
     declarations.append(
@@ -341,6 +353,10 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
             *(
                 (semantic.MetadataNode(f"{namespace}-reason-object-operations", "reason_object_operations", reason_object_operations),)
                 if reason_object_operations else ()
+            ),
+            *(
+                (semantic.MetadataNode(f"{namespace}-reason-entities", "reason_entities", reason_entities),)
+                if reason_entities else ()
             ),
             *(
                 (
@@ -639,6 +655,209 @@ def _runtime_operations(module: ModuleNode) -> list[dict[str, Any]]:
             }
         )
     return result
+
+
+_SURFACE_TO_MODEL_ENTITY_KIND = {
+    ReasonEntityKind.RU: ReasonEntityModelKind.RU,
+    ReasonEntityKind.RUS: ReasonEntityModelKind.RUS,
+    ReasonEntityKind.RUO: ReasonEntityModelKind.RUO,
+    ReasonEntityKind.DERIVE: ReasonEntityModelKind.DERIVE,
+}
+
+
+def _module_entity_declarations(module: ModuleNode) -> tuple[ReasonEntityDeclarationNode, ...]:
+    return tuple(
+        node for node in module.body if isinstance(node, ReasonEntityDeclarationNode)
+    )
+
+
+def _build_entity_table(
+    module: ModuleNode, *, package: str | None, namespace: str
+) -> tuple[EntityTable, dict[str, str]] | None:
+    """Register every module-level Reason Entity declaration (RS-RE-FSM-001
+    §5) into an EntityTable, in declaration order. Returns the table and a
+    flat identifier -> canonical_id lookup for module-level entities (RUS/
+    RUO member identifiers are intentionally not included: v0.1 does not
+    make them separately name-resolvable in expressions -- see the design
+    doc's E1-2 scoping note)."""
+    declarations = _module_entity_declarations(module)
+    if not declarations:
+        return None
+    table = EntityTable()
+    canonical_ids: dict[str, str] = {}
+
+    def register(node: ReasonEntityDeclarationNode, owner_path: tuple[str, ...], owner_id: str | None) -> None:
+        canonical_id = canonical_entity_id(
+            kind=_SURFACE_TO_MODEL_ENTITY_KIND[node.kind],
+            package=package,
+            module=module.name,
+            owner_path=owner_path,
+            identifier=node.identifier,
+        )
+        dependencies: tuple[str, ...] = ()
+        if node.kind is ReasonEntityKind.DERIVE and node.initializer is not None:
+            referenced = _expression_identifiers(node.initializer)
+            dependencies = tuple(
+                canonical_ids[name] for name in sorted(referenced) if name in canonical_ids
+            )
+        table.declare(EntityRecord(
+            canonical_id=canonical_id,
+            kind=_SURFACE_TO_MODEL_ENTITY_KIND[node.kind],
+            identifier=node.identifier,
+            owner_id=owner_id,
+            dependencies=dependencies,
+            value_type=entity_value_type_label(node.type_annotation),
+            declared_type=entity_value_type_label(node.type_annotation),
+        ))
+        if owner_id is None:
+            canonical_ids[node.identifier] = canonical_id
+        for member in node.members:
+            register(member, (*owner_path, node.identifier), canonical_id)
+
+    for node in declarations:
+        register(node, (), None)
+    return table, canonical_ids
+
+
+def _reason_entity_transitions(module: ModuleNode) -> list[tuple[str, str, str, ExpressionNode]]:
+    """`(calculation_name, site, expression)` for every `<-` transition in
+    the module, in source order, walking into nested control-flow bodies
+    (RS-RE-FSM-001 Appendix A places `<-` inside a `while` loop)."""
+    transitions: list[tuple[str, str, str, ExpressionNode]] = []
+    for calculation in module.body:
+        if not isinstance(calculation, CalculationNode):
+            continue
+        counter = [0]
+
+        def walk(statements: tuple[Any, ...]) -> None:
+            for statement in statements:
+                if isinstance(statement, ReasonStateTransitionNode):
+                    counter[0] += 1
+                    transitions.append((
+                        calculation.name,
+                        f"{calculation.name}#{counter[0]}",
+                        statement.target,
+                        statement.expression,
+                    ))
+                elif isinstance(statement, IfStatementNode):
+                    walk(statement.body)
+                    for branch in statement.elif_branches:
+                        walk(branch.body)
+                    if statement.else_branch is not None:
+                        walk(statement.else_branch.body)
+                elif isinstance(statement, (WhileStatementNode, ForStatementNode, LoopStatementNode)):
+                    walk(statement.body)
+                elif isinstance(statement, MatchStatementNode):
+                    for arm in statement.arms:
+                        walk(arm.body)
+
+        walk(calculation.body)
+    return transitions
+
+
+def _reason_entities_metadata(
+    module: ModuleNode, *, package: str | None, namespace: str
+) -> dict[str, Any] | None:
+    built = _build_entity_table(module, package=package, namespace=namespace)
+    if built is None:
+        return None
+    table, canonical_ids = built
+    payload = lower_reason_entities(table)
+    instructions: list[dict[str, Any]] = []
+    for canonical_id in table.declaration_order():
+        record = table.get(canonical_id)
+        assert record is not None
+        instructions.append({
+            "op": "CreateStructure" if record.kind is ReasonEntityModelKind.RUS
+            else "CreateObject" if record.kind is ReasonEntityModelKind.RUO
+            else "DeclareEntity",
+            "entity": canonical_id,
+            "kind": record.kind.value,
+            "type": record.value_type,
+        })
+    for node in _module_entity_declarations(module):
+        canonical_id = canonical_ids.get(node.identifier)
+        if canonical_id is None or node.initializer is None:
+            continue
+        if node.kind is ReasonEntityKind.DERIVE:
+            instructions.append({
+                "op": "DeclareDerivedEntity",
+                "entity": canonical_id,
+                "dependencies": list(table.get(canonical_id).dependencies),  # type: ignore[union-attr]
+                "strategy": "on_read",
+            })
+        else:
+            instructions.append({
+                "op": "InitializeEntityState",
+                "entity": canonical_id,
+                "value": to_json_value(node.initializer),
+                "revision": 0,
+            })
+    for _calculation_name, site, target, expression in _reason_entity_transitions(module):
+        canonical_id = canonical_ids.get(target)
+        if canonical_id is None:
+            continue
+        for op in ("ProposeEntityTransition", "ValidateEntityTransition", "CommitEntityTransition"):
+            instructions.append({
+                "op": op,
+                "entity": canonical_id,
+                "site": site,
+                **({"proposed": to_json_value(expression)} if op == "ProposeEntityTransition" else {}),
+                **({"revision_delta": 1} if op == "CommitEntityTransition" else {}),
+            })
+    payload["instructions"] = instructions
+    return payload
+
+
+def _reason_entity_plan_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Derive the ExecutionPlan `entity_plan` fragment purely from the
+    already-lowered `metadata.reason_entities` payload (single source of
+    truth -- `execution_plan_for` only receives the lowered Reason IR, not
+    the Surface module, so this must not re-walk the AST)."""
+    instructions = payload.get("instructions", [])
+    declaration_order = [
+        instruction["entity"]
+        for instruction in instructions
+        if instruction["op"] in {"DeclareEntity", "CreateStructure", "CreateObject"}
+    ]
+    transition_sequence: list[dict[str, Any]] = []
+    boundaries: dict[str, list[str]] = {}
+    for order, instruction in enumerate(instructions, start=1):
+        if instruction["op"] != "CommitEntityTransition":
+            continue
+        entity, site = instruction["entity"], instruction["site"]
+        transition_sequence.append({
+            "order": order,
+            "entity": entity,
+            "site": site,
+            "atomic_boundary": site,
+            "revision_delta": instruction["revision_delta"],
+        })
+        boundary_entities = boundaries.setdefault(site, [])
+        if entity not in boundary_entities:
+            boundary_entities.append(entity)
+    atomic_boundaries = [
+        {"boundary_id": site, "entities": entities, "rollback_on_failure": True}
+        for site, entities in boundaries.items()
+    ]
+    derived_evaluation = [
+        {
+            "entity": instruction["entity"],
+            "strategy": instruction["strategy"],
+            "dependencies": instruction["dependencies"],
+        }
+        for instruction in instructions
+        if instruction["op"] == "DeclareDerivedEntity"
+    ]
+    return {
+        "schema_version": "reasonscript-reason-entity-plan/0.1",
+        "declaration_order": declaration_order,
+        "transition_sequence": transition_sequence,
+        "atomic_boundaries": atomic_boundaries,
+        "derived_evaluation": derived_evaluation,
+        "evidence_collection_points": [],
+        "projection_boundaries": [],
+    }
 
 
 def _reason_object_bindings(module: ModuleNode, namespace: str) -> list[dict[str, Any]]:
@@ -2709,6 +2928,9 @@ def execution_plan_for(reason_ir: dict[str, Any]) -> dict[str, Any]:
     vision_plan = reason_ir.get("metadata", {}).get("vision_execution_plan")
     if vision_plan:
         result["vision_plan"] = vision_plan
+    reason_entities = reason_ir.get("metadata", {}).get("reason_entities")
+    if reason_entities:
+        result["entity_plan"] = _reason_entity_plan_from_payload(reason_entities)
     return result
 
 
@@ -2825,6 +3047,12 @@ def _statement_projection(
             "return",
             to_json_value(statement),
             "ReturnTransition",
+        )
+    if isinstance(statement, ReasonStateTransitionNode):
+        return (
+            statement.target,
+            to_json_value(statement),
+            "EntityStateTransition",
         )
     if isinstance(statement, ExpressionStatementNode):
         return (

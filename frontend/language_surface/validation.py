@@ -96,12 +96,15 @@ from .nodes import (
     QualifiedPatternNode,
     RangePatternNode,
     ReachStatementNode,
+    ReasonEntityDeclarationNode,
+    ReasonEntityKind,
     ReasonGraphDeclarationNode,
     ReasonGraphBindingNode,
     ReasonGraphTransitionNode,
     ReasonObjectBindingNode,
     ReasonGraphBindingNode,
     ReasonObjectClauseSpanNode,
+    ReasonStateTransitionNode,
     RelationNode,
     RelationType,
     RequireStatementNode,
@@ -198,6 +201,8 @@ KNOWN_NODE_TYPES = (
     LetStatementNode,
     ConstStatementNode,
     AssignmentStatementNode,
+    ReasonEntityDeclarationNode,
+    ReasonStateTransitionNode,
     FieldAssignmentStatementNode,
     IndexAssignmentStatementNode,
     ResultStatementNode,
@@ -356,6 +361,9 @@ def _validate_module(module: ModuleNode) -> None:
                 _validate_type_node(node.type_annotation)
             _validate_calculation_expression(node.expression, symbols, {})
             continue
+        if isinstance(node, ReasonEntityDeclarationNode):
+            _register_entity_declaration(node, symbols)
+            continue
         if isinstance(node, DECLARATION_NODES):
             name = node.name
             _identifier(name, f"AST-V002 {type(node).__name__}.name")
@@ -417,6 +425,29 @@ def _validate_module(module: ModuleNode) -> None:
         else:
             _validate_ast_node(node)
     _validate_calculation_dependency_graph(module)
+
+
+def _register_entity_declaration(
+    node: ReasonEntityDeclarationNode, symbols: dict[str, Any]
+) -> None:
+    if node.identifier in symbols:
+        raise SurfaceValidationError(
+            f"RE-DECL-001 Reason Entity already declared in this scope: {node.identifier}"
+        )
+    symbols[node.identifier] = node
+    if node.type_annotation is not None:
+        _resolve_type(node.type_annotation, symbols)
+    if node.initializer is not None:
+        _validate_calculation_expression(node.initializer, symbols, {})
+        expression_type = _expression_type(node.initializer.expression, symbols, {})
+        if node.type_annotation is not None:
+            _require_compatible(
+                node.type_annotation,
+                expression_type,
+                node.initializer,
+                symbols,
+                "RE-TYPE-001 Reason Entity initializer type mismatch",
+            )
 
 
 def _validate_ast_node(node: Any) -> None:
@@ -557,6 +588,17 @@ def _validate_ast_node(node: Any) -> None:
     elif isinstance(node, ConstraintNode):
         _identifier(node.name, "AST-V002 ConstraintNode.name")
         _validate_constraint_expression(node)
+    elif isinstance(node, ReasonEntityDeclarationNode):
+        _identifier(node.identifier, "RE-LANG-003 ReasonEntityDeclarationNode.identifier")
+        if node.type_annotation is not None:
+            _validate_type_node(node.type_annotation)
+        if node.initializer is not None:
+            _expression(node.initializer, "RE-LANG-003 ReasonEntityDeclarationNode.initializer")
+        for member in node.members:
+            _validate_ast_node(member)
+    elif isinstance(node, ReasonStateTransitionNode):
+        _identifier(node.target, "RE-LANG-004 ReasonStateTransitionNode.target")
+        _expression(node.expression, "RE-LANG-004 ReasonStateTransitionNode.expression")
     elif isinstance(node, DECLARATION_NODES):
         _identifier(node.name, f"AST-V002 {type(node).__name__}.name")
     elif isinstance(node, ImportNode):
@@ -965,6 +1007,7 @@ def _validate_calculation_statements(
         LetStatementNode,
         ConstStatementNode,
         AssignmentStatementNode,
+        ReasonStateTransitionNode,
         FieldAssignmentStatementNode,
         IndexAssignmentStatementNode,
         ForStatementNode,
@@ -1025,6 +1068,11 @@ def _validate_calculation_statements(
                 mutable=isinstance(statement, LetStatementNode),
             )
         elif isinstance(statement, AssignmentStatementNode):
+            if isinstance(symbols.get(statement.target), ReasonEntityDeclarationNode):
+                raise SurfaceValidationError(
+                    f"RE-STATE-003 Reason Entity `{statement.target}` must be "
+                    "updated with `<-`, not `=`"
+                )
             if (
                 statement.target not in local_bindings
                 and statement.target not in symbols
@@ -1052,6 +1100,8 @@ def _validate_calculation_statements(
                     symbols,
                     "TYPE-V003 assignment mismatch",
                 )
+        elif isinstance(statement, ReasonStateTransitionNode):
+            _validate_entity_transition(statement, symbols, local_bindings)
         elif isinstance(statement, FieldAssignmentStatementNode):
             _validate_field_assignment(statement, symbols, local_bindings)
         elif isinstance(statement, IndexAssignmentStatementNode):
@@ -1807,6 +1857,27 @@ def _validate_numeric_conversion_call(
     )
 
 
+_RESOLVING_ENTITY_TYPES: set[str] = set()
+
+
+def _entity_declaration_type(
+    declaration: ReasonEntityDeclarationNode, symbols: dict[str, Any]
+) -> Any:
+    if declaration.type_annotation is not None:
+        return declaration.type_annotation
+    if declaration.initializer is None:
+        return _UNKNOWN_TYPE
+    if declaration.identifier in _RESOLVING_ENTITY_TYPES:
+        raise SurfaceValidationError(
+            f"RE-DERIVE-001 circular Reason Entity type dependency: {declaration.identifier}"
+        )
+    _RESOLVING_ENTITY_TYPES.add(declaration.identifier)
+    try:
+        return _expression_type(declaration.initializer.expression, symbols, {})
+    finally:
+        _RESOLVING_ENTITY_TYPES.discard(declaration.identifier)
+
+
 _UNKNOWN_TYPE = object()
 
 
@@ -1852,6 +1923,8 @@ def _expression_type(
         if declaration is None and _CURRENT_NAMESPACE is not None:
             imported = _CURRENT_NAMESPACE.imported(value.name)
             declaration = imported.node if imported is not None else None
+        if isinstance(declaration, ReasonEntityDeclarationNode):
+            return _entity_declaration_type(declaration, symbols)
         state_kind = {
             ConceptNode: StateKind.CONCEPT,
             ObjectNode: StateKind.OBJECT,
@@ -2622,6 +2695,34 @@ def _struct_field_type(struct: StructDeclarationNode, field_name: str) -> Any:
         if field.name == field_name:
             return field.field_type
     return None
+
+
+def _validate_entity_transition(
+    statement: ReasonStateTransitionNode,
+    symbols: dict[str, Any],
+    bindings: dict[str, Any],
+) -> None:
+    declaration = symbols.get(statement.target)
+    if not isinstance(declaration, ReasonEntityDeclarationNode):
+        raise SurfaceValidationError(
+            f"RE-STATE-001 `<-` target is not a declared Reason Entity: {statement.target}"
+        )
+    if declaration.kind is ReasonEntityKind.DERIVE:
+        raise SurfaceValidationError(
+            f"RE-STATE-002 cannot transition a Derived Reason Entity directly: {statement.target}"
+        )
+    if declaration.kind in (ReasonEntityKind.RUS, ReasonEntityKind.RUO):
+        raise SurfaceValidationError(
+            f"RE-STATE-001 `<-` target is not an atomic Reason Entity: {statement.target}"
+        )
+    _validate_calculation_expression(statement.expression, symbols, bindings)
+    _require_compatible(
+        _entity_declaration_type(declaration, symbols),
+        _expression_type(statement.expression.expression, symbols, bindings),
+        statement.expression,
+        symbols,
+        "RE-TYPE-002 Reason Entity transition type mismatch",
+    )
 
 
 def _validate_field_assignment(

@@ -37,9 +37,93 @@
     "planner_version": {
       "type": "string",
       "minLength": 1
+    },
+    "reason_object_plan": {
+      "type": "object"
+    },
+    "vision_plan": {
+      "type": "object"
+    },
+    "entity_plan": {
+      "$ref": "#/$defs/entity_plan"
     }
   },
   "$defs": {
+    "entity_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "declaration_order",
+        "transition_sequence",
+        "atomic_boundaries",
+        "derived_evaluation",
+        "evidence_collection_points",
+        "projection_boundaries"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "reasonscript-reason-entity-plan/0.1"
+        },
+        "declaration_order": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "transition_sequence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["order", "entity", "site", "atomic_boundary", "revision_delta"],
+            "properties": {
+              "order": { "type": "integer", "minimum": 1 },
+              "entity": { "type": "string", "minLength": 1 },
+              "site": { "type": "string", "minLength": 1 },
+              "atomic_boundary": { "type": "string", "minLength": 1 },
+              "revision_delta": { "type": "integer" }
+            }
+          }
+        },
+        "atomic_boundaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["boundary_id", "entities", "rollback_on_failure"],
+            "properties": {
+              "boundary_id": { "type": "string", "minLength": 1 },
+              "entities": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "rollback_on_failure": { "type": "boolean" }
+            }
+          }
+        },
+        "derived_evaluation": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["entity", "strategy", "dependencies"],
+            "properties": {
+              "entity": { "type": "string", "minLength": 1 },
+              "strategy": { "type": "string", "minLength": 1 },
+              "dependencies": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "evidence_collection_points": {
+          "type": "array"
+        },
+        "projection_boundaries": {
+          "type": "array"
+        }
+      }
+    },
     "plan_step": {
       "type": "object",
       "additionalProperties": false,

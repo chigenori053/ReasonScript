@@ -579,7 +579,7 @@ evaluate(derived):
 | F1 Type Foundation Repair | **部分完了**（D-3・D-4・D-5 実装、D-1・D-2 は保留） | 詳細は各 F1-N 節の「実装時の訂正」を参照。テストは [type_foundation_repair_tests/](type_foundation_repair_tests/)。 |
 | F2 Surface Prerequisite Foundation | **完了**（F2-3 のみ範囲縮小） | 演算子継続（D-6）、`<-` 語彙化、[frontend/entity/](frontend/entity/) の Canonical ID・`EntityTable` を実装。詳細は F2-3 節の「実装時の訂正」を参照。テストは [surface_prerequisite_foundation_tests/](surface_prerequisite_foundation_tests/)。 |
 | E0 Internal Reason Entity Model | **完了** | [frontend/entity/](frontend/entity/) を完成（`model.py` / `slot.py` / `diagnostics.py` / `lowering.py` を追加）。[schemas/reason_entity.schema.json](schemas/reason_entity.schema.json) を新設。仕様 §13 Phase E0 の受け入れ条件（全 Entity Kind 生成、3 回生成 byte-identical、スキーマ通過、RUO-U1 `validate_object` 診断 0 件）をすべて満たすことを [reason_entity_tests/test_entity_model.py](reason_entity_tests/test_entity_model.py) で実証。Parser には一切触れていない。 |
-| E1 Surface Model v0.1 | 未着手 | |
+| E1 Surface Model v0.1 | **完了**（一部診断は v0.1 の構文的制約により未到達） | `ru:`/`rus:`/`ruo:`/`derive:`/`<-` を Parser・名前解決・検証・Semantic AST/Reason IR/ExecutionPlan 射影・Runtime まで配線。D-7（モジュールレベル宣言が実行時環境に存在しない欠陥）を解消し、仕様 Appendix A を実際に実行して検証。テストは [surface_model_tests/](surface_model_tests/)。詳細は本節末尾の「実装時の訂正・確定事項」を参照。 |
 | E2 Integration | 未着手（§2.2 の Q2 に依存） | |
 
 **D-1・D-2 を本セッションで保留した理由**: 当初計画どおり D-1（引数型推論）・D-2
@@ -977,6 +977,74 @@ elif re.match(r"^[A-Za-z_]\w*\s*<-\s*", line):
 - 3 回生成で Semantic AST / Reason IR / ExecutionPlan / Canonical Entity ID /
   Transition Log / Artifact Manifest / Runtime Result が byte-identical。
 - Entity を含まない既存コードの canonical 成果物が F0 とバイト一致。
+
+**実装時の訂正・確定事項**:
+
+- **§15.1/§15.2 の 8+8 項目は「代表的カバレッジ」として実装した**。
+  [surface_model_tests/](surface_model_tests/) は正常系 8・異常系 8
+  （実装時に見つかった `RE-LANG-001`/`RE-LANG-002`〈Entity 宣言・`<-` の
+  レキシカル文脈違反〉を含めると異常系は実質 8 種）を実装したが、以下は
+  **v0.1 の構文的制約により到達不能**なため対象外とした（診断コード自体は
+  `frontend/entity/diagnostics.py` に実装済みで、将来 v0.2 で到達可能な
+  構文が追加された時点でそのまま機能する）。
+  - `RE-RUS-001`（RUS 包含循環）: `rus:` の本体は字句的入れ子でのみ構成され、
+    名前参照による包含を許さないため、循環そのものを Surface 構文で
+    表現できない（F2/E0 で発見した「単一パス登録では多ノード循環に
+    到達しない」という制約が、ここでは構文レベルでさらに強く効く）。
+  - `RE-RUO-001`（暗黙の RUS→RUO 昇格）: 自動昇格を行うコードパスが
+    どこにも存在しない（意図的に実装していない）ため、発生しようがない。
+  - `RE-REL-001`（存在しない Entity への Relation）: v0.1 は §10 Q6 の
+    決定どおり RUS/RUO メンバ包含からの暗黙 PartOf Relation のみを
+    生成し、明示的な Relation 宣言構文（存在しない Entity を参照しうる
+    唯一の経路）は v0.2 以降。
+  - `RE-LOWER-001`（決定論的に Lowering できない構文）: v0.1 の Surface
+    構文には非決定的な構成要素が存在しない。
+- **Semantic AST の宣言型を増やさない（ADR-102）という決定は完全に守られた**。
+  `ReasonEntityDeclarationNode`/`ReasonStateTransitionNode` は
+  `frontend.ast`（Semantic AST）に一切追加していない。Entity 情報はすべて
+  `semantic.MetadataNode(key="reason_entities")` 経由で運ばれる。
+- **`EntityReferenceNode`（§3.4 の当初案）は実装しなかった**。Entity への
+  参照は他の宣言型（Concept/Object/Goal 等）と同じく、`IdentifierNode` の
+  ままシンボルテーブル（`symbols` dict）でルックアップする方式に統一した。
+  これは既存コードの確立された慣用と一致しており、AST に新しいノード種別を
+  増やさずに済む。
+- **Runtime 配線は ContextVar を用いた**（§3.8 の設計どおり、`_CURRENT_SOURCE_LINE`
+  と同じパターン）。`_statements`/`_expression`/`_loop`/`_while_loop` など
+  46 箇所の相互再帰呼出しすべてに新しい引数を追加するのではなく、
+  実行中の `EntityEnvironment` を `ContextVar` で保持する設計とした。
+  1 モジュールの処理単位で `set`/`reset` する。
+- **Runtime 側の `derive:` 依存関係計算に実装漏れがあった（発見・修正済み）**。
+  当初、`integrated_computation_runtime.py` 側の Entity 宣言ビルダーが
+  `EntityRecord.dependencies` を設定し忘れており、Derived Entity の
+  on-read メモ化キー（依存 revision のタプル）が常に空タプルのままになる
+  ため**キャッシュが一切無効化されず**、`while training_active { ... }`
+  が終了しない実バグとして顕在化した（`LoopLimitError`）。
+  `frontend/language_surface/integration.py` の
+  `_expression_identifiers` を再利用して依存関係を計算するよう修正し、
+  Appendix A が正しく 5 回で終了することを確認した。この経緯は
+  「オンリード評価＋依存 revision メモ化」（ADR-104）という設計が
+  正しくても、**2 箇所（コンパイル時射影とランタイム）に同じロジックを
+  複製実装すると片方が漏れるリスクがある**という教訓として記録する。
+- **`declared_type`/`value_type` のラベル語彙の不一致を発見・統一した**。
+  `frontend/language_surface/integration.py` の既存 `_type_label()` は
+  小文字ラベル（"float" 等）を返すが、`frontend/entity/slot.py` の
+  `_LABEL_PYTHON_TYPES`（E0 で実装済み）は大文字始まりラベル
+  （"Float" 等 = `PrimitiveKind` の enum 値そのもの）を期待していた。
+  この不一致は当初のコンパイル時実装ではエラーにならず**型検査が
+  静かに無効化される**形で潜在化しうる状態だった。
+  `frontend/language_surface/nodes.py` に `entity_value_type_label()`
+  （`PrimitiveKind` の enum 値をそのまま返す）を新設し、コンパイル時
+  射影・Runtime の両方でこれに統一した。
+- **`TensorRuntime.collect` の `RUSlot` 対応は設計どおり実装**（§3.8/C-5）。
+  `frontend/entity/slot.py` に `EntityEnvironment.all_slots()` を追加し、
+  `runtime.collect(calculations, scope.environment.all_slots())` として
+  呼び出す形にした。`frontend/tensor/runtime.py` が
+  `frontend.entity.slot.RUSlot` を import する一方向の依存になり、
+  循環インポートは発生しない（実行時に確認済み）。
+- **ExecutionPlan スキーマの改訂は ADR-109 どおり実施**。
+  `schemas/execution_plan.schema.json` に `entity_plan`（新規 `$defs`）
+  および `reason_object_plan`/`vision_plan`（型のみ、既存の潜在的不整合の
+  解消）を追加した。
 
 ---
 

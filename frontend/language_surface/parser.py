@@ -71,11 +71,14 @@ from .nodes import (
     PrimitiveTypeNode,
     ProgramNode,
     ReachStatementNode,
+    ReasonEntityDeclarationNode,
+    ReasonEntityKind,
     ReasonGraphDeclarationNode,
     ReasonGraphBindingNode,
     ReasonGraphTransitionNode,
     ReasonObjectBindingNode,
     ReasonObjectClauseSpanNode,
+    ReasonStateTransitionNode,
     RelationNode,
     RelationType,
     RequireStatementNode,
@@ -329,6 +332,14 @@ def _parse_body(cursor: _Cursor, *, context: str) -> list:
             nodes.append(_parse_reason_object(cursor))
         elif line.startswith("execution_plan "):
             nodes.append(_parse_execution_plan(cursor))
+        elif re.match(r"^(ru|rus|ruo|derive)\s*:", line):
+            if context != "module":
+                raise SurfaceSyntaxError("RE-LANG-001 Reason Entity declaration is a module-level construct only")
+            nodes.append(_parse_entity_declaration(cursor))
+        elif re.match(r"^[A-Za-z_]\w*\s*<-", line):
+            if context == "module":
+                raise SurfaceSyntaxError("RE-LANG-002 state transition is invalid in module body")
+            nodes.append(_parse_state_transition(cursor))
         elif (
             line.startswith("calculation ")
             or line.startswith("pub calculation ")
@@ -436,6 +447,78 @@ def _validate_reason_object_path(value: str) -> None:
     if (not value or pure.is_absolute() or any(part in {"", ".", ".."} for part in pure.parts)
             or "://" in value or value.startswith(("~", "//")) or any(marker in value for marker in ("$", "`", "${", "$("))):
         raise SurfaceSyntaxError("RUO-N2-006 unsafe or non-relative Object path")
+
+
+_ENTITY_KIND_TAGS = {kind.value: kind for kind in ReasonEntityKind}
+_ENTITY_BLOCK_KINDS = {ReasonEntityKind.RUS, ReasonEntityKind.RUO}
+
+
+def _parse_entity_declaration(cursor: _Cursor) -> ReasonEntityDeclarationNode:
+    start_line, start_column, _ = cursor.locations[cursor.index]
+    head_match = re.match(r"^(ru|rus|ruo|derive)\s*:\s*([A-Za-z_]\w*)", cursor.current())
+    if not head_match:
+        raise SurfaceSyntaxError("RE-LANG-003 invalid Reason Entity declaration")
+    kind = _ENTITY_KIND_TAGS[head_match.group(1)]
+    identifier = head_match.group(2)
+    if kind in _ENTITY_BLOCK_KINDS:
+        line = cursor.take()
+        block_match = re.fullmatch(
+            rf"{kind.value}\s*:\s*{re.escape(identifier)}\s*=\s*\{{",
+            line,
+        )
+        if not block_match:
+            raise SurfaceSyntaxError(f"RE-LANG-003 invalid {kind.value}: declaration")
+        members = _parse_entity_members(cursor)
+        end_line, _, last_text = cursor.locations[cursor.index - 1]
+        return ReasonEntityDeclarationNode(
+            kind, identifier, None, None, members, Visibility.PRIVATE,
+            SourceSpanNode(start_line, start_column, end_line, len(last_text) + 1),
+        )
+    text = _collect_simple_statement(cursor)
+    simple_match = re.fullmatch(
+        rf"{kind.value}\s*:\s*{re.escape(identifier)}(?:\s*:\s*(.+?))?\s*=\s*(.+)",
+        text,
+    )
+    if not simple_match:
+        raise SurfaceSyntaxError(f"RE-LANG-003 invalid {kind.value}: declaration")
+    type_text, initializer_text = simple_match.group(1), simple_match.group(2)
+    end_line, _, last_text = cursor.locations[cursor.index - 1]
+    return ReasonEntityDeclarationNode(
+        kind,
+        identifier,
+        _type_annotation(type_text) if type_text else None,
+        _expression(initializer_text),
+        (),
+        Visibility.PRIVATE,
+        SourceSpanNode(start_line, start_column, end_line, len(last_text) + 1),
+    )
+
+
+def _parse_entity_members(cursor: _Cursor) -> tuple[ReasonEntityDeclarationNode, ...]:
+    members: list[ReasonEntityDeclarationNode] = []
+    while cursor.index < len(cursor.lines):
+        line = cursor.current()
+        if line == "}":
+            cursor.index += 1
+            return tuple(members)
+        if not re.match(r"^(ru|rus|ruo|derive)\s*:", line):
+            raise SurfaceSyntaxError("RE-LANG-003 invalid Reason Entity member declaration")
+        members.append(_parse_entity_declaration(cursor))
+    raise SurfaceSyntaxError("unterminated Reason Entity structure block")
+
+
+def _parse_state_transition(cursor: _Cursor) -> ReasonStateTransitionNode:
+    start_line, start_column, _ = cursor.locations[cursor.index]
+    text = _collect_simple_statement(cursor)
+    match = re.fullmatch(r"([A-Za-z_]\w*)\s*<-\s*(.+)", text)
+    if not match:
+        raise SurfaceSyntaxError("RE-LANG-004 invalid state transition")
+    end_line, _, last_text = cursor.locations[cursor.index - 1]
+    return ReasonStateTransitionNode(
+        match.group(1),
+        _expression(match.group(2)),
+        SourceSpanNode(start_line, start_column, end_line, len(last_text) + 1),
+    )
 
 
 _CONTINUATION_OPERATORS = (
