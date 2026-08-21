@@ -576,7 +576,7 @@ evaluate(derived):
 | Phase | 状態 | 内容 |
 |---|---|---|
 | F0 Baseline Freeze | **完了** | [toolchain/reason_entity_baseline/](toolchain/reason_entity_baseline/) 実装。`reason reason-entity-baseline generate/validate` で 3 回生成 byte-identical を確認済み（`performance_baseline.json` は §7 の方針どおり比較対象外）。テストは [tests/reason_entity_baseline/](tests/reason_entity_baseline/)。 |
-| F1 Type Foundation Repair | **部分完了**（D-3・D-4・D-5 実装、D-1・D-2 は保留） | 詳細は各 F1-N 節の「実装時の訂正」を参照。テストは [type_foundation_repair_tests/](type_foundation_repair_tests/)。 |
+| F1 Type Foundation Repair | **部分完了**（D-3・D-4・D-5 実装済み。D-1・D-2 は**再設計完了・実装待ち**） | 詳細は各 F1-N 節の「実装時の訂正」を参照。D-1/D-2 は全数計測により当初設計が反証されたため再設計済み → [F1-R](#f1-r-d-1--d-2-再設計2026-08-21)。テストは [type_foundation_repair_tests/](type_foundation_repair_tests/)。 |
 | F2 Surface Prerequisite Foundation | **完了**（F2-3 のみ範囲縮小） | 演算子継続（D-6）、`<-` 語彙化、[frontend/entity/](frontend/entity/) の Canonical ID・`EntityTable` を実装。詳細は F2-3 節の「実装時の訂正」を参照。テストは [surface_prerequisite_foundation_tests/](surface_prerequisite_foundation_tests/)。 |
 | E0 Internal Reason Entity Model | **完了** | [frontend/entity/](frontend/entity/) を完成（`model.py` / `slot.py` / `diagnostics.py` / `lowering.py` を追加）。[schemas/reason_entity.schema.json](schemas/reason_entity.schema.json) を新設。仕様 §13 Phase E0 の受け入れ条件（全 Entity Kind 生成、3 回生成 byte-identical、スキーマ通過、RUO-U1 `validate_object` 診断 0 件）をすべて満たすことを [reason_entity_tests/test_entity_model.py](reason_entity_tests/test_entity_model.py) で実証。Parser には一切触れていない。 |
 | E1 Surface Model v0.1 | **完了**（一部診断は v0.1 の構文的制約により未到達） | `ru:`/`rus:`/`ruo:`/`derive:`/`<-` を Parser・名前解決・検証・Semantic AST/Reason IR/ExecutionPlan 射影・Runtime まで配線。D-7（モジュールレベル宣言が実行時環境に存在しない欠陥）を解消し、仕様 Appendix A を実際に実行して検証。テストは [surface_model_tests/](surface_model_tests/)。詳細は本節末尾の「実装時の訂正・確定事項」を参照。 |
@@ -658,6 +658,11 @@ CLI: `reason reason-entity baseline --freeze` / `--verify`。
 リポジトリ内 `.rsn` コーパスへの影響は F1 実装時に全数計測し、影響 fixture は
 注釈追加で移行する（Golden 更新対象）。
 
+> **⚠ 本節は 2026-08-21 の全数計測により反証された。** 対象 15 個中 14 個が
+> 呼出サイトを持たず、`reason init` が生成するテンプレートを含むため、
+> 本設計を実装すると新規プロジェクトがコンパイル不能になる。
+> 置換設計は **[F1-R.4 F1-1r](#f1-r4-f1-1r-d-1-の再設計二層方式)** を参照。
+
 #### F1-2: 戻り値型（D-2）
 
 - 注釈なし関数について、`_function_return_paths`（既存、
@@ -667,6 +672,12 @@ CLI: `reason reason-entity baseline --freeze` / `--verify`。
   - 不一致 → `TYPE-021 conflicting return types`（新設）。
   - 経路 0（`FN-010` で既に検出済み）→ 現行動作維持。
 - 再帰呼出は既に `FN-007` で拒否されるため、不動点計算は不要。
+
+> **補足（2026-08-21 の全数計測）**: 本節の方針自体は有効だが、単一化規則に
+> `Null` / Unknown を除外する規則が欠けており、そのままでは実在する
+> `fn find(...) { ... return value ... return null }` を破綻させる。
+> また不一致時の `TYPE-021` 即時導入はリスクが高い。
+> 補正後の設計は **[F1-R.5 F1-2r](#f1-r5-f1-2r-d-2-の再設計段階的厳格化)** を参照。
 
 #### F1-3: `tensor.to_array` の要素型（D-3）
 
@@ -755,6 +766,200 @@ result_type(tensor.to_array(x)):
   の `x / y` のみで、これは lowering 名（`DivideTransition`）の検査であり型に依存しない。
   **影響範囲は極めて小さい。**
 - `CHANGELOG.md` に互換性変更として記録する（AP-010）。
+
+#### F1-R: D-1 / D-2 再設計（2026-08-21）
+
+Phase F1 で D-1（引数型推論）・D-2（戻り値型推論）を保留した際、
+理由を「既存コーパスへの影響が大きく全数計測が必要」と記録した。
+本節はその全数計測の結果と、それに基づく**当初設計の反証および再設計**を記録する。
+
+##### F1-R.1 実測結果
+
+計測対象: リポジトリ内の全 `.rsn`（192 ファイル）に加え、Python テスト内に
+三重引用符で埋め込まれたモジュールソース（`module`/`model` 宣言を含むもの）を
+全抽出したもの。合計 491 ソース、うち構文的に解析可能な 298 件を対象とした
+（残りは invalid fixture や断片スニペットであり対象外）。
+
+| 項目 | 実測値 |
+|---|---|
+| 型注釈なし引数を持つ関数 | **15 個**（`.rsn` 3 + 埋め込み 12） |
+| うち**同一モジュール内に呼出サイトが存在しない**もの | **14 個** |
+| うち呼出サイトがあり推論を試行できるもの | **1 個**（`fn add(a, b)`） |
+| 戻り値型注釈なしの関数 | **22 個** |
+| うち return 文が 0 個のもの | **0 個** |
+| うち return 式の種別が複数混在するもの | **2 個** |
+
+##### F1-R.2 当初設計（F1-1）の反証
+
+当初の F1-1 は「呼出サイトが 0 個、または型が複数 → 宣言位置で
+`TYPE-020` を発する」と定めていた。実測の結果、**型注釈なし引数を持つ
+関数の 15 個中 14 個が「同一モジュール内に呼出サイトを持たない」**。
+すなわち当初設計はこの 14 個すべてを新規エラーにする。
+
+決定的なのは、その中に次の 2 つが含まれることである。
+
+```
+# hello_world/src/main.rsn — `reason init` が生成するスターターテンプレート
+package hello_world
+module main {
+    fn run(goal) {
+        return goal
+    }
+}
+```
+
+```
+# standard_library/install_smoke_test.rsn — インストール検証用スモークテスト
+```
+
+`fn run(goal) { return goal }` は [toolchain/init_cmd.py:37](toolchain/init_cmd.py:37)
+のテンプレート文字列そのものである。したがって当初設計を実装すると
+**`reason init` で新規作成したプロジェクトが即座にコンパイル不能になる**。
+これは移行コストの問題ではなく、設計の誤りである。
+
+**当初設計が誤った原因**: 「関数は同一モジュール内から呼ばれる」という
+暗黙の前提を置いていた。実際のこのコードベースの支配的パターンは
+**エントリポイント・ライブラリ公開関数・パーサ検証用 fixture** であり、
+いずれも「宣言されるが同一モジュールからは呼ばれない」。
+呼出サイト単一化は、この前提が成り立つコードベースでしか機能しない。
+
+##### F1-R.3 仕様 §6.2 の再解釈
+
+仕様 §6.2 は次のとおり定める。
+
+> 型注釈のない関数引数を無条件に Unknown のまま残してはならない。次のいずれかを実施する。
+> - 呼び出し文脈から一意に推論する。
+> - 推論不能な場合、宣言位置で型注釈を要求する診断を出す。
+>
+> **Unknown 値が if 条件や状態遷移に到達してから間接的なエラーを出す実装は不適合とする。**
+
+最後の一文が**適合性の判定基準**である。すなわち仕様が禁じているのは
+「Unknown の存在」そのものではなく、**Unknown に起因するエラーが原因から
+離れた使用位置で間接的に報告されること**である。
+「型注釈を要求する」は、その目的を達成する手段の一例として挙げられている。
+
+この読み直しにより、`reason init` を壊さずに §6.2 の適合基準を満たす
+設計余地が生まれる。実際、D-1 として当初記録した欠陥の症状も
+「宣言位置ではなく**使用位置**で間接的に失敗する」ことであり、
+診断の局所性こそが解決すべき問題であった。
+
+##### F1-R.4 F1-1r: D-1 の再設計（二層方式）
+
+**第 1 層 — 機会主義的な呼出サイト推論（決してエラーにしない）**
+
+- 型注釈なし引数について、同一モジュール内の呼出サイトを収集する。
+- 実引数型がすべて同一の具体型に単一化できる場合のみ、その型を採用する。
+- 呼出サイトが 0 個、型が複数、いずれかが Unknown → **推論を諦め Unknown を維持する**
+  （エラーにしない。ここが当初設計との決定的な差）。
+
+**第 2 層 — 宣言位置に係留した診断（当初の「注釈必須」規則を置換）**
+
+- Unknown を維持したまま、その値が**具体型を要求する位置**に到達した時点で
+  `TYPE-020` を発する。ただしメッセージは**引数の宣言位置と引数名を明示**する。
+- 具体型を要求する位置: `if`/`while` 条件、論理演算子の被演算子、
+  算術演算子の被演算子、Entity 状態遷移（`<-`）の右辺。
+
+効果の比較:
+
+| 入力 | 現行 | F1-1r 適用後 |
+|---|---|---|
+| `fn f(flag) { if flag { ... } }` | `CV-1 FCF-004 condition must be Bool`（使用位置・原因不明） | `TYPE-020`: 「`fn f` の引数 `flag` に型注釈がなく推論もできません。`flag: bool` の注釈を追加してください」（宣言位置を明示） |
+| `fn run(goal) { return goal }` | 通過 | **通過**（`goal` は具体型を要求する位置に到達しない） |
+
+これにより §6.2 の適合基準（間接的エラーの禁止）を満たしつつ、
+`reason init` テンプレートと 14 個の既存 fixture がすべて有効なまま維持される。
+
+**実装方式の選択**: Unknown に来歴（provenance）を持たせる必要があるが、
+`_UNKNOWN_TYPE` は現在 `object()` の素のセンチネルであり、
+[validation.py](frontend/language_surface/validation.py) 内に
+`is _UNKNOWN_TYPE` / `is not _UNKNOWN_TYPE` の同一性比較が **25 箇所**存在する。
+センチネルをクラス化して来歴を載せる案は、この 25 箇所すべての監査を要し
+リスクが高い。
+
+採用案: **`_Binding` に来歴フィールドを追加する側テーブル方式**。
+`_Binding` は現在 `type_node` / `mutable` の 2 フィールドのみであり、
+`_validate_function` が引数束縛を生成する唯一の箇所（[validation.py:805](frontend/language_surface/validation.py:805) 付近）で
+`provenance` を設定できる。条件検証関数
+（`_require_bool_condition` / `_require_function_bool_condition` / `_require_iterable`）は
+すでに `bindings` をスコープに持つため、被検査式が
+「来歴付き Unknown の `IdentifierNode`」である場合に係留診断へ切り替えられる。
+**`_UNKNOWN_TYPE` の同一性セマンティクスには一切触れない。**
+
+##### F1-R.5 F1-2r: D-2 の再設計（段階的厳格化）
+
+実測により D-2 は D-1 と**リスクプロファイルが根本的に異なる**ことが判明した。
+
+- return 文 0 個の関数は 0 個（既存 `FN-010` が既に排除している）。
+- 戻り値型推論は本質的に**受容範囲を広げる方向**の変更である。
+  現在 `fn f(x: int) { return x > 1 }` の呼出結果は Unknown となり、
+  `if y` が `CV-1 ConditionMustBeBoolean` で**誤って拒否**される（これが D-2 の症状）。
+  推論を入れると Bool と判明し、**通るようになる**。
+
+ただし厳格化方向の副作用が 1 つある: 推論後の戻り値型が呼出側の
+期待型と衝突する場合、従来 Unknown により通過していたコードが新たにエラーになる。
+
+**単一化規則**（実測で判明した必須要件）:
+
+- `Null` は単一化から除外する。既存 `_require_compatible` が
+  `if actual == PrimitiveTypeNode(PrimitiveKind.NULL): return` として
+  Null を全型互換に扱っており、これに整合させる必要がある。
+  実測した唯一の混在ケース
+  `fn find(values, target) { ... return value ... return null }`
+  （[test_core_language_phase3_iteration.py:23](language_spec_validation_tests/test_core_language_phase3_iteration.py:23)）は、
+  この規則がなければ即座に破綻する。
+- Unknown の経路も単一化から除外する（制約を与えないため）。
+- 残りの具体型がすべて一致 → 採用。
+- 残りの具体型が不一致 → **第 1 段では Unknown へフォールバック**（現行動作維持）。
+
+**段階的厳格化**（仕様 §3.7 Staged Compatibility に従う）:
+
+| 段 | 内容 | 検証ゲート |
+|---|---|---|
+| 第 1 段 | 単一化成功時のみ型を採用。不一致は Unknown 維持（エラーなし） | 全テスト緑・`reason ci` PASS・`tensor_numeric_baseline.json` 差分ゼロ |
+| 第 2 段 | 不一致を `TYPE-021` として拒否 | 第 1 段の状態で不一致件数を計測し、**0 件または移行可能と確認できた場合のみ**実施 |
+
+第 2 段を独立させる理由は、第 1 段が純粋に受容範囲を広げる低リスク変更であり、
+万一の回帰が起きた場合に原因を第 1 段/第 2 段のどちらかへ即座に切り分けられるため。
+
+##### F1-R.6 実装順序と検証ゲート
+
+各段の完了時に `python3 -m pytest -q`（現行基準: 2088 passed / 6 skipped）と
+`reason ci --json`（`status: PASS`）を必須ゲートとする。
+
+1. **F1-2r 第 1 段**（戻り値型推論・エラー追加なし）— 最も低リスク。単独で着地させる。
+2. **F1-2r 第 2 段の可否判定** — 不一致件数を計測。0 件なら `TYPE-021` を導入、
+   非 0 件なら件数と内訳を報告して判断を仰ぐ。
+3. **F1-1r 第 1 層**（呼出サイト推論・エラー追加なし）— 推論成功により
+   新たな型エラーが顕在化しないか計測する。
+4. **F1-1r 第 2 層**（`TYPE-020` の係留診断）— `_Binding.provenance` を追加し、
+   条件検証 3 箇所を係留診断へ切り替える。
+
+各段は独立コミットとし、回帰が出た場合はその段のみを切り戻せるようにする。
+
+##### F1-R.7 診断コードの変更
+
+| Code | 当初設計 | 再設計後 |
+|---|---|---|
+| `TYPE-020` | 「推論不能な引数は宣言位置で注釈必須」（**宣言時**にエラー） | 「型注釈なし引数が具体型を要求する位置に到達した」（**使用時**に検出するが、**メッセージは宣言位置と引数名を係留表示**） |
+| `TYPE-021` | 戻り値型が経路間で不一致（無条件） | 同左。ただし **F1-2r 第 2 段**として分離し、実測で 0 件を確認してから導入 |
+
+##### F1-R.8 残るリスクと未解決事項
+
+- **F1-1r 第 1 層の副作用は未計測**。呼出サイト推論が成功した結果、
+  関数本体内で新たな型エラーが顕在化する可能性がある（例:
+  `fn f(x) { return x + 1 }` を `f("s")` で呼ぶと `x` が String と推論され
+  `x + 1` がエラーになる）。これは**正しい新規エラー**だが、
+  既存 fixture に該当がないかは実装時に計測する。実測上、推論を試行できる
+  対象は `fn add(a, b)` の 1 個のみであり、影響は極小と見込まれる。
+- **`TYPE-020` の到達位置の網羅性**。「具体型を要求する位置」として
+  条件・論理演算・算術演算・Entity 遷移を挙げたが、
+  網羅性は実装時に `_UNKNOWN_TYPE` を参照している 42 箇所を精査して確定する。
+  網羅しきれない位置が残る場合、その位置では従来どおりの診断が出る
+  （劣化はしないが §6.2 の目的を完全には満たさない）ため、
+  残存箇所を limitations として明示記録する。
+- **モジュール横断の呼出サイトは対象外**。F1-1r 第 1 層は同一モジュール内の
+  呼出のみを見る。モジュール横断の推論は名前解決順序への依存を生み
+  決定論（§3.3）を脅かすため、v0.1 では意図的に対象外とする。
 
 #### F1 受け入れ条件
 
