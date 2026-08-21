@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.5.5.1 — 2026-08-21
+
+### Added
+
+- Reason Entity Foundation and Surface Model v0.1: `ru:`/`rus:`/`ruo:`/
+  `derive:` declarations, `<-` state transitions, Canonical Entity IDs,
+  RUO-U1 compatibility projection, and RU Slot runtime representation with
+  propose/validate/commit atomicity and on-read derive evaluation.
+- Declaration-anchored type diagnostics (`TYPE-020`, `TYPE-021`) that report
+  unresolved parameter/condition types at the point of declaration instead
+  of at a distant use site.
+
+### Changed
+
+- Merged in `v0.5.4.7`–`v0.5.4.9`'s cross-module `module::function` linking,
+  package-wide `reason run` (compiling directly from `src/` rather than
+  requiring prior `reason build` artifacts), and the standalone optimizer
+  module, reconciling both branches' independent changes to the shared
+  runtime and validation pipeline.
+
 ## v0.5.4.9 — 2026-08-18
 
 ### Added

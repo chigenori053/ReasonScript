@@ -5,10 +5,10 @@ deterministic execution, and rollback-safe systems. It compiles source
 through a deterministic pipeline — Surface AST, Semantic AST, Reason IR,
 and ExecutionPlan — into a validated, reproducible runtime result.
 
-Current release: **v0.5.4.9**. See [`CHANGELOG.md`](CHANGELOG.md) for the
+Current release: **v0.5.5.1**. See [`CHANGELOG.md`](CHANGELOG.md) for the
 detailed history and [`docs/roadmap.md`](docs/roadmap.md) for what's next.
 Use
-[`docs/installation/ReasonScript_v0_5_4_9_Installation.md`](docs/installation/ReasonScript_v0_5_4_9_Installation.md)
+[`docs/installation/ReasonScript_v0_5_5_1_Installation.md`](docs/installation/ReasonScript_v0_5_5_1_Installation.md)
 for the official macOS arm64 package update procedure.
 
 ## What it does

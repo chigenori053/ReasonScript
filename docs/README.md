@@ -5,11 +5,19 @@ documentation for the ReasonScript language and platform.
 
 ## Current Release
 
+- `../release/RELEASE_NOTES_v0_5_5_1.md` — ReasonScript v0.5.5.1 release
+  scope, compatibility notes, and package location.
+- `changelog/reasonscript_v0_5_5_1.md` — concise v0.5.5.1 changelog.
+- `installation/ReasonScript_v0_5_5_1_Installation.md` — official macOS arm64
+  package update and validation procedure.
+- `development/reason_entity_foundation_design_v0_1.md` — the Reason Entity
+  Foundation and Surface Model v0.1 design document.
+
+## Previous Release
+
 - `../release/RELEASE_NOTES_v0_5_4_9.md` — ReasonScript v0.5.4.9 release
   scope, compatibility notes, and package location.
 - `changelog/reasonscript_v0_5_4_9.md` — concise v0.5.4.9 changelog.
-- `installation/ReasonScript_v0_5_4_9_Installation.md` — official macOS arm64
-  package update and validation procedure.
 - `specifications/ReasonScript_Transformer_Validation_Remediation_v0_1.md` and
   `specifications/ReasonScript_Agent_Project_Template_v0_1.md` — accepted
   specifications for the v0.5.4.9 corrections and Agent project template.
