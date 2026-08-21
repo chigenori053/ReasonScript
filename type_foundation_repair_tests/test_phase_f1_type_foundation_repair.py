@@ -1,13 +1,19 @@
 """Phase F1 — Type Foundation Repair regression tests (RS-RE-FSM-001 §12.1).
 
-Covers the defects verified against v0.5.4.6 during design (D-3, D-4, D-5)
-and fixed in this Phase. D-1 (untyped parameter inference) and D-2 (return
-type inference) are intentionally deferred: an initial full-strictness
-implementation broke a codebase-wide convention of undeclared placeholder
-calls (`notify(x)`, `publish(order)`) used across 16 existing test files as
-generic "effectful statement" stand-ins, and 30+ existing fixtures declare
-functions with untyped parameters. Fixing D-1/D-2 safely requires enumerating
-and migrating that exposure, which is out of scope for this Phase.
+Covers the defects verified against v0.5.4.6 during design (D-3, D-4, D-5),
+plus D-1 (untyped parameter inference) and D-2 (return type inference),
+implemented per the F1-R redesign (design doc) after a full-corpus
+measurement disproved the original F1-1/F1-2 plan: 14 of 15 untyped-
+parameter functions in the corpus have no call site in their own module,
+including `reason init`'s own starter template (`fn run(goal) { return
+goal }`). The redesign never rejects a function on that basis -- it
+attempts call-site inference (F1-1r tier 1, never errors) and only reports
+`TYPE-020`, anchored at the parameter's own declaration, when an untyped,
+uninferred parameter actually reaches a position that demands a concrete
+type. D-2's `TYPE-021` (conflicting return types) is enabled outright: the
+corpus's one real conflict (platform_phase8_tests/test_runtime_namespace_api.py)
+was an incidental match-arm inconsistency unrelated to what that test
+verifies, and was fixed alongside this stage.
 """
 
 from __future__ import annotations
@@ -237,3 +243,198 @@ def test_to_array_element_type_via_let_binding_is_a_known_limitation() -> None:
             }
             """
         )
+
+
+# --- D-2: return type inference (F1-2r) -------------------------------------
+
+
+def test_return_type_inferred_from_single_unification() -> None:
+    compiles(
+        """
+        module M {
+          fn f(x: int) {
+            return x > 1
+          }
+          calculation C {
+            let y = f(2)
+            if y {
+              result = 1
+            } else {
+              result = 0
+            }
+          }
+        }
+        """
+    )
+
+
+def test_return_type_null_and_unknown_are_excluded_from_unification() -> None:
+    # The real corpus fixture this rule exists for: a function returning
+    # either a found value or `null` from different paths.
+    compiles(
+        """
+        module M {
+          fn find(values: [int], target: int) {
+            for value in values {
+              if value == target {
+                return value
+              }
+            }
+            return null
+          }
+          calculation C {
+            let r = find([1, 2, 3], 2)
+            result = 1
+          }
+        }
+        """
+    )
+
+
+def test_conflicting_return_types_raise_type_021() -> None:
+    with pytest.raises(PipelineError, match="TYPE-021"):
+        compiles(
+            """
+            module M {
+              fn f(x: int) {
+                if x > 0 {
+                  return 1
+                }
+                return "s"
+              }
+              calculation C {
+                let y = f(1)
+                result = 1
+              }
+            }
+            """
+        )
+
+
+def test_no_return_statements_is_unaffected_by_inference() -> None:
+    # FN-010 ("not all paths return") already rejects this; F1-2r must not
+    # change that.
+    with pytest.raises(PipelineError, match="FN-010"):
+        compiles(
+            """
+            module M {
+              fn f(x: int) {
+                let y = x + 1
+              }
+              calculation C {
+                result = 1
+              }
+            }
+            """
+        )
+
+
+# --- D-1: parameter type inference (F1-1r) ----------------------------------
+
+
+def test_reason_init_template_still_compiles() -> None:
+    # toolchain/init_cmd.py's exact starter template. The original F1-1
+    # design (unconditional TYPE-020 for any 0-call-site parameter) would
+    # have broken every project `reason init` creates.
+    compiles(
+        """
+        package hello_world
+        module main {
+            fn run(goal) {
+                return goal
+            }
+        }
+        """
+    )
+
+
+def test_untyped_parameter_never_used_in_a_typed_position_compiles() -> None:
+    compiles(
+        """
+        module M {
+          fn identity(value) {
+            return value
+          }
+          calculation C {
+            let y = identity(1)
+            result = y
+          }
+        }
+        """
+    )
+
+
+def test_untyped_parameter_with_no_call_site_in_condition_raises_type_020() -> None:
+    with pytest.raises(PipelineError, match="TYPE-020"):
+        compiles(
+            """
+            module M {
+              fn f(flag) {
+                if flag {
+                  return 1
+                }
+                return 0
+              }
+            }
+            """
+        )
+
+
+def test_type_020_message_names_the_function_and_parameter() -> None:
+    with pytest.raises(PipelineError, match=r"TYPE-020.*`flag`.*`f`"):
+        compiles(
+            """
+            module M {
+              fn f(flag) {
+                if flag {
+                  return 1
+                }
+                return 0
+              }
+            }
+            """
+        )
+
+
+def test_call_site_literal_argument_is_inferred_and_type_checked() -> None:
+    # `f(2)` infers `flag: Int`; `if flag` on an Int is then a genuine,
+    # correctly-diagnosed type mismatch (CV-1), not an indirect Unknown
+    # artifact (TYPE-020 does not fire here -- the type was inferred).
+    with pytest.raises(PipelineError, match="CV-1"):
+        compiles(
+            """
+            module M {
+              fn f(flag) {
+                if flag {
+                  return 1
+                }
+                return 0
+              }
+              calculation C {
+                let y = f(2)
+                result = y
+              }
+            }
+            """
+        )
+
+
+def test_call_site_inference_does_not_resolve_local_bindings() -> None:
+    # Conservative by design: the caller's own local `let`/`const` are not
+    # resolved (would need the caller's own body already validated, which
+    # is circular for mutual calls). `local` stays Unknown at the call
+    # site, so no type is inferred for `x` and the function stays legal.
+    compiles(
+        """
+        module M {
+          fn f(x) {
+            return x
+          }
+          calculation C {
+            let local = 1
+            let y = f(local)
+            result = y
+          }
+        }
+        """
+    )

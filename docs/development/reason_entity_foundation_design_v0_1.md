@@ -576,7 +576,7 @@ evaluate(derived):
 | Phase | 状態 | 内容 |
 |---|---|---|
 | F0 Baseline Freeze | **完了** | [toolchain/reason_entity_baseline/](toolchain/reason_entity_baseline/) 実装。`reason reason-entity-baseline generate/validate` で 3 回生成 byte-identical を確認済み（`performance_baseline.json` は §7 の方針どおり比較対象外）。テストは [tests/reason_entity_baseline/](tests/reason_entity_baseline/)。 |
-| F1 Type Foundation Repair | **部分完了**（D-3・D-4・D-5 実装済み。D-1・D-2 は**再設計完了・実装待ち**） | 詳細は各 F1-N 節の「実装時の訂正」を参照。D-1/D-2 は全数計測により当初設計が反証されたため再設計済み → [F1-R](#f1-r-d-1--d-2-再設計2026-08-21)。テストは [type_foundation_repair_tests/](type_foundation_repair_tests/)。 |
+| F1 Type Foundation Repair | **完了**（D-1〜D-5 すべて実装済み） | D-3・D-4・D-5 に加え、D-1・D-2 を [F1-R 再設計](#f1-r-d-1--d-2-再設計2026-08-21) どおり実装（F1-2r 第1・第2段、F1-1r 第1・第2層）。`reason init` テンプレートを含む既存コーパスは全件無変更で通過。テストは [type_foundation_repair_tests/](type_foundation_repair_tests/)（34件）。詳細は F1-R 節末尾の「実装結果」を参照。 |
 | F2 Surface Prerequisite Foundation | **完了**（F2-3 のみ範囲縮小） | 演算子継続（D-6）、`<-` 語彙化、[frontend/entity/](frontend/entity/) の Canonical ID・`EntityTable` を実装。詳細は F2-3 節の「実装時の訂正」を参照。テストは [surface_prerequisite_foundation_tests/](surface_prerequisite_foundation_tests/)。 |
 | E0 Internal Reason Entity Model | **完了** | [frontend/entity/](frontend/entity/) を完成（`model.py` / `slot.py` / `diagnostics.py` / `lowering.py` を追加）。[schemas/reason_entity.schema.json](schemas/reason_entity.schema.json) を新設。仕様 §13 Phase E0 の受け入れ条件（全 Entity Kind 生成、3 回生成 byte-identical、スキーマ通過、RUO-U1 `validate_object` 診断 0 件）をすべて満たすことを [reason_entity_tests/test_entity_model.py](reason_entity_tests/test_entity_model.py) で実証。Parser には一切触れていない。 |
 | E1 Surface Model v0.1 | **完了**（一部診断は v0.1 の構文的制約により未到達） | `ru:`/`rus:`/`ruo:`/`derive:`/`<-` を Parser・名前解決・検証・Semantic AST/Reason IR/ExecutionPlan 射影・Runtime まで配線。D-7（モジュールレベル宣言が実行時環境に存在しない欠陥）を解消し、仕様 Appendix A を実際に実行して検証。テストは [surface_model_tests/](surface_model_tests/)。詳細は本節末尾の「実装時の訂正・確定事項」を参照。 |
@@ -960,6 +960,62 @@ module main {
 - **モジュール横断の呼出サイトは対象外**。F1-1r 第 1 層は同一モジュール内の
   呼出のみを見る。モジュール横断の推論は名前解決順序への依存を生み
   決定論（§3.3）を脅かすため、v0.1 では意図的に対象外とする。
+
+##### F1-R.9 実装結果（2026-08-21）
+
+F1-R の設計どおりに 4 段階で実装した。各段はそれぞれ独立コミット相当の
+単位で `python3 -m pytest -q` と `reason ci` を通過させてから次段へ進んだ。
+
+1. **F1-2r 第 1 段**（戻り値型推論、エラー追加なし）。
+   `_validate_function_statements` に `return_type_sink` を追加し、
+   既存の再帰呼出しをそのまま使って return 文の型を収集した
+   （新しい別ウォーカーを書かず、実証済みの束縛追跡ロジックを再利用）。
+   `_INFERRED_RETURN_TYPES`（モジュールスコープのグローバル、
+   `_CURRENT_NAMESPACE` と同じ手法でリセット）に格納し、
+   関数呼出式の型解決（`_expression_type` の `CallExpressionNode` 分岐）
+   から参照した。
+   **副次的な発見**: 関数はモジュール内の宣言順に検証されていたため、
+   計算式が自分より後に宣言された関数を呼ぶと推論結果が未計算のまま
+   参照される欠陥があった。`_validate_module` に「全関数を先に検証する」
+   プリパスを追加して解消した。
+2. **F1-2r 第 2 段**（`TYPE-021`）。全数計測で衝突は **1 件のみ**
+   （[platform_phase8_tests/test_runtime_namespace_api.py](platform_phase8_tests/test_runtime_namespace_api.py)、
+   `match` の一方の腕が `SearchResult`、もう一方が `Optional<PlanningResult>`
+   を返す、テスト自体の意図とは無関係な不整合）。ユーザーに提示のうえ
+   「導入し、fixture を修正する」を選択、両アームを `return search_result`
+   に統一して修正した。
+3. **F1-1r 第 1 層**（呼出サイト推論、エラー追加なし）。
+   呼出側の型解決は `symbols` のみ（呼出元のローカル束縛は使わない）
+   で行う設計方針を実装どおり維持した。実測対象の `fn add(a, b)` は
+   `add(base, 3)` から呼ばれるが、`base` は計算式ローカルの `const`
+   （モジュールレベルではない）と判明し、`b`（リテラル `3` 由来）のみ
+   推論され `a` は Unknown のまま——設計が意図した「保守的に倒す」が
+   実際に機能した実例となった。
+4. **F1-1r 第 2 層**（`TYPE-020` 係留診断）。`_Binding` に
+   `provenance: tuple[str, str] | None` を追加し（末尾のデフォルト付き
+   フィールドのため既存呼出しは無変更）、`_validate_function` が
+   「型注釈なし・推論不能」なパラメータの束縛にのみ設定した。
+   **実装時の発見**: 「具体型を要求する位置」で実際に Unknown が
+   間接エラーを起こしていたのは `_require_bool_condition`
+   （`if`/`while` 条件）**1 箇所のみ**だった。F1-R.8 で懸念していた
+   「論理演算・算術演算・Entity 遷移」は、`_expression_type` の
+   `BinaryExpressionNode`/`LogicalExpressionNode`/`UnaryExpressionNode`
+   と `_require_compatible` がすべて Unknown を静かに許容する実装に
+   なっており、そもそも間接エラーを起こしていなかった
+   （F1-R.8 の想定より対象範囲が狭かった）。このため 42 箇所の
+   `_UNKNOWN_TYPE` 参照を全数監査する必要はなく、1 箇所の修正で
+   D-1 の報告された症状（`fn f(flag) { if flag {...} }`）を解消できた。
+   **既存テストの意図的な更新**: `language_spec_validation_tests/test_core_language_phase2_boolean.py`
+   の `test_condition_must_be_boolean` が `fn bad(x) { if x {...} }` に対し
+   `CV-1` を期待していたが、これはまさに測定した 14 個の「呼出サイトなし」
+   fixture の 1 つだった。テストの意図（型を証明できない条件は拒否される）
+   は保たれたまま診断が `TYPE-020`（宣言位置係留）に変わったため、
+   期待値を更新し、「型が推論された場合は引き続き `CV-1` が出る」ことを
+   確認する対の新規テストを追加した。
+
+全 4 段階を通じて回帰は 0 件（`reason init` テンプレート、
+`notify(x)`/`publish(order)` 慣用表現、既存の全 fixture を含む）。
+テストスイートは 2088 passed（F1-R 開始前）から 2099 passed へ増加。
 
 #### F1 受け入れ条件
 

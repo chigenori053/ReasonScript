@@ -27,8 +27,8 @@ class PlatformPhase8RuntimeNamespaceTests(unittest.TestCase):
                     let prediction = runtime.predict(goal)
                     let plan = runtime.plan(goal)
                     match search_result {
-                        some(result) => return result
-                        none => return plan
+                        some(result) => return search_result
+                        none => return search_result
                     }
                 }
             }

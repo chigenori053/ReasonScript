@@ -281,6 +281,17 @@ class SurfaceValidationError(ValueError):
 
 _CURRENT_NAMESPACE: ModuleNamespace | None = None
 _CURRENT_FUNCTION: str | None = None
+# F1-2r (design doc F1-R.5): inferred return type per unannotated function
+# name, populated by _validate_function and consulted when typing calls to
+# that function. Module-scoped (cleared per module in validate()) rather
+# than a single global dict shared across a whole ProgramNode, since
+# function names are only unique within one module.
+_INFERRED_RETURN_TYPES: dict[str, Any] = {}
+# F1-1r tier 1 (design doc F1-R.4): function name -> {param name: inferred
+# type}, populated from call-site inference before the function's own
+# body is validated. Module-scoped, same lifecycle as
+# _INFERRED_RETURN_TYPES.
+_INFERRED_PARAMETER_TYPES: dict[str, dict[str, Any]] = {}
 RUNTIME_RESULT_TYPES = {
     "SearchResult",
     "SimulationResult",
@@ -293,6 +304,13 @@ RUNTIME_RESULT_TYPES = {
 class _Binding:
     type_node: Any
     mutable: bool
+    # F1-1r tier 2 (design doc F1-R.4): (function_name, parameter_name) when
+    # this binding is an untyped function parameter whose type could not be
+    # inferred from call sites either. Lets a position that demands a
+    # concrete type (currently: if/while conditions) report TYPE-020
+    # anchored at the parameter's own declaration, instead of an indirect
+    # error at the distant use site (spec Sec6.2's conformance criterion).
+    provenance: tuple[str, str] | None = None
 
 
 def validate(program: ProgramNode) -> None:
@@ -333,6 +351,8 @@ def validate(program: ProgramNode) -> None:
 
 
 def _validate_module(module: ModuleNode) -> None:
+    _INFERRED_RETURN_TYPES.clear()
+    _INFERRED_PARAMETER_TYPES.clear()
     symbols: dict[str, Any] = {}
     for node in module.body:
         if isinstance(node, ImportNode):
@@ -398,6 +418,20 @@ def _validate_module(module: ModuleNode) -> None:
                 f"ST-V002 {type(node).__name__} is invalid in module body"
             )
 
+    # Functions are validated before calculations/transitions regardless of
+    # declaration order, so that an unannotated function's inferred return
+    # type (F1-2r, design doc F1-R.5) is available to every call site --
+    # calls are not restricted to appearing after their function's own
+    # declaration (unlike Reason Entity declarations, which are).
+    for node in module.body:
+        if isinstance(node, FunctionDeclarationNode):
+            inferred_parameters = _infer_parameter_types_from_call_sites(
+                node, module, symbols
+            )
+            if inferred_parameters:
+                _INFERRED_PARAMETER_TYPES[node.name] = inferred_parameters
+            _validate_function(node, symbols)
+
     for node in module.body:
         if isinstance(node, RelationNode):
             if node.source not in symbols:
@@ -421,7 +455,7 @@ def _validate_module(module: ModuleNode) -> None:
         elif isinstance(node, CalculationNode):
             _validate_calculation(node, symbols)
         elif isinstance(node, FunctionDeclarationNode):
-            _validate_function(node, symbols)
+            pass  # already validated above
         else:
             _validate_ast_node(node)
     _validate_calculation_dependency_graph(module)
@@ -844,20 +878,123 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
     return found
 
 
+def _unify_return_types(observed: list[Any], *, function_name: str) -> Any | None:
+    """F1-2r (design doc F1-R.5): unify observed return-expression types
+    for an unannotated function. `Null` and Unknown carry no constraint
+    and are excluded (a real fixture returns both a value and `null` from
+    different paths -- see F1-R.1); if exactly one distinct type remains,
+    it is the inferred return type. Zero remaining types yields no
+    inference (callers keep seeing Unknown, exactly like before F1-2r).
+    More than one distinct type is a genuine conflict and raises
+    `TYPE-021` (stage 2, gated on the F1-R.6 measurement: exactly one
+    real occurrence found in the whole corpus, in a test fixture whose
+    two match arms returned unrelated runtime-call results -- fixed
+    alongside this stage's introduction)."""
+    null_type = PrimitiveTypeNode(PrimitiveKind.NULL)
+    concrete = {
+        candidate for candidate in observed
+        if candidate is not _UNKNOWN_TYPE and candidate != null_type
+    }
+    if len(concrete) == 1:
+        return next(iter(concrete))
+    if len(concrete) > 1:
+        raise SurfaceValidationError(
+            f"TYPE-021 conflicting return types in function `{function_name}`: "
+            + ", ".join(sorted(_type_name(candidate) for candidate in concrete))
+        )
+    return None
+
+
+def _walk_ast(value: Any):
+    if is_dataclass(value) and not isinstance(value, type):
+        yield value
+        for field in fields(value):
+            yield from _walk_ast(getattr(value, field.name))
+    elif isinstance(value, (tuple, list)):
+        for item in value:
+            yield from _walk_ast(item)
+
+
+def _infer_parameter_types_from_call_sites(
+    function: FunctionDeclarationNode,
+    module: ModuleNode,
+    symbols: dict[str, Any],
+) -> dict[str, Any]:
+    """F1-1r tier 1 (design doc F1-R.4): opportunistic call-site type
+    inference for `function`'s untyped parameters. Never raises -- a
+    parameter that cannot be confidently inferred is simply absent from
+    the returned dict (callers fall back to Unknown, exactly like before
+    F1-1r).
+
+    Call sites are resolved with `bindings={}` (no local variables from
+    the calling context), so only arguments that are literals or resolve
+    through module-level `symbols` (consts, other declarations) can be
+    inferred. This is deliberately conservative: the alternative -- also
+    resolving the calling context's own local bindings -- would need
+    those call sites' enclosing calculations/functions to already be
+    validated, which is circular when two functions call each other.
+    Measured impact (F1-R.1): this simpler rule already covers the one
+    real call-site-inferable case in the corpus (`fn add(a, b)` called
+    as `add(base, 3)`, where `base` is a module-level `const`)."""
+    untyped_names = [
+        name
+        for parameter in function.parameters
+        if _function_parameter_type(parameter) is None
+        for name in (_function_parameter_name(parameter),)
+    ]
+    if not untyped_names:
+        return {}
+    observed: dict[str, set[Any]] = {name: set() for name in untyped_names}
+    for node in _walk_ast(module):
+        if not (
+            isinstance(node, CallExpressionNode)
+            and isinstance(node.callee, IdentifierNode)
+            and node.callee.name == function.name
+        ):
+            continue
+        if len(node.arguments) != len(function.parameters):
+            continue
+        for parameter, argument in zip(function.parameters, node.arguments):
+            name = _function_parameter_name(parameter)
+            if name not in observed:
+                continue
+            argument_expression = (
+                argument if isinstance(argument, ExpressionNode) else ExpressionNode(argument)
+            )
+            argument_type = _expression_type(argument_expression.expression, symbols, {})
+            if argument_type is not _UNKNOWN_TYPE:
+                observed[name].add(argument_type)
+    return {
+        name: next(iter(types))
+        for name, types in observed.items()
+        if len(types) == 1
+    }
+
+
 def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -> None:
     global _CURRENT_FUNCTION
     _validate_ast_node(node)
     if node.return_type is not None:
         _resolve_type(node.return_type, symbols)
+    call_site_inferred = _INFERRED_PARAMETER_TYPES.get(node.name, {})
+
+    def _parameter_binding(parameter: Any) -> _Binding:
+        name = _function_parameter_name(parameter)
+        declared = _function_parameter_type(parameter)
+        if declared is not None:
+            return _Binding(declared, mutable=False)
+        inferred = call_site_inferred.get(name)
+        if inferred is not None:
+            return _Binding(inferred, mutable=False)
+        return _Binding(_UNKNOWN_TYPE, mutable=False, provenance=(node.name, name))
+
     bindings = {
-        _function_parameter_name(parameter): _Binding(
-            _function_parameter_type(parameter) or _UNKNOWN_TYPE,
-            mutable=False,
-        )
+        _function_parameter_name(parameter): _parameter_binding(parameter)
         for parameter in node.parameters
     }
     previous_function = _CURRENT_FUNCTION
     _CURRENT_FUNCTION = node.name
+    return_type_sink: list[Any] = []
     try:
         _validate_function_statements(
             node.body,
@@ -866,12 +1003,17 @@ def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -
             allow_terminal_return=True,
             loop_depth=0,
             return_type=node.return_type,
+            return_type_sink=return_type_sink,
         )
     finally:
         _CURRENT_FUNCTION = previous_function
     _validate_function_control_flow(node.body)
     if not _statement_list_terminates_with_return(node.body):
         raise SurfaceValidationError("FN-010 FCF-001 Not all execution paths return")
+    if node.return_type is None:
+        inferred = _unify_return_types(return_type_sink, function_name=node.name)
+        if inferred is not None:
+            _INFERRED_RETURN_TYPES[node.name] = inferred
 
 
 def _function_parameter_name(parameter: Any) -> str:
@@ -1276,6 +1418,7 @@ def _validate_function_statements(
     allow_terminal_return: bool,
     loop_depth: int = 0,
     return_type: Any = None,
+    return_type_sink: list[Any] | None = None,
 ) -> None:
     allowed = (
         LetStatementNode,
@@ -1375,6 +1518,12 @@ def _validate_function_statements(
                 symbols,
             ):
                 raise SurfaceValidationError("OV-1 OptionalTypeRequired")
+            if return_type is None and return_type_sink is not None:
+                return_type_sink.append(
+                    _expression_type(
+                        statement.expression.expression, symbols, local_bindings
+                    )
+                )
             if return_type is not None:
                 _require_compatible(
                     return_type,
@@ -1412,6 +1561,7 @@ def _validate_function_statements(
                 allow_terminal_return=True,
                 loop_depth=loop_depth + 1,
                 return_type=return_type,
+                return_type_sink=return_type_sink,
             )
         elif isinstance(statement, WhileStatementNode):
             _validate_calculation_expression(
@@ -1425,6 +1575,7 @@ def _validate_function_statements(
                 allow_terminal_return=True,
                 loop_depth=loop_depth + 1,
                 return_type=return_type,
+                return_type_sink=return_type_sink,
             )
         elif isinstance(statement, LoopStatementNode):
             _validate_function_statements(
@@ -1434,6 +1585,7 @@ def _validate_function_statements(
                 allow_terminal_return=True,
                 loop_depth=loop_depth + 1,
                 return_type=return_type,
+                return_type_sink=return_type_sink,
             )
         elif isinstance(statement, IfStatementNode):
             _validate_calculation_expression(
@@ -1447,6 +1599,7 @@ def _validate_function_statements(
                 allow_terminal_return=True,
                 loop_depth=loop_depth,
                 return_type=return_type,
+                return_type_sink=return_type_sink,
             )
             for branch in statement.elif_branches:
                 _validate_calculation_expression(
@@ -1460,6 +1613,7 @@ def _validate_function_statements(
                     allow_terminal_return=True,
                     loop_depth=loop_depth,
                     return_type=return_type,
+                    return_type_sink=return_type_sink,
                 )
             if statement.else_branch:
                 _validate_function_statements(
@@ -1469,6 +1623,7 @@ def _validate_function_statements(
                     allow_terminal_return=True,
                     loop_depth=loop_depth,
                     return_type=return_type,
+                    return_type_sink=return_type_sink,
                 )
         elif isinstance(statement, MatchStatementNode):
             _validate_calculation_expression(
@@ -1495,6 +1650,7 @@ def _validate_function_statements(
                     allow_terminal_return=True,
                     loop_depth=loop_depth,
                     return_type=return_type,
+                    return_type_sink=return_type_sink,
                 )
 
 
@@ -2182,7 +2338,9 @@ def _expression_type(
                             symbols,
                             "FN-005 function argument mismatch",
                         )
-                return function.return_type or _UNKNOWN_TYPE
+                if function.return_type is not None:
+                    return function.return_type
+                return _INFERRED_RETURN_TYPES.get(function.name, _UNKNOWN_TYPE)
         return _UNKNOWN_TYPE
     return _UNKNOWN_TYPE
 
@@ -2319,7 +2477,29 @@ def _require_bool_condition(
     expression_type = _expression_type(expression.expression, symbols, bindings)
     bool_type = PrimitiveTypeNode(PrimitiveKind.BOOL)
     if expression_type is _UNKNOWN_TYPE or expression_type != bool_type:
-        raise SurfaceValidationError("CV-1 ConditionMustBeBoolean")
+        _raise_unknown_condition_error(expression, bindings)
+
+
+def _raise_unknown_condition_error(
+    expression: ExpressionNode, bindings: dict[str, Any]
+) -> None:
+    # F1-1r tier 2 (design doc F1-R.4): an untyped, uninferred function
+    # parameter reaching a position that demands a concrete type gets a
+    # diagnostic anchored at its own declaration (TYPE-020), instead of
+    # the generic error a use site this far removed would otherwise carry
+    # no context for.
+    value = expression.expression
+    if isinstance(value, IdentifierNode):
+        binding = bindings.get(value.name)
+        if isinstance(binding, _Binding) and binding.provenance is not None:
+            function_name, parameter_name = binding.provenance
+            raise SurfaceValidationError(
+                f"TYPE-020 parameter `{parameter_name}` of function `{function_name}` "
+                "has no type annotation and its type could not be inferred from call "
+                "sites; add a type annotation "
+                f"(`{parameter_name}: <type>`) to `{function_name}`"
+            )
+    raise SurfaceValidationError("CV-1 ConditionMustBeBoolean")
 
 
 def _require_function_bool_condition(

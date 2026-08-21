@@ -42,11 +42,33 @@ class CoreLanguagePhase2BooleanTests(unittest.TestCase):
         self.assertEqual(from_json_value(to_json_value(program)), program)
 
     def test_condition_must_be_boolean(self):
-        with self.assertRaisesRegex(SurfaceSyntaxError, "CV-1"):
+        # `x` has no type annotation and no call site to infer one from, so
+        # this is now TYPE-020 (declaration-anchored: RS-RE-FSM-001 design
+        # doc F1-R.4) rather than the old CV-1 raised at the `if` use site.
+        # A condition whose operand does resolve to a non-Bool concrete
+        # type still raises CV-1 -- see test_condition_must_be_boolean_for_a_typed_operand.
+        with self.assertRaisesRegex(SurfaceSyntaxError, "TYPE-020"):
             parse(
                 """
                 module invalid {
                     fn bad(x) {
+                        if x {
+                            return 1
+                        }
+                        else {
+                            return 0
+                        }
+                    }
+                }
+                """
+            )
+
+    def test_condition_must_be_boolean_for_a_typed_operand(self):
+        with self.assertRaisesRegex(SurfaceSyntaxError, "CV-1"):
+            parse(
+                """
+                module invalid {
+                    fn bad(x: int) {
                         if x {
                             return 1
                         }
