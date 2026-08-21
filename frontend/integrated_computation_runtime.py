@@ -40,6 +40,7 @@ from frontend.language_surface.nodes import (
     FunctionDeclarationNode,
     IdentifierNode,
     IfStatementNode,
+    ImportNode,
     IndexAccessNode,
     IndexAssignmentStatementNode,
     IntegerLiteralNode,
@@ -53,6 +54,7 @@ from frontend.language_surface.nodes import (
     NullLiteralNode,
     ParenthesizedExpressionNode,
     ProgramNode,
+    QualifiedIdentifierNode,
     ReasonEntityDeclarationNode,
     ReasonEntityKind,
     ReasonStateTransitionNode,
@@ -69,6 +71,7 @@ from frontend.tensor.integration import LOWERINGS, tensor_call_name
 from frontend.tensor.runtime import TensorError, TensorRuntime, TensorValueRef
 from frontend.vision.integration import vision_call_name
 from frontend.vision.runtime import VisionRuntimeBridge
+from frontend.optimizer import OptimizerError, call_optimizer, optimizer_call_name
 
 _SURFACE_TO_MODEL_ENTITY_KIND = {
     ReasonEntityKind.RU: ReasonEntityModelKind.RU,
@@ -84,7 +87,7 @@ class _RuntimeEntityScope:
     Canonical IDs, alongside the RU Slot runtime that owns their state.
     Threaded through recursive evaluation via a ContextVar rather than an
     added parameter on every one of the ~46 mutually-recursive `_statements`/
-    `_expression` call sites in this module (RS-RE-FSM-001 §3.8 C-5)."""
+    `_expression` call sites in this module (RS-RE-FSM-001 SS3.8 C-5)."""
 
     environment: ReasonEntityEnvironment
     identifiers: dict[str, str] = field(default_factory=dict)
@@ -130,18 +133,25 @@ class RuntimeStruct:
 
 
 @dataclass
+class RuntimeFunction:
+    node: FunctionDeclarationNode
+    bindings: dict[str, "RuntimeFunction"]
+
+
+@dataclass
 class IntegratedComputationResult:
     value: Any
     runtime: TensorRuntime
     loop_trace: list[dict[str, Any]]
     calculation_results: dict[str, Any]
     vision_runtime: VisionRuntimeBridge | None = None
+    result_artifact_dir: Path | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema_version": "reasonscript-integrated-runtime/0.1",
             "status": "success",
-            "result": _plain(self.value, self.runtime),
+            "result": _plain(self.value, self.runtime, self.result_artifact_dir),
             "tensor_metadata": [
                 ref.metadata()
                 for ref in sorted(self.runtime._refs.values(), key=lambda item: item.tensor_id)
@@ -150,7 +160,7 @@ class IntegratedComputationResult:
             "loop_trace": list(self.loop_trace),
             "vision_trace": list(self.vision_runtime.trace) if self.vision_runtime is not None else [],
             "calculations": {
-                name: _plain(value, self.runtime)
+                name: _plain(value, self.runtime, self.result_artifact_dir)
                 for name, value in sorted(self.calculation_results.items())
             },
         }
@@ -162,6 +172,7 @@ def execute_program(
     resource_root: Path | None = None,
     filesystem_read: bool = False,
     filesystem_write: bool = False,
+    result_artifact_dir: Path | None = None,
 ) -> IntegratedComputationResult:
     runtime = TensorRuntime(
         resource_root=resource_root or Path.cwd(),
@@ -171,13 +182,33 @@ def execute_program(
     vision_runtime = VisionRuntimeBridge(resource_root or Path.cwd(), filesystem_read=filesystem_read, filesystem_write=filesystem_write)
     loop_trace: list[dict[str, Any]] = []
     calculations: dict[str, Any] = {}
+    function_registry: dict[str, RuntimeFunction] = {}
+    package_prefix = f"{program.package.name}." if program.package is not None else ""
+    for module in program.modules:
+        for item in module.body:
+            if isinstance(item, FunctionDeclarationNode):
+                function_registry[f"{package_prefix}{module.name}::{item.name}"] = RuntimeFunction(item, {})
+    module_functions: dict[str, dict[str, RuntimeFunction]] = {}
+    for module in program.modules:
+        bindings = dict(function_registry)
+        for item in module.body:
+            if isinstance(item, FunctionDeclarationNode):
+                bindings[item.name] = function_registry[f"{package_prefix}{module.name}::{item.name}"]
+            elif isinstance(item, ImportNode) and item.resolution is not None:
+                for exposed_name in item.resolution.exposed_names:
+                    canonical = f"{item.resolution.namespace}::{item.resolution.symbol or exposed_name}"
+                    if canonical in function_registry:
+                        bindings[exposed_name] = function_registry[canonical]
+        module_functions[module.name] = bindings
+    for function in function_registry.values():
+        module_name = next(
+            name for name, module in ((module.name, module) for module in program.modules)
+            if any(item is function.node for item in module.body)
+        )
+        function.bindings = module_functions[module_name]
     package = program.package.name if program.package else None
     for module in program.modules:
-        functions = {
-            item.name: item
-            for item in module.body
-            if isinstance(item, FunctionDeclarationNode)
-        }
+        functions = module_functions[module.name]
         scope = _RuntimeEntityScope(environment=ReasonEntityEnvironment())
         token = _CURRENT_ENTITY_SCOPE.set(scope)
         try:
@@ -209,16 +240,18 @@ def execute_program(
         finally:
             _CURRENT_ENTITY_SCOPE.reset(token)
     value = next(reversed(calculations.values()), None) if calculations else None
-    return IntegratedComputationResult(value, runtime, loop_trace, calculations, vision_runtime)
+    return IntegratedComputationResult(
+        value, runtime, loop_trace, calculations, vision_runtime, result_artifact_dir
+    )
 
 
 def _declare_module_bindings(
     module: ModuleNode,
     package: str | None,
-    scope: _RuntimeEntityScope,
+    scope: "_RuntimeEntityScope",
     runtime: TensorRuntime,
     vision_runtime: VisionRuntimeBridge,
-    functions: dict[str, FunctionDeclarationNode],
+    functions: dict[str, "RuntimeFunction"],
     max_call_depth: int,
 ) -> dict[str, Any]:
     """Resolve module-level `const` and Reason Entity declarations before
@@ -246,11 +279,11 @@ def _declare_runtime_entity(
     owner_canonical_id: str | None,
     module_name: str,
     package: str | None,
-    scope: _RuntimeEntityScope,
+    scope: "_RuntimeEntityScope",
     module_bindings: dict[str, Any],
     runtime: TensorRuntime,
     vision_runtime: VisionRuntimeBridge,
-    functions: dict[str, FunctionDeclarationNode],
+    functions: dict[str, "RuntimeFunction"],
     max_call_depth: int,
 ) -> None:
     canonical_id = canonical_entity_id(
@@ -318,7 +351,7 @@ def _statements(
     limit: int,
     scope: str,
     vision_runtime: VisionRuntimeBridge,
-    functions: dict[str, FunctionDeclarationNode],
+    functions: dict[str, RuntimeFunction],
     max_call_depth: int,
     call_depth: int,
 ) -> None:
@@ -453,7 +486,7 @@ def _while_loop(
     limit: int,
     scope: str,
     vision_runtime: VisionRuntimeBridge,
-    functions: dict[str, FunctionDeclarationNode],
+    functions: dict[str, RuntimeFunction],
     max_call_depth: int,
     call_depth: int,
 ) -> None:
@@ -493,7 +526,7 @@ def _loop(
     values: list[Any] | None,
     iterator: str | None,
     vision_runtime: VisionRuntimeBridge,
-    functions: dict[str, FunctionDeclarationNode],
+    functions: dict[str, RuntimeFunction],
     max_call_depth: int,
     call_depth: int,
 ) -> None:
@@ -536,9 +569,9 @@ def _expression(
     if isinstance(value, (NoneLiteralNode, NullLiteralNode)):
         return None
     if isinstance(value, IdentifierNode):
-        scope = _CURRENT_ENTITY_SCOPE.get()
-        if scope is not None and value.name in scope.identifiers:
-            return scope.environment.read(scope.identifiers[value.name])
+        entity_scope = _CURRENT_ENTITY_SCOPE.get()
+        if entity_scope is not None and value.name in entity_scope.identifiers:
+            return entity_scope.environment.read(entity_scope.identifiers[value.name])
         if value.name not in env:
             raise IntegratedRuntimeError("RT-NAME-001", f"unknown runtime name: {value.name}")
         return env[value.name]
@@ -643,69 +676,65 @@ def _expression(
                     f"unknown field {value.member} on {owner.type_name}",
                 )
             return owner.fields[value.member]
+        if isinstance(owner, dict) and value.member in owner:
+            return owner[value.member]
         if isinstance(owner, (list, tuple, dict)) and value.member == "length":
             return len(owner)
         raise IntegratedRuntimeError(
             "RT-FIELD-001", f"member access is unsupported: {value.member}"
         )
     if isinstance(value, CallExpressionNode):
+        optimizer_function = optimizer_call_name(value)
+        if optimizer_function is not None:
+            arguments: list[Any] = []
+            with runtime.protect(arguments):
+                for argument in value.arguments:
+                    arguments.append(_expression(
+                        argument, env, runtime, vision_runtime,
+                        functions, max_call_depth, call_depth,
+                    ))
+                try:
+                    return call_optimizer(optimizer_function, runtime, *arguments)
+                except OptimizerError as error:
+                    raise IntegratedRuntimeError(error.code, str(error)) from error
         vision_function = vision_call_name(value)
         if vision_function is not None:
-            arguments = [
-                _expression(
-                    argument, env, runtime, vision_runtime,
-                    functions, max_call_depth, call_depth,
-                )
-                for argument in value.arguments
-            ]
-            return vision_runtime.call(vision_function, *arguments)
+            arguments: list[Any] = []
+            # A sibling argument can invoke a user function, whose statement
+            # boundary collection would otherwise release an earlier temporary
+            # Tensor argument.  Keep the growing argument list live until the
+            # enclosing call consumes every value.
+            with runtime.protect(arguments):
+                for argument in value.arguments:
+                    arguments.append(_expression(
+                        argument, env, runtime, vision_runtime,
+                        functions, max_call_depth, call_depth,
+                    ))
+                return vision_runtime.call(vision_function, *arguments)
         function = tensor_call_name(value)
         if function is not None:
-            arguments = [
-                _expression(
-                    argument, env, runtime, vision_runtime,
-                    functions, max_call_depth, call_depth,
+            arguments = []
+            with runtime.protect(arguments):
+                for argument in value.arguments:
+                    arguments.append(_expression(
+                        argument, env, runtime, vision_runtime,
+                        functions, max_call_depth, call_depth,
+                    ))
+                source_location = getattr(value, "_source_location", None)
+                result = runtime.call(
+                    function,
+                    *arguments,
+                    _source_location=source_location,
                 )
-                for argument in value.arguments
-            ]
-            source_location = getattr(value, "_source_location", None)
-            result = runtime.call(
-                function,
-                *arguments,
-                _source_location=source_location,
-            )
-            runtime.trace[-1].update(
-                {
-                    "operation_id": f"op_tensor_call_{len(runtime.trace):03d}",
-                    "semantic_operation": function,
-                    "lowered_operations": list(LOWERINGS.get(function, (function,))),
-                    "source_ref": source_location,
-                }
-            )
-            return result
-        if (
-            isinstance(value.callee, MemberAccessNode)
-            and isinstance(value.callee.object, IdentifierNode)
-            and value.callee.object.name == "array"
-            and value.callee.member == "append"
-        ):
-            if len(value.arguments) != 2:
-                raise IntegratedRuntimeError(
-                    "RT-CALL-002", "array.append expects two arguments"
+                runtime.trace[-1].update(
+                    {
+                        "operation_id": f"op_tensor_call_{len(runtime.trace):03d}",
+                        "semantic_operation": function,
+                        "lowered_operations": list(LOWERINGS.get(function, (function,))),
+                        "source_ref": source_location,
+                    }
                 )
-            collection = _expression(
-                value.arguments[0], env, runtime, vision_runtime,
-                functions, max_call_depth, call_depth,
-            )
-            item = _expression(
-                value.arguments[1], env, runtime, vision_runtime,
-                functions, max_call_depth, call_depth,
-            )
-            if not isinstance(collection, list):
-                raise IntegratedRuntimeError(
-                    "RT-CALL-002", "array.append first argument must be an array"
-                )
-            return [*collection, copy.deepcopy(item)]
+                return result
         if (
             isinstance(value.callee, IdentifierNode)
             and value.callee.name in {"float", "int"}
@@ -720,12 +749,40 @@ def _expression(
                 if value.callee.name == "float"
                 else math.trunc(argument)
             )
-        if isinstance(value.callee, IdentifierNode):
-            function_node = functions.get(value.callee.name)
-            if function_node is None:
+        if (
+            isinstance(value.callee, MemberAccessNode)
+            and isinstance(value.callee.object, IdentifierNode)
+            and value.callee.object.name == "array"
+            and value.callee.member == "append"
+        ):
+            if len(value.arguments) != 2:
                 raise IntegratedRuntimeError(
-                    "RT-CALL-001", f"unknown runtime function: {value.callee.name}"
+                    "RT-CALL-002", "array.append expects two arguments"
                 )
+            arguments = []
+            with runtime.protect(arguments):
+                for argument in value.arguments:
+                    arguments.append(_expression(
+                        argument, env, runtime, vision_runtime,
+                        functions, max_call_depth, call_depth,
+                    ))
+                collection, item = arguments
+                if not isinstance(collection, list):
+                    raise IntegratedRuntimeError(
+                        "RT-CALL-002", "array.append first argument must be an array"
+                    )
+                return [*collection, copy.deepcopy(item)]
+        if isinstance(value.callee, (IdentifierNode, QualifiedIdentifierNode)):
+            function_ref = (
+                functions.get(value.callee.name)
+                if isinstance(value.callee, IdentifierNode)
+                else functions.get(value.callee.resolved_name or "::".join((*value.callee.path, value.callee.symbol)))
+            )
+            if function_ref is None:
+                raise IntegratedRuntimeError(
+                    "RT-CALL-001", f"unknown runtime function: {_callee_label(value.callee)}"
+                )
+            function_node = function_ref.node
             if len(value.arguments) != len(function_node.parameters):
                 raise IntegratedRuntimeError(
                     "RT-CALL-002",
@@ -736,33 +793,33 @@ def _expression(
                     "RT-CALL-003",
                     f"function call depth exceeded: {max_call_depth}",
                 )
-            arguments = [
-                _expression(
-                    argument, env, runtime, vision_runtime,
-                    functions, max_call_depth, call_depth,
-                )
-                for argument in value.arguments
-            ]
-            local_env = {
-                _parameter_name(parameter): argument
-                for parameter, argument in zip(function_node.parameters, arguments)
-            }
-            try:
-                with runtime.protect(env):
-                    _statements(
-                        function_node.body,
-                        local_env,
-                        runtime,
-                        [],
-                        10_000,
-                        f"fn.{function_node.name}",
-                        vision_runtime,
-                        functions,
-                        max_call_depth,
-                        call_depth + 1,
-                    )
-            except _Return as returned:
-                return returned.value
+            arguments = []
+            with runtime.protect(arguments):
+                for argument in value.arguments:
+                    arguments.append(_expression(
+                        argument, env, runtime, vision_runtime,
+                        functions, max_call_depth, call_depth,
+                    ))
+                local_env = {
+                    _parameter_name(parameter): argument
+                    for parameter, argument in zip(function_node.parameters, arguments)
+                }
+                try:
+                    with runtime.protect(env):
+                        _statements(
+                            function_node.body,
+                            local_env,
+                            runtime,
+                            [],
+                            10_000,
+                            f"fn.{function_node.name}",
+                            vision_runtime,
+                            function_ref.bindings,
+                            max_call_depth,
+                            call_depth + 1,
+                        )
+                except _Return as returned:
+                    return returned.value
             raise IntegratedRuntimeError(
                 "RT-CALL-004", f"function returned no value: {function_node.name}"
             )
@@ -771,6 +828,12 @@ def _expression(
 
 def _parameter_name(parameter: Any) -> str:
     return parameter["name"] if isinstance(parameter, dict) else str(parameter)
+
+
+def _callee_label(callee: IdentifierNode | QualifiedIdentifierNode) -> str:
+    if isinstance(callee, IdentifierNode):
+        return callee.name
+    return callee.resolved_name or "::".join((*callee.path, callee.symbol))
 
 
 def _index_value(collection: Any, index: Any, runtime: TensorRuntime) -> Any:
@@ -797,7 +860,7 @@ def _assign_index(
     env: dict[str, Any],
     runtime: TensorRuntime,
     vision_runtime: VisionRuntimeBridge,
-    functions: dict[str, FunctionDeclarationNode],
+    functions: dict[str, RuntimeFunction],
     max_call_depth: int,
     call_depth: int,
 ) -> None:
@@ -878,21 +941,31 @@ def _trace_env(env: dict[str, Any]) -> dict[str, Any]:
     return {name: _trace_plain(value) for name, value in sorted(env.items())}
 
 
-def _plain(value: Any, runtime: TensorRuntime) -> Any:
+def _plain(
+    value: Any, runtime: TensorRuntime, result_artifact_dir: Path | None = None
+) -> Any:
     if isinstance(value, TensorValueRef):
+        if len(runtime._tensor(value).data) > runtime.policy.inline_elements:
+            if result_artifact_dir is None:
+                return {
+                    **value.runtime_value(),
+                    "materialization": "required",
+                    "reason": "Tensor exceeds inline result policy",
+                }
+            return runtime.artifact(value, result_artifact_dir)
         return runtime.to_array(value)
     if isinstance(value, RuntimeStruct):
         return {
-            name: _plain(item, runtime)
+            name: _plain(item, runtime, result_artifact_dir)
             for name, item in sorted(value.fields.items())
         }
     if isinstance(value, dict):
         return {
-            str(name): _plain(item, runtime)
+            str(name): _plain(item, runtime, result_artifact_dir)
             for name, item in sorted(value.items(), key=lambda item: str(item[0]))
         }
     if isinstance(value, list):
-        return [_plain(item, runtime) for item in value]
+        return [_plain(item, runtime, result_artifact_dir) for item in value]
     return value
 
 

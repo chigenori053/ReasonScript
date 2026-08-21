@@ -14,6 +14,8 @@ from frontend.tensor.integration import (
     tensor_call_name,
     validate_tensor_call,
 )
+from frontend.tensor.operations import operation_signature
+from frontend.optimizer import optimizer_call_name
 from frontend.vision.integration import (
     VisionSemanticError,
     validate_vision_call,
@@ -297,6 +299,10 @@ RUNTIME_RESULT_TYPES = {
     "SimulationResult",
     "PredictionResult",
     "PlanningResult",
+    "Tensor",
+    "TensorArtifactReceipt",
+    "VisionObservation",
+    "VisionBuildResult",
 }
 
 
@@ -845,7 +851,7 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
             visit(item.expression)
             return
         if isinstance(item, MemberAccessNode):
-            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo"}:
+            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo", "optimizer", "scheduler"}:
                 return
             visit(item.object)
             return
@@ -1758,17 +1764,28 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "scheduler"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
                 return
             if isinstance(value.object, RuntimeNamespaceNode):
                 raise SurfaceValidationError("RV-4 UnknownRuntimeMethod")
+            parts = _member_access_parts(value)
+            if callee and len(parts) >= 2 and _CURRENT_NAMESPACE is not None:
+                try:
+                    target = _CURRENT_NAMESPACE.resolve_qualified(
+                        QualifiedIdentifierNode(tuple(parts[:-1]), parts[-1])
+                    )
+                except NamespaceResolutionError:
+                    target = None
+                if target is not None and isinstance(target.node, FunctionDeclarationNode):
+                    raise SurfaceValidationError(
+                        "FN-011 qualified user-function calls use ::, not ."
+                    )
             enum_reference = _enum_variant_reference(value, symbols)
             if enum_reference is not None:
                 return
-            parts = _member_access_parts(value)
             if (
                 len(parts) == 2
                 and parts[0] not in bindings
@@ -1798,6 +1815,10 @@ def _validate_calculation_expression(
                     validate_tensor_call(value)
                 except TensorSemanticError as error:
                     raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if optimizer_call_name(value) is not None:
                 for argument in value.arguments:
                     visit(argument)
                 return
@@ -2164,6 +2185,9 @@ def _expression_type(
             raise SurfaceValidationError(
                 "TYPE-V004 TYPE-001 mixed or non-numeric arithmetic invalid"
             )
+        # The runtime implements division as true division, including for two
+        # Int operands.  Keep the surface type in sync with that behavior so
+        # an Int result is never inferred for a value that is actually Float.
         if value.operator == BinaryOperator.DIVIDE:
             return PrimitiveTypeNode(PrimitiveKind.FLOAT)
         return left
@@ -2296,53 +2320,84 @@ def _expression_type(
                 return PrimitiveTypeNode(PrimitiveKind.INT)
             if tensor_function == "tensor.dtype":
                 return PrimitiveTypeNode(PrimitiveKind.STRING)
+            if tensor_function == "tensor.scalar":
+                # Tensor dtype is not represented in the surface type system.
+                # The runtime can therefore return an Int, Float, or Bool;
+                # preserve that uncertainty instead of incorrectly claiming
+                # that the result is a Tensor.
+                return _UNKNOWN_TYPE
             if tensor_function == "tensor.save":
                 return NamedTypeNode("TensorArtifactReceipt")
             if tensor_function == "tensor.to_array":
                 return _to_array_result_type(value)
             return NamedTypeNode("Tensor")
+        if optimizer_call_name(value) is not None:
+            return _UNKNOWN_TYPE
         if vision_call_name(value) is not None:
             try:
                 validate_vision_call(value)
             except VisionSemanticError as error:
                 raise SurfaceValidationError(str(error)) from error
             return NamedTypeNode("VisionObservation" if vision_call_name(value) == "vision.infer" else "VisionBuildResult")
-        if isinstance(value.callee, IdentifierNode):
-            if value.callee.name == _CURRENT_FUNCTION:
+        if (
+            isinstance(value.callee, IdentifierNode)
+            and value.callee.name in _NUMERIC_CONVERSION_BUILTINS
+        ):
+            return _validate_numeric_conversion_call(
+                value, value.callee.name, symbols, bindings
+            )
+        function = _callable_function(value.callee, symbols)
+        if function is not None:
+            if isinstance(value.callee, IdentifierNode) and value.callee.name == _CURRENT_FUNCTION:
                 raise SurfaceValidationError("FN-007 recursive function calls are rejected")
-            if value.callee.name in _NUMERIC_CONVERSION_BUILTINS:
-                return _validate_numeric_conversion_call(
-                    value, value.callee.name, symbols, bindings
+            if len(value.arguments) != len(function.parameters):
+                raise SurfaceValidationError(
+                    f"FN-005 function argument count mismatch: {_callable_name(value.callee)}"
                 )
-            function = symbols.get(value.callee.name)
-            if isinstance(function, FunctionDeclarationNode):
-                if len(value.arguments) != len(function.parameters):
-                    raise SurfaceValidationError(
-                        f"FN-005 function argument count mismatch: {value.callee.name}"
-                    )
-                for argument, parameter in zip(value.arguments, function.parameters):
-                    expected_type = _function_parameter_type(parameter)
-                    argument_expression = (
-                        argument if isinstance(argument, ExpressionNode) else ExpressionNode(argument)
-                    )
-                    actual_type = _expression_type(
-                        argument_expression.expression,
+            for argument, parameter in zip(value.arguments, function.parameters):
+                expected_type = _function_parameter_type(parameter)
+                argument_expression = (
+                    argument if isinstance(argument, ExpressionNode) else ExpressionNode(argument)
+                )
+                actual_type = _expression_type(
+                    argument_expression.expression,
+                    symbols,
+                    bindings,
+                )
+                if expected_type is not None:
+                    _require_compatible(
+                        expected_type,
+                        actual_type,
+                        argument_expression,
                         symbols,
-                        bindings,
+                        "FN-005 function argument mismatch",
                     )
-                    if expected_type is not None:
-                        _require_compatible(
-                            expected_type,
-                            actual_type,
-                            argument_expression,
-                            symbols,
-                            "FN-005 function argument mismatch",
-                        )
-                if function.return_type is not None:
-                    return function.return_type
-                return _INFERRED_RETURN_TYPES.get(function.name, _UNKNOWN_TYPE)
+            if function.return_type is not None:
+                return function.return_type
+            return _INFERRED_RETURN_TYPES.get(function.name, _UNKNOWN_TYPE)
         return _UNKNOWN_TYPE
     return _UNKNOWN_TYPE
+
+
+def _callable_function(callee: Any, symbols: dict[str, Any]) -> FunctionDeclarationNode | None:
+    """Resolve local, imported, and ``module::function`` user callables."""
+    declaration: Any | None = None
+    if isinstance(callee, IdentifierNode):
+        declaration = symbols.get(callee.name)
+        if declaration is None and _CURRENT_NAMESPACE is not None:
+            imported = _CURRENT_NAMESPACE.imported(callee.name)
+            declaration = imported.node if imported is not None else None
+    elif isinstance(callee, QualifiedIdentifierNode) and _CURRENT_NAMESPACE is not None:
+        declaration = _CURRENT_NAMESPACE.resolve_qualified(callee).node
+    return declaration if isinstance(declaration, FunctionDeclarationNode) else None
+
+
+def _callable_name(callee: Any) -> str:
+    if isinstance(callee, IdentifierNode):
+        return callee.name
+    if isinstance(callee, QualifiedIdentifierNode):
+        return callee.resolved_name or "::".join((*callee.path, callee.symbol))
+    return type(callee).__name__
 
 
 def _require_compatible(
@@ -2365,6 +2420,11 @@ def _require_compatible(
         )
     if isinstance(actual, OptionalTypeNode):
         raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
+    if expected is _UNKNOWN_TYPE:
+        # Untyped legacy bindings remain compatible with concrete values.  The
+        # previous implementation only treated an unknown *actual* value as
+        # compatible, making compatibility asymmetric for reassignment.
+        return
     if isinstance(expected, ArrayTypeNode) and isinstance(actual, ArrayTypeNode):
         _require_type_equal(expected.element_type, actual.element_type, location)
         return
@@ -2575,6 +2635,23 @@ def _contains_uncontextual_none_literal(
     value: Any,
     symbols: dict[str, Any] | None = None,
 ) -> bool:
+    if isinstance(value, CallExpressionNode):
+        tensor_function = tensor_call_name(value)
+        signature = operation_signature(tensor_function or "")
+        if signature is not None:
+            for argument, parameter in zip(value.arguments, signature.arguments):
+                argument_value = (
+                    argument.expression if isinstance(argument, ExpressionNode) else argument
+                )
+                if isinstance(argument_value, NoneLiteralNode):
+                    try:
+                        if signature.default_for(parameter) is None:
+                            continue
+                    except KeyError:
+                        pass
+                if _contains_uncontextual_none_literal(argument_value, symbols):
+                    return True
+            return False
     if isinstance(value, NoneLiteralNode):
         return True
     if (

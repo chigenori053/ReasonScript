@@ -1,5 +1,51 @@
 # Changelog
 
+## v0.5.4.9 — 2026-08-18
+
+### Added
+
+- Added `reason init <name> --template agent`, which generates tool-neutral
+  agent instructions and a draft project specification while preserving the
+  existing minimal template.
+
+### Fixed
+
+- Corrected `tensor.scalar` surface typing, aligned division type checking
+  with runtime true-division semantics, and made Unknown assignment
+  compatibility symmetric for legacy function results.
+
+### Changed
+
+- Synchronized the public release documentation with the canonical version
+  metadata and added validation that prevents those release pointers from
+  drifting again. The existing optional `VER-010` release-tag check retains
+  its identifier; the additive documentation checks use previously unused or
+  new identifiers.
+
+## v0.5.4.8 — 2026-08-13
+
+### Added
+
+- Added package-wide `reason run` execution with `--entry` selection,
+  sparse optional Tensor arguments, checksum-addressed external Tensor
+  results, and functional optimizers and learning-rate schedulers.
+
+## v0.5.4.7 — 2026-08-13
+
+### Fixed
+
+- Added cross-package-source `module::function` linking, retained nested
+  sibling Tensor values until enclosing calls complete, and restored native
+  RGO-F1 interoperability with canonical Python-writer f64 values.
+
+## v0.5.4.6 — 2026-08-12
+
+### Added
+
+- Validated the MRA RUO / ReasonRelation ReasonGraph v0.1 integration,
+  including RGO-F1, native graph parity, MIRP-T1 local exchange, and
+  capability-gated ReasonScript graph operations.
+
 ## v0.5.4.5 — 2026-08-07
 
 ### Added

@@ -22,7 +22,7 @@ def main() -> int:
 
     if command == "init":
         if len(args) < 2:
-            print("Usage: reason init <project_name>")
+            print("Usage: reason init <project_name> [--template minimal|agent]")
             return 1
         from toolchain.init_cmd import run
         return run(args[1], args[2:])
@@ -78,7 +78,14 @@ def main() -> int:
 
     if command == "run":
         from toolchain.run_cmd import run
-        return run(project_root, package=package)
+        return run(
+            project_root,
+            package=package,
+            entry=_option_arg(args[1:], "--entry"),
+            include_trace="--trace" in args[1:],
+            filesystem_read="--allow-read" in args[1:],
+            filesystem_write="--allow-write" in args[1:],
+        )
 
     if command == "test":
         from toolchain.runner_cmd import run
@@ -198,7 +205,7 @@ def _usage() -> None:
     print()
     print("Commands:")
     print("  help          Show this help")
-    print("  init <name>   Create a new ReasonScript project")
+    print("  init <name>   Create a new ReasonScript project (minimal or agent template)")
     print("  doctor        Diagnose the installed environment")
     print("  install-info  Show the installation manifest")
     print("  install-validate Validate the installation contract")
@@ -253,6 +260,13 @@ def _package_arg(args: list[str]) -> str | None:
     if index + 1 >= len(args):
         return None
     return args[index + 1]
+
+
+def _option_arg(args: list[str], option: str) -> str | None:
+    if option not in args:
+        return None
+    index = args.index(option)
+    return args[index + 1] if index + 1 < len(args) else None
 
 
 def _source_file_arg(args: list[str]) -> str | None:

@@ -24,6 +24,22 @@ def test_phase14_native_graph_loader_has_rgo_f1_identity_parity(tmp_path: Path) 
     assert result["native_graph"]["read_only"] is True
 
 
+def test_phase14_native_graph_loader_accepts_python_f64_canonical_spelling(tmp_path: Path) -> None:
+    build = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    assert build.returncode == 0, build.stderr
+    source = tmp_path / "python-f64.rgraph"
+    graph = reference_graph()
+    # Python's JSON encoder preserves this 17-digit value in the graph body.
+    # serde_json may select a shorter equivalent spelling when re-serializing.
+    graph["metadata"] = {"python_f64": 1e-7}
+    write_graph(graph, source)
+    assert b"1e-07" in source.read_bytes()
+
+    result = load_native_graph_file(source, root=ROOT)
+
+    assert result["report"]["graph_identity_parity"] is True
+
+
 def test_phase14_native_graph_loader_rejects_tampered_rgo_f1(tmp_path: Path) -> None:
     build = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert build.returncode == 0, build.stderr

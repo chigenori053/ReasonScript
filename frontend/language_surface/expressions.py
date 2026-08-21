@@ -595,8 +595,11 @@ class _Parser:
 
     def _call(self, callee: Expression) -> Expression:
         self.take()
-        arguments: list[Expression] = []
+        arguments: list[Expression | None] = []
         named_arguments: set[str] = set()
+        named_seen = False
+        function = _tensor_callee_name(callee)
+        signature = operation_signature(function or "")
         if self.current.kind == _Kind.RIGHT_PAREN:
             self.take()
             if isinstance(callee, IdentifierNode) and callee.name == "some":
@@ -608,29 +611,72 @@ class _Parser:
             if self.current.kind == _Kind.IDENTIFIER and self._next_kind() == _Kind.ASSIGN:
                 name = self.take().value
                 self.take()
-                function = _tensor_callee_name(callee)
-                signature = operation_signature(function or "")
                 positions = signature.arguments if signature is not None else ()
                 if name not in positions:
                     raise ExpressionSyntaxError(f"TSF-016 unsupported Tensor argument: {name}")
                 if name in named_arguments:
                     raise ExpressionSyntaxError(f"TSF-016 duplicate Tensor argument: {name}")
-                if positions.index(name) != len(arguments):
-                    raise ExpressionSyntaxError(f"TSF-016 Tensor named argument is out of order: {name}")
                 named_arguments.add(name)
-            arguments.append(self.parse(0))
+                named_seen = True
+                index = positions.index(name)
+                while len(arguments) <= index:
+                    arguments.append(None)
+                arguments[index] = self.parse(0)
+            else:
+                if named_seen:
+                    raise ExpressionSyntaxError("TSF-016 positional Tensor argument follows a named argument")
+                arguments.append(self.parse(0))
             if self.current.kind == _Kind.RIGHT_PAREN:
                 self.take()
+                resolved_arguments = _resolve_tensor_call_arguments(
+                    signature, arguments
+                )
                 if isinstance(callee, IdentifierNode) and callee.name == "some":
-                    if len(arguments) != 1:
+                    if len(resolved_arguments) != 1:
                         raise ExpressionSyntaxError("OV-2 some requires one argument")
-                    return SomeExpressionNode(arguments[0])
-                return CallExpressionNode(callee, tuple(arguments))
+                    return SomeExpressionNode(resolved_arguments[0])
+                return CallExpressionNode(callee, resolved_arguments)
             if self.current.kind != _Kind.COMMA:
                 raise ExpressionSyntaxError("EX-V004 call requires comma or closing parenthesis")
             self.take()
             if self.current.kind == _Kind.RIGHT_PAREN:
                 raise ExpressionSyntaxError("EX-V004 trailing comma is not supported")
+
+
+def _resolve_tensor_call_arguments(
+    signature: Any, arguments: list[Expression | None]
+) -> tuple[Expression, ...]:
+    if signature is None:
+        return tuple(argument for argument in arguments if argument is not None)
+    if len(arguments) > len(signature.arguments):
+        raise ExpressionSyntaxError("TSF-016 Tensor function argument count mismatch")
+    resolved: list[Expression] = []
+    for index, argument in enumerate(arguments):
+        if argument is not None:
+            resolved.append(argument)
+            continue
+        name = signature.arguments[index]
+        try:
+            resolved.append(_default_expression(signature.default_for(name)))
+        except KeyError as error:
+            raise ExpressionSyntaxError(f"TSF-016 missing required Tensor argument: {name}") from error
+    return tuple(resolved)
+
+
+def _default_expression(value: Any) -> Expression:
+    if value is None:
+        return NullLiteralNode()
+    if isinstance(value, bool):
+        return BooleanLiteralNode(value)
+    if isinstance(value, int):
+        return IntegerLiteralNode(value)
+    if isinstance(value, float):
+        return FloatLiteralNode(value)
+    if isinstance(value, str):
+        return StringLiteralNode(value)
+    if isinstance(value, tuple):
+        return ArrayLiteralNode(tuple(ExpressionNode(_default_expression(item)) for item in value))
+    raise ExpressionSyntaxError("TSF-016 unsupported Tensor argument default")
 
 
 def _qualified_type_name(expression: Expression) -> str | None:

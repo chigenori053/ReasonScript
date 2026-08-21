@@ -1000,10 +1000,19 @@ def _function_call_ir_nodes(module: ModuleNode, namespace: str) -> list[dict[str
             expression = _statement_expression(statement)
             for function_name in _expression_function_calls(expression):
                 function = functions.get(function_name)
+                qualified_function = function_name.replace("::", ".")
                 result.append(
                     {
                         "node_type": "FunctionCallIRNode",
-                        "function": f"{namespace}.{function_name}",
+                        # A resolved cross-module callee already carries its
+                        # canonical namespace.  Retaining it in IR makes a
+                        # train and inference module auditable against the
+                        # exact same model implementation.
+                        "function": (
+                            qualified_function
+                            if "::" in function_name
+                            else f"{namespace}.{function_name}"
+                        ),
                         "caller": calculation.name,
                         "arguments": [
                             _ir_value(argument)
@@ -2765,6 +2774,14 @@ def _expression_function_calls(expression: ExpressionNode | Any | None) -> list[
             visit(item.callee)
             if isinstance(item.callee, IdentifierNode) and item.callee.name not in found:
                 found.append(item.callee.name)
+            elif (
+                isinstance(item.callee, QualifiedIdentifierNode)
+                and (item.callee.resolved_name or "::".join((*item.callee.path, item.callee.symbol))) not in found
+            ):
+                found.append(
+                    item.callee.resolved_name
+                    or "::".join((*item.callee.path, item.callee.symbol))
+                )
             return
         if isinstance(item, ExpressionNode):
             visit(item.expression)
@@ -2828,7 +2845,12 @@ def _function_call_arguments(
 
     def visit(item: Any) -> None:
         if isinstance(item, CallExpressionNode):
-            if isinstance(item.callee, IdentifierNode) and item.callee.name == function_name:
+            if (
+                isinstance(item.callee, IdentifierNode) and item.callee.name == function_name
+            ) or (
+                isinstance(item.callee, QualifiedIdentifierNode)
+                and (item.callee.resolved_name or "::".join((*item.callee.path, item.callee.symbol))) == function_name
+            ):
                 found.extend(item.arguments)
             for argument in item.arguments:
                 visit(argument)

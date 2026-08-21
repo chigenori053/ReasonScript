@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from .manifest import Manifest, ManifestError
-from .pipeline import PipelineError, compile_source
+from .pipeline import PipelineError, compile_package_sources
 from .workspace import (
     PackageGraphService,
     WorkspaceError,
@@ -102,38 +102,29 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
     for d in (ast_dir, ir_dir, meta_dir, target / "runtime"):
         d.mkdir(parents=True, exist_ok=True)
 
-    errors: list[str] = []
-    for src_path in sources:
-        source = src_path.read_text(encoding="utf-8")
-        try:
-            result = compile_source(source, src_path)
-        except PipelineError as e:
-            errors.append(f"{src_path}: {e.code}: {e.message}")
-            continue
-
-        stem = src_path.stem
-        for ir in result.reason_irs:
-            module_name = ir.get("module") or stem
-            (ir_dir / f"{module_name}.json").write_text(
-                json.dumps(ir, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-            meta = result.metadata_for(ir)
-            (meta_dir / f"{module_name}.json").write_text(
-                json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-
-        ast_payload = {
-            "package": manifest.name,
-            "sources": [str(src_path.relative_to(project_root))],
-        }
-        (ast_dir / f"{stem}.json").write_text(
-            json.dumps(ast_payload, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-
-    if errors:
-        for e in errors:
-            print(f"Error:\n\n{e}")
+    try:
+        result = compile_package_sources([
+            (src_path.read_text(encoding="utf-8"), src_path) for src_path in sources
+        ])
+    except PipelineError as e:
+        print(f"Error:\n\n{e.code}: {e.message}")
         return 1
+    for ir in result.reason_irs:
+        module_name = ir.get("module") or ir.get("metadata", {}).get("module") or "module"
+        (ir_dir / f"{module_name}.json").write_text(
+            json.dumps(ir, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        meta = result.metadata_for(ir)
+        (meta_dir / f"{module_name}.json").write_text(
+            json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+    ast_payload = {
+        "package": manifest.name,
+        "sources": [str(src_path.relative_to(project_root)) for src_path in sources],
+    }
+    (ast_dir / "package.json").write_text(
+        json.dumps(ast_payload, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
     _save_cache(target, current_key)
     print(f"Build succeeded. {len(sources)} file(s) compiled.")

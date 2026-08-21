@@ -15,35 +15,35 @@
       "metadata": {
         "python_version": "3.14.0",
         "version_validation": {
-          "canonical_version": "0.5.2",
+          "canonical_version": "0.5.4.9",
           "checks": [
             {
-              "actual": "0.5.2",
-              "expected": "0.5.2",
+              "actual": "0.5.4.9",
+              "expected": "0.5.4.9",
               "id": "VER-001",
               "status": "pass"
             },
             {
-              "actual": "0.5.2",
-              "expected": "0.5.2",
+              "actual": "0.5.4.9",
+              "expected": "0.5.4.9",
               "id": "VER-002",
               "status": "pass"
             },
             {
-              "actual": "0.5.2",
-              "expected": "0.5.2",
+              "actual": "0.5.4.9",
+              "expected": "0.5.4.9",
               "id": "VER-003",
               "status": "pass"
             },
             {
-              "actual": "0.5.2",
-              "expected": "0.5.2",
+              "actual": "0.5.4.9",
+              "expected": "0.5.4.9",
               "id": "VER-004",
               "status": "pass"
             },
             {
-              "actual": "0.5.2",
-              "expected": "0.5.2",
+              "actual": "0.5.4.9",
+              "expected": "0.5.4.9",
               "id": "VER-005",
               "status": "pass"
             },
@@ -52,13 +52,43 @@
               "expected": ">=0.5.0,<0.6.0",
               "id": "VER-006",
               "status": "pass"
+            },
+            {
+              "actual": "0.5.4.9",
+              "expected": "0.5.4.9",
+              "id": "VER-007",
+              "status": "pass"
+            },
+            {
+              "actual": "docs/installation/ReasonScript_v0_5_4_9_Installation.md",
+              "expected": "docs/installation/ReasonScript_v0_5_4_9_Installation.md",
+              "id": "VER-008",
+              "status": "pass"
+            },
+            {
+              "actual": "installation/ReasonScript_v0_5_4_9_Installation.md",
+              "expected": "installation/ReasonScript_v0_5_4_9_Installation.md",
+              "id": "VER-009",
+              "status": "pass"
+            },
+            {
+              "actual": "## v0.5.4.9",
+              "expected": "## v0.5.4.9",
+              "id": "VER-011",
+              "status": "pass"
+            },
+            {
+              "actual": "ReasonScript 0.5.4.9",
+              "expected": "ReasonScript 0.5.4.9",
+              "id": "VER-012",
+              "status": "pass"
             }
           ],
           "schema_version": "reasonscript-version-validation/1.0",
           "status": "pass",
           "summary": {
             "failed": 0,
-            "passed": 6
+            "passed": 11
           }
         }
       },
@@ -94,12 +124,8 @@
       "id": "golden",
       "metadata": {
         "failed": 0,
+        "golden_diagnostics": [],
         "passed": 2,
-        "phase8_golden_validation": {
-          "scenarios": 6,
-          "status": "PASS",
-          "target": "reasonscript-phase8-golden-validation/1.0"
-        },
         "schema": "reasonscript-golden-summary/1.0",
         "skipped": 0,
         "total": 2,
@@ -124,7 +150,7 @@
       "diagnostics": [],
       "id": "tests",
       "metadata": {
-        "tests_passed": 1085
+        "tests_passed": 1212
       },
       "status": "PASS"
     }

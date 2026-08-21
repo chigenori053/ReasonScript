@@ -264,6 +264,31 @@ def test_reason_training_loop_releases_each_autograd_tape() -> None:
     assert len(executed.runtime._refs) == 1
 
 
+def test_tensor_grad_temporary_survives_sibling_user_function_arguments() -> None:
+    program = parse(
+        """module TensorTemporaryLifetime {
+  fn identity(value: Tensor) -> Tensor {
+    let marker = 1
+    return value
+  }
+  fn consume(value: Tensor) -> Tensor {
+    let marker = 1
+    return value
+  }
+  calculation Answer {
+    let parameter = tensor.parameter(tensor.create([2.0], "f64"))
+    let loss = tensor.sum(tensor.multiply(parameter, parameter))
+    result = tensor.add(identity(tensor.grad(loss, [parameter])[0]), consume(parameter))
+  }
+}
+"""
+    )
+
+    result = execute_program(program).to_dict()
+
+    assert result["result"] == [6.0]
+
+
 def test_tensor_cli_import_inspect_and_verify(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
