@@ -580,7 +580,7 @@ evaluate(derived):
 | F2 Surface Prerequisite Foundation | **完了**（F2-3 のみ範囲縮小） | 演算子継続（D-6）、`<-` 語彙化、[frontend/entity/](frontend/entity/) の Canonical ID・`EntityTable` を実装。詳細は F2-3 節の「実装時の訂正」を参照。テストは [surface_prerequisite_foundation_tests/](surface_prerequisite_foundation_tests/)。 |
 | E0 Internal Reason Entity Model | **完了** | [frontend/entity/](frontend/entity/) を完成（`model.py` / `slot.py` / `diagnostics.py` / `lowering.py` を追加）。[schemas/reason_entity.schema.json](schemas/reason_entity.schema.json) を新設。仕様 §13 Phase E0 の受け入れ条件（全 Entity Kind 生成、3 回生成 byte-identical、スキーマ通過、RUO-U1 `validate_object` 診断 0 件）をすべて満たすことを [reason_entity_tests/test_entity_model.py](reason_entity_tests/test_entity_model.py) で実証。Parser には一切触れていない。 |
 | E1 Surface Model v0.1 | **完了**（一部診断は v0.1 の構文的制約により未到達） | `ru:`/`rus:`/`ruo:`/`derive:`/`<-` を Parser・名前解決・検証・Semantic AST/Reason IR/ExecutionPlan 射影・Runtime まで配線。D-7（モジュールレベル宣言が実行時環境に存在しない欠陥）を解消し、仕様 Appendix A を実際に実行して検証。テストは [surface_model_tests/](surface_model_tests/)。詳細は本節末尾の「実装時の訂正・確定事項」を参照。 |
-| E2 Integration | 未着手（§2.2 の Q2 に依存） | |
+| E2 Integration | **完了（代替モデルで実施）** | RS-DT-JP-GREET-001 は本リポジトリに存在しないため（§2.2 Q2）、代替の Tensor 学習ループ（`let` 版と `ru:`/`derive:`/`<-` 版）で移行等価性・決定論・性能を検証。テストは [entity_migration_regression_tests/](entity_migration_regression_tests/)、性能レポートは [artifacts/reason_entity/e2/performance_report.json](artifacts/reason_entity/e2/performance_report.json)。実装時に E1 の実バグ（後述）を発見・修正。 |
 
 **D-1・D-2 を本セッションで保留した理由**: 当初計画どおり D-1（引数型推論）・D-2
 （戻り値型推論）を実装しようとしたところ、その前段の F1-4（未知関数呼出の
@@ -1068,6 +1068,48 @@ elif re.match(r"^[A-Za-z_]\w*\s*<-\s*", line):
 - 移行前後で同一 seed の loss curve、予測結果、最終 `.rstensor` チェックポイントの
   SHA-256 が一致する。
 - §7 の性能測定結果が保存される。
+
+**実装時の訂正・確定事項（§2.2 Q2 の解決）**:
+
+RS-DT-JP-GREET-001 は F0 の時点で確認したとおり本リポジトリに存在しない。
+§2.2 Q2 の既定方針（「取り込まれない場合、代替の Tensor 主体回帰モデルで
+実施し、仕様 §18 の該当条件を未達として明示報告する」）に従い、以下の
+代替検証を実施した。
+
+- **代替モデル**: `let`/再代入で書いた 8 ステップの Tensor 学習ループ
+  （`tensor.matmul` → `tensor.relu` → `tensor.subtract` → `tensor.power` →
+  `tensor.mean`(loss) → `tensor.grad` → パラメータ更新）と、仕様 §13 の
+  移行表（learning rate / current step / loss）どおりに
+  `ru:`/`derive:`/`<-` へ書き換えた同一計算の 2 版を用意し比較した。
+  テストは [entity_migration_regression_tests/test_phase_e2_regression_performance.py](entity_migration_regression_tests/test_phase_e2_regression_performance.py)。
+- **移行等価性**: 8 ステップ全ての `tensor.mean`（loss）トレース出力と
+  最終チェックポイント（更新後の重み）が、`let` 版と `ru:` 版で
+  **完全一致**することを確認した。RS-DT-JP-GREET-001 固有の基準
+  （既存の外部チェックポイントとの一致）はモデル不在のため適用対象外。
+- **性能測定**（§7、結果は
+  [artifacts/reason_entity/e2/performance_report.json](artifacts/reason_entity/e2/performance_report.json)）:
+
+  | 指標 | 測定値 | 目標 | 判定 |
+  |---|---|---|---|
+  | Entity 非使用コードのコンパイルオーバーヘッド | -3.2%（F0 ベースラインと同一 14 fixture を再計測） | 5% 以内 | **達成** |
+  | RU Slot 使用コードの実行時オーバーヘッド | 9.7% | 20% 以内 | **達成** |
+  | Entity 使用コードのコンパイルオーバーヘッド | 4.5% | （目標値なし、参考値） | — |
+
+- **本 Phase で実際にバグを発見・修正した**:
+  `frontend/integrated_computation_runtime.py` の `_statements` 内、
+  文単位で呼ばれる `runtime.collect(env)`（ループ内の毎文で実行される、
+  C-5 で最初に指摘したホットスポットそのもの）が、E1 実装時には
+  **`execute_program` 内の 2 箇所にしか** `RUSlot` 対応
+  （`scope.environment.all_slots()` を追加ルートとして渡す処理）を
+  施していなかった。`_statements` 自身が持つ 3 箇所目の `collect` 呼出しは
+  対応漏れのままで、Entity が保持する Tensor（学習ループ内で更新され続ける
+  `ru: weight` 等）が **ループ実行中に誤って解放される**実バグとして
+  顕在化した（`TSF-018 invalid Tensor value reference`）。
+  `_statements` 内で `_CURRENT_ENTITY_SCOPE` を参照し、同様に
+  `all_slots()` を追加ルートとして渡すよう修正した。
+  **これはまさに本 Phase が検出を意図した種類の回帰**であり、
+  「Tensor 主体の実モデルで実用性を評価する」という E2 の目的が
+  代替モデルであっても実質的に機能したことの実証でもある。
 
 ---
 

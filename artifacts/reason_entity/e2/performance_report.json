@@ -1,0 +1,36 @@
+{
+  "schema_version": "reasonscript-reason-entity-e2-performance/0.1",
+  "profile_version": "reasonscript-reason-entity-baseline/1.0",
+  "data": {
+    "note": "RS-DT-JP-GREET-001 is not present in this repository (design doc SS2.2 Q2). Measurements below use the substitute Tensor training loop model (entity_migration_regression_tests/test_phase_e2_regression_performance.py), migrated per the design's SS13 table (learning rate / current step / loss).",
+    "entity_free_compile_overhead": {
+      "method": "Median of 10 compilations per fixture, compared against artifacts/reason_entity/f0/performance_baseline.json (Phase F0, pre-Entity baseline), same 14-fixture corpus.",
+      "measured_overhead_percent": -3.2,
+      "target_percent": 5,
+      "status": "MET"
+    },
+    "ru_slot_runtime_overhead": {
+      "method": "Median of 15 executions of the substitute 8-step Tensor training loop, plain-let version vs ru:/derive:/<- version, same seed.",
+      "measured_overhead_percent": 9.7,
+      "target_percent": 20,
+      "status": "MET"
+    },
+    "compile_overhead_entity_using_program": {
+      "method": "Median of 15 compilations of the same substitute training loop, plain-let version vs ru:/derive:/<- version.",
+      "measured_overhead_percent": 4.5,
+      "note": "No specific design target for this combination (RS-RE-FSM-001 SS9.4 only sets targets for Entity-free code and RU-Slot-using runtime execution); reported for completeness."
+    },
+    "migration_equivalence": {
+      "loss_curve_identical": true,
+      "final_checkpoint_identical": true,
+      "steps": 8,
+      "note": "The RS-DT-JP-GREET-001-specific criterion (identical loss curve to a pre-existing external baseline checkpoint) does not apply since that model is unavailable. What was verified instead: the same Tensor training computation, written twice (plain let/reassignment vs ru:/derive:/<-), produces byte-identical tensor_trace and final result."
+    },
+    "bug_found_during_this_phase": {
+      "description": "frontend.integrated_computation_runtime._statements' per-statement runtime.collect(env) call (used throughout ordinary execution, including inside while loops) was not entity-scope-aware. An Entity-held Tensor (e.g. a ru: weight = tensor.parameter(...) updated across training iterations) could be prematurely garbage-collected mid-loop, raising TSF-018 (invalid Tensor value reference).",
+      "root_cause": "Phase E1 added the RUSlot-awareness fix (RS-RE-FSM-001 SS3.8/C-5) only to the two runtime.collect() call sites in execute_program(), missing the third call site inside _statements() itself -- the one that actually runs on every statement, including loop iterations.",
+      "fix": "frontend/integrated_computation_runtime.py: _statements() now reads _CURRENT_ENTITY_SCOPE and passes scope.environment.all_slots() as an extra collect() root when a scope is active.",
+      "discovered_by": "Migrating a real multi-step Tensor training loop to ru:/derive:/<- during Phase E2 -- exactly the kind of Tensor-heavy regression scenario this Phase exists to catch."
+    }
+  }
+}

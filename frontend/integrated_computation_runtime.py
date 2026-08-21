@@ -438,7 +438,11 @@ def _statements(
                     selected, env, runtime, trace, limit, scope, vision_runtime,
                     functions, max_call_depth, call_depth,
                 )
-        runtime.collect(env)
+        entity_scope = _CURRENT_ENTITY_SCOPE.get()
+        if entity_scope is not None:
+            runtime.collect(env, entity_scope.environment.all_slots())
+        else:
+            runtime.collect(env)
 
 
 def _while_loop(
