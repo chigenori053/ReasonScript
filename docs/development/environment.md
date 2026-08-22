@@ -37,7 +37,12 @@ Install all dependencies:
 python3 scripts/dev.py setup
 ```
 
-This installs Python dev dependencies, creates the Playground venv, installs frontend npm packages, and fetches Rust crates.
+This installs Python dev dependencies, creates the Playground venv, installs frontend npm packages, and fetches Rust crates for every native runtime (`RuntimeReal`, `HybridRuntime`, `RuntimeComplex`, `NativeReasonUnitRuntime`, `ClusterRuntime`, `VisionRuntime`, `VisualizationRuntime`).
+
+Rust test suites run with `cargo test --offline`, so this fetch step must
+complete at least once before `reason ci` or `pytest tests` can pass — a
+fresh checkout without it fails with unresolved-crate errors such as
+`no matching package named 'serde_json' found`.
 
 ## Platform
 

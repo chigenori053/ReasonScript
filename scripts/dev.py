@@ -44,7 +44,15 @@ def cmd_setup() -> int:
     rc |= run(["npm", "install"], cwd=REPO_ROOT / "apps" / "reasonscript-ide" / "ui")
 
     print("\n[Rust deps]")
-    for cargo_dir in ["RuntimeReal", "HybridRuntime", "RuntimeComplex"]:
+    for cargo_dir in [
+        "RuntimeReal",
+        "HybridRuntime",
+        "RuntimeComplex",
+        "NativeReasonUnitRuntime",
+        "ClusterRuntime",
+        "VisionRuntime",
+        "VisualizationRuntime",
+    ]:
         p = REPO_ROOT / cargo_dir
         if (p / "Cargo.toml").exists():
             rc |= run(["cargo", "fetch"], cwd=p)
