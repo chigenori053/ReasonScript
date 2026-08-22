@@ -43,6 +43,9 @@ def cmd_setup() -> int:
     print("\n[Official IDE UI npm]")
     rc |= run(["npm", "install"], cwd=REPO_ROOT / "apps" / "reasonscript-ide" / "ui")
 
+    print("\n[VS Code extension npm]")
+    rc |= run(["npm", "install"], cwd=REPO_ROOT / "vscode-extension")
+
     print("\n[Rust deps]")
     for cargo_dir in [
         "RuntimeReal",
