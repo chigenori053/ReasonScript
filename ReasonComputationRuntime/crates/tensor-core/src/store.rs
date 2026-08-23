@@ -13,6 +13,7 @@
 
 use std::collections::HashMap;
 
+use crate::autograd::{Autograd, GradOp};
 use crate::dtype::Dtype;
 use crate::error::{Result, TensorCoreError};
 use crate::shape::product;
@@ -27,6 +28,7 @@ pub struct TensorData {
 pub struct TensorStore {
     refs: HashMap<String, TensorData>,
     next_id: u64,
+    pub autograd: Autograd,
 }
 
 impl Default for TensorStore {
@@ -40,6 +42,7 @@ impl TensorStore {
         TensorStore {
             refs: HashMap::new(),
             next_id: 1,
+            autograd: Autograd::default(),
         }
     }
 
@@ -72,6 +75,24 @@ impl TensorStore {
                 data: casted,
             },
         );
+        Ok(id)
+    }
+
+    /// `insert`, then tapes `op` if at least one of its inputs is
+    /// grad-tracked (mirroring `_record_autograd`) -- only meaningful for
+    /// f32/f64 outputs, like the Python side (a bool/int-dtype result
+    /// can't carry a gradient).
+    pub fn insert_with_grad(
+        &mut self,
+        shape: Vec<usize>,
+        dtype: Dtype,
+        data: Vec<f64>,
+        op: GradOp,
+    ) -> Result<String> {
+        let id = self.insert(shape, dtype, data)?;
+        if matches!(dtype, Dtype::F32 | Dtype::F64) {
+            self.autograd.record(&id, op);
+        }
         Ok(id)
     }
 }

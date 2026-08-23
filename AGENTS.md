@@ -392,6 +392,85 @@ Python's `_resolve_tensor_path` sandboxing (absolute/traversal rejection,
 `resource_root` confinement, `.rstensor`-suffix requirement) — it's a
 plain `std::fs` read/write relative to the CLI's working directory.
 
+## Modernization Plan — Phase 5 Rust Autograd
+
+Phase 5 ("Rust Autograd・Optimizer") has been implemented **for its
+autograd half only** — see "Optimizers: not implemented" below for why
+the other half is a separate, unresolved scope question rather than an
+oversight.
+
+- `crates/tensor-core/src/autograd.rs`: `Autograd` (tape + `requires_grad`
+  set) and `GradOp` (one recorded forward op, enough to compute its VJP —
+  an explicit enum per op *kind*, rather than replaying a generic
+  argument list the way Python's `_GradNode`/`_vjp` do; each variant maps
+  1:1 to one of `_vjp`'s `name in {...}` branches). `TensorStore::insert_with_grad`
+  tapes an op (mirroring `_record_autograd`'s "only if an input is
+  already tracked, and only for f32/f64 output" rule) alongside the
+  normal `insert`.
+- VJPs implemented, matching `_vjp` exactly: the 7 broadcast binary ops,
+  the 5 differentiable unary ops (`negate`/`abs`/`exp`/`log`/`sqrt`),
+  `reshape`/`flatten`/`squeeze`/`unsqueeze`/`cast` (all share Python's
+  "gradient passes through unchanged" `ShapePassthrough` treatment),
+  `transpose`, `sum`/`mean` (axis + keep_dims aware), `min`/`max`
+  (including Python's first-occurrence tie-breaking on the argmax/argmin
+  index a reduced gradient scatters back to), `matmul`, `dot`, `norm`.
+  Not implemented (no forward op to attach a VJP to in the first place —
+  see Phase 4's own boundary): `concat`/`stack`/`slice`/`narrow`'s VJPs,
+  and `relu`/`softmax`/`linear`/`conv2d`/`max_pool2d`/`avg_pool2d`'s.
+- `tensor_dispatch.rs` adds `parameter`/`detach`/`requires_grad`/`grad`
+  (all four correctness-verified against Python — see below), bringing
+  the implemented-Tensor-Standard-Functions count to the same ~50 as
+  Phase 4 (these four were always counted in that total; Phase 4's
+  writeup just deferred implementing them).
+- A real bug this work uncovered and fixed: Python's `_binary()` (the
+  broadcast ops) silently auto-promotes a bare scalar/array literal
+  passed as either operand into an ad-hoc Tensor via `_operand()` (e.g.
+  `tensor.multiply(gradients[0], 0.1)` — a raw `0.1` literal, not a
+  Tensor handle). The Rust port's `binary`/`compare`/`divide` initially
+  required a real `Value::Tensor` for both operands and rejected this
+  with `RT-CALL-005`; `tensor_dispatch.rs`'s `operand_id()` now mirrors
+  `_operand()` (auto-inserts a fresh, untracked Tensor for a bare
+  literal operand) — found via `test_scalar_literal_operand_is_auto_boxed`
+  after a hand-written 20-step gradient-descent program (below) failed
+  before this fix.
+
+**Verified, not just implemented**:
+- `crates/tensor-core/src/autograd.rs`'s own Rust unit test
+  (`multiply_add_sum_gradient_matches_finite_differences`) is the Phase 5
+  gate's "finite difference" check, run standalone (no Python process
+  needed): builds `loss = sum(a + a*b)` on the real tape, gets the
+  gradient via `Autograd::grad`, and checks it against numerical central
+  differences on the untraced forward computation (and against the
+  closed-form `d(loss)/da = 1+b`, `d(loss)/db = a` directly).
+- `computation_ir_tests/test_computation_ir_autograd_parity.py` (18
+  tests): differential Python/Rust parity for every VJP above, plus
+  `parameter`/`detach`/`requires_grad`, the scalar-auto-boxing case, and
+  AD-001/AD-002/AD-003 error-code parity.
+- A genuine "1/100 step loss" stand-in: a 20-iteration hand-rolled
+  gradient-descent loop (`prediction = input*weight; loss =
+  mean(prediction^2); weight -= 0.1*grad`, re-parameterizing via
+  `detach`+`parameter` each iteration, exactly Phase 2's own
+  `test_reason_training_loop_releases_each_autograd_tape` fixture)
+  produces `0.8**20` to full `f64` precision in both Python and Rust —
+  `test_gradient_descent_training_loop_matches`.
+
+**Optimizers: not implemented.** `grep`-ing this entire repository (both
+`frontend/` and every `.rsn` fixture) for `optimizer.`/`def adam`/`def sgd`
+finds nothing: there is no `optimizer.*` namespace anywhere in
+ReasonScript's language surface (parser, `frontend.computation_ir.lowering`
+would need a new call-recognition branch for it, matching `tensor_call_name`),
+and no Python-side `TensorRuntime` method for SGD/Momentum/Adam/AdamW/a
+scheduler either. The plan's `optimizer.adam(parameters, gradients,
+state, ...)` (section 9) has no existing implementation to port from Rust,
+diff against, or validate a Rust rewrite's numerics against — building it
+would mean inventing new language surface + Python runtime semantics
+*and* a Rust implementation, simultaneously, with nothing to check either
+against. That's a materially different, larger kind of work than every
+other phase in this plan (which have all been "port this existing,
+well-defined Python behavior to Rust and prove they agree"). It needs its
+own scope decision before being attempted, not a unilateral invention
+during a "port existing behavior" phase.
+
 ## Development Environment
 
 `reason ci` requires the packages in `requirements-dev.txt` (pydantic,

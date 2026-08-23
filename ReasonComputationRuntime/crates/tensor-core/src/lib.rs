@@ -8,6 +8,7 @@
 //! plan's "compat-reference" numeric mode, section 10) -- true `f32`
 //! computation is `native-fast` (Phase 9) scope.
 
+pub mod autograd;
 pub mod dtype;
 pub mod error;
 pub mod io;
@@ -17,6 +18,7 @@ pub mod rng;
 pub mod shape;
 pub mod store;
 
+pub use autograd::{Autograd, GradOp};
 pub use dtype::Dtype;
 pub use error::{Result, TensorCoreError};
 pub use store::{TensorData, TensorStore};

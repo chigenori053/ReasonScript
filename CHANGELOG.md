@@ -4,6 +4,24 @@
 
 ### Added
 
+- Added Phase 5 "Rust Autograd" to `reasonscript-tensor-core`
+  (`autograd.rs`: tape + VJPs for every differentiable forward op the
+  crate implements) and wired `parameter`/`detach`/`requires_grad`/`grad`
+  into `tensor_dispatch.rs`, matching Python's `_GradNode`/`_vjp`/
+  `TensorRuntime.grad` exactly (including first-occurrence tie-breaking
+  for min/max gradients). Verified via a standalone Rust finite-difference
+  unit test (no Python needed), 18 new differential parity tests
+  (`computation_ir_tests/test_computation_ir_autograd_parity.py`), and a
+  hand-rolled 20-step gradient-descent loop matching `0.8**20` to full
+  f64 precision in both languages. Found and fixed a real bug along the
+  way: Python's broadcast ops (`add`/`multiply`/...) silently auto-box a
+  bare scalar/array literal operand into an untracked Tensor
+  (`_operand()`); the initial Rust port required an explicit Tensor
+  handle for both operands and rejected `tensor.multiply(x, 0.1)` with
+  `RT-CALL-005` until `operand_id()` was added to mirror that. Optimizers
+  (SGD/Momentum/Adam/AdamW) are explicitly NOT implemented: there is no
+  `optimizer.*` namespace anywhere in ReasonScript's language surface or
+  Python runtime to port from or diff against (see AGENTS.md).
 - Added `reasonscript-tensor-core` to `ReasonComputationRuntime/`,
   implementing Phase 4 ("Rust Tensor forward"): Tensor storage/handle,
   dtype system (compat-reference: f64 internally regardless of declared
