@@ -241,6 +241,76 @@ Rust primitive-execution CLI: this interpreter is Python-only by design
 Phase 2/the bootstrapping steps in section 21). No Rust computation
 runtime crates exist yet.
 
+## Modernization Plan — Phase 3 Rust VM Skeleton
+
+Phase 3 ("Rust VM skeleton") has been implemented as a new, independent
+Cargo workspace at `ReasonComputationRuntime/`, following the plan's own
+"採用しない設計" list (section 19: no Tensor-in-`RuntimeReal`, no
+per-operation subprocess) and its full target crate layout (section 8) —
+only the crates Phase 3 actually needs exist yet:
+
+```
+ReasonComputationRuntime/
+  crates/
+    computation-ir/   -- runtime-types + IR decoder + VM, combined for
+                          this phase (folds the plan's separate
+                          "runtime-types"/"computation-ir"/"computation-vm"
+                          crates into one lib crate; may be split later
+                          if/when Tensor/autograd/relation-engine crates
+                          are added in later phases)
+    runtime-cli/       -- the "Rust CLI" bullet: `reason-computation-runtime`
+```
+
+- `computation-ir::ir`: serde-decodes `reason-computation-ir/0.1` JSON
+  (the exact format `frontend.computation_ir.lowering` emits) into typed
+  Rust structs/enums.
+- `computation-ir::value::Value`: `Null | Bool | Int(i64) | Float(f64) |
+  String | Array | Struct` (no `Tensor`/`Function`/`OptimizerState` yet —
+  those are Phase 4+). `Array`/`Struct` use `Rc<RefCell<..>>`, not
+  by-value storage, because ReasonScript arrays/structs have
+  reference/aliasing semantics on the Python side (`values[0] = 99`
+  mutates every binding aliasing that array) that by-value Rust storage
+  would silently break.
+- `computation-ir::vm::Vm`: walks blocks/terminators exactly like
+  `frontend/computation_ir/interpreter.py` (same visit-count loop guard,
+  same `RT-*`/`RT-ARITH-001`/`RT-INDEX-*`/`RT-CALL-*` error codes,
+  Python-matching floor-mod for `%` since Rust's `%` truncates toward
+  zero instead). `call_tensor`/`call_vision` are recognized but return
+  `RT-UNSUPPORTED-001` rather than executing or panicking — Tensor/vision
+  execution is genuinely Phase 4+ scope.
+- `reason-computation-runtime` binary: reads a `reason-computation-ir/0.1`
+  document (path arg or stdin) and prints
+  `{"ok": true, "calculation_results": {...}}` or
+  `{"ok": false, "error_code": "...", "error_message": "..."}` — a
+  deliberately simple JSON shape (not the full
+  `reasonscript-integrated-runtime/0.1` envelope) so it's trivial for the
+  Python side to decode and diff against.
+- `frontend/computation_ir/rust_bridge.py` +
+  `computation_ir_tests/test_computation_ir_rust_parity.py`: the Phase 3
+  gate itself — "Tensorなしcalculationのpython/Rust一致". Builds/finds the
+  compiled binary (candidate paths under `ReasonComputationRuntime/target/`,
+  mirroring `toolchain.native_runtime`'s pattern for the unrelated native
+  ReasonUnit Runtime binary) and asserts the Rust CLI's output matches
+  `interpret_program`'s for the same lowered IR, on both `calculation_results`
+  and error codes, for representative arithmetic/control-flow/array/struct/
+  cast programs, plus one intentionally-asymmetric case proving Tensor
+  calls are cleanly rejected (`RT-UNSUPPORTED-001`) rather than silently
+  wrong. The whole test module skips (not fails) if the binary hasn't been
+  built. `ReasonComputationRuntime` was added to `scripts/test_platform.py`'s
+  `RUST_CRATES`/`RUST_TEST_CRATES`, so `python3 scripts/test_platform.py test`
+  builds and `cargo test`s it before the Python parity tests run, matching
+  how the pre-existing Rust crates are wired into the test platform.
+- 6 Rust-native unit tests in `computation-ir` (`cargo test`), covering
+  Python-floor-mod parity, Divide-always-Float, zero-division error code,
+  the "calculation with no result" outcome, Tensor-call rejection, and
+  out-of-range index error code.
+
+**Not done in this phase** (Phase 4+): Tensor storage/handle/view,
+binary/reduce/matmul/gather/softmax kernels, `.rstensor` I/O, RNG,
+autograd/optimizer, IR optimization passes, the relation engine, and
+GPU/BLAS backends all remain Python-only for now, exactly as the plan's
+own phase ordering intends.
+
 ## Development Environment
 
 `reason ci` requires the packages in `requirements-dev.txt` (pydantic,

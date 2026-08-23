@@ -93,10 +93,12 @@ RUST_CRATES = [
     "Test",
     "TestPlayground",
     "apps/reasonscript-ide/src-tauri",
+    "ReasonComputationRuntime",
 ]
 
 RUST_TEST_CRATES = [
     "apps/reasonscript-ide/src-tauri",
+    "ReasonComputationRuntime",
 ]
 
 NPM_PROJECTS = [

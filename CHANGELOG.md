@@ -4,6 +4,20 @@
 
 ### Added
 
+- Added `ReasonComputationRuntime/`, a new independent Cargo workspace
+  implementing the Phase 3 "Rust VM skeleton": `computation-ir` (a
+  `reason-computation-ir/0.1` decoder plus a Tensor-less basic-block VM
+  matching `frontend/computation_ir/interpreter.py`'s semantics and RT-*
+  error codes instruction-for-instruction) and `runtime-cli` (the
+  `reason-computation-runtime` binary). `call_tensor`/`call_vision`
+  return `RT-UNSUPPORTED-001` rather than executing (Phase 4+ scope).
+  `frontend/computation_ir/rust_bridge.py` +
+  `computation_ir_tests/test_computation_ir_rust_parity.py` implement the
+  Phase 3 gate ("Tensorなしcalculationのpython/Rust一致"), skipping (not
+  failing) if the binary isn't built.
+  `scripts/test_platform.py`'s `RUST_CRATES`/`RUST_TEST_CRATES` now
+  include it, so `python3 scripts/test_platform.py test` builds and
+  `cargo test`s it before the Python parity tests run.
 - Added `frontend.computation_ir`: a Phase 2 `reason-computation-ir/0.1`
   implementation — AST-to-basic-block lowering (`lowering.py`), a
   temporary Python interpreter for that IR (`interpreter.py`), structural
