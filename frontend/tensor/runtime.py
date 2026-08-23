@@ -1538,7 +1538,12 @@ class TensorRuntime:
         "optimizer.adamw": 10,
     }
 
-    def call_optimizer(self, function_id: str, *args: Any) -> TensorValueRef:
+    def call_optimizer(
+        self,
+        function_id: str,
+        *args: Any,
+        _source_location: dict[str, int] | None = None,
+    ) -> TensorValueRef:
         """Dispatch an `optimizer.*` step function.
 
         Deliberately separate from `call()`/`self.contracts`: Optimizer
@@ -1549,29 +1554,36 @@ class TensorRuntime:
         and every argument is a required positional Tensor or scalar (no
         `**kwargs`, no argument_contract inference), so reusing `call()`'s
         machinery would add indirection without buying anything back.
+        `_source_location` is still threaded through and attached to any
+        raised `TensorError`, matching `call()`'s diagnostics.
         """
-        method = getattr(self, function_id.split(".", 1)[1], None) if function_id.startswith(
-            "optimizer."
-        ) else None
-        if method is None or function_id not in self._OPTIMIZER_ARGUMENT_COUNTS:
-            raise TensorError(
-                "OPT-001", f"unknown Optimizer function: {function_id}", category="optimizer.runtime"
-            )
-        expected = self._OPTIMIZER_ARGUMENT_COUNTS[function_id]
-        if len(args) != expected:
-            raise TensorError(
-                "OPT-002",
-                f"Optimizer function argument count mismatch: {function_id} expects {expected}",
-                category="optimizer.runtime",
-            )
         try:
-            return method(*args)
-        except TensorError:
+            method = getattr(self, function_id.split(".", 1)[1], None) if function_id.startswith(
+                "optimizer."
+            ) else None
+            if method is None or function_id not in self._OPTIMIZER_ARGUMENT_COUNTS:
+                raise TensorError(
+                    "OPT-001", f"unknown Optimizer function: {function_id}", category="optimizer.runtime"
+                )
+            expected = self._OPTIMIZER_ARGUMENT_COUNTS[function_id]
+            if len(args) != expected:
+                raise TensorError(
+                    "OPT-002",
+                    f"Optimizer function argument count mismatch: {function_id} expects {expected}",
+                    category="optimizer.runtime",
+                )
+            try:
+                return method(*args)
+            except TensorError:
+                raise
+            except ZeroDivisionError as error:
+                raise TensorError(
+                    "OPT-004", "Optimizer step produced a non-finite value", category="optimizer.runtime"
+                ) from error
+        except TensorError as error:
+            if _source_location is not None and error.diagnostic.details.get("source_location") is None:
+                error.diagnostic.details["source_location"] = dict(_source_location)
             raise
-        except ZeroDivisionError as error:
-            raise TensorError(
-                "OPT-004", "Optimizer step produced a non-finite value", category="optimizer.runtime"
-            ) from error
 
     def sgd(self, param: Any, grad: Any, lr: Any) -> TensorValueRef:
         return self.subtract(param, self.multiply(grad, lr))

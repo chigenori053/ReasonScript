@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Fixed
+
+- Hardened the `optimizer.*` implementation after a completeness audit:
+  `optimizer_dispatch.rs` now checks argument count upfront (a hand-built
+  IR document with too few arguments previously panicked via an
+  unchecked slice index instead of returning `OPT-002` -- unreachable
+  from real `.rsn` source, but a real robustness gap for hand-built IR);
+  `TensorRuntime.call_optimizer` now accepts and attaches
+  `_source_location` to raised errors, matching `call()`'s diagnostics
+  (both the IR interpreter and the AST evaluator now thread it through);
+  named-argument syntax on an `optimizer.*` call is now rejected with
+  `OPT-002` at parse time instead of falling through to a misleading
+  `TSF-016` Tensor diagnostic. 4 new regression tests.
+
 ### Added
 
 - Added the `optimizer.*` namespace (SGD, Momentum, Adam, AdamW),

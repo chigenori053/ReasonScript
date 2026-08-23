@@ -525,7 +525,10 @@ def _expression(
                 )
                 for argument in value.arguments
             ]
-            return runtime.call_optimizer(optimizer_function, *arguments)
+            source_location = getattr(value, "_source_location", None)
+            return runtime.call_optimizer(
+                optimizer_function, *arguments, _source_location=source_location
+            )
         if (
             isinstance(value.callee, MemberAccessNode)
             and isinstance(value.callee.object, IdentifierNode)

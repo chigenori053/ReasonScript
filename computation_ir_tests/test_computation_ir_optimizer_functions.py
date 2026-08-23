@@ -261,6 +261,47 @@ class OptimizerErrorParityTests(OptimizerParityMixin, unittest.TestCase):
         )
         self.assertEqual(error, "OPT-005")
 
+    @unittest.skipUnless(_BINARY is not None, "reason-computation-runtime binary not built")
+    def test_hand_built_short_argument_ir_reports_opt_002_without_panicking(self):
+        # `frontend/tensor/optimizers.py`'s static validation guarantees
+        # exact argument counts for anything lowered from real .rsn
+        # source, so this can only be reached via hand-built IR -- but
+        # `optimizer_dispatch.rs`'s internal helpers index `args`
+        # positionally (including a few raw `args[N]` clones for
+        # momentum/adam/adamw's shared sub-computations), so a short
+        # argument list must still be rejected gracefully rather than
+        # panicking (an index-out-of-range slice panic, not a normal
+        # RuntimeError, if the dispatcher didn't check the count upfront).
+        ir = {
+            "schema": "reason-computation-ir/0.1",
+            "package": None,
+            "calculations": ["Answer"],
+            "functions": [
+                {
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "b0",
+                    "blocks": [
+                        {
+                            "id": "b0",
+                            "instructions": [],
+                            "terminator": {
+                                "kind": "result",
+                                "value": {
+                                    "op": "call_optimizer",
+                                    "function_id": "optimizer.momentum",
+                                    "arguments": [{"op": "const", "kind": "int", "value": 1}],
+                                },
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+        outcome = run_ir(ir, binary=_BINARY)
+        self.assertFalse(outcome.ok)
+        self.assertEqual(outcome.error_code, "OPT-002")
+
     def test_non_tensor_argument_is_rejected_statically(self):
         with self.assertRaises(SurfaceSyntaxError) as raised:
             parse(

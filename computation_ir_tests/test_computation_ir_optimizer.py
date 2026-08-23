@@ -370,6 +370,78 @@ class LocalCseTests(OptimizerParityMixin, unittest.TestCase):
         ]
         self.assertEqual(len(create_calls), 2)
 
+    def test_optimizer_calls_are_never_deduplicated(self):
+        # Same rationale as test_tensor_calls_are_never_deduplicated:
+        # `optimizer.sgd` is pure (so unused results ARE eliminated, see
+        # OptimizerFunctionsInteractionTests below), but a structurally
+        # identical, both-read pair must not be CSE-merged -- an
+        # optimizer step is exactly the kind of call whose two
+        # "identical" invocations are conceptually a repeated action, not
+        # interchangeable values, matching how call_tensor is treated.
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    let w = tensor.create([1.0], "f64")
+                    let g = tensor.create([0.1], "f64")
+                    let a = optimizer.sgd(w, g, 0.5)
+                    let b = optimizer.sgd(w, g, 0.5)
+                    result = tensor.to_array(tensor.add(a, b))
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        sgd_calls = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "assign"
+            and instruction["expr"].get("op") == "call_optimizer"
+            and instruction["expr"].get("function_id") == "optimizer.sgd"
+        ]
+        self.assertEqual(len(sgd_calls), 2)
+
+
+class OptimizerFunctionsInteractionTests(OptimizerParityMixin, unittest.TestCase):
+    """The Phase 7 IR optimizer's interaction with the `optimizer.*`
+    namespace itself (added after this file was first written): an
+    unused optimizer step is dead-code-eliminated, and a used one
+    survives optimization with an identical result."""
+
+    def test_unused_optimizer_step_is_eliminated(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    let w = tensor.create([1.0], "f64")
+                    let g = tensor.create([0.1], "f64")
+                    let unused = optimizer.sgd(w, g, 0.9)
+                    result = tensor.to_array(w)
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        for block in optimized["functions"][0]["blocks"]:
+            for instruction in block["instructions"]:
+                self.assertNotEqual(instruction.get("target"), "unused")
+
+    def test_optimizer_step_program_survives_optimization(self):
+        self.assert_parity(
+            """
+            module M {
+                calculation Answer {
+                    let w = tensor.create([1.0, 2.0], "f64")
+                    let g = tensor.create([0.1, 0.2], "f64")
+                    let unused = optimizer.sgd(w, g, 0.1)
+                    let updated = optimizer.sgd(w, g, 0.5)
+                    result = tensor.to_array(updated)
+                }
+            }
+            """
+        )
+
 
 class TensorDifferentialTests(OptimizerParityMixin, unittest.TestCase):
     def test_matmul_program_survives_optimization(self):

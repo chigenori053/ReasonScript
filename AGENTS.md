@@ -518,7 +518,7 @@ can be dead-code-eliminated) but never CSE-deduplicated (a step can
 raise on a bad step count or shape mismatch).
 
 **Verified**:
-`computation_ir_tests/test_computation_ir_optimizer_functions.py` (13
+`computation_ir_tests/test_computation_ir_optimizer_functions.py` (14
 tests) covers every function's output against a hand-derived closed-form
 value, differentially across the Python interpreter and the Rust binary
 (bit-exact for every single-call test); a 30-iteration Adam training
@@ -531,15 +531,40 @@ proven bit-exact elsewhere in the same file); static validation
 rejecting a non-Tensor argument (`OPT-003`), wrong argument count
 (`OPT-002`), and an unknown Optimizer function (`OPT-001`); the older
 AST evaluator's independent `optimizer.*` dispatch branch (used when
-Phase 6's Rust-first path falls back to Python); and that no
-`optimizer.*` name ever appears in `TensorRuntime.contracts`.
+Phase 6's Rust-first path falls back to Python); that no `optimizer.*`
+name ever appears in `TensorRuntime.contracts`; and that a hand-built
+IR node with too few arguments (unreachable from real `.rsn` source,
+since `validate_optimizer_call` enforces the exact count before
+lowering, but reachable from a raw IR document) is rejected as a normal
+`OPT-002` `RuntimeError` rather than panicking (`momentum`/`adam`/
+`adamw` clone specific argument positions into a reconstructed slice
+for a shared sub-computation, which isn't bounds-checked on its own --
+`optimizer_dispatch::call` checks the count upfront specifically so
+that indexing can never run past the end).
+`computation_ir_tests/test_computation_ir_optimizer.py` (the Phase 7 IR
+optimizer's own suite) additionally covers `call_optimizer`'s
+interaction with constant folding/DCE/CSE: an unused step is
+eliminated, a used one survives optimization with an identical result,
+and two structurally-identical calls are never merged. Optimizer errors
+also carry `source_location` in their diagnostic (`TensorRuntime.call_optimizer`
+accepts and attaches `_source_location`, mirroring `call()`) -- Rust
+does not attach one, consistent with the rest of the Rust VM not having
+trace/diagnostic-location parity yet (Phase 6). Named-argument syntax on
+an `optimizer.*` call (unsupported -- these are positional-only) is
+rejected with `OPT-002` at parse time rather than falling through to a
+misleading Tensor diagnostic.
 
 **Not implemented** (documented gaps): a stateful `optimizer.step(handle,
 ...)` object API (would need a new mutable-handle runtime concept
 ReasonScript doesn't have), learning-rate schedulers, gradient clipping,
 and per-parameter-group hyperparameters (a caller-side ReasonScript loop
 over an array of parameters, calling these per-Tensor functions, covers
-that today).
+that today). Static shape inference (`frontend.tensor.integration.infer_tensor_shape`)
+does not know about `optimizer.*` results, so a Tensor op consuming an
+optimizer step's output has an "unknown" shape for compile-time
+shape-mismatch checks (no different from any other function whose
+return shape isn't specially inferred; runtime shape checks still
+apply).
 
 ## Modernization Plan — Phase 6 Rust Default Execution
 

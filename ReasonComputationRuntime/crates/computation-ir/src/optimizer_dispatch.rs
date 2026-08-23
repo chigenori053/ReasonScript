@@ -24,8 +24,41 @@ use crate::vm::RuntimeError;
 
 type VResult = Result<Value, RuntimeError>;
 
+/// Every internal helper below indexes `args` positionally (directly, or
+/// through `fetch_operand`/`required_scalar`/`required_step`, or -- for
+/// `momentum`/`adam`/`adamw` -- by cloning specific positions into a
+/// reconstructed slice for a shared sub-computation). None of that
+/// indexing is bounds-checked on its own, so this upfront count check
+/// (mirroring Python's `TensorRuntime._OPTIMIZER_ARGUMENT_COUNTS`) is
+/// load-bearing: without it, a short `arguments` list -- unreachable
+/// from real `.rsn` source (`frontend/tensor/optimizers.py` enforces
+/// the exact count before lowering) but reachable from hand-built IR,
+/// e.g. in a test -- would panic on a slice index out of range instead
+/// of returning a normal `OPT-002` error.
+const ARGUMENT_COUNTS: &[(&str, usize)] = &[
+    ("sgd", 3),
+    ("momentum_velocity", 3),
+    ("momentum", 5),
+    ("adam_moment1", 3),
+    ("adam_moment2", 3),
+    ("adam", 9),
+    ("adamw", 10),
+];
+
 pub fn call(function_id: &str, args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
     let name = function_id.strip_prefix("optimizer.").unwrap_or(function_id);
+    let Some(&(_, expected)) = ARGUMENT_COUNTS.iter().find(|(candidate, _)| *candidate == name) else {
+        return Err(RuntimeError::new(
+            "OPT-001",
+            format!("unknown Optimizer function: {function_id}"),
+        ));
+    };
+    if args.len() != expected {
+        return Err(RuntimeError::new(
+            "OPT-002",
+            format!("Optimizer function argument count mismatch: {function_id} expects {expected}"),
+        ));
+    }
     match name {
         "sgd" => sgd(args, store),
         "momentum_velocity" => momentum_velocity(args, store),
@@ -34,10 +67,7 @@ pub fn call(function_id: &str, args: Vec<Value>, store: &RefCell<TensorStore>) -
         "adam_moment2" => adam_moment2(args, store),
         "adam" => adam(args, store),
         "adamw" => adamw(args, store),
-        _ => Err(RuntimeError::new(
-            "OPT-001",
-            format!("unknown Optimizer function: {function_id}"),
-        )),
+        _ => unreachable!("name was already matched against ARGUMENT_COUNTS above"),
     }
 }
 
