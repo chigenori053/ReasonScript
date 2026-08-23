@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from frontend.computation_ir import lower_program, validate_program
+from frontend.computation_ir.optimizer import optimize_program
 from frontend.language_surface import parse
 from toolchain.diagnostics import stable_json as render_json
 
@@ -13,14 +14,17 @@ from toolchain.diagnostics import stable_json as render_json
 def run(command: str, args: list[str], project_root: Path) -> int:
     json_output = "--json" in args
     validate_only = "--validate" in args
+    optimize = "--optimize" in args
     source_path = _path_arg(args)
     if source_path is None:
-        print("Usage: reason computation-ir [--json] [--validate] <file.rsn>")
+        print("Usage: reason computation-ir [--json] [--validate] [--optimize] <file.rsn>")
         return 1
 
     source = Path(source_path).read_text(encoding="utf-8")
     program = parse(source)
     ir = lower_program(program)
+    if optimize:
+        ir = optimize_program(ir)
     errors = validate_program(ir)
 
     if validate_only:

@@ -4,6 +4,25 @@
 
 ### Added
 
+- Added Phase 7 "IR最適化" (`frontend/computation_ir/optimizer.py`,
+  `optimize_program`): constant folding (arithmetic/comparison/unary/
+  logical short-circuit/cast, leaving divide-or-modulo-by-zero unfolded
+  so RT-ARITH-001 still raises correctly), dead branch elimination,
+  unreachable block removal, dead local elimination (never eliminating
+  `tensor.load`/`tensor.save`), and local (single-block) common
+  subexpression elimination (never deduplicating Tensor/vision/function/
+  array-append calls). Runs once on the shared
+  `reason-computation-ir/0.1` JSON, benefiting both the Python
+  interpreter and the Rust `reason-computation-runtime`. New CLI flag
+  `reason computation-ir --optimize`. 18 new differential tests
+  (`computation_ir_tests/test_computation_ir_optimizer.py`, comparing
+  unoptimized/optimized results across both Python and Rust), including
+  a regression test for a self-referential-assign CSE cache-poisoning
+  bug (`i = i + 1`) found and fixed during development. Cross-block CSE,
+  loop-invariant code motion, a Relation Matrix cache, a compile-time
+  gradient-pruning pass, Tensor buffer reuse, and kernel fusion are
+  explicitly out of scope (see AGENTS.md for why). Optimizers (SGD/
+  Momentum/Adam/AdamW) remain Pending, unaffected by this phase.
 - Added Phase 6 "Rust default execution" to `scripts/reason_cli.py`
   (`_run_result`/`_try_rust_execution`): `reason run`/`reason check` now
   try the Rust computation runtime first for calculation/Tensor

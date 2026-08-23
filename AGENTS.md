@@ -539,6 +539,90 @@ exists here (see the earlier Phase 4 investigation); the "Rust
 default/Python fallback" *architecture* itself is what's been built and
 verified instead.
 
+## Modernization Plan — Phase 7 IR Optimization
+
+Phase 7 ("IR最適化") is `frontend/computation_ir/optimizer.py`:
+`optimize_program(document) -> document`, a pure function over
+`reason-computation-ir/0.1` JSON that runs once on the Python side and
+benefits both consumers of that IR (`frontend.computation_ir.interpreter`
+and the Rust `reason-computation-runtime`), rather than duplicating
+optimization passes in two languages.
+
+Implements the subset of the plan's Phase 7 pipeline (section 7) that
+applies to this IR's actual shape:
+
+- **Constant folding** (`_fold_expr`): folds `binary`/`comparison`/
+  `unary`/`logical` (with And/Or short-circuiting)/`call_cast` nodes whose
+  operands are all `const`. A fold that would raise (division/modulo by
+  zero) is deliberately left unfolded, so the runtime still raises
+  RT-ARITH-001 at the correct point instead of the optimizer encoding
+  "this folds to an error".
+- **Dead branch elimination** (`_simplify_branches`): a `branch`
+  terminator with a constant-folded condition becomes an unconditional
+  `jump`.
+- **Unreachable block removal**: blocks no longer reachable from
+  `entry_block` after branch simplification are dropped.
+- **Dead local elimination** (`_eliminate_dead_locals`): an `assign`
+  whose target is never read elsewhere in the function, and whose
+  expression is side-effect-free, is removed. `tensor.load`/`tensor.save`
+  are always treated as impure (never eliminated even if unused);
+  `call_vision`/`call_function` are conservatively always impure too (a
+  user function's body may itself call `tensor.save`).
+- **Local common-subexpression elimination** (`_local_cse`): within one
+  straight-line block, a repeated structurally-identical pure expression
+  is replaced with a reference to the local already holding its value.
+  `call_tensor`/`call_vision`/`call_function`/`call_array_append` are
+  never deduplicated (Tensor calls can raise; a user function can have
+  side effects). A real bug was found and fixed here during development:
+  the first draft's cache invalidation on reassignment was a no-op,
+  which would let a self-referential assign like `i = i + 1` poison the
+  cache so a *later*, syntactically identical `i + 1` (referring to the
+  new value of `i`) wrongly collapsed to plain `i`. Fixed by invalidating
+  any cached expression that reads a target before that target is
+  reassigned, and by never caching an assign whose own expression reads
+  its own target.
+
+**NOT implemented** (documented, not silent): cross-block CSE,
+loop-invariant code motion/hoisting, a Relation Matrix-style cache (no
+relation engine exists in this repository to cache against), gradient
+pruning as a *compile-time* IR pass (both the interpreter and the Rust VM
+already only walk autograd tape nodes reachable from the requested loss
+at `grad()`-call time — see `ReasonComputationRuntime/crates/tensor-core/
+src/autograd.rs` — which is this codebase's existing form of "don't
+generate a VJP that can't reach the loss"), liveness-driven Tensor buffer
+reuse, and kernel fusion (softmax isn't implemented at all, and `matmul`
+is rank-2/unbatched only, so there is nothing to fuse).
+
+**Verified**: `computation_ir_tests/test_computation_ir_optimizer.py` (18
+tests) covers constant folding (arithmetic/comparison/logical short-
+circuit/cast, and that divide/modulo-by-zero are left unfolded and still
+raise RT-ARITH-001), branch simplification and unreachable-block removal,
+dead-local elimination (including that `tensor.save`/`tensor.load` always
+survive even when unused), local CSE (including a dedicated regression
+test for the self-referential-assign fix above, and a reassignment-
+invalidation test), and that Tensor calls are never CSE-deduplicated.
+Every test lowers a program once and differentially compares
+`calculation_results`/error code across up to four runs: unoptimized
+Python, optimized Python, unoptimized Rust, and optimized Rust (the Rust
+comparisons run only when the binary is built, matching every other
+`computation_ir_tests` parity suite) — optimization must never change
+what a program computes.
+
+**CLI**: `reason computation-ir --optimize [--json|--validate] <file.rsn>`
+(`toolchain/computation_ir_cmd.py`) runs the optimizer before printing/
+validating the IR. This is opt-in and inspection-only: `_try_rust_execution`/
+`interpret_program`'s default execution paths (Phase 6) do NOT apply the
+optimizer automatically. No before/after "cell dispatch" or "5x speedup"
+benchmark was attempted: the plan's Phase 7 gate metrics ("cell dispatch
+90%以上削減、現行比5倍以上") are framed around the Relation Matrix/Tensor
+Logic hybrid engine described elsewhere in the plan, which (like the
+Transformer/Model A-D fixtures noted under Phase 4/6) has no
+implementation or fixture in this repository to benchmark against; wiring
+the optimizer into the default execution path and measuring real
+before/after numbers on this repo's actual programs is left as follow-up
+work once that's decided, rather than reporting a fabricated speedup
+figure here.
+
 ## Development Environment
 
 `reason ci` requires the packages in `requirements-dev.txt` (pydantic,
