@@ -4,6 +4,32 @@
 
 ### Added
 
+- Added the `optimizer.*` namespace (SGD, Momentum, Adam, AdamW),
+  previously deferred as "Pending -- explicitly deferred as a separate
+  scope decision". New language surface (`frontend/tensor/optimizers.py`),
+  a new `call_optimizer` IR node alongside `call_tensor`/`call_vision`,
+  and a shared numeric implementation in both engines
+  (`TensorRuntime.call_optimizer` composed from the same elementwise
+  primitives `tensor.*` uses but never autograd-taped, and
+  `ReasonComputationRuntime/crates/computation-ir/src/optimizer_dispatch.rs`
+  composed the same way from `reasonscript_tensor_core::ops::broadcast_binary`).
+  Every function returns a single Tensor (`optimizer.sgd`,
+  `optimizer.momentum_velocity`/`optimizer.momentum`,
+  `optimizer.adam_moment1`/`optimizer.adam_moment2`/`optimizer.adam`,
+  `optimizer.adamw`) rather than a struct, working around a real gap in
+  the static type checker (no field access on a synthetic struct return
+  type). Deliberately kept outside the Tensor Standard Functions
+  contract (`tensor_function_manifest.json`/`reason tensor-manifest
+  --check` untouched) with its own `OPT-001`..`OPT-005` diagnostics. 13
+  new differential Python/Rust tests
+  (`computation_ir_tests/test_computation_ir_optimizer_functions.py`),
+  including a 30-iteration Adam training loop that actually converges.
+  Both the AST evaluator and the IR interpreter dispatch `optimizer.*`
+  calls; the Phase 7 IR optimizer treats `call_optimizer` like
+  `call_tensor` (side-effect-free, never CSE-deduplicated). See
+  AGENTS.md for the full design writeup and documented gaps (no
+  stateful `optimizer.step(handle, ...)` object API, no LR schedulers,
+  no gradient clipping).
 - Added Phase 7 "IR最適化" (`frontend/computation_ir/optimizer.py`,
   `optimize_program`): constant folding (arithmetic/comparison/unary/
   logical short-circuit/cast, leaving divide-or-modulo-by-zero unfolded

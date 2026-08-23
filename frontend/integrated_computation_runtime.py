@@ -49,6 +49,7 @@ from frontend.language_surface.nodes import (
     WhileStatementNode,
 )
 from frontend.tensor.integration import LOWERINGS, tensor_call_name
+from frontend.tensor.optimizers import optimizer_call_name
 from frontend.tensor.runtime import TensorError, TensorRuntime, TensorValueRef
 from frontend.vision.integration import vision_call_name
 from frontend.vision.runtime import VisionRuntimeBridge
@@ -515,6 +516,16 @@ def _expression(
                 }
             )
             return result
+        optimizer_function = optimizer_call_name(value)
+        if optimizer_function is not None:
+            arguments = [
+                _expression(
+                    argument, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for argument in value.arguments
+            ]
+            return runtime.call_optimizer(optimizer_function, *arguments)
         if (
             isinstance(value.callee, MemberAccessNode)
             and isinstance(value.callee.object, IdentifierNode)

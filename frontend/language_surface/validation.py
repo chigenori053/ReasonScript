@@ -12,6 +12,11 @@ from frontend.tensor.integration import (
     tensor_call_name,
     validate_tensor_call,
 )
+from frontend.tensor.optimizers import (
+    OptimizerSemanticError,
+    optimizer_call_name,
+    validate_optimizer_call,
+)
 from frontend.vision.integration import (
     VisionSemanticError,
     validate_vision_call,
@@ -767,7 +772,7 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
             visit(item.expression)
             return
         if isinstance(item, MemberAccessNode):
-            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo"}:
+            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo", "optimizer"}:
                 return
             visit(item.object)
             return
@@ -1550,7 +1555,7 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1589,6 +1594,14 @@ def _validate_calculation_expression(
                 try:
                     validate_tensor_call(value)
                 except TensorSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if optimizer_call_name(value) is not None:
+                try:
+                    validate_optimizer_call(value)
+                except OptimizerSemanticError as error:
                     raise SurfaceValidationError(str(error)) from error
                 for argument in value.arguments:
                     visit(argument)
@@ -2026,6 +2039,12 @@ def _expression_type(
                 return PrimitiveTypeNode(PrimitiveKind.STRING)
             if tensor_function == "tensor.save":
                 return NamedTypeNode("TensorArtifactReceipt")
+            return NamedTypeNode("Tensor")
+        if optimizer_call_name(value) is not None:
+            try:
+                validate_optimizer_call(value)
+            except OptimizerSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
             return NamedTypeNode("Tensor")
         if vision_call_name(value) is not None:
             try:

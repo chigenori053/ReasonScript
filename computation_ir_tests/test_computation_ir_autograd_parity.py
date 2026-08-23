@@ -9,9 +9,10 @@ suites: lower once, run through both `interpret_program` and the Rust
 CLI, assert `calculation_results` / error codes agree. Skips (doesn't
 fail) if the Rust binary isn't built.
 
-Optimizers (SGD/Momentum/Adam/AdamW) are deliberately not covered here:
-there is no `optimizer.*` namespace in ReasonScript's language surface
-or Python runtime to diff against -- see AGENTS.md.
+Optimizers (SGD/Momentum/Adam/AdamW) are covered separately in
+`test_computation_ir_optimizer_functions.py`: they are pure `optimizer.*`
+step functions, not part of this file's autograd tape/VJP surface (their
+output is a fresh, untracked Tensor, never wired onto the grad tape).
 """
 
 from __future__ import annotations

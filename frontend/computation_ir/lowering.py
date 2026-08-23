@@ -53,6 +53,7 @@ from frontend.language_surface.nodes import (
     WhileStatementNode,
 )
 from frontend.tensor.integration import tensor_call_name
+from frontend.tensor.optimizers import optimizer_call_name
 from frontend.vision.integration import vision_call_name
 
 from .schema import SCHEMA
@@ -504,6 +505,13 @@ def _lower_call(value: CallExpressionNode, declared_functions: frozenset) -> dic
         return {
             "op": "call_tensor",
             "function_id": tensor_function,
+            "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
+        }
+    optimizer_function = optimizer_call_name(value)
+    if optimizer_function is not None:
+        return {
+            "op": "call_optimizer",
+            "function_id": optimizer_function,
             "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
         }
     if (

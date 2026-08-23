@@ -44,6 +44,7 @@ EXPRESSION_OPS = (
     "member",
     "call_tensor",
     "call_vision",
+    "call_optimizer",
     "call_array_append",
     "call_function",
     "call_cast",

@@ -361,6 +361,16 @@ impl<'a> Vm<'a> {
                     "{function_id}: vision execution is not implemented in the Phase 3 Rust VM"
                 ),
             )),
+            Expr::CallOptimizer {
+                function_id,
+                arguments,
+            } => {
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    values.push(self.eval_expr(argument, env, call_depth)?);
+                }
+                crate::optimizer_dispatch::call(function_id, values, &self.tensors)
+            }
             Expr::CallArrayAppend { collection, item } => {
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
                 let item_value = self.eval_expr(item, env, call_depth)?;

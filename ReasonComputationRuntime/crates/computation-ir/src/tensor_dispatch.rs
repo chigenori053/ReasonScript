@@ -14,10 +14,9 @@
 //! `narrow`, `gather`, `concat`, `stack` (indexing-heavy shape ops) and
 //! `relu`/`softmax`/`linear`/`conv2d`/`max_pool2d`/`avg_pool2d`
 //! (neural-net inference ops, and their VJPs). Optimizers
-//! (`SGD`/`Momentum`/`Adam`/`AdamW`) are NOT implemented: there is no
-//! `optimizer.*` namespace anywhere in ReasonScript's language surface
-//! or Python runtime to port from or diff against -- see AGENTS.md for
-//! why that's a separate scope decision, not an oversight.
+//! (`SGD`/`Momentum`/`Adam`/`AdamW`) live in a separate `optimizer.*`
+//! namespace dispatched by the sibling `optimizer_dispatch` module, not
+//! here -- see that module's doc comment.
 //!
 //! Argument handling: ReasonScript Tensor calls are always positional in
 //! `.rsn` source (no keyword-argument syntax), so this mirrors each
@@ -100,7 +99,7 @@ pub fn call(function_id: &str, args: Vec<Value>, store: &RefCell<TensorStore>) -
 
 // ---- argument extraction -------------------------------------------------
 
-fn arg(args: &[Value], index: usize) -> Option<&Value> {
+pub(crate) fn arg(args: &[Value], index: usize) -> Option<&Value> {
     args.get(index)
 }
 
@@ -123,7 +122,7 @@ fn tensor_id(args: &[Value], index: usize) -> Result<Rc<str>, RuntimeError> {
 /// it just never enters `requires_grad`, matching Python only ever
 /// attributing a broadcast op's gradient back to operands that were
 /// already a `TensorValueRef`.
-fn operand_id(
+pub(crate) fn operand_id(
     args: &[Value],
     index: usize,
     store: &RefCell<TensorStore>,
@@ -144,7 +143,7 @@ fn operand_id(
     }
 }
 
-fn as_f64(value: &Value) -> Result<f64, RuntimeError> {
+pub(crate) fn as_f64(value: &Value) -> Result<f64, RuntimeError> {
     match value {
         Value::Int(v) => Ok(*v as f64),
         Value::Float(v) => Ok(*v),
@@ -155,7 +154,7 @@ fn as_f64(value: &Value) -> Result<f64, RuntimeError> {
     }
 }
 
-fn as_i64(value: &Value) -> Result<i64, RuntimeError> {
+pub(crate) fn as_i64(value: &Value) -> Result<i64, RuntimeError> {
     match value {
         Value::Int(v) => Ok(*v),
         other => Err(RuntimeError::new(
@@ -253,7 +252,7 @@ fn optional_bool(args: &[Value], index: usize, default: bool) -> Result<bool, Ru
     }
 }
 
-fn core_err(error: reasonscript_tensor_core::TensorCoreError) -> RuntimeError {
+pub(crate) fn core_err(error: reasonscript_tensor_core::TensorCoreError) -> RuntimeError {
     RuntimeError::new(&error.code, error.message)
 }
 
@@ -276,7 +275,7 @@ fn json_to_value(json: serde_json::Value) -> Value {
     }
 }
 
-fn store_insert(
+pub(crate) fn store_insert(
     store: &RefCell<TensorStore>,
     shape: Vec<usize>,
     dtype: Dtype,
@@ -303,7 +302,7 @@ fn store_insert_grad(
     Ok(Value::Tensor(Rc::from(id.as_str())))
 }
 
-fn fetch(store: &RefCell<TensorStore>, id: &str) -> Result<TensorData, RuntimeError> {
+pub(crate) fn fetch(store: &RefCell<TensorStore>, id: &str) -> Result<TensorData, RuntimeError> {
     store
         .borrow()
         .get(id)

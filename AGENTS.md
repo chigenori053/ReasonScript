@@ -454,24 +454,92 @@ oversight.
   produces `0.8**20` to full `f64` precision in both Python and Rust —
   `test_gradient_descent_training_loop_matches`.
 
-**Optimizers: Pending — explicitly deferred as a separate scope decision**
-(confirmed by the repository owner; not scheduled as part of this
-plan's phase sequence until that scope is defined). `grep`-ing this entire repository (both
-`frontend/` and every `.rsn` fixture) for `optimizer.`/`def adam`/`def sgd`
-finds nothing: there is no `optimizer.*` namespace anywhere in
-ReasonScript's language surface (parser, `frontend.computation_ir.lowering`
-would need a new call-recognition branch for it, matching `tensor_call_name`),
-and no Python-side `TensorRuntime` method for SGD/Momentum/Adam/AdamW/a
-scheduler either. The plan's `optimizer.adam(parameters, gradients,
-state, ...)` (section 9) has no existing implementation to port from Rust,
-diff against, or validate a Rust rewrite's numerics against — building it
-would mean inventing new language surface + Python runtime semantics
-*and* a Rust implementation, simultaneously, with nothing to check either
-against. That's a materially different, larger kind of work than every
-other phase in this plan (which have all been "port this existing,
-well-defined Python behavior to Rust and prove they agree"). It needs its
-own scope decision before being attempted, not a unilateral invention
-during a "port existing behavior" phase.
+## Modernization Plan — Optimizer (SGD / Momentum / Adam / AdamW)
+
+Previously "Pending — explicitly deferred as a separate scope decision"
+(see git history for the original note): there was no `optimizer.*`
+namespace anywhere in ReasonScript to port from or diff a Rust rewrite
+against, unlike every other phase (which had an existing Python behavior
+to port and differentially test against). The repository owner made the
+explicit scope call to build it as new language surface + runtime,
+simultaneously in Python and Rust, cross-validated against each other
+and against hand-derived closed-form values instead of an existing
+oracle.
+
+**API shape** (`frontend/tensor/optimizers.py`'s docstring has the full
+rationale): every `optimizer.*` function takes Tensor/scalar arguments
+and returns a single new Tensor -- never a struct with multiple named
+outputs. This is a deliberate consequence of a real language-surface
+gap: `frontend/language_surface/validation.py`'s static type checker
+only resolves `.field` member access on a `NamedTypeNode` that has a
+matching `StructDeclarationNode` in scope, and there's no way to
+register a synthetic one for a function's return type (the same reason
+`tensor.save`'s `TensorArtifactReceipt` result can be stored but never
+field-accessed today). So callers that need both an updated parameter
+and updated optimizer state call multiple functions, e.g.:
+
+```
+let velocity = optimizer.momentum_velocity(grad, velocity, 0.9)
+let param = optimizer.momentum(param, grad, velocity, 0.01, 0.9)
+```
+
+**Functions**: `optimizer.sgd(param, grad, lr)`,
+`optimizer.momentum_velocity(grad, velocity, momentum)`,
+`optimizer.momentum(param, grad, velocity, lr, momentum)`,
+`optimizer.adam_moment1(grad, m, beta1)`,
+`optimizer.adam_moment2(grad, v, beta2)`,
+`optimizer.adam(param, grad, m, v, step, lr, beta1, beta2, eps)`,
+`optimizer.adamw(param, grad, m, v, step, lr, beta1, beta2, eps,
+weight_decay)` (decoupled weight decay: `param - lr*update -
+lr*weight_decay*param`). `step` is a positive Int the caller increments
+itself between iterations (rejected as `OPT-005` otherwise) -- there is
+no implicit optimizer-owned counter.
+
+**Deliberately separate from Tensor Standard Functions**: `optimizer.*`
+is not part of the `tensor_function_manifest.json` stability contract
+(`reason tensor-manifest --check` stays untouched), has its own
+`OPT-001`..`OPT-005` diagnostic family, its own IR node (`call_optimizer`,
+alongside `call_tensor`/`call_vision` in `frontend/computation_ir/schema.py`),
+and its own dispatch on every layer: `TensorRuntime.call_optimizer`
+(`frontend/tensor/runtime.py`, composed from the same `self.add`/
+`self.subtract`/`self.multiply`/`self.divide`/`self.power`/`self.sqrt`
+elementwise primitives `tensor.*` uses, called directly rather than
+through `self.call(...)` so results are never autograd-taped -- an
+optimizer step's output is a fresh, untracked Tensor, like
+`tensor.detach`), the AST evaluator's `_expression`
+(`frontend/integrated_computation_runtime.py`), the IR interpreter
+(`frontend/computation_ir/interpreter.py`), and
+`ReasonComputationRuntime/crates/computation-ir/src/optimizer_dispatch.rs`
+(composed the same way, from `reasonscript_tensor_core::ops::broadcast_binary`
+directly, storing results untracked via `store_insert` rather than
+`store_insert_grad`). The Phase 7 IR optimizer treats `call_optimizer`
+exactly like `call_tensor`: side-effect-free (so an unused step result
+can be dead-code-eliminated) but never CSE-deduplicated (a step can
+raise on a bad step count or shape mismatch).
+
+**Verified**:
+`computation_ir_tests/test_computation_ir_optimizer_functions.py` (13
+tests) covers every function's output against a hand-derived closed-form
+value, differentially across the Python interpreter and the Rust binary
+(bit-exact for every single-call test); a 30-iteration Adam training
+loop minimizing `(w-2.0)^2` that actually converges towards the target
+(exact `assertEqual` parity is deliberately not required there --
+Rust's `powf` and Python's float `**` are different libm call paths
+that round differently in their last bit, and 30 iterations compound
+that into a real but tiny divergence; every individual op is still
+proven bit-exact elsewhere in the same file); static validation
+rejecting a non-Tensor argument (`OPT-003`), wrong argument count
+(`OPT-002`), and an unknown Optimizer function (`OPT-001`); the older
+AST evaluator's independent `optimizer.*` dispatch branch (used when
+Phase 6's Rust-first path falls back to Python); and that no
+`optimizer.*` name ever appears in `TensorRuntime.contracts`.
+
+**Not implemented** (documented gaps): a stateful `optimizer.step(handle,
+...)` object API (would need a new mutable-handle runtime concept
+ReasonScript doesn't have), learning-rate schedulers, gradient clipping,
+and per-parameter-group hyperparameters (a caller-side ReasonScript loop
+over an array of parameters, calling these per-Tensor functions, covers
+that today).
 
 ## Modernization Plan — Phase 6 Rust Default Execution
 

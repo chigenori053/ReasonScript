@@ -1528,6 +1528,124 @@ class TensorRuntime:
         self._clear_autograd()
         return results
 
+    _OPTIMIZER_ARGUMENT_COUNTS: dict[str, int] = {
+        "optimizer.sgd": 3,
+        "optimizer.momentum_velocity": 3,
+        "optimizer.momentum": 5,
+        "optimizer.adam_moment1": 3,
+        "optimizer.adam_moment2": 3,
+        "optimizer.adam": 9,
+        "optimizer.adamw": 10,
+    }
+
+    def call_optimizer(self, function_id: str, *args: Any) -> TensorValueRef:
+        """Dispatch an `optimizer.*` step function.
+
+        Deliberately separate from `call()`/`self.contracts`: Optimizer
+        functions are not Tensor Standard Functions (they are not part of
+        the `tensor_function_manifest.json` stability contract), have no
+        autograd/trace bookkeeping (their output is a fresh, untracked
+        Tensor -- like `tensor.detach`, never wired onto the grad tape),
+        and every argument is a required positional Tensor or scalar (no
+        `**kwargs`, no argument_contract inference), so reusing `call()`'s
+        machinery would add indirection without buying anything back.
+        """
+        method = getattr(self, function_id.split(".", 1)[1], None) if function_id.startswith(
+            "optimizer."
+        ) else None
+        if method is None or function_id not in self._OPTIMIZER_ARGUMENT_COUNTS:
+            raise TensorError(
+                "OPT-001", f"unknown Optimizer function: {function_id}", category="optimizer.runtime"
+            )
+        expected = self._OPTIMIZER_ARGUMENT_COUNTS[function_id]
+        if len(args) != expected:
+            raise TensorError(
+                "OPT-002",
+                f"Optimizer function argument count mismatch: {function_id} expects {expected}",
+                category="optimizer.runtime",
+            )
+        try:
+            return method(*args)
+        except TensorError:
+            raise
+        except ZeroDivisionError as error:
+            raise TensorError(
+                "OPT-004", "Optimizer step produced a non-finite value", category="optimizer.runtime"
+            ) from error
+
+    def sgd(self, param: Any, grad: Any, lr: Any) -> TensorValueRef:
+        return self.subtract(param, self.multiply(grad, lr))
+
+    def momentum_velocity(self, grad: Any, velocity: Any, momentum: Any) -> TensorValueRef:
+        return self.add(self.multiply(momentum, velocity), grad)
+
+    def momentum(self, param: Any, grad: Any, velocity: Any, lr: Any, momentum: Any) -> TensorValueRef:
+        new_velocity = self.momentum_velocity(grad, velocity, momentum)
+        return self.subtract(param, self.multiply(lr, new_velocity))
+
+    def adam_moment1(self, grad: Any, m: Any, beta1: Any) -> TensorValueRef:
+        return self.add(self.multiply(beta1, m), self.multiply(1.0 - beta1, grad))
+
+    def adam_moment2(self, grad: Any, v: Any, beta2: Any) -> TensorValueRef:
+        return self.add(self.multiply(beta2, v), self.multiply(1.0 - beta2, self.multiply(grad, grad)))
+
+    def _adam_update(
+        self,
+        param: Any,
+        grad: Any,
+        m: Any,
+        v: Any,
+        step: Any,
+        lr: Any,
+        beta1: Any,
+        beta2: Any,
+        eps: Any,
+    ) -> tuple[TensorValueRef, TensorValueRef]:
+        if not isinstance(step, int) or isinstance(step, bool) or step < 1:
+            raise TensorError(
+                "OPT-005", "Optimizer step count must be a positive Int", category="optimizer.runtime"
+            )
+        new_m = self.adam_moment1(grad, m, beta1)
+        new_v = self.adam_moment2(grad, v, beta2)
+        bias_correction1 = 1.0 - beta1**step
+        bias_correction2 = 1.0 - beta2**step
+        m_hat = self.divide(new_m, bias_correction1)
+        v_hat = self.divide(new_v, bias_correction2)
+        update = self.divide(m_hat, self.add(self.sqrt(v_hat), eps))
+        return update, self.multiply(lr, update)
+
+    def adam(
+        self,
+        param: Any,
+        grad: Any,
+        m: Any,
+        v: Any,
+        step: Any,
+        lr: Any,
+        beta1: Any,
+        beta2: Any,
+        eps: Any,
+    ) -> TensorValueRef:
+        _update, scaled = self._adam_update(param, grad, m, v, step, lr, beta1, beta2, eps)
+        return self.subtract(param, scaled)
+
+    def adamw(
+        self,
+        param: Any,
+        grad: Any,
+        m: Any,
+        v: Any,
+        step: Any,
+        lr: Any,
+        beta1: Any,
+        beta2: Any,
+        eps: Any,
+        weight_decay: Any,
+    ) -> TensorValueRef:
+        update, scaled = self._adam_update(param, grad, m, v, step, lr, beta1, beta2, eps)
+        decay = self.multiply(lr, self.multiply(weight_decay, param))
+        return self.subtract(self.subtract(param, scaled), decay)
+
     @contextmanager
     def no_grad(self):
         """Suppress autograd tape recording for the duration of the block.
