@@ -1,7 +1,7 @@
 {
   "schema_version": "reasonscript-release-manifest/1.0",
-  "reason_version": "0.5.4.6",
-  "runtime_version": "0.5.4.6",
+  "reason_version": "0.5.5.3",
+  "runtime_version": "0.5.5.3",
   "language_version": "0.7",
   "minimum_python": "3.11",
   "supported_platforms": [
@@ -27,6 +27,6 @@
     {"id": "semantic-visualization-runtime-v0.1", "source": "VisualizationRuntime", "required": true},
     {"id": "reasonunit-runtime-v1.0", "source": "NativeReasonUnitRuntime", "required": true}
   ],
-  "cli_version": "0.5.4.6",
+  "cli_version": "0.5.5.3",
   "runtime_compatibility": ">=0.5.0,<0.6.0"
 }
