@@ -12,7 +12,7 @@ Covers:
 
 import unittest
 
-from frontend.integrated_computation_runtime import execute_program
+from frontend.integrated_computation_runtime import IntegratedRuntimeError, execute_program
 from frontend.language_surface import SurfaceSyntaxError, parse, validate
 
 
@@ -46,6 +46,43 @@ class DivideAlwaysFloatTests(unittest.TestCase):
 """
         )
         validate(program)  # must not raise
+
+
+class DivideAndModuloByZeroTests(unittest.TestCase):
+    """`/` and `%` previously leaked a raw Python ZeroDivisionError instead
+    of a ReasonScript diagnostic, the only arithmetic path in
+    integrated_computation_runtime.py that didn't go through
+    IntegratedRuntimeError like every other failure mode there."""
+
+    def test_divide_by_zero_raises_integrated_runtime_error(self):
+        program = parse(
+            """module DivideByZero {
+  calculation Answer {
+    let a = 7
+    let b = 0
+    result = a / b
+  }
+}
+"""
+        )
+        with self.assertRaises(IntegratedRuntimeError) as ctx:
+            execute_program(program)
+        self.assertEqual(ctx.exception.code, "RT-ARITH-001")
+
+    def test_modulo_by_zero_raises_integrated_runtime_error(self):
+        program = parse(
+            """module ModuloByZero {
+  calculation Answer {
+    let a = 7
+    let b = 0
+    result = a % b
+  }
+}
+"""
+        )
+        with self.assertRaises(IntegratedRuntimeError) as ctx:
+            execute_program(program)
+        self.assertEqual(ctx.exception.code, "RT-ARITH-001")
 
 
 class ScalarCastTests(unittest.TestCase):

@@ -411,6 +411,8 @@ def _expression(
             value.right, env, runtime, vision_runtime,
             functions, max_call_depth, call_depth,
         )
+        if value.operator in (BinaryOperator.DIVIDE, BinaryOperator.MODULO) and right == 0:
+            raise IntegratedRuntimeError("RT-ARITH-001", "division or modulo by zero")
         return {
             BinaryOperator.ADD: lambda: left + right,
             BinaryOperator.SUBTRACT: lambda: left - right,

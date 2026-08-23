@@ -33,6 +33,15 @@
 
 ### Fixed
 
+- Fixed `/` and `%` leaking a raw Python `ZeroDivisionError` out of
+  `frontend/integrated_computation_runtime.py`'s expression evaluator
+  instead of the `IntegratedRuntimeError` diagnostic every other failure
+  path there uses. Division/modulo by zero now raises
+  `IntegratedRuntimeError("RT-ARITH-001", ...)`. Found while implementing
+  the L-006 DIVIDE type fix below; Tensor division-by-zero was already
+  handled correctly (wrapped as `TensorError("TSF-012", ...)` at the
+  `TensorRuntime.call()` boundary), so this inconsistency was isolated to
+  the scalar language evaluator.
 - Fixed the static type checker returning `Int` for `Int / Int` when `/`
   actually evaluates to a Python float at runtime (a real type/value
   mismatch). `/` is now always typed `Float`, matching its true-division
