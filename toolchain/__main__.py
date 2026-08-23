@@ -105,7 +105,11 @@ def main() -> int:
         return run(command, args[1:], project_root)
 
     if command == "ci":
-        from toolchain.ci_cmd import run
+        try:
+            from toolchain.ci_cmd import run
+        except ModuleNotFoundError as error:
+            print(_missing_dependency_message(error), file=sys.stderr)
+            return 1
         return run(command, args[1:], project_root)
 
     if command == "ci-entry":
@@ -187,6 +191,22 @@ def main() -> int:
     print(f"Error:\n\nUnknownCommand\n\nUnknown command: {command}")
     _usage()
     return 1
+
+
+def _missing_dependency_message(error: ModuleNotFoundError) -> str:
+    module = error.name or "a required module"
+    return (
+        f"Error:\n\nMissingDependency\n\n"
+        f"`reason ci` could not start because the Python module '{module}' is not "
+        f"installed in this interpreter ({sys.executable}).\n\n"
+        "`reason ci` requires the development dependencies, not just the runtime\n"
+        "package. Install them into the interpreter you invoke `reason` with:\n\n"
+        "  python3 -m pip install -r requirements-dev.txt\n\n"
+        "If you are running under a sandboxed or isolated interpreter (e.g. an\n"
+        "agent runner's own venv), either install requirements-dev.txt into that\n"
+        "venv, or invoke `reason` with the project's interpreter instead:\n\n"
+        "  /path/to/venv-with-requirements-dev/bin/python -m toolchain ci --json"
+    )
 
 
 def _usage() -> None:

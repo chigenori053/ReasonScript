@@ -1,0 +1,7 @@
+.git
+target
+node_modules
+vscode-extension/node_modules
+**/target
+*.pyc
+__pycache__

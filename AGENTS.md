@@ -115,6 +115,33 @@ Completion reports must include:
 - Compatibility Notes
 - Remaining Work
 
+## Development Environment
+
+`reason ci` requires the packages in `requirements-dev.txt` (pydantic,
+pytest, fastapi, ...) installed into the *same* Python interpreter used to
+invoke `reason`. A system Python, or an unrelated sandboxed venv that does
+not have these packages installed, will fail either at import time
+(`ModuleNotFoundError`, e.g. missing `pydantic`) or during the Tests phase
+(`CI-008`, missing `pytest`).
+
+A `Dockerfile` is provided at the repository root that reproduces the same
+environment used by `.github/workflows/ci.yml` and `test.yml` (Rust
+toolchain, system libraries, and `requirements-dev.txt` installed into a
+dedicated venv). Coding agents running in a container should build and use
+it instead of an ad-hoc host interpreter:
+
+```sh
+docker build -t reasonscript-dev .
+docker run --rm -v "$PWD:/workspace" reasonscript-dev ./reason ci --json
+```
+
+If running outside the container, install dev dependencies into whichever
+interpreter you invoke `reason` with:
+
+```sh
+python3 -m pip install -r requirements-dev.txt
+```
+
 ## CI Stabilization
 
 This repository follows `reasonscript-ci/1.0` for CI execution. The canonical workflow runs:

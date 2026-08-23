@@ -315,7 +315,15 @@ def _check_tests(root: Path, *, run_tests: bool, test_command: tuple[str, ...]) 
         return False, [_ci_diag("CI-008", f"Test failure: {error}", file="tests")], None, 0
     count = _parse_passed_count(completed.stdout)
     if completed.returncode != 0:
-        return False, [_ci_diag("CI-008", "Test failure", file="tests")], {"tests_passed": count}, count
+        if "No module named pytest" in completed.stderr:
+            message = (
+                "Test failure: pytest is not installed in this Python interpreter "
+                f"({test_command[0]}). Install development dependencies with: "
+                "pip install -r requirements-dev.txt"
+            )
+        else:
+            message = "Test failure"
+        return False, [_ci_diag("CI-008", message, file="tests")], {"tests_passed": count}, count
     return True, [], {"tests_passed": count}, count
 
 
