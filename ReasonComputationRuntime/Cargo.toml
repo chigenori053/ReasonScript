@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/tensor-core",
     "crates/computation-ir",
     "crates/runtime-cli",
 ]

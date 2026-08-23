@@ -1,12 +1,14 @@
-//! Phase 3 basic-block VM: executes `reason-computation-ir/0.1` Functions.
+//! Basic-block VM: executes `reason-computation-ir/0.1` Functions.
 //!
 //! Deliberately mirrors `frontend/computation_ir/interpreter.py`
 //! instruction-for-instruction (same block-walk loop, same per-block
-//! visit-count loop guard, same RT-* error codes) so the two are
-//! differentially comparable for the Phase 3 gate: "Tensorなし
-//! calculationのPython/Rust一致". `call_tensor` / `call_vision` are
-//! recognized but rejected with a clear "not supported" error --
-//! Tensor execution is out of scope until Phase 4.
+//! visit-count loop guard, same RT-* error codes). `call_tensor` is
+//! dispatched to `crate::tensor_dispatch`, which forwards to
+//! `reasonscript_tensor_core` (Phase 4) for the ~50 Tensor Standard
+//! Functions it implements, and returns `RT-UNSUPPORTED-001` for the
+//! rest (conv2d/pooling/softmax/relu/linear/autograd -- see
+//! `tensor_dispatch.rs`'s module doc for the exact deferred list).
+//! `call_vision` remains entirely unimplemented (out of scope).
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -22,7 +24,7 @@ pub struct RuntimeError {
 }
 
 impl RuntimeError {
-    fn new(code: &str, message: impl Into<String>) -> Self {
+    pub fn new(code: &str, message: impl Into<String>) -> Self {
         RuntimeError {
             code: code.to_string(),
             message: message.into(),
@@ -43,6 +45,7 @@ pub struct Vm<'a> {
     functions: HashMap<&'a str, &'a Function>,
     max_loop_iterations: u64,
     max_call_depth: u32,
+    tensors: RefCell<reasonscript_tensor_core::TensorStore>,
 }
 
 impl<'a> Vm<'a> {
@@ -56,6 +59,7 @@ impl<'a> Vm<'a> {
             functions,
             max_loop_iterations: DEFAULT_MAX_LOOP_ITERATIONS,
             max_call_depth: DEFAULT_MAX_CALL_DEPTH,
+            tensors: RefCell::new(reasonscript_tensor_core::TensorStore::new()),
         }
     }
 
@@ -341,12 +345,16 @@ impl<'a> Vm<'a> {
                 let owner = self.eval_expr(object, env, call_depth)?;
                 member_lookup(owner, member)
             }
-            Expr::CallTensor { function_id, .. } => Err(RuntimeError::new(
-                "RT-UNSUPPORTED-001",
-                format!(
-                    "{function_id}: Tensor execution is not implemented in the Phase 3 Rust VM"
-                ),
-            )),
+            Expr::CallTensor {
+                function_id,
+                arguments,
+            } => {
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    values.push(self.eval_expr(argument, env, call_depth)?);
+                }
+                crate::tensor_dispatch::call(function_id, values, &self.tensors)
+            }
             Expr::CallVision { function_id, .. } => Err(RuntimeError::new(
                 "RT-UNSUPPORTED-001",
                 format!(
@@ -721,7 +729,12 @@ mod tests {
     }
 
     #[test]
-    fn tensor_call_reports_unsupported_rather_than_panicking() {
+    fn tensor_softmax_reports_unsupported_rather_than_panicking() {
+        // tensor.create etc. are implemented (Phase 4); tensor.softmax is
+        // deliberately still out of scope (see tensor_dispatch.rs's
+        // module doc for the exact deferred list) and must report
+        // RT-UNSUPPORTED-001 rather than panicking or being silently
+        // wrong.
         let ir = r#"{
             "schema": "reason-computation-ir/0.1",
             "calculations": ["Answer"],
@@ -735,7 +748,7 @@ mod tests {
                     "terminator": {
                         "kind": "result",
                         "value": {
-                            "op": "call_tensor", "function_id": "tensor.create", "arguments": []
+                            "op": "call_tensor", "function_id": "tensor.softmax", "arguments": []
                         }
                     }
                 }]
@@ -743,6 +756,53 @@ mod tests {
         }"#;
         let error = run(ir).expect_err("must fail");
         assert_eq!(error.code, "RT-UNSUPPORTED-001");
+    }
+
+    #[test]
+    fn tensor_create_and_to_array_round_trip() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.1",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [{
+                    "id": "b1",
+                    "instructions": [{
+                        "op": "assign", "target": "a",
+                        "expr": {
+                            "op": "call_tensor", "function_id": "tensor.create",
+                            "arguments": [
+                                {"op": "array", "elements": [
+                                    {"op": "const", "kind": "float", "value": 1.0},
+                                    {"op": "const", "kind": "float", "value": 2.0}
+                                ]},
+                                {"op": "const", "kind": "string", "value": "f64"}
+                            ]
+                        }
+                    }],
+                    "terminator": {
+                        "kind": "result",
+                        "value": {
+                            "op": "call_tensor", "function_id": "tensor.to_array",
+                            "arguments": [{"op": "local", "name": "a"}]
+                        }
+                    }
+                }]
+            }]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(results.len(), 1);
+        match &results[0].1 {
+            Value::Array(items) => {
+                let items = items.borrow();
+                assert_eq!(items.len(), 2);
+                assert_eq!(items[0], Value::Float(1.0));
+                assert_eq!(items[1], Value::Float(2.0));
+            }
+            other => panic!("expected an array, got {other:?}"),
+        }
     }
 
     #[test]

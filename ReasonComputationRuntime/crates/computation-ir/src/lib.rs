@@ -1,4 +1,4 @@
-//! `reason-computation-ir/0.1` decoder and Phase 3 Tensor-less VM.
+//! `reason-computation-ir/0.1` decoder and basic-block VM.
 //!
 //! See `AGENTS.md` (repository root) for how this fits into the
 //! ReasonScript modernization plan's phase roadmap, and
@@ -6,6 +6,7 @@
 //! against.
 
 pub mod ir;
+pub mod tensor_dispatch;
 pub mod value;
 pub mod vm;
 

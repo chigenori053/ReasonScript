@@ -4,6 +4,29 @@
 
 ### Added
 
+- Added `reasonscript-tensor-core` to `ReasonComputationRuntime/`,
+  implementing Phase 4 ("Rust Tensor forward"): Tensor storage/handle,
+  dtype system (compat-reference: f64 internally regardless of declared
+  dtype), dense CPU reference ops, a SHA-256-counter RNG matching Python
+  byte-for-byte, and `.rstensor` encode/decode with verified
+  bidirectional cross-language interop (Rust writes/Python reads and
+  vice versa). Wired into `computation-ir`'s VM via
+  `tensor_dispatch.rs`, which now executes ~50 of the 65 Tensor Standard
+  Functions for real (creation, inspection, shape ops, broadcast
+  binary/comparison/unary elementwise, reductions, dot/matmul/norm,
+  cast, to_array/scalar, the 4 RNG functions, load/save) rather than
+  always returning `RT-UNSUPPORTED-001`. `slice`/`narrow`/`gather`/
+  `concat`/`stack`, the neural-net inference ops
+  (`relu`/`softmax`/`linear`/`conv2d`/`max_pool2d`/`avg_pool2d`), and
+  autograd (`parameter`/`detach`/`requires_grad`/`grad`, Phase 5) remain
+  `RT-UNSUPPORTED-001`. Found and fixed a real cross-language semantic
+  gap along the way: Python `float / 0.0` raises at computation time
+  (normalized to `TensorError("TSF-012", ...)`) while Rust's `f64`
+  division silently produces `inf`; the Rust divide op now pre-checks
+  for a zero divisor to match. 16 new differential tests
+  (`computation_ir_tests/test_computation_ir_tensor_parity.py`), all
+  passing, including exact RNG value equality and both `.rstensor`
+  interop directions.
 - Added `ReasonComputationRuntime/`, a new independent Cargo workspace
   implementing the Phase 3 "Rust VM skeleton": `computation-ir` (a
   `reason-computation-ir/0.1` decoder plus a Tensor-less basic-block VM

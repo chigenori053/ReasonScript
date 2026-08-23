@@ -1,9 +1,13 @@
-//! Runtime `Value` for the Phase 3 Tensor-less VM.
+//! Runtime `Value`.
 //!
 //! This is a reduced form of the plan's target `Value` enum (section 8):
-//! no `Tensor`, `Function`, or `OptimizerState` variants yet, since
-//! Phase 3 is explicitly the Tensor-less skeleton. `Array` and `Struct`
-//! use `Rc<RefCell<..>>` rather than being stored by value, because
+//! no `Function`/`OptimizerState` variants yet (those are Phase 5+).
+//! `Tensor` holds only a handle id (`tensor_%04d`, matching the Python
+//! side's naming) -- the actual `TensorData` lives in the `Vm`'s
+//! `TensorStore` (`reasonscript_tensor_core::TensorStore`), not here, so
+//! this crate doesn't need a dependency cycle back into `vm.rs` just to
+//! define `Value`. `Array` and `Struct` use `Rc<RefCell<..>>` rather than
+//! being stored by value, because
 //! ReasonScript arrays and structs have reference/aliasing semantics on
 //! the Python side (`values[0] = 99` mutates every binding that aliases
 //! the same array) -- storing them by value in Rust would silently
@@ -24,6 +28,7 @@ pub enum Value {
     String(Rc<str>),
     Array(Rc<RefCell<Vec<Value>>>),
     Struct(Rc<StructValue>),
+    Tensor(Rc<str>),
 }
 
 #[derive(Debug)]
@@ -67,6 +72,7 @@ impl Value {
             Value::String(_) => "String",
             Value::Array(_) => "Array",
             Value::Struct(_) => "Struct",
+            Value::Tensor(_) => "Tensor",
         }
     }
 }
@@ -83,6 +89,7 @@ impl PartialEq for Value {
             (Value::Struct(a), Value::Struct(b)) => {
                 a.type_name == b.type_name && *a.fields.borrow() == *b.fields.borrow()
             }
+            (Value::Tensor(a), Value::Tensor(b)) => a == b,
             _ => false,
         }
     }
@@ -104,6 +111,7 @@ impl fmt::Display for Value {
             Value::String(value) => write!(f, "{value}"),
             Value::Array(_) => write!(f, "<array>"),
             Value::Struct(value) => write!(f, "<struct {}>", value.type_name),
+            Value::Tensor(id) => write!(f, "<tensor {id}>"),
         }
     }
 }
@@ -134,6 +142,16 @@ pub fn to_json(value: &Value) -> serde_json::Value {
             }
             map.insert("fields".to_string(), serde_json::Value::Object(fields));
             serde_json::Value::Object(map)
+        }
+        Value::Tensor(id) => {
+            // A raw Tensor handle has no plain-JSON representation (it's
+            // only meaningful against this run's TensorStore); tests that
+            // care about a Tensor's contents route it through
+            // `tensor.to_array`/`tensor.scalar` first, matching the same
+            // scope limit already documented for the Python differential
+            // harness (comparing handles across two separate runtimes
+            // isn't meaningful).
+            serde_json::json!({ "tensor_id": id.to_string() })
         }
     }
 }

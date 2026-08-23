@@ -46,7 +46,9 @@ class RustRunResult:
         self.error_message = error_message
 
 
-def run_ir(ir_document: dict[str, Any], *, binary: Path | None = None) -> RustRunResult:
+def run_ir(
+    ir_document: dict[str, Any], *, binary: Path | None = None, cwd: Path | None = None
+) -> RustRunResult:
     resolved = binary or find_binary()
     if resolved is None:
         raise FileNotFoundError(
@@ -60,6 +62,7 @@ def run_ir(ir_document: dict[str, Any], *, binary: Path | None = None) -> RustRu
         text=True,
         capture_output=True,
         timeout=30,
+        cwd=str(cwd) if cwd is not None else None,
     )
     payload = json.loads(completed.stdout)
     if payload.get("ok"):

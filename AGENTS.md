@@ -311,6 +311,87 @@ autograd/optimizer, IR optimization passes, the relation engine, and
 GPU/BLAS backends all remain Python-only for now, exactly as the plan's
 own phase ordering intends.
 
+## Modernization Plan — Phase 4 Rust Tensor Forward
+
+Phase 4 ("Rust Tensor forward") has been implemented as a new
+`reasonscript-tensor-core` crate in `ReasonComputationRuntime/`, wired
+into `computation-ir`'s VM so `call_tensor` executes for real instead of
+always returning `RT-UNSUPPORTED-001`:
+
+- `crates/tensor-core/src/{dtype,shape,store,ops,rng,io,json}.rs`:
+  Tensor storage/handle (`tensor_%04d` ids, matching Python's naming),
+  dtype system (`bool|i32|i64|f32|f64`, computed internally as `f64`
+  regardless of declared dtype — the plan's "compat-reference" numeric
+  mode, section 10), dense CPU reference ops, the SHA-256-counter RNG,
+  and `.rstensor` encode/decode.
+- `crates/computation-ir/src/tensor_dispatch.rs`: maps `tensor.*`
+  function ids to `tensor-core` calls, positional-argument-for-argument
+  matching each Python method's signature and defaults (ReasonScript
+  Tensor calls are always positional — no keyword-argument syntax in
+  `.rsn` source).
+
+**Implemented (~50 of the 65 Tensor Standard Functions)**: `create`,
+`zeros`, `ones`, `full`, `shape`, `rank`, `size`, `dtype`, `dimension`,
+`reshape`, `flatten`, `transpose`, `squeeze`, `unsqueeze`, the 7 broadcast
+binary ops (`add`/`subtract`/`multiply`/`divide`/`power`/`maximum`/`minimum`),
+the 6 comparisons, the 5 unary elementwise ops (`negate`/`abs`/`exp`/`log`/`sqrt`),
+`sum`/`mean`/`min`/`max`/`argmax`/`argmin`, `dot`/`matmul`/`norm`, `cast`,
+`to_array`/`scalar`, the 4 `random_*` RNG functions, and `.rstensor`
+`load`/`save`.
+
+**Deliberately NOT implemented** (return `RT-UNSUPPORTED-001`, never a
+wrong answer or a panic — see `tensor_dispatch.rs`'s module doc): `slice`,
+`narrow`, `gather`, `concat`, `stack` (indexing-heavy shape ops);
+`relu`/`softmax`/`linear`/`conv2d`/`max_pool2d`/`avg_pool2d` (neural-net
+inference ops); `parameter`/`detach`/`requires_grad`/`grad` (autograd,
+Phase 5 scope). The full 65-function Tensor Standard Functions contract
+is frozen and diffable via `reason tensor-manifest` (Phase 0 tooling) —
+cross-reference it against this list to see exactly what's left.
+
+**Verified, not just implemented**:
+- RNG matches Python byte-for-byte: `random_unit("uniform", 42, 0, 0)`
+  and `..., 0, 1)` are golden-value-tested against
+  `frontend.tensor.runtime._random_unit`'s actual output
+  (`crates/tensor-core/src/rng.rs`'s unit tests).
+- `.rstensor` cross-language interop is exercised in both directions
+  (`computation_ir_tests/test_computation_ir_tensor_parity.py`'s
+  `test_rust_writes_python_reads` / `test_python_writes_rust_reads`):
+  Rust writes a file, Python's `TensorRuntime.load` reads it correctly
+  (and vice versa) — not just "each side can read its own files."
+  Header JSON is read generically on both sides (any valid JSON with the
+  right keys), so this doesn't require byte-identical `json.dumps`
+  formatting between the two languages.
+- A real numeric divergence was found and fixed during this work: Python
+  `float / 0.0` raises `ZeroDivisionError` at the moment of computation
+  (caught generically by `TensorRuntime.call()` and normalized to
+  `TensorError("TSF-012", ...)`), whereas Rust's IEEE-754 `f64` division
+  silently produces `inf`. `tensor_dispatch.rs`'s `divide()` pre-checks
+  for a zero divisor and reports the same `TSF-012` rather than letting
+  Rust compute `inf` and have the finite-value check reject it under a
+  different code (`TSF-010`) — a genuine cross-language semantic gap,
+  not a hypothetical one.
+- The differential harness
+  (`computation_ir_tests/test_computation_ir_tensor_parity.py`, 16 tests)
+  covers creation/inspection, shape ops, broadcast/comparison/unary
+  elementwise, axis+keep_dims reductions, argmax/argmin, dot/matmul/norm,
+  cast, all 4 RNG functions, and error-code parity for division-by-zero,
+  broadcast-shape-mismatch, and matmul-dimension-mismatch — plus the
+  `.rstensor` round trips above. All pass, including exact RNG output
+  equality (not just "both succeeded").
+
+**Known simplifications** (documented, not silent): resource-policy
+ceilings (`max_live_tensors`, `max_elements`, `max_tensor_bytes`, ...)
+aren't enforced in Rust yet — shape/finiteness *correctness* is, the
+resource *policy* ceiling is follow-up scope. Non-finite values are
+rejected with a single `TSF-010` regardless of which operation produced
+them (Python distinguishes `TSF-010` at creation from `TSF-012`
+mid-computation in the general case; only the `divide`-by-zero case above
+was worth reproducing exactly, since it's the one path a normal program
+is likely to hit). `.rstensor` path resolution doesn't yet replicate
+Python's `_resolve_tensor_path` sandboxing (absolute/traversal rejection,
+`resource_root` confinement, `.rstensor`-suffix requirement) — it's a
+plain `std::fs` read/write relative to the CLI's working directory.
+
 ## Development Environment
 
 `reason ci` requires the packages in `requirements-dev.txt` (pydantic,

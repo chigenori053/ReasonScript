@@ -3,8 +3,9 @@ name = "reasonscript-computation-ir"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "Phase 3 skeleton: reason-computation-ir/0.1 decoder and a Tensor-less basic-block VM."
+description = "reason-computation-ir/0.1 decoder and basic-block VM (Phase 3 primitives, Phase 4 Tensor forward)."
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+reasonscript-tensor-core = { path = "../tensor-core" }
