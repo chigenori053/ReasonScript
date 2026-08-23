@@ -2247,6 +2247,11 @@ def _unpack_tensor_data(dtype: str, payload: bytes) -> list[Any]:
         raise TensorError("TIO-003", "Tensor payload cannot be decoded") from error
 
 
+def tensor_function_contracts() -> dict[str, TensorFunctionContract]:
+    """Public accessor for the frozen Tensor Standard Functions contract set."""
+    return _contracts()
+
+
 def _contracts() -> dict[str, TensorFunctionContract]:
     v02_functions = {
         "slice",

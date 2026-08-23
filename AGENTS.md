@@ -115,6 +115,39 @@ Completion reports must include:
 - Compatibility Notes
 - Remaining Work
 
+## Modernization Plan — Phase 0 Baseline Tooling
+
+A modernization plan (language-spec fixes, a Rust computation runtime
+migration, and Tensor Logic–style IR optimization) was proposed for this
+repository. Its Phase 0 ("Baselineと契約凍結") calls for freezing the
+Tensor Standard Functions contract surface and introducing a benchmark
+baseline before any runtime rewrite begins. That baseline tooling has been
+implemented:
+
+- `reason tensor-manifest [--json] [--out DIR] [--check]` — emits the full
+  argument/return/diagnostic contract of every `tensor.*` function as
+  `reasonscript-tensor-function-manifest/1.0` JSON. `--check` compares the
+  live contract set against the committed baseline at
+  `docs/reports/tensor_function_manifest.json` and exits non-zero on drift.
+  This baseline is also enforced by
+  `tensor_standard_functions_tests/test_tensor_function_manifest.py`.
+- `scripts/benchmark_tensor.py` (`make benchmark-tensor`) — measures
+  per-call latency of the existing Python Tensor runtime at the
+  micro/operator tier (cast/dispatch, elementwise, reduction, matmul,
+  softmax, gather), producing `reasonscript-tensor-benchmark/1.0` JSON.
+
+**Explicitly out of scope for this increment** (do not assume these are
+done): the new `reason-computation-ir/0.1` IR, any Rust crate beyond the
+runtimes that already exist in this repository (`RuntimeReal`,
+`RuntimeComplex`, `HybridRuntime`, etc.), `Parameter<T, Shape>` /
+`TensorArray<T, S>` types, `Unknown` → `TypeVar`/`Any`/`ErrorType`
+splitting, and the `/`/`//`/`%` numeric-division semantics change (`//`
+is currently the ReasonScript line-comment token, so introducing it as an
+integer-division operator requires a dedicated lexer/parser design pass,
+not an incidental change). A `DistanceDecay`-style relation-matrix
+optimization target does not exist anywhere in this repository, so that
+specific Phase 1 item does not apply here.
+
 ## Development Environment
 
 `reason ci` requires the packages in `requirements-dev.txt` (pydantic,

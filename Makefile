@@ -1,4 +1,4 @@
-.PHONY: fmt lint test unit integration regression golden compatibility playground build release-check
+.PHONY: fmt lint test unit integration regression golden compatibility playground build release-check tensor-manifest tensor-manifest-check benchmark-tensor
 
 fmt:
 	python3 scripts/test_platform.py fmt
@@ -32,3 +32,12 @@ build:
 
 release-check:
 	python3 scripts/test_platform.py release-check
+
+tensor-manifest:
+	./reason tensor-manifest --json --out docs/reports
+
+tensor-manifest-check:
+	./reason tensor-manifest --check
+
+benchmark-tensor:
+	python3 scripts/benchmark_tensor.py

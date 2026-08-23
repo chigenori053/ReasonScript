@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Added `reason tensor-manifest`, which emits a frozen
+  `reasonscript-tensor-function-manifest/1.0` JSON manifest of every
+  `tensor.*` function's argument/return/diagnostic contract, and a
+  `--check` mode that fails when the live contract set drifts from the
+  committed baseline (`docs/reports/tensor_function_manifest.json`). A
+  regression test (`tensor_standard_functions_tests/test_tensor_function_manifest.py`)
+  enforces this baseline in CI. This is the "契約manifest化 / 契約凍結"
+  Phase 0 baseline task from the ReasonScript modernization plan.
+- Added `scripts/benchmark_tensor.py` (`make benchmark-tensor`), a
+  micro/operator-tier benchmark harness measuring per-call latency of the
+  current Python Tensor runtime (cast/dispatch, elementwise, reduction,
+  matmul, softmax, gather), producing a `reasonscript-tensor-benchmark/1.0`
+  JSON report. This establishes the Phase 0 "before" baseline the plan's
+  later Rust runtime and IR-optimizer phases are meant to be measured
+  against.
+
 ## v0.5.4.5 — 2026-08-07
 
 ### Added

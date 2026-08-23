@@ -116,6 +116,10 @@ def main() -> int:
         from toolchain.ci_entry_cmd import run
         return run(command, args[1:], project_root)
 
+    if command == "tensor-manifest":
+        from toolchain.tensor_manifest_cmd import run
+        return run(command, args[1:], project_root)
+
     if command == "project-validate":
         from toolchain.project_validate_cmd import run
         return run(args[1:], project_root)
@@ -241,6 +245,7 @@ def _usage() -> None:
     print("  agent-report  Emit Agent Development Protocol report")
     print("  ci            Run the canonical CI Stabilization pipeline")
     print("  ci-entry      Validate the canonical CI entry point contract")
+    print("  tensor-manifest Emit/check the frozen Tensor function contract manifest")
     print("  project-validate Validate a standalone ReasonScript project")
     print("  phase1r-validate Generate and validate Phase 1R probes")
     print("  reasonunit-baseline Generate or validate the RUO-C0 compatibility baseline")

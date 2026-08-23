@@ -8,6 +8,7 @@ from .runtime import (
     TensorRuntime,
     TensorValueRef,
     create_tensor_runtime,
+    tensor_function_contracts,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "TensorRuntime",
     "TensorValueRef",
     "create_tensor_runtime",
+    "tensor_function_contracts",
 ]
