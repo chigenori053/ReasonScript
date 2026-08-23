@@ -4,6 +4,24 @@
 
 ### Added
 
+- Added Phase 6 "Rust default execution" to `scripts/reason_cli.py`
+  (`_run_result`/`_try_rust_execution`): `reason run`/`reason check` now
+  try the Rust computation runtime first for calculation/Tensor
+  programs, transparently falling back to the Python AST evaluator for
+  an unsupported construct, `tensor.load`/`save` without filesystem
+  capabilities granted, a trace request (`--trace`/`--json`, since Rust
+  doesn't produce trace/metadata parity yet), or any genuine runtime
+  error (re-derived via Python's own diagnostic path rather than
+  reshaping a Rust error here). `result["execution_mode"]` is now
+  `"integrated-rust"` when Rust ran the program. Added opt-in shadow
+  mode (`REASONSCRIPT_SHADOW_MODE=1`): re-runs a Rust-executed program
+  through Python and warns on stderr (without failing) if they disagree.
+  `runtime-cli`'s `serde_json` now uses `preserve_order` so
+  `calculation_results` comes back in execution order rather than
+  alphabetized. 8 new tests
+  (`runtime_completeness_tests/test_phase6_rust_default_dispatch.py`).
+  Optimizers (SGD/Momentum/Adam/AdamW) remain Pending, per an explicit
+  decision to treat that as separate, not-yet-scoped work (see AGENTS.md).
 - Added Phase 5 "Rust Autograd" to `reasonscript-tensor-core`
   (`autograd.rs`: tape + VJPs for every differentiable forward op the
   crate implements) and wired `parameter`/`detach`/`requires_grad`/`grad`

@@ -454,7 +454,9 @@ oversight.
   produces `0.8**20` to full `f64` precision in both Python and Rust —
   `test_gradient_descent_training_loop_matches`.
 
-**Optimizers: not implemented.** `grep`-ing this entire repository (both
+**Optimizers: Pending — explicitly deferred as a separate scope decision**
+(confirmed by the repository owner; not scheduled as part of this
+plan's phase sequence until that scope is defined). `grep`-ing this entire repository (both
 `frontend/` and every `.rsn` fixture) for `optimizer.`/`def adam`/`def sgd`
 finds nothing: there is no `optimizer.*` namespace anywhere in
 ReasonScript's language surface (parser, `frontend.computation_ir.lowering`
@@ -470,6 +472,72 @@ other phase in this plan (which have all been "port this existing,
 well-defined Python behavior to Rust and prove they agree"). It needs its
 own scope decision before being attempted, not a unilateral invention
 during a "port existing behavior" phase.
+
+## Modernization Plan — Phase 6 Rust Default Execution
+
+Phase 6 ("Rust主実行器: Rust default、Python fallback") is implemented in
+`scripts/reason_cli.py`, the actual entry point `reason run`/`reason check`
+use for calculation/Tensor programs (`_run_result`, gated by
+`_requires_integrated_runtime` — note this is a *different* code path
+from `toolchain/run_cmd.py`'s `reason run`, which executes the older
+`reason-ir/0.1` state/goal/transition pipeline against `RuntimeReal`/
+`HybridRuntime` and is untouched by this phase):
+
+- `_try_rust_execution()`: lowers the program, resolves the compiled
+  `reason-computation-runtime` binary, and runs it. Returns `None` (fall
+  back to `execute_program`, unchanged below it) when: the binary isn't
+  built, `lower_program` raises `LoweringError` (an unsupported language
+  construct), the program touches `tensor.load`/`save` but the caller
+  wasn't granted both filesystem capabilities (Rust has no equivalent
+  gate to Python's `TIO-001` check, so this routes those programs to
+  Python rather than silently bypassing it), or the Rust run itself
+  fails for any reason (including a genuine runtime error like division
+  by zero) — that last case intentionally re-derives the diagnostic via
+  Python's already-tested error-handling path rather than reshaping a
+  Rust `code`+`message` into Python's diagnostic dict shape here.
+- On success, `result["execution_mode"] = "integrated-rust"` (vs.
+  `"integrated"` for the Python path), so which engine ran is always
+  visible in `reason run --json` output.
+- `include_trace` (`reason run --trace` or `--json`) always uses Python:
+  the Rust path returns empty `tensor_metadata`/`tensor_trace`/
+  `loop_trace`/`vision_trace` (documented, not silently dropped) because
+  full trace/diagnostic parity is real remaining work, not attempted in
+  this phase.
+- Shadow mode (`REASONSCRIPT_SHADOW_MODE=1`): after a successful Rust run,
+  also runs the same program through Python and prints a mismatch
+  warning to stderr (without failing the run) if `calculations` disagree
+  — `_shadow_check_against_python()`. Opt-in, for validating parity on
+  real programs during the migration without paying double-execution
+  cost by default.
+- `runtime-cli`'s `serde_json` now uses the `preserve_order` feature:
+  `calculation_results` must come back in execution order (Python's
+  `next(reversed(calculations.values()))` semantics for picking the
+  "current" result value), and plain `serde_json::Map` is BTreeMap-backed
+  and would have silently alphabetized the keys instead.
+
+**Verified**: `runtime_completeness_tests/test_phase6_rust_default_dispatch.py`
+covers the Rust-success path, the unsupported-construct fallback, the
+always-Python trace path, both `tensor.load`/`save` capability-gating
+cases, `_uses_tensor_io`'s detection, and a shadow-mode agreement case
+(asserting `print` is never called when both engines agree). One
+pre-existing test (`test_scalar_calculation_uses_integrated_runtime_without_trigger_construct`)
+had hardcoded `execution_mode == "integrated"` for a plain scalar
+calculation with no Tensor calls at all — now that Rust correctly
+executes it too, this was updated to accept either mode (the program has
+no unsupported construct, so which one runs is just "is the binary
+built", not a correctness question).
+
+**Not done in this phase** (documented gaps, not oversights): the Python
+AST evaluator has NOT been removed from the "normal path" — it remains
+the always-available fallback, which is exactly what "Rust default、
+Python fallback" (the plan's own phrase) asks for, not a stepping stone
+to deletion. Full trace/diagnostic parity (Rust producing
+`tensor_trace`/`loop_trace`/`vision_trace` equivalents) is unbuilt. The
+gate's "Model D batch=8" / "Transformer学習・評価・介入がRustのみで完了"
+criteria are unattainable in this repository — no Transformer fixture
+exists here (see the earlier Phase 4 investigation); the "Rust
+default/Python fallback" *architecture* itself is what's been built and
+verified instead.
 
 ## Development Environment
 

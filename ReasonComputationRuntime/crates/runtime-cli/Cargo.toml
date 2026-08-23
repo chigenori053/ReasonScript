@@ -3,7 +3,7 @@ name = "reasonscript-computation-runtime-cli"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "Phase 3 primitive execution CLI for reason-computation-ir/0.1."
+description = "Execution CLI for reason-computation-ir/0.1."
 
 [[bin]]
 name = "reason-computation-runtime"
@@ -11,4 +11,9 @@ path = "src/main.rs"
 
 [dependencies]
 reasonscript-computation-ir = { path = "../computation-ir" }
-serde_json = "1.0"
+# preserve_order: `calculation_results` must come back in execution
+# order (Phase 6's `scripts/reason_cli.py` takes the *last* calculation's
+# value as `result`, matching Python's `next(reversed(calculations.values()))`)
+# -- plain serde_json::Map is BTreeMap-backed and would silently
+# alphabetize the keys instead.
+serde_json = { version = "1.0", features = ["preserve_order"] }

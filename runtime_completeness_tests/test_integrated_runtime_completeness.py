@@ -28,7 +28,12 @@ class IntegratedRuntimeCompletenessTests(unittest.TestCase):
             )
             result = _run_result(source, "normal", include_trace=False)
         self.assertTrue(result["ok"])
-        self.assertEqual(result["execution_mode"], "integrated")
+        # Phase 6 ("Rust default, Python fallback"): this program has no
+        # unsupported construct, so it now runs on the Rust computation
+        # runtime rather than the Python AST evaluator when the Rust
+        # binary is built -- "integrated" is still the correct mode when
+        # it isn't (e.g. this sandbox before `cargo build`).
+        self.assertIn(result["execution_mode"], {"integrated", "integrated-rust"})
         self.assertEqual(result["runtime_result"]["result"], 0.5)
 
     def test_index_function_struct_and_array_append_execute_together(self):

@@ -425,8 +425,33 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
         from frontend.language_surface.parser import parse
         from frontend.tensor import TensorError
 
+        program = parse(source)
+        resource_root = _resolve_input_path(path).resolve().parent
+
+        # Phase 6 "Rust default, Python fallback": try the Rust
+        # computation runtime first for the common (no-trace-requested,
+        # fully-supported-construct) case; fall back to the Python AST
+        # evaluator -- unchanged below -- for anything the Rust side
+        # can't do yet, or when a trace was asked for (Rust doesn't
+        # produce tensor_trace/loop_trace/vision_trace parity yet; see
+        # AGENTS.md). Any genuine runtime error Rust catches also falls
+        # back rather than being re-shaped into Python's diagnostic
+        # format here, so the diagnostic the user sees always comes from
+        # Python's already-tested error path.
+        rust_runtime_result = None if include_trace else _try_rust_execution(program, resource_root, allow_read, allow_write)
+        if rust_runtime_result is not None:
+            if _shadow_mode_enabled():
+                _shadow_check_against_python(program, rust_runtime_result, resource_root, allow_read, allow_write)
+            result["runtime_result"] = rust_runtime_result
+            result["execution_mode"] = "integrated-rust"
+            result["runtime_output"] = [rust_runtime_result["result"]]
+            result["goal_reached"] = True
+            result["artifacts"]["runtime_result"] = rust_runtime_result
+            result["artifacts"]["tensor_metadata"] = rust_runtime_result["tensor_metadata"]
+            return result
+
         try:
-            integrated = execute_program(parse(source), resource_root=_resolve_input_path(path).resolve().parent, filesystem_read=allow_read, filesystem_write=allow_write)
+            integrated = execute_program(program, resource_root=resource_root, filesystem_read=allow_read, filesystem_write=allow_write)
             runtime_result = integrated.to_dict()
             result["runtime_result"] = runtime_result
             result["execution_mode"] = "integrated"
@@ -475,6 +500,104 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
             result["goal_reached"] = False
             result["diagnostics"].append(diagnostic)
     return result
+
+
+def _try_rust_execution(program: Any, resource_root: Path, allow_read: bool, allow_write: bool) -> dict[str, Any] | None:
+    """Phase 6 Rust-first attempt. Returns an
+    `IntegratedComputationResult.to_dict()`-shaped dict on success, or
+    `None` if the Rust computation runtime can't handle this program
+    (unsupported construct/Tensor function, or a genuine runtime error)
+    and the caller should fall back to `execute_program`.
+
+    `tensor_metadata`/`tensor_trace`/`loop_trace`/`vision_trace` come
+    back empty: the Rust side doesn't produce trace/metadata parity yet
+    (a documented Phase 6 follow-up, not silently dropped -- callers
+    that asked for `include_trace` never reach this function at all).
+    """
+    from frontend.computation_ir import LoweringError, lower_program
+    from frontend.computation_ir.rust_bridge import find_binary, run_ir
+
+    binary = find_binary()
+    if binary is None:
+        return None
+    try:
+        ir_document = lower_program(program)
+    except LoweringError:
+        return None
+    if not allow_read or not allow_write:
+        # tensor.load/save need filesystem capabilities; the Rust CLI has
+        # no equivalent gate and would just perform the I/O, so route
+        # programs that haven't been granted both through Python instead
+        # of silently bypassing the capability check.
+        if _uses_tensor_io(ir_document):
+            return None
+    try:
+        outcome = run_ir(ir_document, binary=binary, cwd=resource_root)
+    except (OSError, ValueError):
+        return None
+    if not outcome.ok:
+        return None
+    calculations = outcome.calculation_results
+    result_value = next(reversed(calculations.values()), None) if calculations else None
+    return {
+        "schema_version": "reasonscript-integrated-runtime/0.1",
+        "status": "success",
+        "result": result_value,
+        "tensor_metadata": [],
+        "tensor_trace": [],
+        "loop_trace": [],
+        "vision_trace": [],
+        "calculations": calculations,
+    }
+
+
+def _uses_tensor_io(ir_document: dict[str, Any]) -> bool:
+    def walk(node: Any) -> bool:
+        if isinstance(node, dict):
+            if node.get("op") == "call_tensor" and node.get("function_id") in {"tensor.load", "tensor.save"}:
+                return True
+            return any(walk(value) for value in node.values())
+        if isinstance(node, list):
+            return any(walk(item) for item in node)
+        return False
+
+    return walk(ir_document)
+
+
+def _shadow_mode_enabled() -> bool:
+    return os.environ.get("REASONSCRIPT_SHADOW_MODE") == "1"
+
+
+def _shadow_check_against_python(
+    program: Any, rust_result: dict[str, Any], resource_root: Path, allow_read: bool, allow_write: bool
+) -> None:
+    """Phase 6 "shadow mode": re-runs the same program through the Python
+    AST evaluator alongside the Rust result already computed, and warns
+    (to stderr, without failing the run) if they disagree. Opt-in via
+    `REASONSCRIPT_SHADOW_MODE=1` -- a way to keep validating Rust/Python
+    parity on real programs during the migration without paying the
+    double-execution cost by default.
+    """
+    from frontend.integrated_computation_runtime import IntegratedRuntimeError, LoopLimitError, execute_program
+    from frontend.tensor import TensorError
+
+    try:
+        python_result = execute_program(
+            program, resource_root=resource_root, filesystem_read=allow_read, filesystem_write=allow_write
+        ).to_dict()
+    except (TensorError, LoopLimitError, IntegratedRuntimeError) as error:
+        print(
+            f"[shadow mode] Rust succeeded but Python raised {getattr(error, 'code', type(error).__name__)}: {error}",
+            file=sys.stderr,
+        )
+        return
+    if python_result["calculations"] != rust_result["calculations"]:
+        print(
+            "[shadow mode] Rust/Python calculation result mismatch:\n"
+            f"  rust:   {rust_result['calculations']}\n"
+            f"  python: {python_result['calculations']}",
+            file=sys.stderr,
+        )
 
 
 def _requires_integrated_runtime(source: str, analyze: dict[str, Any]) -> bool:
