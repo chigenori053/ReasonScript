@@ -926,6 +926,80 @@ narrower packed `f32`/`f64` `TensorData` storage representation (the
 "real memory bandwidth savings" half of true `f32` -- this pass gets
 `f32`'s *numerical* behavior via rounding, not its *storage* footprint).
 
+## Modernization Plan — Phase 10 Approximate Tensor Logic (SVD Foundation Only)
+
+Phase 10's full scope ("Tucker optimizer/rank選択/denoise", gate
+"end-to-end 2倍以上またはメモリ改善、accuracy低下0.5pt以内") was checked
+against this repository before starting: no SVD, eigendecomposition, or
+Tucker decomposition existed anywhere, on either the Python or Rust
+side. Unlike `optimizer.*`/`relation.*` (composable from existing
+elementwise/comparison primitives), a correct Tucker decomposition needs
+a real linear-algebra algorithm as its foundation, with no existing
+implementation to port from or differentially test against, and the
+"end-to-end"/"accuracy低下0.5pt以内" gate is (like every prior phase's
+Model D-tied gate) unmeasurable here regardless. Per an explicit scope
+decision, this phase is narrowed to exactly that missing foundation: a
+minimal SVD (rank-2 matrices only -- "rank" here means *tensor* rank,
+i.e. a matrix, not the linear-algebra rank of the matrix's row/column
+space). Tucker decomposition itself (mode-n unfolding/refolding, N-way
+core tensor computation, rank-selection/tolerance policy, the
+`@approximate(method="tucker", ...)` language surface) is NOT
+implemented -- real, separate, follow-up work once this foundation
+exists to build on.
+
+**Algorithm**: one-sided Jacobi SVD (Hestenes' method) --
+`frontend/tensor/linalg.py`'s `svd()` and
+`ReasonComputationRuntime/crates/tensor-core/src/linalg.rs`'s `svd()`
+implement the identical algorithm independently on both sides: repeatedly
+rotate pairs of columns of a working copy of the input matrix toward
+orthogonality (accumulating the rotations into `V`) until the Gram
+matrix's off-diagonal energy falls below tolerance or a sweep limit is
+hit; singular values are the converged working columns' norms, `U` is
+those columns normalized. Chosen over eigendecomposing `A^T @ A`
+because it never squares the matrix's condition number, while still
+being simple enough to implement and verify correctly with no existing
+oracle.
+
+**Deliberately internal, not language-surface-facing yet**: a full SVD
+naturally produces three differently-shaped outputs (`U`, singular
+values, `V`), which would hit the exact same "no synthetic struct
+return type" problem `frontend/tensor/optimizers.py`'s module docstring
+documents for `optimizer.*` -- not solved here (it's a real, separate
+design decision, same as `join`/`project` in Phase 8). `svd` is
+therefore not wired into `tensor_dispatch.rs`/the IR/the language
+surface at all; it exists purely as a building block for whenever
+Tucker decomposition itself gets built.
+
+**Verification, without the usual differential-test pattern**: since
+`svd` isn't reachable through the IR/CLI, the normal "lower once, run
+through both Python and Rust, compare `calculation_results`" pattern
+doesn't apply. Instead, both sides are verified independently against
+the *same* closed-form values and mathematical invariants -- a
+divergence between the two implementations would surface as one side's
+test failing to match the shared expected numbers, even without a
+process-level harness:
+- Closed-form singular values for known matrices (a rank-deficient
+  matrix `[[3,0],[4,0]]` → singular values `5, 0`; a diagonal matrix →
+  its sorted diagonal; a rank-1 outer product `a ⊗ b` → a single
+  singular value `|a|·|b|`; the identity matrix → all-`1` singular
+  values and identity factors).
+- Reconstruction: `U @ diag(S) @ V^T` matches the original matrix to
+  ~1e-8 for random square/tall/wide matrices up to 6×6.
+- Orthogonality: `U^T @ U` and `V^T @ V` are the identity to ~1e-8.
+- Singular values are always sorted descending and never negative.
+
+4 new Rust unit tests (`linalg.rs`) and 10 new Python tests
+(`tensor_standard_functions_tests/test_linalg_svd.py`), covering the
+above on both sides with matching input matrices.
+
+**Not implemented** (documented gaps): Tucker decomposition itself
+(mode-n unfolding/refolding, core tensor computation, rank selection,
+the `@approximate` syntax), higher-order (rank > 2) tensor
+decompositions, a denoising story, and the end-to-end
+speedup/memory/accuracy gate (no Model D/Transformer fixture exists
+here to measure it against, same as every prior phase's benchmark
+gate).
+
 ## Development Environment
 
 `reason ci` requires the packages in `requirements-dev.txt` (pydantic,

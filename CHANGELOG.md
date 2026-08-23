@@ -18,6 +18,26 @@
 
 ### Added
 
+- Added Phase 10's minimal SVD foundation (narrowed from the full
+  "Tucker optimizer/rank選択/denoise" scope after confirming no SVD,
+  eigendecomposition, or Tucker decomposition existed anywhere in this
+  repository to build Tucker on top of): a one-sided Jacobi SVD
+  (Hestenes' method) implemented identically and independently in
+  `frontend/tensor/linalg.py` and
+  `ReasonComputationRuntime/crates/tensor-core/src/linalg.rs`. Not
+  wired into the `tensor.*` language surface/IR yet -- `U`/singular
+  values/`V` are three differently-shaped outputs, hitting the same
+  "no synthetic struct return type" gap `optimizer.*`'s `join`/`project`
+  already document, a real separate design decision. Verified against
+  closed-form singular values, reconstruction accuracy, and `U`/`V`
+  orthogonality on both sides independently (no IR/CLI path exists yet
+  for the usual subprocess differential test, so both implementations
+  are checked against the same shared expected values instead). 4 new
+  Rust unit tests, 10 new Python tests
+  (`tensor_standard_functions_tests/test_linalg_svd.py`). Tucker
+  decomposition itself (mode-n unfolding, core tensor computation, rank
+  selection, `@approximate` syntax) remains real follow-up work; see
+  AGENTS.md.
 - Added Phase 9's `NumericMode::NativeFast` (narrowed after checking
   this environment has no GPU and no system BLAS library, and after a
   scope decision to skip a cost model): a second numeric mode alongside
