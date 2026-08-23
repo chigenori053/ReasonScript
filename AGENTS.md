@@ -182,6 +182,65 @@ no `with` statement in the language surface yet, so `with tensor.no_grad
 Python-level API only, reachable from evaluator code, not from `.rsn`
 source.
 
+## Modernization Plan — Phase 2 Computation IR
+
+Phase 2 ("Computation IR") from the modernization plan has been
+implemented, scoped to a Python-only IR and interpreter (no Rust yet,
+per the plan's own Phase 3+ split):
+
+- `frontend/computation_ir/schema.py`: `reason-computation-ir/0.1`
+  constants, distinct from the pre-existing `reason-ir/0.1`
+  (state/goal/transition/constraint IR).
+- `frontend/computation_ir/lowering.py`: `lower_program()` lowers AST
+  calculations and functions into basic-block Functions (Jump/Branch/
+  Return/Result/Trap terminators), with an op-tagged expression tree and
+  `source_span` preserved per node from the AST's `_source_location`.
+  Scope is bounded to exactly what `frontend.integrated_computation_runtime`
+  (the pre-existing AST evaluator) supports — pattern matching,
+  Optional/Some, map/set literals, vision/ruo calls, reason_object graph
+  queries, and `runtime.search/simulate/predict/plan` are out of scope
+  and raise `LoweringError` rather than being silently mishandled (that
+  AST evaluator doesn't support them either, so there was no oracle to
+  lower them against).
+- `frontend/computation_ir/interpreter.py`: `interpret_program()` — the
+  Phase 2 "一時的なPython IR interpreter", walking blocks and executing
+  instructions/terminators. Reuses `TensorRuntime`, `VisionRuntimeBridge`,
+  `IntegratedRuntimeError`, `RuntimeStruct`, and `_index_value` directly
+  from the AST evaluator rather than re-implementing their semantics, to
+  avoid two copies drifting apart.
+- `frontend/computation_ir/validation.py`: `validate_program()` — the
+  Phase 2 "schema validation" item. Handwritten (not `jsonschema`-based,
+  matching the rest of the codebase's validators): checks every
+  jump/branch target resolves, every block is reachable from
+  `entry_block`, and every instruction/terminator/expression node uses a
+  known `op` tag.
+- `frontend/computation_ir/differential.py` +
+  `computation_ir_tests/test_computation_ir_differential.py`: the Phase 2
+  gate — "Python AST/IR evaluatorが同一結果". `assert_same_outcome(source)`
+  runs a program through both evaluators and fails loudly on any
+  divergence in `calculation_results` or in which
+  `IntegratedRuntimeError`/`LoopLimitError` code was raised. This harness
+  caught a real lowering bug (an `elif`+`else` chain leaving one CFG
+  block unreachable/unterminated) before it shipped.
+- `reason computation-ir [--json] [--validate] <file.rsn>` (`toolchain/computation_ir_cmd.py`)
+  lowers a `.rsn` file to IR JSON, or just validates it.
+
+Known scope limits, not bugs: (1) a `calculation`'s `result` must be a
+plain, structurally-comparable value for the differential harness —
+comparing a raw `Tensor` handle across the AST run's and IR run's
+*separate* `TensorRuntime` instances would spuriously "disagree" by
+Python object identity even when semantically equal, so test cases
+convert with `tensor.to_array`/`tensor.scalar` first. (2) The interpreter
+does not reproduce `runtime.trace`/`loop_trace` entries (it passes `[]`
+for loop_trace) — differential testing compares `calculation_results`
+and error codes, not trace/performance metadata.
+
+**Not done in this phase** (Phase 3+, deferred): no Rust IR decoder or
+Rust primitive-execution CLI: this interpreter is Python-only by design
+(the plan's own "この段階ではTensor kernelを移植しない" principle for
+Phase 2/the bootstrapping steps in section 21). No Rust computation
+runtime crates exist yet.
+
 ## Development Environment
 
 `reason ci` requires the packages in `requirements-dev.txt` (pydantic,

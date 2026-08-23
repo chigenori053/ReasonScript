@@ -120,6 +120,10 @@ def main() -> int:
         from toolchain.tensor_manifest_cmd import run
         return run(command, args[1:], project_root)
 
+    if command == "computation-ir":
+        from toolchain.computation_ir_cmd import run
+        return run(command, args[1:], project_root)
+
     if command == "project-validate":
         from toolchain.project_validate_cmd import run
         return run(args[1:], project_root)
@@ -246,6 +250,7 @@ def _usage() -> None:
     print("  ci            Run the canonical CI Stabilization pipeline")
     print("  ci-entry      Validate the canonical CI entry point contract")
     print("  tensor-manifest Emit/check the frozen Tensor function contract manifest")
+    print("  computation-ir Lower a .rsn file to reason-computation-ir/0.1 JSON")
     print("  project-validate Validate a standalone ReasonScript project")
     print("  phase1r-validate Generate and validate Phase 1R probes")
     print("  reasonunit-baseline Generate or validate the RUO-C0 compatibility baseline")

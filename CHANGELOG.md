@@ -4,6 +4,15 @@
 
 ### Added
 
+- Added `frontend.computation_ir`: a Phase 2 `reason-computation-ir/0.1`
+  implementation — AST-to-basic-block lowering (`lowering.py`), a
+  temporary Python interpreter for that IR (`interpreter.py`), structural
+  schema validation (`validation.py`), and a differential test harness
+  proving the IR interpreter agrees with the existing AST evaluator
+  (`differential.py`, `computation_ir_tests/`). Exposed via
+  `reason computation-ir [--json] [--validate] <file.rsn>`. Rust work is
+  explicitly out of scope for this phase; see AGENTS.md for the exact
+  language-construct coverage and known scope limits.
 - Added `float(x)` / `int(x)` explicit numeric conversion builtins
   (ReasonScript modernization plan L-004). `int(x)` truncates toward
   zero. Validated in `frontend/language_surface/validation.py`
