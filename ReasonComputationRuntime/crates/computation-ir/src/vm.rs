@@ -50,6 +50,17 @@ pub struct Vm<'a> {
 
 impl<'a> Vm<'a> {
     pub fn new(program: &'a Program) -> Self {
+        Self::with_numeric_mode(program, reasonscript_tensor_core::NumericMode::CompatReference)
+    }
+
+    /// Phase 9: selects `NumericMode::NativeFast` (real `f32` rounding
+    /// plus the parallel/rayon op paths in `tensor_dispatch.rs`) instead
+    /// of the default `CompatReference`. See `NumericMode`'s own doc
+    /// comment for exactly what differs.
+    pub fn with_numeric_mode(
+        program: &'a Program,
+        numeric_mode: reasonscript_tensor_core::NumericMode,
+    ) -> Self {
         let functions = program
             .functions
             .iter()
@@ -59,7 +70,9 @@ impl<'a> Vm<'a> {
             functions,
             max_loop_iterations: DEFAULT_MAX_LOOP_ITERATIONS,
             max_call_depth: DEFAULT_MAX_CALL_DEPTH,
-            tensors: RefCell::new(reasonscript_tensor_core::TensorStore::new()),
+            tensors: RefCell::new(reasonscript_tensor_core::TensorStore::with_numeric_mode(
+                numeric_mode,
+            )),
         }
     }
 

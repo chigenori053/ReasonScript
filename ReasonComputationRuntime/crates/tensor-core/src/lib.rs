@@ -19,6 +19,6 @@ pub mod shape;
 pub mod store;
 
 pub use autograd::{Autograd, GradOp};
-pub use dtype::Dtype;
+pub use dtype::{Dtype, NumericMode};
 pub use error::{Result, TensorCoreError};
 pub use store::{TensorData, TensorStore};

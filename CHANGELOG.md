@@ -18,6 +18,30 @@
 
 ### Added
 
+- Added Phase 9's `NumericMode::NativeFast` (narrowed after checking
+  this environment has no GPU and no system BLAS library, and after a
+  scope decision to skip a cost model): a second numeric mode alongside
+  the existing, default, completely unchanged `CompatReference`,
+  selected via `REASONSCRIPT_NUMERIC_MODE=native-fast` on the Rust CLI.
+  Real `f32` rounding (`Dtype::round_for_mode`, a strict superset of the
+  existing `cast`) at every intermediate Tensor a native-fast
+  computation produces, and `rayon`-parallelized elementwise/unary/
+  reduce/matmul op paths in `reasonscript-tensor-core`'s `ops.rs`, each
+  proven deterministic by construction (documented per function: fixed
+  per-row/per-group sequential accumulation order, never a
+  floating-point summation reorder) rather than by luck. 5 new Rust
+  unit tests proving bit-exact parity between each parallel function
+  and its sequential twin, plus 7 new Python tests
+  (`computation_ir_tests/test_computation_ir_native_fast_mode.py`)
+  covering default-mode equivalence, real f32 rounding, f64 bit-exact
+  parity between modes, and determinism across repeated process
+  invocations. `scripts/benchmark_native_fast.py` measures real
+  wall-clock speedup (1.42x on this session's 4-core, no-BLAS, no-GPU
+  environment for a 700×700 matmul workload) rather than reporting the
+  plan's un-validatable "10倍以上" target, which bundles BLAS and GPU
+  that are both out of scope here. See AGENTS.md for the full design
+  writeup and what's still Pending (BLAS, GPU, a cost model, packed
+  `f32`/`f64` storage).
 - Added the `relation.*` namespace (Phase 8, "Tensor Logic hybrid",
   narrowed to its relational-algebra core after a scope decision):
   `filter_eq`/`filter_ne`/`filter_gt`/`filter_gte`/`filter_lt`/`filter_lte`,

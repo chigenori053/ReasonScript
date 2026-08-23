@@ -1,6 +1,16 @@
 //! Dense CPU reference Tensor operations, matching
 //! `frontend/tensor/runtime.py`'s `PythonTensorBackend` methods
 //! elementwise, shape-op-for-shape-op, and reduction-for-reduction.
+//!
+//! The functions in this file are `NumericMode::CompatReference`'s
+//! unconditional, sequential implementations -- unchanged since Phase 4
+//! and untouched by Phase 9. The `_parallel` twins alongside the
+//! highest-traffic ones (`broadcast_binary`/`unary`/`reduce`/`matmul`)
+//! are `NumericMode::NativeFast`-only (see `tensor_dispatch.rs`'s
+//! mode-based dispatch): real `rayon` parallelism, deterministic by
+//! construction rather than by accident, documented per function below.
+
+use rayon::prelude::*;
 
 use crate::dtype::{promote, Dtype};
 use crate::error::{Result, TensorCoreError};
@@ -26,6 +36,31 @@ pub fn broadcast_binary(
     Ok((shape, dtype, data))
 }
 
+/// Elementwise, so trivially deterministic under parallelism: every
+/// output position is computed independently from its own two input
+/// values, and `par_iter().map(..).collect()` always preserves the
+/// source order regardless of which thread finishes which element
+/// first -- unlike a parallel *reduction*, there is no summation-order
+/// question here at all.
+pub fn broadcast_binary_parallel(
+    left: &TensorData,
+    right: &TensorData,
+    op: impl Fn(f64, f64) -> f64 + Sync,
+    result_dtype: Option<Dtype>,
+) -> Result<(Vec<usize>, Dtype, Vec<f64>)> {
+    let shape = broadcast_shape(&left.shape, &right.shape)?;
+    let dtype = result_dtype.unwrap_or_else(|| promote(left.dtype, right.dtype));
+    let data: Vec<f64> = all_coords(&shape)
+        .par_iter()
+        .map(|out_coords| {
+            let a = left.data[broadcast_flat_index(out_coords, &left.shape)];
+            let b = right.data[broadcast_flat_index(out_coords, &right.shape)];
+            op(a, b)
+        })
+        .collect();
+    Ok((shape, dtype, data))
+}
+
 pub fn comparison(
     left: &TensorData,
     right: &TensorData,
@@ -45,6 +80,21 @@ pub fn unary(
     result_dtype: Option<Dtype>,
 ) -> (Vec<usize>, Dtype, Vec<f64>) {
     let data: Vec<f64> = tensor.data.iter().map(|value| op(*value)).collect();
+    (
+        tensor.shape.clone(),
+        result_dtype.unwrap_or(tensor.dtype),
+        data,
+    )
+}
+
+/// Same determinism argument as `broadcast_binary_parallel`: each output
+/// element depends only on its own input element.
+pub fn unary_parallel(
+    tensor: &TensorData,
+    op: impl Fn(f64) -> f64 + Sync,
+    result_dtype: Option<Dtype>,
+) -> (Vec<usize>, Dtype, Vec<f64>) {
+    let data: Vec<f64> = tensor.data.par_iter().map(|value| op(*value)).collect();
     (
         tensor.shape.clone(),
         result_dtype.unwrap_or(tensor.dtype),
@@ -139,6 +189,7 @@ pub fn unsqueeze(tensor: &TensorData, axis: i64) -> Result<(Vec<usize>, Dtype, V
     Ok((shape, tensor.dtype, tensor.data.clone()))
 }
 
+#[derive(Clone, Copy)]
 pub enum ReduceOp {
     Sum,
     Mean,
@@ -211,6 +262,96 @@ pub fn reduce(
     };
     let data: Vec<f64> = groups
         .into_iter()
+        .map(|group| match op {
+            ReduceOp::Sum => group.iter().sum(),
+            ReduceOp::Mean => group.iter().sum::<f64>() / group.len() as f64,
+            ReduceOp::Min => group.iter().cloned().fold(f64::INFINITY, f64::min),
+            ReduceOp::Max => group.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+        })
+        .collect();
+    Ok((out_shape, dtype, data))
+}
+
+/// Parallelizes *across* independent output groups; each group's own
+/// reduction is still a strictly sequential fold over that group's
+/// elements in the exact same fixed order the sequential `reduce`
+/// builds it in (source flat-index order) -- only *which* groups run on
+/// which thread varies, never the order elements are combined within a
+/// group, so results are bit-identical to `reduce` regardless of thread
+/// scheduling. A reduction to a single output group (e.g. `axis: None`
+/// reducing a whole Tensor to one scalar) gets no parallelism from this
+/// function -- there is nothing to split across groups when there is
+/// only one -- a documented limitation of this pass, not attempted here
+/// (splitting *within* one group's sum would reorder floating-point
+/// summation, which is exactly what `NumericMode::CompatReference`
+/// forbids and this function's callers only ever use in `NativeFast`
+/// mode anyway, but doing it safely and deterministically needs a
+/// fixed-topology chunked reduction this pass doesn't build).
+pub fn reduce_parallel(
+    tensor: &TensorData,
+    axis: Option<&[i64]>,
+    keep_dims: bool,
+    op: ReduceOp,
+) -> Result<(Vec<usize>, Dtype, Vec<f64>)> {
+    let rank = tensor.shape.len();
+    let axes: Vec<usize> = match axis {
+        None => (0..rank).collect(),
+        Some(list) => {
+            let mut resolved = Vec::with_capacity(list.len());
+            for &value in list {
+                resolved.push(normalize_axis(value, rank, false)?);
+            }
+            resolved
+        }
+    };
+    let mut unique = axes.clone();
+    unique.sort_unstable();
+    unique.dedup();
+    if unique.len() != axes.len() {
+        return Err(TensorCoreError::new("TSF-005", "duplicate reduction axis"));
+    }
+    let out_shape: Vec<usize> = if keep_dims {
+        tensor
+            .shape
+            .iter()
+            .enumerate()
+            .map(|(i, &size)| if axes.contains(&i) { 1 } else { size })
+            .collect()
+    } else {
+        tensor
+            .shape
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| !axes.contains(i))
+            .map(|(_, &size)| size)
+            .collect()
+    };
+    let mut groups: Vec<Vec<f64>> = vec![Vec::new(); product(&out_shape).max(1)];
+    for (index, &item) in tensor.data.iter().enumerate() {
+        let coord = coords(index, &tensor.shape);
+        let out_coord: Vec<usize> = if keep_dims {
+            coord
+                .iter()
+                .enumerate()
+                .map(|(i, &c)| if axes.contains(&i) { 0 } else { c })
+                .collect()
+        } else {
+            coord
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| !axes.contains(i))
+                .map(|(_, &c)| c)
+                .collect()
+        };
+        let flat = flat_index(&out_coord, &out_shape);
+        groups[flat].push(item);
+    }
+    let dtype = match op {
+        ReduceOp::Mean => Dtype::F64,
+        _ => tensor.dtype,
+    };
+    let data: Vec<f64> = groups
+        .par_iter()
         .map(|group| match op {
             ReduceOp::Sum => group.iter().sum(),
             ReduceOp::Mean => group.iter().sum::<f64>() / group.len() as f64,
@@ -333,6 +474,45 @@ pub fn matmul(left: &TensorData, right: &TensorData) -> Result<(Vec<usize>, Dtyp
     Ok((vec![m, n], promote(left.dtype, right.dtype), data))
 }
 
+/// Parallelizes across output *rows*; each row's `k`-length inner dot
+/// product is still a strictly sequential fold in the same fixed
+/// `inner in 0..k` order the sequential `matmul` uses -- deterministic
+/// for the same reason `reduce_parallel` is: only the row-to-thread
+/// assignment varies, never the order any single row's sum is
+/// accumulated in.
+pub fn matmul_parallel(left: &TensorData, right: &TensorData) -> Result<(Vec<usize>, Dtype, Vec<f64>)> {
+    if left.shape.len() != 2 || right.shape.len() != 2 {
+        return Err(TensorCoreError::new(
+            "TSF-004",
+            "v0.1 matmul requires rank-2 Tensors",
+        ));
+    }
+    let (m, k) = (left.shape[0], left.shape[1]);
+    let (k2, n) = (right.shape[0], right.shape[1]);
+    if k != k2 {
+        return Err(TensorCoreError::new(
+            "TSF-008",
+            "matmul inner dimensions must match",
+        ));
+    }
+    let rows: Vec<Vec<f64>> = (0..m)
+        .into_par_iter()
+        .map(|row| {
+            let mut row_data = vec![0.0; n];
+            for col in 0..n {
+                let mut sum = 0.0;
+                for inner in 0..k {
+                    sum += left.data[row * k + inner] * right.data[inner * n + col];
+                }
+                row_data[col] = sum;
+            }
+            row_data
+        })
+        .collect();
+    let data: Vec<f64> = rows.into_iter().flatten().collect();
+    Ok((vec![m, n], promote(left.dtype, right.dtype), data))
+}
+
 pub fn norm(tensor: &TensorData, order: i64) -> Result<(Vec<usize>, Dtype, Vec<f64>)> {
     let result = match order {
         1 => tensor.data.iter().map(|value| value.abs()).sum(),
@@ -350,4 +530,79 @@ pub fn norm(tensor: &TensorData, order: i64) -> Result<(Vec<usize>, Dtype, Vec<f
         }
     };
     Ok((vec![], Dtype::F64, vec![result]))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tensor(shape: Vec<usize>, dtype: Dtype, data: Vec<f64>) -> TensorData {
+        TensorData { shape, dtype, data }
+    }
+
+    #[test]
+    fn broadcast_binary_parallel_matches_sequential() {
+        let left = tensor(vec![257], Dtype::F64, (0..257).map(|v| v as f64 * 1.5).collect());
+        let right = tensor(vec![257], Dtype::F64, (0..257).map(|v| v as f64 * 0.5 + 1.0).collect());
+        let (shape_seq, dtype_seq, data_seq) =
+            broadcast_binary(&left, &right, |a, b| a * b - a.sqrt(), None).unwrap();
+        let (shape_par, dtype_par, data_par) =
+            broadcast_binary_parallel(&left, &right, |a, b| a * b - a.sqrt(), None).unwrap();
+        assert_eq!(shape_seq, shape_par);
+        assert_eq!(dtype_seq, dtype_par);
+        assert_eq!(data_seq, data_par);
+    }
+
+    #[test]
+    fn unary_parallel_matches_sequential() {
+        let input = tensor(vec![513], Dtype::F64, (0..513).map(|v| v as f64 * 0.01 + 0.01).collect());
+        let (shape_seq, dtype_seq, data_seq) = unary(&input, f64::ln, None);
+        let (shape_par, dtype_par, data_par) = unary_parallel(&input, f64::ln, None);
+        assert_eq!(shape_seq, shape_par);
+        assert_eq!(dtype_seq, dtype_par);
+        assert_eq!(data_seq, data_par);
+    }
+
+    #[test]
+    fn reduce_parallel_matches_sequential_across_multiple_groups() {
+        let input = tensor(
+            vec![64, 129],
+            Dtype::F64,
+            (0..64 * 129).map(|v| ((v * 7919) % 1013) as f64 * 0.001).collect(),
+        );
+        let (shape_seq, dtype_seq, data_seq) =
+            reduce(&input, Some(&[1]), false, ReduceOp::Sum).unwrap();
+        let (shape_par, dtype_par, data_par) =
+            reduce_parallel(&input, Some(&[1]), false, ReduceOp::Sum).unwrap();
+        assert_eq!(shape_seq, shape_par);
+        assert_eq!(dtype_seq, dtype_par);
+        assert_eq!(data_seq, data_par);
+    }
+
+    #[test]
+    fn matmul_parallel_matches_sequential() {
+        let left = tensor(vec![37, 41], Dtype::F64, (0..37 * 41).map(|v| (v % 17) as f64 * 0.1).collect());
+        let right = tensor(vec![41, 29], Dtype::F64, (0..41 * 29).map(|v| (v % 13) as f64 * 0.2).collect());
+        let (shape_seq, dtype_seq, data_seq) = matmul(&left, &right).unwrap();
+        let (shape_par, dtype_par, data_par) = matmul_parallel(&left, &right).unwrap();
+        assert_eq!(shape_seq, shape_par);
+        assert_eq!(dtype_seq, dtype_par);
+        assert_eq!(data_seq, data_par);
+    }
+
+    #[test]
+    fn round_for_mode_only_rounds_f32_in_native_fast() {
+        use crate::dtype::NumericMode;
+
+        let precise = std::f64::consts::PI;
+        assert_eq!(Dtype::F32.round_for_mode(precise, NumericMode::CompatReference), precise);
+        assert_eq!(
+            Dtype::F32.round_for_mode(precise, NumericMode::NativeFast),
+            precise as f32 as f64
+        );
+        assert_ne!(precise as f32 as f64, precise);
+        // f64 and int/bool dtypes are unaffected by the mode.
+        assert_eq!(Dtype::F64.round_for_mode(precise, NumericMode::NativeFast), precise);
+        assert_eq!(Dtype::I32.round_for_mode(3.7, NumericMode::NativeFast), 3.0);
+    }
 }

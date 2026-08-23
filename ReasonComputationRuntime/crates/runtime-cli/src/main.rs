@@ -20,7 +20,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::process::ExitCode;
 
-use reasonscript_computation_ir::{decode, to_json, Vm};
+use reasonscript_computation_ir::{decode, to_json, NumericMode, Vm};
 
 fn main() -> ExitCode {
     let path = env::args().nth(1);
@@ -34,7 +34,7 @@ fn main() -> ExitCode {
         Err(error) => return fail("IR-DECODE-001", &error.to_string()),
     };
 
-    let vm = Vm::new(&program);
+    let vm = Vm::with_numeric_mode(&program, numeric_mode_from_env());
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let mut results = serde_json::Map::new();
@@ -49,6 +49,19 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(error) => fail(&error.code, &error.message),
+    }
+}
+
+/// Phase 9: `REASONSCRIPT_NUMERIC_MODE=native-fast` opts into real `f32`
+/// rounding and the parallel/rayon op paths (see `NumericMode`'s doc
+/// comment). Any other value (including unset) keeps the default,
+/// unchanged `CompatReference` behavior -- mirrors the
+/// `REASONSCRIPT_SHADOW_MODE` env-var precedent from Phase 6
+/// (`scripts/reason_cli.py`), not a new pattern.
+fn numeric_mode_from_env() -> NumericMode {
+    match env::var("REASONSCRIPT_NUMERIC_MODE").as_deref() {
+        Ok("native-fast") => NumericMode::NativeFast,
+        _ => NumericMode::CompatReference,
     }
 }
 

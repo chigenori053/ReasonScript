@@ -14,7 +14,7 @@
 use std::collections::HashMap;
 
 use crate::autograd::{Autograd, GradOp};
-use crate::dtype::Dtype;
+use crate::dtype::{Dtype, NumericMode};
 use crate::error::{Result, TensorCoreError};
 use crate::shape::product;
 
@@ -29,6 +29,7 @@ pub struct TensorStore {
     refs: HashMap<String, TensorData>,
     next_id: u64,
     pub autograd: Autograd,
+    numeric_mode: NumericMode,
 }
 
 impl Default for TensorStore {
@@ -43,7 +44,19 @@ impl TensorStore {
             refs: HashMap::new(),
             next_id: 1,
             autograd: Autograd::default(),
+            numeric_mode: NumericMode::default(),
         }
+    }
+
+    pub fn with_numeric_mode(mode: NumericMode) -> Self {
+        TensorStore {
+            numeric_mode: mode,
+            ..Self::new()
+        }
+    }
+
+    pub fn numeric_mode(&self) -> NumericMode {
+        self.numeric_mode
     }
 
     pub fn get(&self, id: &str) -> Result<&TensorData> {
@@ -63,7 +76,10 @@ impl TensorStore {
                 "Tensor element count does not match shape",
             ));
         }
-        let casted: Vec<f64> = data.iter().map(|value| dtype.cast(*value)).collect();
+        let casted: Vec<f64> = data
+            .iter()
+            .map(|value| dtype.round_for_mode(*value, self.numeric_mode))
+            .collect();
         validate_finite(&casted)?;
         let id = format!("tensor_{:04}", self.next_id);
         self.next_id += 1;

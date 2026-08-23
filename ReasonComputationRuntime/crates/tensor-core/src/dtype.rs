@@ -7,6 +7,23 @@
 
 use crate::error::{Result, TensorCoreError};
 
+/// Phase 9's two numeric execution modes (plan section 10).
+/// `CompatReference` is the existing, default, untouched behavior:
+/// every dtype computes and stores at full `f64` precision, sequential
+/// reduction order, matching the Python reference exactly (needed for
+/// the "checkpoint SHA-256一致" bit-exact parity this whole codebase's
+/// test suite already depends on). `NativeFast` adds real `f32`
+/// rounding at every Tensor creation for `f32`-dtype Tensors (see
+/// `Dtype::round_for_mode`) and permits the parallel/reordered-reduction
+/// code paths in `ops.rs` -- never used by `CompatReference`, which
+/// keeps calling the original sequential functions unconditionally.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum NumericMode {
+    #[default]
+    CompatReference,
+    NativeFast,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Dtype {
     Bool,
@@ -78,6 +95,24 @@ impl Dtype {
             }
             Dtype::I32 | Dtype::I64 => value.trunc(),
             Dtype::F32 | Dtype::F64 => value,
+        }
+    }
+
+    /// Like `cast`, but in `NumericMode::NativeFast` an `f32`-dtype
+    /// value is additionally rounded through a real `f32` round-trip
+    /// (`value as f32 as f64`) -- the correctly-rounded `f32` result for
+    /// that value, identical to what genuine narrow `f32` storage would
+    /// produce, without this crate needing a second, narrower `TensorData`
+    /// representation. `CompatReference` behaves exactly like `cast`
+    /// (this function is a strict superset, not a behavior change) --
+    /// bool/i32/i64 truncation and f64 pass-through are identical in
+    /// both modes; only f32 rounding differs.
+    pub fn round_for_mode(self, value: f64, mode: NumericMode) -> f64 {
+        let casted = self.cast(value);
+        if mode == NumericMode::NativeFast && matches!(self, Dtype::F32) {
+            casted as f32 as f64
+        } else {
+            casted
         }
     }
 }

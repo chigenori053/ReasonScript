@@ -13,5 +13,6 @@ pub mod value;
 pub mod vm;
 
 pub use ir::{decode, Program, SCHEMA};
+pub use reasonscript_tensor_core::NumericMode;
 pub use value::{to_json, Value};
 pub use vm::{RuntimeError, Vm};

@@ -26,7 +26,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use reasonscript_tensor_core::{autograd, ops, rng, Dtype, GradOp, TensorData, TensorStore};
+use reasonscript_tensor_core::{autograd, ops, rng, Dtype, GradOp, NumericMode, TensorData, TensorStore};
 
 use crate::value::Value;
 use crate::vm::RuntimeError;
@@ -480,15 +480,18 @@ fn binary(
     args: Vec<Value>,
     store: &RefCell<TensorStore>,
     name: &str,
-    op: impl Fn(f64, f64) -> f64,
+    op: impl Fn(f64, f64) -> f64 + Sync,
     result_dtype: Option<Dtype>,
 ) -> VResult {
     let left_id = operand_id(&args, 0, store)?;
     let right_id = operand_id(&args, 1, store)?;
     let left = fetch(store, &left_id)?;
     let right = fetch(store, &right_id)?;
-    let (shape, dtype, data) =
-        ops::broadcast_binary(&left, &right, op, result_dtype).map_err(core_err)?;
+    let (shape, dtype, data) = if store.borrow().numeric_mode() == NumericMode::NativeFast {
+        ops::broadcast_binary_parallel(&left, &right, op, result_dtype).map_err(core_err)?
+    } else {
+        ops::broadcast_binary(&left, &right, op, result_dtype).map_err(core_err)?
+    };
     store_insert_grad(
         store,
         shape,
@@ -520,8 +523,11 @@ fn divide(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
             "Tensor backend execution failed",
         ));
     }
-    let (shape, dtype, data) =
-        ops::broadcast_binary(&left, &right, |a, b| a / b, None).map_err(core_err)?;
+    let (shape, dtype, data) = if store.borrow().numeric_mode() == NumericMode::NativeFast {
+        ops::broadcast_binary_parallel(&left, &right, |a, b| a / b, None).map_err(core_err)?
+    } else {
+        ops::broadcast_binary(&left, &right, |a, b| a / b, None).map_err(core_err)?
+    };
     store_insert_grad(
         store,
         shape,
@@ -550,12 +556,16 @@ fn unary(
     args: Vec<Value>,
     store: &RefCell<TensorStore>,
     name: &str,
-    op: impl Fn(f64) -> f64,
+    op: impl Fn(f64) -> f64 + Sync,
     result_dtype: Option<Dtype>,
 ) -> VResult {
     let input = tensor_id(&args, 0)?;
     let tensor = fetch(store, &input)?;
-    let (shape, dtype, data) = ops::unary(&tensor, op, result_dtype);
+    let (shape, dtype, data) = if store.borrow().numeric_mode() == NumericMode::NativeFast {
+        ops::unary_parallel(&tensor, op, result_dtype)
+    } else {
+        ops::unary(&tensor, op, result_dtype)
+    };
     store_insert_grad(
         store,
         shape,
@@ -581,8 +591,11 @@ fn reduce(
     let axis = optional_axis_list(&args, 1)?;
     let keep_dims = optional_bool(&args, 2, false)?;
     let axes = autograd::resolve_axes(axis.as_deref(), tensor.shape.len()).map_err(core_err)?;
-    let (shape, dtype, data) =
-        ops::reduce(&tensor, axis.as_deref(), keep_dims, op).map_err(core_err)?;
+    let (shape, dtype, data) = if store.borrow().numeric_mode() == NumericMode::NativeFast {
+        ops::reduce_parallel(&tensor, axis.as_deref(), keep_dims, op).map_err(core_err)?
+    } else {
+        ops::reduce(&tensor, axis.as_deref(), keep_dims, op).map_err(core_err)?
+    };
     let grad_op = match name {
         "sum" | "mean" => GradOp::Reduce {
             name: name.to_string(),
@@ -634,7 +647,11 @@ fn linalg_matmul(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
     let right_id = tensor_id(&args, 1)?;
     let left = fetch(store, &left_id)?;
     let right = fetch(store, &right_id)?;
-    let (shape, dtype, data) = ops::matmul(&left, &right).map_err(core_err)?;
+    let (shape, dtype, data) = if store.borrow().numeric_mode() == NumericMode::NativeFast {
+        ops::matmul_parallel(&left, &right).map_err(core_err)?
+    } else {
+        ops::matmul(&left, &right).map_err(core_err)?
+    };
     store_insert_grad(
         store,
         shape,
