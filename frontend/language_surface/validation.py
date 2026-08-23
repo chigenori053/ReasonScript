@@ -17,6 +17,11 @@ from frontend.tensor.optimizers import (
     optimizer_call_name,
     validate_optimizer_call,
 )
+from frontend.relation.integration import (
+    RelationSemanticError,
+    relation_call_name,
+    validate_relation_call,
+)
 from frontend.vision.integration import (
     VisionSemanticError,
     validate_vision_call,
@@ -772,7 +777,7 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
             visit(item.expression)
             return
         if isinstance(item, MemberAccessNode):
-            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo", "optimizer"}:
+            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo", "optimizer", "relation"}:
                 return
             visit(item.object)
             return
@@ -1555,7 +1560,7 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1602,6 +1607,14 @@ def _validate_calculation_expression(
                 try:
                     validate_optimizer_call(value)
                 except OptimizerSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if relation_call_name(value) is not None:
+                try:
+                    validate_relation_call(value)
+                except RelationSemanticError as error:
                     raise SurfaceValidationError(str(error)) from error
                 for argument in value.arguments:
                     visit(argument)
@@ -2046,6 +2059,29 @@ def _expression_type(
             except OptimizerSemanticError as error:
                 raise SurfaceValidationError(str(error)) from error
             return NamedTypeNode("Tensor")
+        relation_function = relation_call_name(value)
+        if relation_function is not None:
+            try:
+                validate_relation_call(value)
+            except RelationSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            if relation_function == "relation.count":
+                return PrimitiveTypeNode(PrimitiveKind.INT)
+            # filter_*/distinct_by/sort_by only ever select a subset of
+            # rows -- the result is always the same Array<Struct> type
+            # as the `rows` argument (see this module's docstring on why
+            # join/projection, which change the row shape, are out of
+            # scope instead of also landing here).
+            rows_type = _expression_type(
+                value.arguments[0].expression
+                if isinstance(value.arguments[0], ExpressionNode)
+                else value.arguments[0],
+                symbols,
+                bindings,
+            )
+            if not isinstance(rows_type, ArrayTypeNode):
+                raise SurfaceValidationError("REL-004 Relation function requires Array<Struct>")
+            return rows_type
         if vision_call_name(value) is not None:
             try:
                 validate_vision_call(value)

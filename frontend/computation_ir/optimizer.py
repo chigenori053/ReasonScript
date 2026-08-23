@@ -37,9 +37,10 @@ applies to this IR's actual shape:
   straight-line block (no branches to reason about), a repeated
   structurally-identical *pure* expression is replaced with a reference
   to the local that already holds its value. `call_tensor`/`call_vision`/
-  `call_optimizer`/`call_function`/`call_array_append` are treated as
-  impure (never deduplicated) -- Tensor and Optimizer calls can raise
-  (shape/dtype errors), and a
+  `call_optimizer`/`call_relation`/`call_function`/`call_array_append`
+  are treated as impure (never deduplicated) -- Tensor, Optimizer, and
+  Relation calls can all raise (shape/dtype errors, or an incomparable
+  field type), and a
   user function can itself contain a `tensor.save`, so CSE-ing them
   would risk skipping a side effect or an error a second occurrence
   should still raise.
@@ -208,6 +209,8 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_optimizer":
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
+    if op == "call_relation":
+        return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_array_append":
         return {**expr, "collection": _fold_expr(expr["collection"]), "item": _fold_expr(expr["item"])}
     if op == "call_function":
@@ -315,7 +318,7 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
     if op == "member":
         _collect_reads(expr["object"], out)
         return
-    if op in ("call_tensor", "call_vision", "call_optimizer", "call_function"):
+    if op in ("call_tensor", "call_vision", "call_optimizer", "call_relation", "call_function"):
         for argument in expr["arguments"]:
             _collect_reads(argument, out)
         return
@@ -343,6 +346,11 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         # Every `optimizer.*` function is a pure elementwise step over its
         # Tensor/scalar arguments (see frontend/tensor/optimizers.py) --
         # no load/save equivalent exists in this namespace.
+        return all(_is_side_effect_free(argument) for argument in expr["arguments"])
+    if op == "call_relation":
+        # Every `relation.*` function is a pure read over an
+        # Array<Struct> value (see frontend/relation/integration.py) --
+        # no I/O or mutation.
         return all(_is_side_effect_free(argument) for argument in expr["arguments"])
     if op == "call_function":
         return False  # a user function's body may call tensor.save; conservative
@@ -424,7 +432,7 @@ def _reads_name(expr: dict[str, Any], name: str) -> bool:
 
 def _is_cse_eligible(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
-    if op in ("call_tensor", "call_vision", "call_optimizer", "call_function", "call_array_append"):
+    if op in ("call_tensor", "call_vision", "call_optimizer", "call_relation", "call_function", "call_array_append"):
         return False  # never dedupe calls: see module docstring
     if op == "const" or op == "local":
         return True

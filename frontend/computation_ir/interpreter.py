@@ -27,6 +27,7 @@ from frontend.integrated_computation_runtime import (
     LoopLimitError,
     RuntimeStruct,
     _index_value,
+    call_relation,
 )
 from frontend.tensor.runtime import TensorRuntime
 from frontend.vision.runtime import VisionRuntimeBridge
@@ -249,6 +250,9 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         source_span = node.get("source_span")
         return ctx.runtime.call_optimizer(node["function_id"], *arguments, _source_location=source_span)
+    if op == "call_relation":
+        arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
+        return call_relation(node["function_id"], *arguments)
     if op == "call_vision":
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         return ctx.vision_runtime.call(node["function_id"], *arguments)

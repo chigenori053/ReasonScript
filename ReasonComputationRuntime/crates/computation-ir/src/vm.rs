@@ -371,6 +371,16 @@ impl<'a> Vm<'a> {
                 }
                 crate::optimizer_dispatch::call(function_id, values, &self.tensors)
             }
+            Expr::CallRelation {
+                function_id,
+                arguments,
+            } => {
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    values.push(self.eval_expr(argument, env, call_depth)?);
+                }
+                crate::relation_dispatch::call(function_id, values)
+            }
             Expr::CallArrayAppend { collection, item } => {
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
                 let item_value = self.eval_expr(item, env, call_depth)?;
@@ -555,7 +565,7 @@ fn python_mod_f64(a: f64, b: f64) -> f64 {
     }
 }
 
-fn eval_comparison(operator: &str, left: Value, right: Value) -> Result<Value, RuntimeError> {
+pub(crate) fn eval_comparison(operator: &str, left: Value, right: Value) -> Result<Value, RuntimeError> {
     if operator == "Equal" {
         return Ok(Value::Bool(left == right));
     }

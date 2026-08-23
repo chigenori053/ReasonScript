@@ -716,6 +716,116 @@ before/after numbers on this repo's actual programs is left as follow-up
 work once that's decided, rather than reporting a fabricated speedup
 figure here.
 
+## Modernization Plan — Phase 8 Tensor Logic Hybrid (Relational Algebra Core)
+
+Phase 8 of the plan ("relation tuple/join/projection/filter planner,
+dense/sparse partition/query slicing/shared index plan") is written
+around a "Reason / Routing relation" and "Relation Matrix" that live in
+a companion `Transformer_Test` repository referenced in the plan's own
+"関連文書" list, not in ReasonScript itself -- like the Transformer A-D
+fixtures noted under Phase 4/6, that repository is not available in this
+session, so the plan's gate ("対象領域でdense全走査比2倍以上") has no
+target to benchmark against here. Confirmed by scope decision with the
+repository owner: this phase is narrowed to the *relational algebra*
+that IS groundable in ReasonScript's own language surface --
+`Array<Struct>` is already a relation's tuple set -- and the dense/sparse
+Tensor partitioning half stays out of scope (`tensor-core` still stores
+every dtype as a dense `Vec<f64>`; a real sparse representation would be
+its own large undertaking with its own scope decision, per the pattern
+this plan already used for Optimizer).
+
+**Why `join`/`project` aren't implemented**: both change a row's field
+shape. ReasonScript's static type checker only resolves `.field` access
+on a `NamedTypeNode` backed by a real `StructDeclarationNode` -- there is
+no way to synthesize one for a join's or projection's derived field set
+(the same gap `frontend/tensor/optimizers.py` documents for
+`optimizer.*`, but this time there's no "return a single Tensor instead"
+escape hatch: a join's or projection's output genuinely *is* a
+differently-shaped row set). Fixing this needs either (1) duck-typing a
+join/projection's output field set against whatever `StructDeclarationNode`
+in the module's symbol table structurally matches it, or (2) new
+call-site syntax naming the target struct type explicitly -- a real,
+separate language-design decision this pass does not make.
+
+**Why arbitrary predicates aren't supported**: ReasonScript has no
+closures or anonymous functions (checked -- no lambda/function-value AST
+node exists, and the Rust `Value` enum has no `Function` variant despite
+the plan's section 8 anticipating one). A `relation.filter(rows,
+predicate)` taking an arbitrary predicate is therefore not expressible.
+Every filter function instead takes a field name (a required string
+literal, enforced at parse time as `REL-003`) and a comparison value --
+the same "literal instead of a closure" pattern `tensor.softmax(input,
+axis)` already uses for its axis argument.
+
+**Functions** (`frontend/relation/integration.py`, all type-preserving:
+input and output are always the same `Array<Struct>` type, so no
+synthetic struct type is ever needed): `relation.filter_eq`/`filter_ne`/
+`filter_gt`/`filter_gte`/`filter_lt`/`filter_lte(rows, field, value)`,
+`relation.count(rows)`, `relation.distinct_by(rows, field)` (keeps the
+first occurrence per distinct field value, in source order),
+`relation.sort_by(rows, field, descending)`.
+
+**Dispatch**: a new `call_relation` IR node (`frontend/computation_ir/schema.py`),
+lowered by `frontend/computation_ir/lowering.py`, and a plain
+module-level `call_relation(function_id, *args)` function in
+`frontend/integrated_computation_runtime.py` (not a method on any
+runtime class -- unlike `TensorRuntime.call`/`call_optimizer`, every
+`relation.*` function is a pure `Array<Struct>` read with no Tensor
+backend, autograd, or persistent state involved). Both the AST evaluator
+and the IR interpreter (which imports `call_relation` from
+`integrated_computation_runtime` rather than duplicating it) dispatch
+through it. Comparisons reuse the exact same operator semantics as a
+plain `a < b` expression (`_COMPARISON_OPS`/`ComparisonOperator` on the
+Python side, `vm::eval_comparison` reused directly -- made `pub(crate)`
+for this -- on the Rust side in
+`ReasonComputationRuntime/crates/computation-ir/src/relation_dispatch.rs`,
+which needs no `TensorStore` at all). `relation_dispatch::call` checks
+argument count upfront before any positional access, the same
+panic-safety pattern `optimizer_dispatch::call` uses. The Phase 7 IR
+optimizer treats `call_relation` like `call_tensor`/`call_optimizer`:
+side-effect-free (an unused relation call can be dead-code-eliminated)
+but never CSE-deduplicated (a comparison can raise on an incomparable
+field type). `relation.*` stays fully outside the Tensor Standard
+Functions contract, with its own `REL-001`..`REL-007` diagnostic family
+(`reason tensor-manifest --check` untouched).
+
+A real parity fix during development: `distinct_by`'s first draft used a
+Python `set()` to track seen field values, which raises on an unhashable
+field (e.g. a field that's itself an Array or Struct); the Rust side's
+linear equality scan never hashes anything, so it wouldn't raise in that
+case. Fixed by changing Python's `distinct_by` to also use a linear
+equality scan instead of a hash set, so both sides accept exactly the
+same field values. A second fix in `sort_by`'s Rust comparator: the
+first draft derived a 3-way `Ordering` naively ("not less-than =>
+Greater"), which reports `Greater` for two *equal* fields in both
+directions -- an inconsistent comparator. Fixed by deriving `Less`/
+`Equal`/`Greater` from two `<` comparisons (mirroring how Python's
+`sorted()` also only ever calls `<` on the extracted keys), verified by
+a dedicated stability test (`test_sort_by_is_stable_for_equal_keys`).
+
+**Verified**: `computation_ir_tests/test_computation_ir_relation_functions.py`
+(19 tests) covers every function's behavior against hand-derived
+expected results, differentially across the Python interpreter and the
+Rust binary; error-code parity for an unknown field (`REL-005`), an
+incomparable field-type comparison (`REL-006`), a non-`Array<Struct>`
+argument (`REL-004`); static validation for a non-string-literal field
+argument (`REL-003`), wrong argument count (`REL-002`), an unknown
+Relation function (`REL-001`), and rejected named-argument syntax;
+sort stability for equal keys; and that no `relation.*` name ever
+appears in `TensorRuntime.contracts`. `computation_ir_tests/test_computation_ir_optimizer.py`
+additionally covers `call_relation`'s interaction with the Phase 7 IR
+optimizer (unused call eliminated, used call survives optimization,
+never CSE-deduplicated) -- the same coverage Phase 7's own audit added
+for `call_optimizer`.
+
+**Not implemented** (documented gaps, not oversights): `join`/`project`
+(see above -- needs a real struct-type design decision first); dense/sparse
+Tensor partitioning, query backward slicing, and shared index plans (need
+a sparse Tensor representation `tensor-core` doesn't have); anything
+tied to the plan's Transformer-specific "Reason / Routing relation" or
+"Relation Matrix" framing, since no such fixture exists in this
+repository to build or benchmark against.
+
 ## Development Environment
 
 `reason ci` requires the packages in `requirements-dev.txt` (pydantic,

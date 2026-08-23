@@ -48,6 +48,7 @@ from frontend.language_surface.nodes import (
     UnaryOperator,
     WhileStatementNode,
 )
+from frontend.relation.integration import relation_call_name
 from frontend.tensor.integration import LOWERINGS, tensor_call_name
 from frontend.tensor.optimizers import optimizer_call_name
 from frontend.tensor.runtime import TensorError, TensorRuntime, TensorValueRef
@@ -87,6 +88,101 @@ class IntegratedRuntimeError(ValueError):
 class RuntimeStruct:
     type_name: str
     fields: dict[str, Any]
+
+
+_RELATION_ARGUMENT_COUNTS: dict[str, int] = {
+    "relation.filter_eq": 3,
+    "relation.filter_ne": 3,
+    "relation.filter_gt": 3,
+    "relation.filter_gte": 3,
+    "relation.filter_lt": 3,
+    "relation.filter_lte": 3,
+    "relation.count": 1,
+    "relation.distinct_by": 2,
+    "relation.sort_by": 3,
+}
+
+_RELATION_COMPARISONS: dict[str, Any] = {
+    "relation.filter_eq": lambda a, b: a == b,
+    "relation.filter_ne": lambda a, b: a != b,
+    "relation.filter_gt": lambda a, b: a > b,
+    "relation.filter_gte": lambda a, b: a >= b,
+    "relation.filter_lt": lambda a, b: a < b,
+    "relation.filter_lte": lambda a, b: a <= b,
+}
+
+
+def _relation_rows(value: Any) -> list[RuntimeStruct]:
+    if not isinstance(value, list) or not all(isinstance(item, RuntimeStruct) for item in value):
+        raise IntegratedRuntimeError("REL-004", "Relation function requires Array<Struct>")
+    return value
+
+
+def _relation_field(row: RuntimeStruct, field: str) -> Any:
+    if field not in row.fields:
+        raise IntegratedRuntimeError("REL-005", f"unknown field {field} on {row.type_name}")
+    return row.fields[field]
+
+
+def call_relation(function_id: str, *args: Any) -> Any:
+    """Dispatch a `relation.*` function (Phase 8 "relational algebra core").
+
+    A plain module-level function, not a method on any runtime class:
+    every `relation.*` function is pure -- it reads `Array<Struct>`/field
+    values and returns a new plain Python value, with no Tensor backend,
+    autograd, or other persistent state involved (unlike
+    `TensorRuntime.call`/`call_optimizer`). Comparisons reuse Python's
+    native operators (`==`, `<`, ...), the same semantics
+    `ComparisonExpressionNode` already uses elsewhere in this module, so
+    a field comparison behaves identically to a plain `a < b` expression
+    -- including raising a `TypeError` for genuinely incomparable types,
+    normalized below into a diagnostic rather than left to leak raw.
+    """
+    if function_id not in _RELATION_ARGUMENT_COUNTS:
+        raise IntegratedRuntimeError("REL-001", f"unknown Relation function: {function_id}")
+    expected = _RELATION_ARGUMENT_COUNTS[function_id]
+    if len(args) != expected:
+        raise IntegratedRuntimeError(
+            "REL-002",
+            f"Relation function argument count mismatch: {function_id} expects {expected}",
+        )
+    if function_id == "relation.count":
+        return len(_relation_rows(args[0]))
+    if function_id in _RELATION_COMPARISONS:
+        rows, field, value = args
+        compare = _RELATION_COMPARISONS[function_id]
+        try:
+            return [row for row in _relation_rows(rows) if compare(_relation_field(row, field), value)]
+        except TypeError as error:
+            raise IntegratedRuntimeError("REL-006", f"Relation comparison is undefined: {error}") from error
+    if function_id == "relation.distinct_by":
+        rows, field = args
+        # A linear equality scan, not a hash set: `distinct_by` must
+        # accept any comparable field value (including Array/Struct
+        # field values, which aren't hashable), matching the Rust side
+        # (`relation_dispatch.rs`'s `distinct_by`, which never hashes
+        # either -- Value has no Hash impl, only PartialEq).
+        seen: list[Any] = []
+        result = []
+        for row in _relation_rows(rows):
+            key = _relation_field(row, field)
+            if key not in seen:
+                seen.append(key)
+                result.append(row)
+        return result
+    if function_id == "relation.sort_by":
+        rows, field, descending = args
+        if not isinstance(descending, bool):
+            raise IntegratedRuntimeError("REL-007", "Relation sort_by descending must be Bool")
+        try:
+            return sorted(
+                _relation_rows(rows),
+                key=lambda row: _relation_field(row, field),
+                reverse=descending,
+            )
+        except TypeError as error:
+            raise IntegratedRuntimeError("REL-006", f"Relation field is not orderable: {error}") from error
+    raise IntegratedRuntimeError("REL-001", f"unknown Relation function: {function_id}")
 
 
 @dataclass
@@ -529,6 +625,16 @@ def _expression(
             return runtime.call_optimizer(
                 optimizer_function, *arguments, _source_location=source_location
             )
+        relation_function = relation_call_name(value)
+        if relation_function is not None:
+            arguments = [
+                _expression(
+                    argument, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for argument in value.arguments
+            ]
+            return call_relation(relation_function, *arguments)
         if (
             isinstance(value.callee, MemberAccessNode)
             and isinstance(value.callee.object, IdentifierNode)

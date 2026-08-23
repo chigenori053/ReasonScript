@@ -139,6 +139,11 @@ pub enum Expr {
         function_id: String,
         arguments: Vec<Expr>,
     },
+    #[serde(rename = "call_relation")]
+    CallRelation {
+        function_id: String,
+        arguments: Vec<Expr>,
+    },
     #[serde(rename = "call_array_append")]
     CallArrayAppend {
         collection: Box<Expr>,

@@ -7,6 +7,7 @@
 
 pub mod ir;
 pub mod optimizer_dispatch;
+pub mod relation_dispatch;
 pub mod tensor_dispatch;
 pub mod value;
 pub mod vm;

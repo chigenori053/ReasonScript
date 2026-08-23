@@ -18,6 +18,45 @@
 
 ### Added
 
+- Added the `relation.*` namespace (Phase 8, "Tensor Logic hybrid",
+  narrowed to its relational-algebra core after a scope decision):
+  `filter_eq`/`filter_ne`/`filter_gt`/`filter_gte`/`filter_lt`/`filter_lte`,
+  `count`, `distinct_by`, and `sort_by` over `Array<Struct>`
+  (ReasonScript's existing "array of same-shaped structs" IS a
+  relation's tuple set). All type-preserving (input/output share the
+  same `Array<Struct>` type), so no synthetic struct return type is
+  needed -- `join`/`project` are NOT implemented, since both change a
+  row's field shape and hit a real static-typing gap (no way to
+  synthesize a `StructDeclarationNode` for a derived field set); this
+  needs its own design decision, not made here. Every filter/sort field
+  argument is a required string literal (`REL-003` otherwise):
+  ReasonScript has no closures, so an arbitrary predicate can't be
+  passed. New `call_relation` IR node
+  (`frontend/computation_ir/schema.py`), a plain module-level
+  `call_relation` dispatcher in `frontend/integrated_computation_runtime.py`
+  (no persistent state -- every function is a pure `Array<Struct>` read)
+  used by both the AST evaluator and the IR interpreter, and
+  `ReasonComputationRuntime/crates/computation-ir/src/relation_dispatch.rs`
+  reusing `vm::eval_comparison` directly. New `REL-001`..`REL-007`
+  diagnostic family, kept outside the Tensor Standard Functions
+  contract. The Phase 7 IR optimizer treats `call_relation` like
+  `call_tensor`/`call_optimizer` (side-effect-free, never
+  CSE-deduplicated). 19 new differential Python/Rust tests
+  (`computation_ir_tests/test_computation_ir_relation_functions.py`),
+  plus 3 more covering its interaction with the Phase 7 IR optimizer.
+  Found and fixed two real parity/correctness bugs during development:
+  Python's `distinct_by` originally used a hash set (raises on an
+  unhashable field value, unlike Rust's linear equality scan) --
+  switched to a linear scan on both sides; Rust's `sort_by` comparator
+  originally derived `Ordering` naively from a single `<` check
+  (reports `Greater` for two *equal* fields in both directions, an
+  inconsistent comparator) -- fixed to derive a proper 3-way ordering
+  from two `<` comparisons, matching Python's `sorted()`. See AGENTS.md
+  for the full design writeup, including why the dense/sparse Tensor
+  partitioning half of Phase 8 and anything tied to the plan's
+  Transformer-specific "Relation Matrix" framing remain out of scope
+  (no fixture in this repository).
+
 - Added the `optimizer.*` namespace (SGD, Momentum, Adam, AdamW),
   previously deferred as "Pending -- explicitly deferred as a separate
   scope decision". New language surface (`frontend/tensor/optimizers.py`),

@@ -443,6 +443,78 @@ class OptimizerFunctionsInteractionTests(OptimizerParityMixin, unittest.TestCase
         )
 
 
+class RelationFunctionsInteractionTests(OptimizerParityMixin, unittest.TestCase):
+    """The Phase 7 IR optimizer's interaction with the `relation.*`
+    namespace (Phase 8): an unused relation call is dead-code-eliminated,
+    a used one survives optimization with an identical result, and two
+    structurally-identical calls are never CSE-merged (a comparison can
+    raise on an incomparable field type)."""
+
+    def test_unused_relation_call_is_eliminated(self):
+        ir = _lower(
+            """
+            module M {
+                struct Row {
+                    age: int
+                }
+                calculation Answer {
+                    let rows = [Row { age: 1 }, Row { age: 2 }]
+                    let unused = relation.filter_gt(rows, "age", 1)
+                    result = relation.count(rows)
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        for block in optimized["functions"][0]["blocks"]:
+            for instruction in block["instructions"]:
+                self.assertNotEqual(instruction.get("target"), "unused")
+
+    def test_relation_pipeline_survives_optimization(self):
+        self.assert_parity(
+            """
+            module M {
+                struct Row {
+                    age: int
+                }
+                calculation Answer {
+                    let rows = [Row { age: 1 }, Row { age: 2 }, Row { age: 3 }]
+                    let unused = relation.filter_gt(rows, "age", 100)
+                    let filtered = relation.filter_gt(rows, "age", 1)
+                    result = relation.count(filtered)
+                }
+            }
+            """
+        )
+
+    def test_relation_calls_are_never_deduplicated(self):
+        ir = _lower(
+            """
+            module M {
+                struct Row {
+                    age: int
+                }
+                calculation Answer {
+                    let rows = [Row { age: 1 }, Row { age: 2 }]
+                    let a = relation.filter_gt(rows, "age", 1)
+                    let b = relation.filter_gt(rows, "age", 1)
+                    result = relation.count(a) + relation.count(b)
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        filter_calls = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "assign"
+            and instruction["expr"].get("op") == "call_relation"
+            and instruction["expr"].get("function_id") == "relation.filter_gt"
+        ]
+        self.assertEqual(len(filter_calls), 2)
+
+
 class TensorDifferentialTests(OptimizerParityMixin, unittest.TestCase):
     def test_matmul_program_survives_optimization(self):
         self.assert_parity(
