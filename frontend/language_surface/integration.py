@@ -1965,6 +1965,17 @@ def _compile_time_value(
     if (
         isinstance(value, CallExpressionNode)
         and isinstance(value.callee, IdentifierNode)
+        and value.callee.name in {"float", "int"}
+        and value.callee.name not in functions
+        and len(value.arguments) == 1
+    ):
+        argument = _compile_time_value(value.arguments[0], context, functions, active_calls)
+        if isinstance(argument, bool) or not isinstance(argument, (int, float)):
+            return _UNKNOWN_VALUE
+        return float(argument) if value.callee.name == "float" else int(argument)
+    if (
+        isinstance(value, CallExpressionNode)
+        and isinstance(value.callee, IdentifierNode)
         and value.callee.name in functions
         and value.callee.name not in active_calls
     ):

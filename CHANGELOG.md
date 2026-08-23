@@ -4,6 +4,17 @@
 
 ### Added
 
+- Added `float(x)` / `int(x)` explicit numeric conversion builtins
+  (ReasonScript modernization plan L-004). `int(x)` truncates toward
+  zero. Validated in `frontend/language_surface/validation.py`
+  (`CAST-001`/`CAST-002`), evaluated in
+  `frontend/integrated_computation_runtime.py` (`RT-CALL-005`) and
+  `frontend/language_surface/integration.py`'s compile-time folding.
+- Added `TensorRuntime.no_grad()` (`frontend/tensor/runtime.py`), a
+  context manager that suppresses autograd tape recording for its
+  duration, implementing the plan's "evaluationをno-gradにする" Phase 1
+  item.
+
 - Added `reason tensor-manifest`, which emits a frozen
   `reasonscript-tensor-function-manifest/1.0` JSON manifest of every
   `tensor.*` function's argument/return/diagnostic contract, and a
@@ -19,6 +30,14 @@
   JSON report. This establishes the Phase 0 "before" baseline the plan's
   later Rust runtime and IR-optimizer phases are meant to be measured
   against.
+
+### Fixed
+
+- Fixed the static type checker returning `Int` for `Int / Int` when `/`
+  actually evaluates to a Python float at runtime (a real type/value
+  mismatch). `/` is now always typed `Float`, matching its true-division
+  runtime semantics (ReasonScript modernization plan L-006, partial: `//`
+  is not introduced, since it is the existing line-comment token).
 
 ## v0.5.4.5 — 2026-08-07
 

@@ -536,6 +536,24 @@ def _expression(
                     "RT-CALL-002", "array.append first argument must be an array"
                 )
             return [*collection, copy.deepcopy(item)]
+        if (
+            isinstance(value.callee, IdentifierNode)
+            and value.callee.name in {"float", "int"}
+            and value.callee.name not in functions
+        ):
+            if len(value.arguments) != 1:
+                raise IntegratedRuntimeError(
+                    "RT-CALL-002", f"{value.callee.name}() expects exactly one argument"
+                )
+            argument = _expression(
+                value.arguments[0], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            if isinstance(argument, bool) or not isinstance(argument, (int, float)):
+                raise IntegratedRuntimeError(
+                    "RT-CALL-005", f"{value.callee.name}() argument must be Int or Float"
+                )
+            return float(argument) if value.callee.name == "float" else int(argument)
         if isinstance(value.callee, IdentifierNode):
             function_node = functions.get(value.callee.name)
             if function_node is None:

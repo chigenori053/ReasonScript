@@ -330,6 +330,7 @@ class TensorRuntime:
         self._parameters: set[str] = set()
         self._grad_nodes: dict[str, _GradNode] = {}
         self._autograd_roots: set[str] = set()
+        self._no_grad_depth = 0
         self.resource_root = (resource_root or Path.cwd()).resolve()
         self.filesystem_read = filesystem_read
         self.filesystem_write = filesystem_write
@@ -1527,6 +1528,23 @@ class TensorRuntime:
         self._clear_autograd()
         return results
 
+    @contextmanager
+    def no_grad(self):
+        """Suppress autograd tape recording for the duration of the block.
+
+        Implements the "evaluationをno-gradにする" Phase 1 item: calls made
+        while this is active never build `_GradNode`s, even for Tensors
+        that carry `requires_grad`, so evaluation-only passes (inference,
+        CI/golden checks) don't pay autograd bookkeeping cost. Nests
+        safely; `tensor.grad` remains an error inside the block since no
+        nodes are recorded.
+        """
+        self._no_grad_depth += 1
+        try:
+            yield
+        finally:
+            self._no_grad_depth -= 1
+
     def _record_autograd(
         self,
         function_id: str,
@@ -1534,6 +1552,8 @@ class TensorRuntime:
         attributes: dict[str, Any],
         output: Any,
     ) -> None:
+        if self._no_grad_depth > 0:
+            return
         if not isinstance(output, TensorValueRef):
             return
         references = list(_tensor_references((arguments, attributes)))

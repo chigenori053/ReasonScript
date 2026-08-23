@@ -136,17 +136,51 @@ implemented:
   micro/operator tier (cast/dispatch, elementwise, reduction, matmul,
   softmax, gather), producing `reasonscript-tensor-benchmark/1.0` JSON.
 
+Phase 1 ("即時不具合・性能修正") has also been partially applied, scoped to
+what's safe without a breaking syntax change:
+
+- **L-004** (`float(x)` / `int(x)`): added as builtin scalar-cast calls.
+  Recognized in `_expression_type` (`frontend/language_surface/validation.py`,
+  `CAST-001`/`CAST-002` diagnostics) and evaluated in both the runtime
+  interpreter (`frontend/integrated_computation_runtime.py`, `RT-CALL-005`)
+  and compile-time constant folding (`frontend/language_surface/integration.py`).
+  `int(x)` truncates toward zero (Python's native `int()` semantics) — that
+  is the "明示された丸め規則" this repository has adopted. A user-declared
+  `fn float(...)`/`fn int(...)` shadows the builtin, so this is additive
+  only.
+- **L-006 (partial)**: `/` was already true-division at runtime (Python's
+  `/` operator), but the static type checker returned `Int` for
+  `Int / Int`, contradicting the actual Float result — a real type/value
+  mismatch bug. Fixed in `validation.py`'s `BinaryExpressionNode` handling:
+  `/` is now always typed `Float`, regardless of operand types. `%` was
+  already implemented and already matches `//`'s floor semantics (Python's
+  `%`), so no change was needed there.
+- **Evaluation no-grad** (section 11 item 3): added `TensorRuntime.no_grad()`
+  (`frontend/tensor/runtime.py`), a context manager that suppresses
+  autograd tape recording for its duration, even for `Parameter` inputs.
+  Note the existing design already only records a tape node when an input
+  is grad-tracked (`_record_autograd`), so most non-training evaluation
+  already paid zero autograd overhead before this; `no_grad()` covers the
+  remaining case of computing with Parameters without wanting gradients.
+
 **Explicitly out of scope for this increment** (do not assume these are
 done): the new `reason-computation-ir/0.1` IR, any Rust crate beyond the
 runtimes that already exist in this repository (`RuntimeReal`,
 `RuntimeComplex`, `HybridRuntime`, etc.), `Parameter<T, Shape>` /
-`TensorArray<T, S>` types, `Unknown` → `TypeVar`/`Any`/`ErrorType`
-splitting, and the `/`/`//`/`%` numeric-division semantics change (`//`
-is currently the ReasonScript line-comment token, so introducing it as an
-integer-division operator requires a dedicated lexer/parser design pass,
-not an incidental change). A `DistanceDecay`-style relation-matrix
-optimization target does not exist anywhere in this repository, so that
-specific Phase 1 item does not apply here.
+`TensorArray<T, S>` types as first-class generic types, `Unknown` →
+`TypeVar`/`Any`/`ErrorType` splitting, and introducing `//` as an
+integer-division operator (`//` is currently the ReasonScript
+line-comment token — see `_strip_line_comment` in
+`frontend/language_surface/parser.py` — so adding it as an operator would
+silently break every existing comment; this needs a dedicated
+lexer/parser design pass, e.g. picking a different token or a comment
+syntax migration, not an incidental change). A `DistanceDecay`-style
+relation-matrix optimization target does not exist anywhere in this
+repository, so that specific Phase 1 item does not apply here. There is
+no `with` statement in the language surface yet, so `with tensor.no_grad
+{ ... }` (section 5.4 syntax) is not available — `no_grad()` above is a
+Python-level API only, reachable from evaluator code, not from `.rsn`
+source.
 
 ## Development Environment
 

@@ -1653,6 +1653,20 @@ def _ruo_call_name(value: CallExpressionNode) -> str | None:
     return None
 
 
+_SCALAR_CAST_NAMES = {"float", "int"}
+
+
+def _scalar_cast_name(value: CallExpressionNode, symbols: dict[str, Any]) -> str | None:
+    callee = value.callee
+    if (
+        isinstance(callee, IdentifierNode)
+        and callee.name in _SCALAR_CAST_NAMES
+        and not isinstance(symbols.get(callee.name), FunctionDeclarationNode)
+    ):
+        return callee.name
+    return None
+
+
 def _array_call_name(value: CallExpressionNode) -> str | None:
     callee = value.callee
     if (
@@ -1874,6 +1888,12 @@ def _expression_type(
             raise SurfaceValidationError(
                 "TYPE-V004 TYPE-001 mixed or non-numeric arithmetic invalid"
             )
+        if value.operator == BinaryOperator.DIVIDE:
+            # `/` always performs true division at runtime (see
+            # integrated_computation_runtime.py and _compile_time_binary),
+            # so Int / Int must be typed Float, not Int, to match the
+            # actual result (L-006).
+            return PrimitiveTypeNode(PrimitiveKind.FLOAT)
         return left
     if isinstance(value, ComparisonExpressionNode):
         left = _expression_type(value.left, symbols, bindings)
@@ -2013,6 +2033,28 @@ def _expression_type(
             except VisionSemanticError as error:
                 raise SurfaceValidationError(str(error)) from error
             return NamedTypeNode("VisionObservation" if vision_call_name(value) == "vision.infer" else "VisionBuildResult")
+        cast_name = _scalar_cast_name(value, symbols)
+        if cast_name is not None:
+            if len(value.arguments) != 1:
+                raise SurfaceValidationError(
+                    f"CAST-001 {cast_name}() expects exactly one argument"
+                )
+            argument = value.arguments[0]
+            argument_expression = (
+                argument.expression if isinstance(argument, ExpressionNode) else argument
+            )
+            argument_type = _expression_type(argument_expression, symbols, bindings)
+            numeric = {
+                PrimitiveTypeNode(PrimitiveKind.INT),
+                PrimitiveTypeNode(PrimitiveKind.FLOAT),
+            }
+            if argument_type is not _UNKNOWN_TYPE and argument_type not in numeric:
+                raise SurfaceValidationError(
+                    f"CAST-002 {cast_name}() argument must be Int or Float"
+                )
+            return PrimitiveTypeNode(
+                PrimitiveKind.FLOAT if cast_name == "float" else PrimitiveKind.INT
+            )
         if isinstance(value.callee, IdentifierNode):
             if value.callee.name == _CURRENT_FUNCTION:
                 raise SurfaceValidationError("FN-007 recursive function calls are rejected")
