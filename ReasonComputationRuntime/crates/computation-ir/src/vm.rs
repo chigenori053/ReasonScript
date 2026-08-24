@@ -6,7 +6,8 @@
 //! dispatched to `crate::tensor_dispatch`, which forwards to
 //! `reasonscript_tensor_core` for all 65 frozen Tensor Standard Functions,
 //! including autograd and Tensor trace/metadata collection.
-//! `call_vision` remains entirely unimplemented (out of scope).
+//! Vision and Reason Object calls are dispatched in-process to their Rust
+//! libraries; no per-operation subprocess bridge remains on this path.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -14,7 +15,7 @@ use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
 use crate::ir::{Block, Expr, Function, Instruction, Program, Terminator};
-use crate::value::{to_json, StructValue, Value};
+use crate::value::{to_json, RuntimeReasonObject, StructValue, Value};
 
 #[derive(Debug)]
 pub struct RuntimeError {
@@ -59,6 +60,10 @@ pub struct Vm<'a> {
     loop_frames: RefCell<HashMap<String, (i64, serde_json::Value)>>,
     trace_enabled: bool,
     tensor_trace: RefCell<Vec<serde_json::Value>>,
+    vision_trace: RefCell<Vec<serde_json::Value>>,
+    resource_root: PathBuf,
+    filesystem_read: bool,
+    filesystem_write: bool,
 }
 
 impl<'a> Vm<'a> {
@@ -106,7 +111,7 @@ impl<'a> Vm<'a> {
         let mut tensors = reasonscript_tensor_core::TensorStore::with_numeric_mode(numeric_mode);
         tensors.configure_context(
             tensor_policy,
-            resource_root,
+            resource_root.clone(),
             filesystem_read,
             filesystem_write,
         );
@@ -120,6 +125,10 @@ impl<'a> Vm<'a> {
             loop_frames: RefCell::new(HashMap::new()),
             trace_enabled,
             tensor_trace: RefCell::new(Vec::new()),
+            vision_trace: RefCell::new(Vec::new()),
+            resource_root,
+            filesystem_read,
+            filesystem_write,
         }
     }
 
@@ -135,6 +144,10 @@ impl<'a> Vm<'a> {
         self.tensors.borrow().metadata()
     }
 
+    pub fn vision_trace(&self) -> Vec<serde_json::Value> {
+        self.vision_trace.borrow().clone()
+    }
+
     /// Executes every calculation in program order, mirroring
     /// `interpret_program`'s semantics: a calculation whose body falls
     /// off the end without `result =` simply contributes nothing (not an
@@ -146,6 +159,12 @@ impl<'a> Vm<'a> {
         program: &Program,
     ) -> Result<Vec<(String, Value)>, RuntimeError> {
         let mut object_bindings = HashMap::new();
+        if !program.reason_object_bindings.is_empty() && !self.filesystem_read {
+            return Err(RuntimeError::new(
+                "RUO-N2-007",
+                "filesystem_read capability is required",
+            ));
+        }
         for binding in &program.reason_object_bindings {
             let source = Path::new(&binding.source_path);
             if source.is_absolute()
@@ -161,7 +180,19 @@ impl<'a> Vm<'a> {
                     "Object path escapes resource root",
                 ));
             }
-            let object = reasonscript_native_reasonunit_runtime::load_ruo(source)
+            let canonical_root = std::fs::canonicalize(&self.resource_root).map_err(|error| {
+                RuntimeError::new("RUO-N2-013", format!("Object load failed: {error}"))
+            })?;
+            let resolved = std::fs::canonicalize(canonical_root.join(source)).map_err(|error| {
+                RuntimeError::new("RUO-N2-013", format!("Object load failed: {error}"))
+            })?;
+            if !resolved.starts_with(&canonical_root) {
+                return Err(RuntimeError::new(
+                    "RUO-N2-006",
+                    "Object path escapes resource root",
+                ));
+            }
+            let object = reasonscript_native_reasonunit_runtime::load_ruo(&resolved)
                 .map_err(|error| RuntimeError::new(&error.code, error.message))?;
             if let Some(expected) = &binding.expected_object_id {
                 if object.object_id.as_str() != expected {
@@ -171,7 +202,15 @@ impl<'a> Vm<'a> {
                     ));
                 }
             }
-            object_bindings.insert(binding.name.clone(), Value::ReasonObject(Rc::new(object)));
+            object_bindings.insert(
+                binding.name.clone(),
+                Value::ReasonObject(Rc::new(RuntimeReasonObject {
+                    object: RefCell::new(object),
+                    source_path: resolved,
+                    resource_root: self.resource_root.clone(),
+                    filesystem_write: self.filesystem_write,
+                })),
+            );
         }
         *self.reason_objects.borrow_mut() = object_bindings;
         let mut calculations: Vec<(String, Value)> = Vec::new();
@@ -556,12 +595,27 @@ impl<'a> Vm<'a> {
                 }
                 Ok(result)
             }
-            Expr::CallVision { function_id, .. } => Err(RuntimeError::new(
-                "RT-UNSUPPORTED-001",
-                format!(
-                    "{function_id}: vision execution is not implemented in the Phase 3 Rust VM"
-                ),
-            )),
+            Expr::CallVision {
+                function_id,
+                arguments,
+                ..
+            } => {
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    values.push(self.eval_expr(argument, env, call_depth)?);
+                }
+                let (result, trace) = crate::vision_dispatch::call(
+                    function_id,
+                    &values,
+                    &self.resource_root,
+                    self.filesystem_read,
+                    self.filesystem_write,
+                )?;
+                if self.trace_enabled {
+                    self.vision_trace.borrow_mut().push(trace);
+                }
+                Ok(result)
+            }
             Expr::CallRuo {
                 function_id,
                 arguments,
@@ -571,7 +625,7 @@ impl<'a> Vm<'a> {
                 for argument in arguments {
                     values.push(self.eval_expr(argument, env, call_depth)?);
                 }
-                call_ruo(function_id, values)
+                crate::ruo_dispatch::call(function_id, values)
             }
             Expr::CallOptimizer {
                 function_id,
@@ -731,94 +785,6 @@ fn collect_tensor_ids(value: &Value, roots: &mut std::collections::HashSet<Strin
             }
         }
         _ => {}
-    }
-}
-
-fn call_ruo(function_id: &str, arguments: Vec<Value>) -> Result<Value, RuntimeError> {
-    let object = match arguments.first() {
-        Some(Value::ReasonObject(value)) | Some(Value::ReasonObjectSnapshot(value)) => value,
-        Some(other) => {
-            return Err(RuntimeError::new(
-                "RUO-N2-009",
-                format!(
-                    "{function_id} requires ReasonObject, got {}",
-                    other.type_name()
-                ),
-            ))
-        }
-        None => {
-            return Err(RuntimeError::new(
-                "RUO-N2-009",
-                format!("{function_id} requires an argument"),
-            ))
-        }
-    };
-    match function_id {
-        "ruo.object_id" => Ok(Value::String(Rc::from(object.object_id.as_str()))),
-        "ruo.snapshot" => Ok(Value::ReasonObjectSnapshot(object.clone())),
-        "ruo.status" => Ok(Value::String(Rc::from(
-            if matches!(arguments.first(), Some(Value::ReasonObjectSnapshot(_))) {
-                "snapshot"
-            } else {
-                "loaded"
-            },
-        ))),
-        "ruo.diagnostics" => Ok(Value::Array(Rc::new(RefCell::new(Vec::new())))),
-        "ruo.resolve" => {
-            let stable_id = match arguments.get(1) {
-                Some(Value::String(value)) => value.as_ref(),
-                _ => {
-                    return Err(RuntimeError::new(
-                        "RUO-N2-009",
-                        "ruo.resolve requires StableId",
-                    ))
-                }
-            };
-            if object.object_id.as_str() == stable_id {
-                return Ok(Value::Json(Rc::new(
-                    object.logical["object_identity"].clone(),
-                )));
-            }
-            for registry in [
-                "units",
-                "payloads",
-                "states",
-                "relations",
-                "constraints",
-                "evidence_registry",
-                "projection_descriptors",
-                "revisions",
-            ] {
-                for item in object
-                    .logical
-                    .get(registry)
-                    .and_then(serde_json::Value::as_array)
-                    .into_iter()
-                    .flatten()
-                {
-                    if [
-                        "entity_id",
-                        "payload_id",
-                        "state_id",
-                        "relation_id",
-                        "constraint_id",
-                        "evidence_id",
-                        "projection_id",
-                        "revision_id",
-                    ]
-                    .iter()
-                    .any(|key| item.get(key).and_then(serde_json::Value::as_str) == Some(stable_id))
-                    {
-                        return Ok(Value::Json(Rc::new(item.clone())));
-                    }
-                }
-            }
-            Ok(Value::Null)
-        }
-        _ => Err(RuntimeError::new(
-            "RT-UNSUPPORTED-001",
-            format!("{function_id}: native RUO operation is not implemented"),
-        )),
     }
 }
 

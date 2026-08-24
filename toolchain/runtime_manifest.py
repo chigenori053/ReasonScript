@@ -40,9 +40,7 @@ RUO_FUNCTIONS = tuple(
         "project", "save", "tensor_view", "status", "diagnostics",
     )
 )
-RUST_RUO_FUNCTIONS = frozenset(
-    {"ruo.object_id", "ruo.snapshot", "ruo.resolve", "ruo.status", "ruo.diagnostics"}
-)
+RUST_RUO_FUNCTIONS = frozenset(RUO_FUNCTIONS)
 
 RELATION_FUNCTIONS = tuple(
     f"relation.{name}"
@@ -109,7 +107,7 @@ def build_manifest() -> dict[str, Any]:
             for name in RUO_FUNCTIONS
         ],
         "vision": [
-            _operation(name, python=True, rust=False, fallback="python_bridge_to_rust_process")
+            _operation(name, python=True, rust=True, fallback=None)
             for name in vision_names
         ],
         "reasoning": [

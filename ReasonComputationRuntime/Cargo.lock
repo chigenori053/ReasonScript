@@ -171,8 +171,10 @@ version = "0.1.0"
 dependencies = [
  "reasonscript-native-reasonunit-runtime",
  "reasonscript-tensor-core",
+ "reasonscript-vision-runtime",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -197,6 +199,15 @@ name = "reasonscript-tensor-core"
 version = "0.1.0"
 dependencies = [
  "rayon",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "reasonscript-vision-runtime"
+version = "0.1.0"
+dependencies = [
+ "serde",
  "serde_json",
  "sha2",
 ]

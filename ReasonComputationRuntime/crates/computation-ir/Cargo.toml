@@ -8,5 +8,7 @@ description = "reason-computation-ir/0.1 decoder and basic-block VM (Phase 3 pri
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sha2 = "0.10"
 reasonscript-tensor-core = { path = "../tensor-core" }
 reasonscript-native-reasonunit-runtime = { path = "../../../NativeReasonUnitRuntime" }
+reasonscript-vision-runtime = { path = "../../../VisionRuntime" }

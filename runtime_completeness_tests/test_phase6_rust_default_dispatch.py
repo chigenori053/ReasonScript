@@ -14,6 +14,7 @@ been built, matching the other `computation_ir_tests` parity suites.
 from __future__ import annotations
 
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -106,6 +107,61 @@ class RustFirstDispatchTests(unittest.TestCase):
             result["artifacts"]["runtime_dispatch"]["fallback_reason"],
             None,
         )
+
+    def test_phase5_vision_trace_uses_in_process_rust(self):
+        fixture = Path(__file__).resolve().parents[1] / "tests/fixtures/vision_language"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("model.json", "observation.json", "image.bin"):
+                shutil.copyfile(fixture / name, root / name)
+            source = _write(
+                root,
+                "vision.rsn",
+                (fixture / "vision_pipeline.rsn").read_text(encoding="utf-8"),
+            )
+            result = _run_result(
+                source,
+                "normal",
+                include_trace=True,
+                allow_read=True,
+                allow_write=True,
+            )
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["execution_mode"], "integrated-rust")
+            self.assertEqual(
+                [item["operation"] for item in result["runtime_result"]["vision_trace"]],
+                ["vision_infer", "vision_build_ruo"],
+            )
+            self.assertTrue((root / "output/solar-observation.ruo").is_file())
+
+    def test_phase5_complete_ruo_operation_uses_rust(self):
+        fixture = (
+            Path(__file__).resolve().parents[1]
+            / "artifacts/reasonunit_language/ruo_n2/fixtures/objects/complete.ruo"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "objects").mkdir()
+            shutil.copyfile(fixture, root / "objects/complete.ruo")
+            source = _write(
+                root,
+                "ruo.rsn",
+                '''model X {
+  reason_object object from "objects/complete.ruo" mode strict;
+  calculation Query {
+    result = ruo.query(object, "{\\"query\\":\\"all\\"}")
+  }
+}''',
+            )
+            result = _run_result(
+                source,
+                "normal",
+                include_trace=False,
+                allow_read=True,
+            )
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["execution_mode"], "integrated-rust")
+            self.assertIn("ruo:object:universal-fixture", result["runtime_output"][0]["entity_ids"])
 
     def test_tensor_io_without_capability_falls_back_to_python(self):
         with tempfile.TemporaryDirectory() as directory:

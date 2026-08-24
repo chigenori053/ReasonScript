@@ -575,6 +575,24 @@ shape-mismatch checks (no different from any other function whose
 return shape isn't specially inferred; runtime shape checks still
 apply).
 
+## Rust Runtime Consolidation — Phase 5 RUO and Vision
+
+The separate runtime-consolidation plan at
+`docs/development/runtime_rust_consolidation_plan.md` has completed Phase 5:
+
+- all 16 `ruo.*` functions execute in-process in the Rust computation VM;
+- `vision.infer` and `vision.build_ruo` call `VisionRuntime` as a Rust library;
+- capability and resource-root path checks remain enforced;
+- canonical RUO-F1 save/publication and Vision Tensor resources interoperate
+  with the Python reader/writer;
+- Vision trace is returned by the Rust host and no longer forces Python
+  fallback; and
+- the frozen runtime consolidation manifest records complete RUO/Vision Rust
+  coverage.
+
+Python RUO/Vision runtimes are retained as reference/fallback implementations
+until Phase 7 deletion gates pass. Phase 6 (Rust reasoning core) is next.
+
 ## Modernization Plan — Phase 6 Rust Default Execution
 
 Phase 6 ("Rust主実行器: Rust default、Python fallback") is implemented in
@@ -600,11 +618,10 @@ from `toolchain/run_cmd.py`'s `reason run`, which executes the older
 - On success, `result["execution_mode"] = "integrated-rust"` (vs.
   `"integrated"` for the Python path), so which engine ran is always
   visible in `reason run --json` output.
-- `include_trace` (`reason run --trace` or `--json`) always uses Python:
-  the Rust path returns empty `tensor_metadata`/`tensor_trace`/
-  `loop_trace`/`vision_trace` (documented, not silently dropped) because
-  full trace/diagnostic parity is real remaining work, not attempted in
-  this phase.
+- `include_trace` (`reason run --trace` or `--json`) uses Rust for loop,
+  Tensor, and Vision programs and returns native metadata/trace. Optimizer
+  trace remains an explicit Python fallback until its trace contract is
+  implemented.
 - Shadow mode (`REASONSCRIPT_SHADOW_MODE=1`): after a successful Rust run,
   also runs the same program through Python and prints a mismatch
   warning to stderr (without failing the run) if `calculations` disagree

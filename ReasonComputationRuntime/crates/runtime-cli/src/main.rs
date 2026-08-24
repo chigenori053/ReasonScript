@@ -223,9 +223,11 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         Ok(calculations) => {
             let loop_trace = vm.loop_trace();
             let tensor_trace = vm.tensor_trace();
+            let vision_trace = vm.vision_trace();
             let tensor_metadata = vm.tensor_metadata();
             let mut combined_trace = loop_trace.clone();
             combined_trace.extend(tensor_trace.clone());
+            combined_trace.extend(vision_trace.clone());
             let mut results = serde_json::Map::new();
             for (name, value) in calculations {
                 results.insert(name, to_json(&value));
@@ -244,6 +246,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "trace": combined_trace,
                         "loop_trace": loop_trace,
                         "tensor_trace": tensor_trace,
+                        "vision_trace": vision_trace,
                         "tensor_metadata": tensor_metadata,
                         "reason_object_metadata": [],
                     },

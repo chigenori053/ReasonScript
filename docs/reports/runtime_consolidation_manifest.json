@@ -184,69 +184,69 @@
       },
       {
         "name": "ruo.query",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.begin",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.apply",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.validate",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.commit",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.rollback",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.select",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.materialize",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.project",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.save",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.tensor_view",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "ruo.status",
@@ -656,15 +656,15 @@
     "vision": [
       {
         "name": "vision.build_ruo",
-        "production_fallback": "python_bridge_to_rust_process",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "vision.infer",
-        "production_fallback": "python_bridge_to_rust_process",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       }
     ]
   },

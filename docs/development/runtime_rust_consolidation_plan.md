@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_PROGRESS` — Phases 0–4 completed; Phase 5 RUO and Vision.
+`IN_PROGRESS` — Phases 0–5 completed; Phase 6 Rust reasoning core.
 
 ## Objective
 
@@ -45,7 +45,10 @@ an explicit adapter.
 5. **Phase 4 — Tensor completeness:** implement every frozen Tensor function
    and VJP plus resource, filesystem, capability, metadata, and trace parity.
 6. **Phase 5 — RUO and Vision:** move all RUO operations and Vision publication
-   into Rust libraries called in-process by the VM.
+   into Rust libraries called in-process by the VM. **Completed:** all 16
+   `ruo.*` functions and both `vision.*` functions execute inside the runtime
+   host with capability/path enforcement, canonical RUO-F1 publication, and
+   Vision trace parity.
 7. **Phase 6 — reasoning:** connect search/simulate/predict/plan to a canonical
    Rust reasoning core and make manifest backend selection effective.
 8. **Phase 7 — Python runtime retirement:** remove production fallback and move

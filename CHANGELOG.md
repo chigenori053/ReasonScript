@@ -29,6 +29,14 @@
 
 ### Added
 
+- Completed Rust runtime consolidation Phase 5: all 16 `ruo.*` functions and
+  both `vision.*` functions now execute as libraries inside the Rust runtime
+  host. Added canonical RUO-F1 save/publication, transaction and query parity,
+  Vision capability/path enforcement, native Vision trace, and differential
+  Python/Rust tests for results, diagnostics, saved Objects, and Tensor
+  resources. The Python RUO/Vision runtimes remain reference/fallback code
+  pending the Phase 7 retirement gates.
+
 - Added Phase 10's minimal SVD foundation (narrowed from the full
   "Tucker optimizer/rank選択/denoise" scope after confirming no SVD,
   eigendecomposition, or Tucker decomposition existed anywhere in this

@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
-use serde_json::Value;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -16,7 +16,8 @@ use std::sync::{Arc, RwLock};
 
 pub const PROFILE: &str = "reasonscript-reasonunit-native-runtime/1.0";
 pub const NATIVE_REASON_GRAPH_PROFILE: &str = "reasonscript-reason-object-graph-native/0.1";
-pub const NATIVE_REASON_GRAPH_QUERY_PROFILE: &str = "reasonscript-reason-object-graph-native-query/0.1";
+pub const NATIVE_REASON_GRAPH_QUERY_PROFILE: &str =
+    "reasonscript-reason-object-graph-native-query/0.1";
 
 #[derive(Deserialize)]
 struct RawEnvelope {
@@ -249,9 +250,7 @@ impl NativeReasonUnitObject {
         if roots.iter().any(|id| !entities.contains_key(id)) {
             return Err(NativeError::semantic("root is not materialized"));
         }
-        let bytes = serde_json::to_vec(&logical)
-            .map_err(|_| NativeError::internal("logical serialization failed"))?;
-        let logical_digest = sha256(&bytes);
+        let logical_digest = canonical_logical_digest(&logical)?;
         Ok(Self {
             object_id,
             revision_id,
@@ -601,6 +600,7 @@ pub fn load_ruo(path: &Path) -> Result<NativeReasonUnitObject, NativeError> {
         ("evidence", "evidence_registry"),
         ("dependency", "dependency_graph"),
         ("revision", "revisions"),
+        ("transaction_summary", "transaction_summaries"),
         ("extension", "extension_registry"),
         ("projection_descriptor", "projection_descriptors"),
         ("external_resource", "external_resources"),
@@ -614,13 +614,22 @@ pub fn load_ruo(path: &Path) -> Result<NativeReasonUnitObject, NativeError> {
                 values.push(e["body"].clone());
             }
         }
-        if !values.is_empty() || logical.get(field).is_some() {
+        if !values.is_empty()
+            || !matches!(field, "transaction_summaries" | "external_resources")
+            || logical.get(field).is_some()
+        {
             logical[field] = Value::Array(values);
         }
     }
     let mut object = NativeReasonUnitObject::from_logical(logical)?;
-    object.logical_digest = sealed_digest
+    let sealed_digest = sealed_digest
         .ok_or_else(|| NativeError::new("RUO-N1-007", FailureClass::Integrity, "seal missing"))?;
+    // Preserve the authoritative RUO-F1 seal digest. Recomputing it with
+    // serde_json is not portable for exponent-form floats because Python's
+    // canonical carrier uses a different (but equivalent) exponent spelling.
+    // Record, section, and content-stream digests have already authenticated
+    // the exact canonical bytes above.
+    object.logical_digest = sealed_digest;
     object.canonical_bytes = Some(bytes);
     Ok(object)
 }
@@ -635,7 +644,9 @@ pub fn reason_graph_handoff(object: &NativeReasonUnitObject) -> Result<Value, Na
         .ok_or_else(|| NativeError::semantic("units registry missing"))?
         .iter()
         .map(|unit| {
-            let id = unit.get("entity_id").and_then(Value::as_str)
+            let id = unit
+                .get("entity_id")
+                .and_then(Value::as_str)
                 .ok_or_else(|| NativeError::semantic("unit ID missing"))?;
             Ok(Value::String(id.to_owned()))
         })
@@ -680,32 +691,435 @@ pub fn write_ruo(snapshot: &NativeSnapshot, path: &Path) -> Result<(), NativeErr
         .map_err(|e| NativeError::new("RUO-N1-008", FailureClass::Persistence, &e.to_string()))
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct RuoWriteReceipt {
+    pub path: String,
+    pub bytes: usize,
+    pub sha256: String,
+}
+
+/// Canonically encode and atomically publish a logical RUO-U1 object.
+/// This is the in-process counterpart of the Python RUO-F1 writer used by
+/// `ruo.save` and Vision publication after the runtime consolidation.
+pub fn write_logical_ruo(
+    logical: &Value,
+    path: &Path,
+    overwrite: bool,
+) -> Result<RuoWriteReceipt, NativeError> {
+    NativeReasonUnitObject::from_logical(logical.clone())?;
+    if path.extension().and_then(|value| value.to_str()) != Some("ruo") {
+        return Err(NativeError::new(
+            "RUO-F1-002",
+            FailureClass::Persistence,
+            "Writer output must use lowercase .ruo",
+        ));
+    }
+    if path.exists() && !overwrite {
+        return Err(NativeError::new(
+            "RUO-F1-020",
+            FailureClass::Persistence,
+            "Existing target requires overwrite",
+        ));
+    }
+    let payload = encode_logical_ruo(logical)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            NativeError::new("RUO-N1-008", FailureClass::Persistence, &error.to_string())
+        })?;
+    }
+    let temporary = path.with_file_name(format!(".ruo-write-{}.tmp", std::process::id()));
+    fs::write(&temporary, &payload)
+        .and_then(|_| fs::rename(&temporary, path))
+        .map_err(|error| {
+            NativeError::new("RUO-N1-008", FailureClass::Persistence, &error.to_string())
+        })?;
+    load_ruo(path)?;
+    Ok(RuoWriteReceipt {
+        path: path.to_string_lossy().into_owned(),
+        bytes: payload.len(),
+        sha256: sha256_hex(&payload),
+    })
+}
+
+pub fn encode_logical_ruo(logical: &Value) -> Result<Vec<u8>, NativeError> {
+    const ORDER: [&str; 16] = [
+        "file_header",
+        "section_manifest",
+        "object",
+        "unit",
+        "payload",
+        "state",
+        "relation",
+        "constraint",
+        "evidence",
+        "dependency",
+        "revision",
+        "transaction_summary",
+        "extension",
+        "projection_descriptor",
+        "external_resource",
+        "file_seal",
+    ];
+    const CONTENT: [&str; 13] = [
+        "object",
+        "unit",
+        "payload",
+        "state",
+        "relation",
+        "constraint",
+        "evidence",
+        "dependency",
+        "revision",
+        "transaction_summary",
+        "extension",
+        "projection_descriptor",
+        "external_resource",
+    ];
+    let mapping = [
+        ("unit", "units", "entity_id"),
+        ("payload", "payloads", "payload_id"),
+        ("state", "states", "state_id"),
+        ("relation", "relations", "relation_id"),
+        ("constraint", "constraints", "constraint_id"),
+        ("evidence", "evidence_registry", "evidence_id"),
+        ("dependency", "dependency_graph", "source_id"),
+        ("revision", "revisions", "revision_id"),
+        (
+            "transaction_summary",
+            "transaction_summaries",
+            "transaction_id",
+        ),
+        ("extension", "extension_registry", "namespace"),
+        (
+            "projection_descriptor",
+            "projection_descriptors",
+            "projection_id",
+        ),
+        ("external_resource", "external_resources", "resource_id"),
+    ];
+    let mut sections: BTreeMap<&str, Vec<Value>> =
+        CONTENT.iter().map(|name| (*name, Vec::new())).collect();
+    let mut object = logical
+        .as_object()
+        .cloned()
+        .ok_or_else(|| NativeError::semantic("logical object must be a map"))?;
+    for (_, logical_name, _) in mapping {
+        // RUO-F1 retains empty optional registries in the object record. The
+        // decoder only reconstructs these keys when records are present, so
+        // removing an empty optional registry would change the logical object
+        // covered by the file seal.
+        let optional_empty = matches!(logical_name, "transaction_summaries" | "external_resources")
+            && logical
+                .get(logical_name)
+                .and_then(Value::as_array)
+                .is_some_and(Vec::is_empty);
+        if !optional_empty {
+            object.remove(logical_name);
+        }
+    }
+    sections.insert("object", vec![Value::Object(object)]);
+    for (section, logical_name, id_key) in mapping {
+        let mut values = logical
+            .get(logical_name)
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        values.sort_by(|left, right| {
+            let left_id = left.get(id_key).and_then(Value::as_str).unwrap_or("");
+            let right_id = right.get(id_key).and_then(Value::as_str).unwrap_or("");
+            let primary = left_id.cmp(right_id);
+            if section == "dependency" && primary == std::cmp::Ordering::Equal {
+                return left
+                    .get("target_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .cmp(right.get("target_id").and_then(Value::as_str).unwrap_or(""));
+            }
+            primary
+        });
+        sections.insert(section, values);
+    }
+    let counts: BTreeMap<&str, usize> = CONTENT
+        .iter()
+        .map(|name| (*name, sections[name].len()))
+        .collect();
+    let mut next = 2usize;
+    let content_total: usize = counts.values().sum();
+    let descriptors: Vec<Value> = ORDER.iter().map(|section| {
+        let count = match *section {
+            "file_header" | "section_manifest" | "file_seal" => 1,
+            other => counts[other],
+        };
+        let (first, last) = match *section {
+            "file_header" => (Some(0), Some(0)),
+            "section_manifest" => (Some(1), Some(1)),
+            "file_seal" => (Some(2 + content_total), Some(2 + content_total)),
+            _ if count == 0 => (None, None),
+            _ => { let first = next; next += count; (Some(first), Some(next - 1)) }
+        };
+        let stable_key = mapping.iter().find(|(name, _, _)| name == section).map(|(_, _, key)| *key)
+            .unwrap_or(if *section == "object" { "object_id" } else { "ordinal" });
+        json!({
+            "critical": !matches!(*section, "transaction_summary" | "extension" | "projection_descriptor" | "external_resource"),
+            "first_ordinal": first, "last_ordinal": last,
+            "partial_loading_status": if count > 0 { "included" } else { "empty" },
+            "record_count": count, "record_type": section,
+            "required": matches!(*section, "file_header" | "section_manifest" | "object" | "file_seal"),
+            "schema_version": "1.0", "section": section, "stable_sort_key": stable_key,
+        })
+    }).collect();
+    let object_id = logical
+        .pointer("/object_identity/entity_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| NativeError::semantic("object ID missing"))?;
+    let revision = logical
+        .get("current_revision")
+        .and_then(Value::as_str)
+        .ok_or_else(|| NativeError::semantic("revision missing"))?;
+    let extensions: Vec<String> = logical
+        .get("extension_registry")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|item| {
+            item.get("namespace")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+        })
+        .collect();
+    let profiles: BTreeSet<String> = logical
+        .get("payloads")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|item| {
+            item.get("profile_id")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+        })
+        .collect();
+    let header = json!({
+        "canonicalization_profile":"ruo-canonical-jsonl/1", "extension_namespaces": extensions,
+        "external_resource_policy":"offline-explicit-root", "format_version":"1.0",
+        "logical_model":"ruo-u1/1.0", "magic":"REASONSCRIPT-RUO",
+        "media_type":"application/vnd.reasonscript.ruo+jsonl", "object_id":object_id,
+        "object_revision_id":revision,
+        "object_schema_version":logical.get("model_version").and_then(Value::as_str).unwrap_or("reasonscript-reasonunit-object/1.0"),
+        "partial_file":false, "payload_profile_ids":profiles,
+    });
+    let mut records = vec![
+        ruo_envelope("file_header", header, 0)?,
+        ruo_envelope("section_manifest", json!({"sections":descriptors}), 1)?,
+    ];
+    for section in CONTENT {
+        for body in &sections[section] {
+            records.push(ruo_envelope(section, body.clone(), records.len())?);
+        }
+    }
+    let record_lines: Vec<Vec<u8>> = records.iter().map(ruo_line).collect::<Result<_, _>>()?;
+    let section_digests: Vec<Value> = ORDER[..ORDER.len()-1].iter().map(|section| {
+        let selected: Vec<u8> = records.iter().zip(&record_lines)
+            .filter(|(record, _)| record.get("record_type").and_then(Value::as_str) == Some(*section))
+            .flat_map(|(_, line)| line.clone()).collect();
+        json!({"record_count": records.iter().filter(|record| record.get("record_type").and_then(Value::as_str) == Some(*section)).count(), "section":section, "sha256":sha256_hex(&selected)})
+    }).collect();
+    let external: Vec<u8> = records
+        .iter()
+        .zip(&record_lines)
+        .filter(|(record, _)| {
+            record.get("record_type").and_then(Value::as_str) == Some("external_resource")
+        })
+        .flat_map(|(_, line)| line.clone())
+        .collect();
+    let content: Vec<u8> = record_lines.iter().flatten().copied().collect();
+    let seal = json!({
+        "content_record_count":records.len(), "content_stream_sha256":sha256_hex(&content),
+        "external_resource_manifest_sha256":sha256_hex(&external), "format_version":"1.0",
+        "logical_object_digest":canonical_logical_digest(logical)?,
+        "object_id":object_id, "object_revision_id":revision, "seal_algorithm_version":"ruo-seal/1",
+        "section_digests":section_digests, "total_record_count":records.len()+1,
+    });
+    records.push(ruo_envelope("file_seal", seal, records.len())?);
+    records
+        .iter()
+        .map(ruo_line)
+        .collect::<Result<Vec<_>, _>>()
+        .map(|lines| lines.into_iter().flatten().collect())
+}
+
+fn ruo_envelope(record_type: &str, body: Value, ordinal: usize) -> Result<Value, NativeError> {
+    let body = normalize_record(&body);
+    let body_bytes = serde_json::to_vec(&body)
+        .map_err(|_| NativeError::internal("body serialization failed"))?;
+    Ok(
+        json!({"body":body, "body_sha256":sha256_hex(&body_bytes), "ordinal":ordinal, "record_type":record_type, "record_version":"1.0"}),
+    )
+}
+
+fn ruo_line(record: &Value) -> Result<Vec<u8>, NativeError> {
+    let mut bytes = serde_json::to_vec(&normalize_record(record))
+        .map_err(|_| NativeError::internal("record serialization failed"))?;
+    bytes.push(b'\n');
+    Ok(bytes)
+}
+
+fn normalize_record(value: &Value) -> Value {
+    match value {
+        Value::Object(values) => {
+            let mut keys: Vec<&String> = values.keys().collect();
+            keys.sort();
+            let mut normalized = serde_json::Map::new();
+            for key in keys {
+                normalized.insert(key.clone(), normalize_record(&values[key]));
+            }
+            Value::Object(normalized)
+        }
+        Value::Array(values) => Value::Array(values.iter().map(normalize_record).collect()),
+        Value::Number(number) if number.as_f64() == Some(0.0) => Value::Number(0.into()),
+        other => other.clone(),
+    }
+}
+
+pub fn canonical_logical_digest(logical: &Value) -> Result<String, NativeError> {
+    let bytes = canonical_logical_bytes(logical)?;
+    Ok(sha256(&bytes))
+}
+
+pub fn canonical_logical_bytes(logical: &Value) -> Result<Vec<u8>, NativeError> {
+    let normalized = normalize_logical(logical, "");
+    serde_json::to_vec(&normalized)
+        .map_err(|_| NativeError::internal("logical serialization failed"))
+}
+
+fn normalize_logical(value: &Value, parent: &str) -> Value {
+    match value {
+        Value::Object(values) => {
+            // `serde_json` may be compiled with `preserve_order` through a
+            // workspace feature union. Canonical RUO-U1 JSON nevertheless
+            // requires lexicographically sorted object keys.
+            let mut keys: Vec<&String> = values.keys().collect();
+            keys.sort();
+            let mut normalized = serde_json::Map::new();
+            for key in keys {
+                normalized.insert(key.clone(), normalize_logical(&values[key], key));
+            }
+            Value::Object(normalized)
+        }
+        Value::Array(values) => {
+            let mut normalized: Vec<Value> = values
+                .iter()
+                .map(|value| normalize_logical(value, parent))
+                .collect();
+            if parent.ends_with("_registry")
+                || matches!(
+                    parent,
+                    "units"
+                        | "payloads"
+                        | "states"
+                        | "relations"
+                        | "constraints"
+                        | "projection_descriptors"
+                        | "extension_registry"
+                        | "root_units"
+                        | "selected_units"
+                        | "excluded_entities"
+                )
+            {
+                normalized.sort_by_key(logical_identity);
+            }
+            Value::Array(normalized)
+        }
+        other => other.clone(),
+    }
+}
+
+fn logical_identity(value: &Value) -> String {
+    if let Some(values) = value.as_object() {
+        for key in [
+            "entity_id",
+            "payload_id",
+            "state_id",
+            "relation_id",
+            "evidence_id",
+            "constraint_id",
+            "projection_id",
+            "namespace",
+        ] {
+            if let Some(identity) = values.get(key).and_then(Value::as_str) {
+                return identity.to_string();
+            }
+        }
+    }
+    value
+        .as_str()
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| serde_json::to_string(value).unwrap_or_default())
+}
+
 /// Load a complete RGO-F1 file into an immutable native graph view.
 pub fn load_reason_graph(path: &Path) -> Result<NativeReasonGraph, NativeError> {
-    let bytes = fs::read(path).map_err(|e| NativeError::new("RGO-N1-001", FailureClass::Load, &e.to_string()))?;
-    if bytes.is_empty() || !bytes.ends_with(b"\n") || bytes.iter().any(|byte| *byte == b'\r' || *byte == 0) {
-        return Err(NativeError::new("RGO-N1-001", FailureClass::Load, "RGO-F1 must use canonical LF-delimited bytes"));
+    let bytes = fs::read(path)
+        .map_err(|e| NativeError::new("RGO-N1-001", FailureClass::Load, &e.to_string()))?;
+    if bytes.is_empty()
+        || !bytes.ends_with(b"\n")
+        || bytes.iter().any(|byte| *byte == b'\r' || *byte == 0)
+    {
+        return Err(NativeError::new(
+            "RGO-N1-001",
+            FailureClass::Load,
+            "RGO-F1 must use canonical LF-delimited bytes",
+        ));
     }
-    let lines: Vec<&[u8]> = bytes[..bytes.len() - 1].split(|byte| *byte == b'\n').collect();
+    let lines: Vec<&[u8]> = bytes[..bytes.len() - 1]
+        .split(|byte| *byte == b'\n')
+        .collect();
     if lines.len() != 3 || lines.iter().any(|line| line.is_empty()) {
-        return Err(NativeError::new("RGO-N1-001", FailureClass::Load, "RGO-F1 must contain exactly three records"));
+        return Err(NativeError::new(
+            "RGO-N1-001",
+            FailureClass::Load,
+            "RGO-F1 must contain exactly three records",
+        ));
     }
     let expected_types = ["file_header", "graph", "file_seal"];
     let mut bodies = Vec::new();
     for (ordinal, line) in lines.iter().enumerate() {
-        let envelope: RgoEnvelope = serde_json::from_slice(line)
-            .map_err(|_| NativeError::new("RGO-N1-001", FailureClass::Load, "invalid RGO-F1 envelope"))?;
-        if envelope.ordinal != ordinal as u64 || envelope.record_type != expected_types[ordinal] || envelope.record_version != "1.0" {
-            return Err(NativeError::new("RGO-N1-001", FailureClass::Load, "invalid RGO-F1 record order"));
+        let envelope: RgoEnvelope = serde_json::from_slice(line).map_err(|_| {
+            NativeError::new("RGO-N1-001", FailureClass::Load, "invalid RGO-F1 envelope")
+        })?;
+        if envelope.ordinal != ordinal as u64
+            || envelope.record_type != expected_types[ordinal]
+            || envelope.record_version != "1.0"
+        {
+            return Err(NativeError::new(
+                "RGO-N1-001",
+                FailureClass::Load,
+                "invalid RGO-F1 record order",
+            ));
         }
         let raw = envelope.body.get();
         if envelope.body_sha256 != sha256(raw.as_bytes()) {
-            return Err(NativeError::new("RGO-N1-002", FailureClass::Integrity, "RGO-F1 record body digest mismatch"));
+            return Err(NativeError::new(
+                "RGO-N1-002",
+                FailureClass::Integrity,
+                "RGO-F1 record body digest mismatch",
+            ));
         }
-        let value: Value = serde_json::from_str(raw)
-            .map_err(|_| NativeError::new("RGO-N1-001", FailureClass::Load, "invalid RGO-F1 body"))?;
-        if serde_json::to_string(&value).map_err(|_| NativeError::new("RGO-N1-001", FailureClass::Load, "cannot canonicalize RGO-F1 body"))? != raw {
-            return Err(NativeError::new("RGO-N1-002", FailureClass::Integrity, "RGO-F1 body is not canonical JSON"));
+        let value: Value = serde_json::from_str(raw).map_err(|_| {
+            NativeError::new("RGO-N1-001", FailureClass::Load, "invalid RGO-F1 body")
+        })?;
+        if serde_json::to_string(&value).map_err(|_| {
+            NativeError::new(
+                "RGO-N1-001",
+                FailureClass::Load,
+                "cannot canonicalize RGO-F1 body",
+            )
+        })? != raw
+        {
+            return Err(NativeError::new(
+                "RGO-N1-002",
+                FailureClass::Integrity,
+                "RGO-F1 body is not canonical JSON",
+            ));
         }
         bodies.push(value);
     }
@@ -714,97 +1128,241 @@ pub fn load_reason_graph(path: &Path) -> Result<NativeReasonGraph, NativeError> 
     let seal = &bodies[2];
     if header.get("magic").and_then(Value::as_str) != Some("REASONGRAPH-F1")
         || header.get("format_version").and_then(Value::as_str) != Some("1.0")
-        || header.get("canonicalization_profile").and_then(Value::as_str) != Some("reason-object-graph-canonical-jsonl/1")
-        || header.get("logical_model").and_then(Value::as_str) != Some("mra-reason-object-graph/0.1")
-        || header.get("media_type").and_then(Value::as_str) != Some("application/vnd.reasonscript.reason-graph+jsonl") {
-        return Err(NativeError::new("RGO-N1-003", FailureClass::Compatibility, "unsupported RGO-F1 header"));
+        || header
+            .get("canonicalization_profile")
+            .and_then(Value::as_str)
+            != Some("reason-object-graph-canonical-jsonl/1")
+        || header.get("logical_model").and_then(Value::as_str)
+            != Some("mra-reason-object-graph/0.1")
+        || header.get("media_type").and_then(Value::as_str)
+            != Some("application/vnd.reasonscript.reason-graph+jsonl")
+    {
+        return Err(NativeError::new(
+            "RGO-N1-003",
+            FailureClass::Compatibility,
+            "unsupported RGO-F1 header",
+        ));
     }
     let graph_id = StableId::new(required_string(&logical, "graph_id", "RGO-N1-004")?)?;
     if !graph_id.as_str().starts_with("ruo:graph:") {
-        return Err(NativeError::new("RGO-N1-004", FailureClass::Semantic, "graph_id must use ruo:graph namespace"));
+        return Err(NativeError::new(
+            "RGO-N1-004",
+            FailureClass::Semantic,
+            "graph_id must use ruo:graph namespace",
+        ));
     }
     if header.get("graph_id").and_then(Value::as_str) != Some(graph_id.as_str())
-        || seal.get("graph_id").and_then(Value::as_str) != Some(graph_id.as_str()) {
-        return Err(NativeError::new("RGO-N1-002", FailureClass::Integrity, "RGO-F1 graph identity mismatch"));
+        || seal.get("graph_id").and_then(Value::as_str) != Some(graph_id.as_str())
+    {
+        return Err(NativeError::new(
+            "RGO-N1-002",
+            FailureClass::Integrity,
+            "RGO-F1 graph identity mismatch",
+        ));
     }
-    let graph_body = serde_json::to_string(&logical).map_err(|_| NativeError::new("RGO-N1-001", FailureClass::Load, "cannot encode RGO-F1 graph"))?;
+    let graph_body = serde_json::to_string(&logical).map_err(|_| {
+        NativeError::new(
+            "RGO-N1-001",
+            FailureClass::Load,
+            "cannot encode RGO-F1 graph",
+        )
+    })?;
     let graph_hash = sha256(graph_body.as_bytes());
     if seal.get("graph_hash").and_then(Value::as_str) != Some(graph_hash.as_str()) {
-        return Err(NativeError::new("RGO-N1-002", FailureClass::Integrity, "RGO-F1 graph digest mismatch"));
+        return Err(NativeError::new(
+            "RGO-N1-002",
+            FailureClass::Integrity,
+            "RGO-F1 graph digest mismatch",
+        ));
     }
     let content = [&lines[0][..], b"\n", &lines[1][..], b"\n"].concat();
-    if seal.get("content_stream_sha256").and_then(Value::as_str) != Some(sha256(&content).as_str()) {
-        return Err(NativeError::new("RGO-N1-002", FailureClass::Integrity, "RGO-F1 content digest mismatch"));
+    if seal.get("content_stream_sha256").and_then(Value::as_str) != Some(sha256(&content).as_str())
+    {
+        return Err(NativeError::new(
+            "RGO-N1-002",
+            FailureClass::Integrity,
+            "RGO-F1 content digest mismatch",
+        ));
     }
     let mut units = BTreeSet::new();
     let mut relation_ids = BTreeSet::new();
     for unit in required_array(&logical, "units", "RGO-N1-004")? {
         let id = StableId::new(required_string(unit, "unit_id", "RGO-N1-004")?)?;
         if !id.as_str().starts_with("ruo:unit:") || !units.insert(id) {
-            return Err(NativeError::new("RGO-N1-004", FailureClass::Semantic, "invalid or duplicate ReasonGraph Unit ID"));
+            return Err(NativeError::new(
+                "RGO-N1-004",
+                FailureClass::Semantic,
+                "invalid or duplicate ReasonGraph Unit ID",
+            ));
         }
     }
     for relation in required_array(&logical, "relations", "RGO-N1-004")? {
         let id = StableId::new(required_string(relation, "relation_id", "RGO-N1-004")?)?;
         if !id.as_str().starts_with("ruo:relation:") || !relation_ids.insert(id) {
-            return Err(NativeError::new("RGO-N1-004", FailureClass::Semantic, "invalid or duplicate ReasonGraph Relation ID"));
+            return Err(NativeError::new(
+                "RGO-N1-004",
+                FailureClass::Semantic,
+                "invalid or duplicate ReasonGraph Relation ID",
+            ));
         }
     }
     let known: BTreeSet<StableId> = units.union(&relation_ids).cloned().collect();
     for relation in required_array(&logical, "relations", "RGO-N1-004")? {
         for endpoint_name in ["source", "target"] {
-            let endpoint = relation.get(endpoint_name).and_then(Value::as_object)
-                .ok_or_else(|| NativeError::new("RGO-N1-004", FailureClass::Semantic, "ReasonGraph endpoint is required"))?;
+            let endpoint = relation
+                .get(endpoint_name)
+                .and_then(Value::as_object)
+                .ok_or_else(|| {
+                    NativeError::new(
+                        "RGO-N1-004",
+                        FailureClass::Semantic,
+                        "ReasonGraph endpoint is required",
+                    )
+                })?;
             let kind = endpoint.get("entity_kind").and_then(Value::as_str);
-            let id = StableId::new(endpoint.get("entity_id").and_then(Value::as_str)
-                .ok_or_else(|| NativeError::new("RGO-N1-004", FailureClass::Semantic, "ReasonGraph endpoint ID is required"))?)?;
+            let id = StableId::new(
+                endpoint
+                    .get("entity_id")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        NativeError::new(
+                            "RGO-N1-004",
+                            FailureClass::Semantic,
+                            "ReasonGraph endpoint ID is required",
+                        )
+                    })?,
+            )?;
             if !matches!(kind, Some("unit") | Some("relation")) || !known.contains(&id) {
-                return Err(NativeError::new("RGO-N1-004", FailureClass::Semantic, "ReasonGraph endpoint does not resolve"));
+                return Err(NativeError::new(
+                    "RGO-N1-004",
+                    FailureClass::Semantic,
+                    "ReasonGraph endpoint does not resolve",
+                ));
             }
         }
     }
-    Ok(NativeReasonGraph { graph_id, graph_hash, units, relation_ids, logical, canonical_bytes: Some(bytes) })
+    Ok(NativeReasonGraph {
+        graph_id,
+        graph_hash,
+        units,
+        relation_ids,
+        logical,
+        canonical_bytes: Some(bytes),
+    })
 }
 
 /// Deterministic, read-only queries over a verified native ReasonGraph.
-pub fn query_reason_graph(graph: &NativeReasonGraph, query: &str, entity_id: Option<&str>) -> Result<Value, NativeError> {
-    if !matches!(query, "summary" | "entity" | "outgoing" | "incoming" | "neighbors") {
-        return Err(NativeError::new("RGO-N1-005", FailureClass::Query, "unsupported native ReasonGraph query"));
+pub fn query_reason_graph(
+    graph: &NativeReasonGraph,
+    query: &str,
+    entity_id: Option<&str>,
+) -> Result<Value, NativeError> {
+    if !matches!(
+        query,
+        "summary" | "entity" | "outgoing" | "incoming" | "neighbors"
+    ) {
+        return Err(NativeError::new(
+            "RGO-N1-005",
+            FailureClass::Query,
+            "unsupported native ReasonGraph query",
+        ));
     }
     let units = required_array(&graph.logical, "units", "RGO-N1-004")?;
     let relations = required_array(&graph.logical, "relations", "RGO-N1-004")?;
     let entity_id = if query == "summary" {
         None
     } else {
-        let id = entity_id.ok_or_else(|| NativeError::new("RGO-N1-006", FailureClass::Query, "entity ID is required"))?;
-        if !graph.units.iter().any(|value| value.as_str() == id) && !graph.relation_ids.iter().any(|value| value.as_str() == id) {
-            return Err(NativeError::new("RGO-N1-006", FailureClass::Query, "entity ID does not resolve in ReasonGraph"));
+        let id = entity_id.ok_or_else(|| {
+            NativeError::new("RGO-N1-006", FailureClass::Query, "entity ID is required")
+        })?;
+        if !graph.units.iter().any(|value| value.as_str() == id)
+            && !graph.relation_ids.iter().any(|value| value.as_str() == id)
+        {
+            return Err(NativeError::new(
+                "RGO-N1-006",
+                FailureClass::Query,
+                "entity ID does not resolve in ReasonGraph",
+            ));
         }
         Some(id)
     };
     let result = match query {
-        "summary" => serde_json::json!({"unit_count": units.len(), "relation_count": relations.len(), "root_refs": graph.logical.get("root_refs").cloned().unwrap_or(Value::Array(Vec::new()))}),
-        "entity" => units.iter().chain(relations.iter())
-            .find(|entity| entity.get("unit_id").or_else(|| entity.get("relation_id")).and_then(Value::as_str) == entity_id)
-            .cloned().ok_or_else(|| NativeError::new("RGO-N1-006", FailureClass::Query, "entity ID does not resolve in ReasonGraph"))?,
+        "summary" => {
+            serde_json::json!({"unit_count": units.len(), "relation_count": relations.len(), "root_refs": graph.logical.get("root_refs").cloned().unwrap_or(Value::Array(Vec::new()))})
+        }
+        "entity" => units
+            .iter()
+            .chain(relations.iter())
+            .find(|entity| {
+                entity
+                    .get("unit_id")
+                    .or_else(|| entity.get("relation_id"))
+                    .and_then(Value::as_str)
+                    == entity_id
+            })
+            .cloned()
+            .ok_or_else(|| {
+                NativeError::new(
+                    "RGO-N1-006",
+                    FailureClass::Query,
+                    "entity ID does not resolve in ReasonGraph",
+                )
+            })?,
         "outgoing" | "incoming" => {
-            let endpoint = if query == "outgoing" { "source" } else { "target" };
-            Value::Array(relations.iter().filter(|relation| relation.get(endpoint).and_then(Value::as_object).and_then(|value| value.get("entity_id")).and_then(Value::as_str) == entity_id).cloned().collect())
+            let endpoint = if query == "outgoing" {
+                "source"
+            } else {
+                "target"
+            };
+            Value::Array(
+                relations
+                    .iter()
+                    .filter(|relation| {
+                        relation
+                            .get(endpoint)
+                            .and_then(Value::as_object)
+                            .and_then(|value| value.get("entity_id"))
+                            .and_then(Value::as_str)
+                            == entity_id
+                    })
+                    .cloned()
+                    .collect(),
+            )
         }
         "neighbors" => {
             let mut adjacent = Vec::new();
             for relation in relations {
-                let source = relation.get("source").and_then(Value::as_object).and_then(|value| value.get("entity_id")).and_then(Value::as_str);
-                let target = relation.get("target").and_then(Value::as_object).and_then(|value| value.get("entity_id")).and_then(Value::as_str);
-                let relation_id = relation.get("relation_id").cloned().ok_or_else(|| NativeError::new("RGO-N1-004", FailureClass::Semantic, "relation ID is required"))?;
-                if source == entity_id { adjacent.push(serde_json::json!({"relation_id": relation_id, "direction":"outgoing", "entity_ref": relation.get("target").cloned()})); }
-                if target == entity_id { adjacent.push(serde_json::json!({"relation_id": relation_id, "direction":"incoming", "entity_ref": relation.get("source").cloned()})); }
+                let source = relation
+                    .get("source")
+                    .and_then(Value::as_object)
+                    .and_then(|value| value.get("entity_id"))
+                    .and_then(Value::as_str);
+                let target = relation
+                    .get("target")
+                    .and_then(Value::as_object)
+                    .and_then(|value| value.get("entity_id"))
+                    .and_then(Value::as_str);
+                let relation_id = relation.get("relation_id").cloned().ok_or_else(|| {
+                    NativeError::new(
+                        "RGO-N1-004",
+                        FailureClass::Semantic,
+                        "relation ID is required",
+                    )
+                })?;
+                if source == entity_id {
+                    adjacent.push(serde_json::json!({"relation_id": relation_id, "direction":"outgoing", "entity_ref": relation.get("target").cloned()}));
+                }
+                if target == entity_id {
+                    adjacent.push(serde_json::json!({"relation_id": relation_id, "direction":"incoming", "entity_ref": relation.get("source").cloned()}));
+                }
             }
             Value::Array(adjacent)
         }
         _ => unreachable!(),
     };
-    Ok(serde_json::json!({"profile": NATIVE_REASON_GRAPH_QUERY_PROFILE, "graph_id": graph.graph_id, "graph_hash": graph.graph_hash, "query": query, "entity_id": entity_id, "read_only": true, "result": result}))
+    Ok(
+        serde_json::json!({"profile": NATIVE_REASON_GRAPH_QUERY_PROFILE, "graph_id": graph.graph_id, "graph_hash": graph.graph_hash, "query": query, "entity_id": entity_id, "read_only": true, "result": result}),
+    )
 }
 
 /// Atomically apply the safe Phase 16 native graph-update subset.
@@ -813,14 +1371,27 @@ pub fn query_reason_graph(graph: &NativeReasonGraph, query: &str, entity_id: Opt
 /// therefore preserves all graph identities, references, and lifecycle
 /// semantics already verified by RGO-F1 loading while providing native
 /// compare-and-commit publication without partial writes.
-pub fn transact_reason_graph_file(path: &Path, proposal: &Value, expected_graph_hash: &str, transaction_id: &str) -> Result<Value, NativeError> {
+pub fn transact_reason_graph_file(
+    path: &Path,
+    proposal: &Value,
+    expected_graph_hash: &str,
+    transaction_id: &str,
+) -> Result<Value, NativeError> {
     let graph = load_reason_graph(path)?;
-    let _before_bytes = graph.canonical_bytes.clone().ok_or_else(|| NativeError::new("RGO-N1-007", FailureClass::Persistence, "missing canonical graph bytes"))?;
-    let rejected = |reason: &str, diagnostic: &str| serde_json::json!({
-        "transaction_id": transaction_id, "committed": false, "reason": reason,
-        "diagnostic": diagnostic, "partial_commit_count": 0, "graph_hash": graph.graph_hash,
-        "source_bytes_unchanged": true,
-    });
+    let _before_bytes = graph.canonical_bytes.clone().ok_or_else(|| {
+        NativeError::new(
+            "RGO-N1-007",
+            FailureClass::Persistence,
+            "missing canonical graph bytes",
+        )
+    })?;
+    let rejected = |reason: &str, diagnostic: &str| {
+        serde_json::json!({
+            "transaction_id": transaction_id, "committed": false, "reason": reason,
+            "diagnostic": diagnostic, "partial_commit_count": 0, "graph_hash": graph.graph_hash,
+            "source_bytes_unchanged": true,
+        })
+    };
     if expected_graph_hash != graph.graph_hash {
         return Ok(rejected("stale_graph", "RRG-019"));
     }
@@ -831,7 +1402,10 @@ pub fn transact_reason_graph_file(path: &Path, proposal: &Value, expected_graph_
         Some(value) if value.len() == 1 && value.contains_key("graph_updates") => value,
         _ => return Ok(rejected("unknown_proposal_operation", "RRG-020")),
     };
-    let updates = match proposal_object.get("graph_updates").and_then(Value::as_object) {
+    let updates = match proposal_object
+        .get("graph_updates")
+        .and_then(Value::as_object)
+    {
         Some(value) if value.len() == 1 => value,
         _ => return Ok(rejected("invalid_graph_update", "RRG-020")),
     };
@@ -840,19 +1414,56 @@ pub fn transact_reason_graph_file(path: &Path, proposal: &Value, expected_graph_
         None => return Ok(rejected("native_phase16_metadata_only", "RRG-020")),
     };
     let mut candidate = graph.logical.clone();
-    candidate.as_object_mut().ok_or_else(|| NativeError::new("RGO-N1-004", FailureClass::Semantic, "ReasonGraph must be an object"))?
+    candidate
+        .as_object_mut()
+        .ok_or_else(|| {
+            NativeError::new(
+                "RGO-N1-004",
+                FailureClass::Semantic,
+                "ReasonGraph must be an object",
+            )
+        })?
         .insert("metadata".to_owned(), metadata);
     let payload = encode_reason_graph_bytes(&candidate)?;
-    let candidate_hash = sha256(serde_json::to_string(&candidate).map_err(|_| NativeError::new("RGO-N1-007", FailureClass::Persistence, "cannot encode candidate graph"))?.as_bytes());
-    let temporary = path.with_file_name(format!(".{}.native-{}", path.file_name().and_then(|name| name.to_str()).unwrap_or("graph.rgraph"), sha256_hex(transaction_id.as_bytes())));
+    let candidate_hash = sha256(
+        serde_json::to_string(&candidate)
+            .map_err(|_| {
+                NativeError::new(
+                    "RGO-N1-007",
+                    FailureClass::Persistence,
+                    "cannot encode candidate graph",
+                )
+            })?
+            .as_bytes(),
+    );
+    let temporary = path.with_file_name(format!(
+        ".{}.native-{}",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("graph.rgraph"),
+        sha256_hex(transaction_id.as_bytes())
+    ));
     let write_result = (|| -> Result<(), NativeError> {
-        let mut file = OpenOptions::new().create(true).write(true).truncate(true).open(&temporary)
-            .map_err(|error| NativeError::new("RGO-N1-007", FailureClass::Persistence, &error.to_string()))?;
-        file.write_all(&payload).and_then(|_| file.sync_all())
-            .map_err(|error| NativeError::new("RGO-N1-007", FailureClass::Persistence, &error.to_string()))?;
-        fs::rename(&temporary, path).map_err(|error| NativeError::new("RGO-N1-007", FailureClass::Persistence, &error.to_string()))
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&temporary)
+            .map_err(|error| {
+                NativeError::new("RGO-N1-007", FailureClass::Persistence, &error.to_string())
+            })?;
+        file.write_all(&payload)
+            .and_then(|_| file.sync_all())
+            .map_err(|error| {
+                NativeError::new("RGO-N1-007", FailureClass::Persistence, &error.to_string())
+            })?;
+        fs::rename(&temporary, path).map_err(|error| {
+            NativeError::new("RGO-N1-007", FailureClass::Persistence, &error.to_string())
+        })
     })();
-    if temporary.exists() { let _ = fs::remove_file(&temporary); }
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
     write_result?;
     Ok(serde_json::json!({
         "transaction_id": transaction_id, "committed": true, "partial_commit_count": 0,
@@ -869,25 +1480,64 @@ fn encode_reason_graph_bytes(graph: &Value) -> Result<Vec<u8>, NativeError> {
     let header_record = envelope("file_header", &header, 0)?;
     let graph_record = envelope("graph", graph, 1)?;
     let mut content = Vec::new();
-    content.extend(serde_json::to_vec(&header_record).map_err(|_| NativeError::new("RGO-N1-007", FailureClass::Persistence, "cannot encode RGO-F1 header"))?); content.push(b'\n');
-    content.extend(serde_json::to_vec(&graph_record).map_err(|_| NativeError::new("RGO-N1-007", FailureClass::Persistence, "cannot encode RGO-F1 graph"))?); content.push(b'\n');
+    content.extend(serde_json::to_vec(&header_record).map_err(|_| {
+        NativeError::new(
+            "RGO-N1-007",
+            FailureClass::Persistence,
+            "cannot encode RGO-F1 header",
+        )
+    })?);
+    content.push(b'\n');
+    content.extend(serde_json::to_vec(&graph_record).map_err(|_| {
+        NativeError::new(
+            "RGO-N1-007",
+            FailureClass::Persistence,
+            "cannot encode RGO-F1 graph",
+        )
+    })?);
+    content.push(b'\n');
     let seal = serde_json::json!({"format_version":"1.0", "graph_id":graph_id, "graph_hash":sha256(serde_json::to_string(graph).map_err(|_| NativeError::new("RGO-N1-007", FailureClass::Persistence, "cannot hash RGO-F1 graph"))?.as_bytes()), "content_stream_sha256":sha256(&content), "content_record_count":2, "total_record_count":3});
     let seal_record = envelope("file_seal", &seal, 2)?;
-    content.extend(serde_json::to_vec(&seal_record).map_err(|_| NativeError::new("RGO-N1-007", FailureClass::Persistence, "cannot encode RGO-F1 seal"))?); content.push(b'\n');
+    content.extend(serde_json::to_vec(&seal_record).map_err(|_| {
+        NativeError::new(
+            "RGO-N1-007",
+            FailureClass::Persistence,
+            "cannot encode RGO-F1 seal",
+        )
+    })?);
+    content.push(b'\n');
     Ok(content)
 }
 
 fn envelope(record_type: &str, body: &Value, ordinal: u64) -> Result<Value, NativeError> {
-    let body_bytes = serde_json::to_vec(body).map_err(|_| NativeError::new("RGO-N1-007", FailureClass::Persistence, "cannot encode RGO-F1 record"))?;
-    Ok(serde_json::json!({"record_type":record_type, "record_version":"1.0", "ordinal":ordinal, "body":body, "body_sha256":sha256(&body_bytes)}))
+    let body_bytes = serde_json::to_vec(body).map_err(|_| {
+        NativeError::new(
+            "RGO-N1-007",
+            FailureClass::Persistence,
+            "cannot encode RGO-F1 record",
+        )
+    })?;
+    Ok(
+        serde_json::json!({"record_type":record_type, "record_version":"1.0", "ordinal":ordinal, "body":body, "body_sha256":sha256(&body_bytes)}),
+    )
 }
 
 fn required_string<'a>(value: &'a Value, key: &str, code: &str) -> Result<&'a str, NativeError> {
-    value.get(key).and_then(Value::as_str).ok_or_else(|| NativeError::new(code, FailureClass::Semantic, "required string is missing"))
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| NativeError::new(code, FailureClass::Semantic, "required string is missing"))
 }
 
-fn required_array<'a>(value: &'a Value, key: &str, code: &str) -> Result<&'a Vec<Value>, NativeError> {
-    value.get(key).and_then(Value::as_array).ok_or_else(|| NativeError::new(code, FailureClass::Semantic, "required array is missing"))
+fn required_array<'a>(
+    value: &'a Value,
+    key: &str,
+    code: &str,
+) -> Result<&'a Vec<Value>, NativeError> {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .ok_or_else(|| NativeError::new(code, FailureClass::Semantic, "required array is missing"))
 }
 
 fn string_at(value: &Value, path: &[&str]) -> Result<String, NativeError> {

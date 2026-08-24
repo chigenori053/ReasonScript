@@ -79,7 +79,7 @@ def try_rust_ir(
         "tensor_metadata": outcome.metadata.get("tensor_metadata", []),
         "tensor_trace": outcome.metadata.get("tensor_trace", []),
         "loop_trace": outcome.metadata.get("loop_trace", []),
-        "vision_trace": [],
+        "vision_trace": outcome.metadata.get("vision_trace", []),
         "calculations": calculations,
     }, None
 
@@ -102,8 +102,6 @@ def unsupported_rust_operations(ir_document: dict[str, Any]) -> tuple[str, ...]:
             elif op == "call_ruo" and isinstance(function_id, str):
                 if function_id not in RUST_RUO_FUNCTIONS:
                     unsupported.add(function_id)
-            elif op == "call_vision" and isinstance(function_id, str):
-                unsupported.add(function_id)
             for value in node.values():
                 walk(value)
         elif isinstance(node, list):
@@ -143,7 +141,7 @@ def rust_trace_unsupported_operations(ir_document: dict[str, Any]) -> tuple[str,
 
     def walk(node: Any) -> None:
         if isinstance(node, dict):
-            if node.get("op") in {"call_optimizer", "call_vision"}:
+            if node.get("op") == "call_optimizer":
                 unsupported.add(str(node.get("function_id", node.get("op"))))
             for value in node.values():
                 walk(value)

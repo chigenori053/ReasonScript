@@ -17,9 +17,31 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use reasonscript_native_reasonunit_runtime::NativeReasonUnitObject;
+
+#[derive(Debug)]
+pub struct RuntimeReasonObject {
+    pub object: RefCell<NativeReasonUnitObject>,
+    pub source_path: PathBuf,
+    pub resource_root: PathBuf,
+    pub filesystem_write: bool,
+}
+
+#[derive(Debug)]
+pub struct RuntimeReasonObjectSnapshot {
+    pub object: NativeReasonUnitObject,
+    pub owner: Rc<RuntimeReasonObject>,
+}
+
+#[derive(Debug)]
+pub struct RuntimeReasonTransaction {
+    pub snapshot: Rc<RuntimeReasonObjectSnapshot>,
+    pub operations: Vec<serde_json::Value>,
+    pub closed: bool,
+}
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -31,8 +53,9 @@ pub enum Value {
     Array(Rc<RefCell<Vec<Value>>>),
     Struct(Rc<StructValue>),
     Tensor(Rc<str>),
-    ReasonObject(Rc<NativeReasonUnitObject>),
-    ReasonObjectSnapshot(Rc<NativeReasonUnitObject>),
+    ReasonObject(Rc<RuntimeReasonObject>),
+    ReasonObjectSnapshot(Rc<RuntimeReasonObjectSnapshot>),
+    ReasonTransaction(Rc<RefCell<RuntimeReasonTransaction>>),
     Json(Rc<serde_json::Value>),
 }
 
@@ -81,6 +104,7 @@ impl Value {
             Value::Tensor(_) => "Tensor",
             Value::ReasonObject(_) => "ReasonObject",
             Value::ReasonObjectSnapshot(_) => "ReasonObjectSnapshot",
+            Value::ReasonTransaction(_) => "ReasonTransaction",
             Value::Json(_) => "ReasonValue",
         }
     }
@@ -100,11 +124,15 @@ impl PartialEq for Value {
             }
             (Value::Tensor(a), Value::Tensor(b)) => a == b,
             (Value::ReasonObject(a), Value::ReasonObject(b)) => {
+                let a = a.object.borrow();
+                let b = b.object.borrow();
                 a.object_id == b.object_id && a.revision_id == b.revision_id
             }
             (Value::ReasonObjectSnapshot(a), Value::ReasonObjectSnapshot(b)) => {
-                a.object_id == b.object_id && a.revision_id == b.revision_id
+                a.object.object_id == b.object.object_id
+                    && a.object.revision_id == b.object.revision_id
             }
+            (Value::ReasonTransaction(a), Value::ReasonTransaction(b)) => Rc::ptr_eq(a, b),
             (Value::Json(a), Value::Json(b)) => a == b,
             _ => false,
         }
@@ -128,10 +156,19 @@ impl fmt::Display for Value {
             Value::Array(_) => write!(f, "<array>"),
             Value::Struct(value) => write!(f, "<struct {}>", value.type_name),
             Value::Tensor(id) => write!(f, "<tensor {id}>"),
-            Value::ReasonObject(value) => write!(f, "<reason_object {}>", value.object_id.as_str()),
+            Value::ReasonObject(value) => write!(
+                f,
+                "<reason_object {}>",
+                value.object.borrow().object_id.as_str()
+            ),
             Value::ReasonObjectSnapshot(value) => {
-                write!(f, "<reason_object_snapshot {}>", value.object_id.as_str())
+                write!(
+                    f,
+                    "<reason_object_snapshot {}>",
+                    value.object.object_id.as_str()
+                )
             }
+            Value::ReasonTransaction(_) => write!(f, "<reason_transaction>"),
             Value::Json(_) => write!(f, "<reason_value>"),
         }
     }
@@ -175,15 +212,24 @@ pub fn to_json(value: &Value) -> serde_json::Value {
             serde_json::json!({ "tensor_id": id.to_string() })
         }
         Value::ReasonObject(value) => serde_json::json!({
-            "object_id": value.object_id.as_str(),
-            "revision_id": value.revision_id.as_str(),
+            "object_id": value.object.borrow().object_id.as_str(),
+            "revision_id": value.object.borrow().revision_id.as_str(),
             "status": "loaded",
         }),
         Value::ReasonObjectSnapshot(value) => serde_json::json!({
-            "object_id": value.object_id.as_str(),
-            "revision_id": value.revision_id.as_str(),
+            "object_id": value.object.object_id.as_str(),
+            "revision_id": value.object.revision_id.as_str(),
             "status": "snapshot",
         }),
+        Value::ReasonTransaction(value) => {
+            let transaction = value.borrow();
+            serde_json::json!({
+                "object_id": transaction.snapshot.object.object_id.as_str(),
+                "source_revision": transaction.snapshot.object.revision_id.as_str(),
+                "operation_count": transaction.operations.len(),
+                "status": if transaction.closed { "closed" } else { "open" },
+            })
+        }
         Value::Json(value) => (**value).clone(),
     }
 }

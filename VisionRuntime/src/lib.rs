@@ -672,11 +672,26 @@ fn tensor_logical_digest(body: &Value, values: &[f32]) -> String {
         "validity": body["validity"], "unit": Value::Null, "reference_frame": Value::Null,
         "explicit_zero_policy": "forbidden", "critical_extensions": {}
     });
-    sha_prefixed(
-        serde_json::to_string(&normalized)
-            .expect("canonical JSON")
-            .as_bytes(),
-    )
+    sha_prefixed(&canonical_json_bytes(&normalized))
+}
+
+fn canonical_json_bytes(value: &Value) -> Vec<u8> {
+    fn normalize(value: &Value) -> Value {
+        match value {
+            Value::Object(values) => {
+                let mut keys: Vec<&String> = values.keys().collect();
+                keys.sort();
+                let mut result = serde_json::Map::new();
+                for key in keys {
+                    result.insert(key.clone(), normalize(&values[key]));
+                }
+                Value::Object(result)
+            }
+            Value::Array(values) => Value::Array(values.iter().map(normalize).collect()),
+            other => other.clone(),
+        }
+    }
+    serde_json::to_vec(&normalize(value)).expect("canonical JSON")
 }
 
 fn encode_f32(values: &[f32]) -> Result<Vec<u8>, VisionError> {
