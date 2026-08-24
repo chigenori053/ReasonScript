@@ -19,7 +19,9 @@ any change proposed here:
 
 - `playground/backend` (FastAPI backend — retained; its API surface is what
   both the legacy and official UIs call)
-- `RuntimeReal`, `HybridRuntime`, `RuntimeComplex` (Rust runtimes)
+- `RuntimeReal`, `HybridRuntime` (retained Rust compatibility runtimes;
+  the unreferenced `RuntimeComplex` placeholder was removed in Runtime Rust
+  Consolidation Phase 9)
 - `frontend` (the Python compiler/parser/LSP language frontend — confirmed
   in [ide_version_inventory.md](ide_version_inventory.md) to be unrelated to
   IDE UI work)

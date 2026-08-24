@@ -157,7 +157,6 @@ def _run_package(
         "runtime_dispatch": {
             "attempted": "rust_computation_vm",
             "selected": "rust_computation_vm",
-            "fallback_reason": None,
         },
     }
     if entry is not None:

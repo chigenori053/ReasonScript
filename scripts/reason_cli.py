@@ -425,7 +425,6 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
         result["artifacts"]["runtime_dispatch"] = {
             "attempted": "rust_computation_vm",
             "selected": "rust_computation_vm",
-            "fallback_reason": None,
         }
         try:
             runtime_result = execute_rust_program(
@@ -452,43 +451,6 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
             result["artifacts"]["runtime_dispatch"]["failure_reason"] = error.reason
             result["diagnostics"].append(diagnostic)
     return result
-
-
-def _try_rust_execution(program: Any, resource_root: Path, allow_read: bool, allow_write: bool) -> dict[str, Any] | None:
-    """Compatibility probe for reference tests; product dispatch is strict."""
-    result, _reason = _try_rust_execution_details(
-        program, resource_root, allow_read, allow_write
-    )
-    return result
-
-
-def _try_rust_execution_details(
-    program: Any,
-    resource_root: Path,
-    allow_read: bool,
-    allow_write: bool,
-    *,
-    include_trace: bool = False,
-) -> tuple[dict[str, Any] | None, str | None]:
-    """Return a probe result without enabling a production fallback path."""
-    from toolchain.runtime_dispatch import RustDispatchError, execute_rust_program
-
-    try:
-        return execute_rust_program(
-            program,
-            resource_root,
-            allow_read,
-            allow_write,
-            include_trace=include_trace,
-        ), None
-    except RustDispatchError as error:
-        return None, error.reason
-
-
-def _uses_tensor_io(ir_document: dict[str, Any]) -> bool:
-    from toolchain.runtime_dispatch import uses_tensor_io
-
-    return uses_tensor_io(ir_document)
 
 
 def _requires_integrated_runtime(source: str, analyze: dict[str, Any]) -> bool:

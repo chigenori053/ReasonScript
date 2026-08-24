@@ -85,7 +85,7 @@ def test_package_run_executes_imported_function_and_entry(tmp_path: Path, capsys
     assert payload["runtime_result"]["calculations"] == {"Main": 42}
     assert payload["trace"] == []
     assert payload["execution_mode"] == "integrated-rust"
-    assert payload["runtime_dispatch"]["fallback_reason"] is None
+    assert "fallback_reason" not in payload["runtime_dispatch"]
 
 
 def test_file_form_run_uses_package_context_and_does_not_ignore_entry(

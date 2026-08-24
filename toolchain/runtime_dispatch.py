@@ -159,30 +159,6 @@ def unsupported_rust_operations(ir_document: dict[str, Any]) -> tuple[str, ...]:
     return tuple(sorted(unsupported))
 
 
-def tensor_io_operations(ir_document: dict[str, Any]) -> frozenset[str]:
-    operations: set[str] = set()
-
-    def walk(node: Any) -> bool:
-        if isinstance(node, dict):
-            if node.get("op") == "call_tensor" and node.get("function_id") in {
-                "tensor.load",
-                "tensor.save",
-            }:
-                operations.add(node["function_id"])
-            for value in node.values():
-                walk(value)
-        if isinstance(node, list):
-            for item in node:
-                walk(item)
-
-    walk(ir_document)
-    return frozenset(operations)
-
-
-def uses_tensor_io(ir_document: dict[str, Any]) -> bool:
-    return bool(tensor_io_operations(ir_document))
-
-
 def rust_trace_unsupported_operations(ir_document: dict[str, Any]) -> tuple[str, ...]:
     unsupported: set[str] = set()
 

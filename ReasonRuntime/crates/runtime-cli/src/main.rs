@@ -285,9 +285,7 @@ fn numeric_mode_from_name(name: &str) -> NumericMode {
 /// Phase 9: `REASONSCRIPT_NUMERIC_MODE=native-fast` opts into real `f32`
 /// rounding and the parallel/rayon op paths (see `NumericMode`'s doc
 /// comment). Any other value (including unset) keeps the default,
-/// unchanged `CompatReference` behavior -- mirrors the
-/// `REASONSCRIPT_SHADOW_MODE` env-var precedent from Phase 6
-/// (`scripts/reason_cli.py`), not a new pattern.
+/// unchanged `CompatReference` behavior.
 fn numeric_mode_from_env() -> NumericMode {
     match env::var("REASONSCRIPT_NUMERIC_MODE").as_deref() {
         Ok("native-fast") => NumericMode::NativeFast,

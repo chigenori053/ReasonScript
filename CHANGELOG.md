@@ -29,6 +29,14 @@
 
 ### Added
 
+- Completed Rust runtime consolidation Phase 9 cleanup: deleted the
+  unreferenced `Legacy/runtime` tree and `RuntimeComplex` placeholder crate;
+  removed Phase 6 optional-dispatch probes, Tensor-I/O fallback detection,
+  `fallback_reason` result metadata, stale shadow-mode guidance, and obsolete
+  build/pytest entries; and renamed the native dispatch regression suite.
+  Python reference engines and `RuntimeReal/HybridRuntime` remain because
+  active differential and SDK/DTO compatibility tests still require them.
+
 - Completed Rust runtime consolidation Phase 8: renamed the primary workspace
   to `ReasonRuntime/`, moved the RUO and Vision libraries/binaries into
   `crates/reason-object-core` and `crates/vision-core`, switched build/install/
@@ -202,7 +210,7 @@
   `runtime-cli`'s `serde_json` now uses `preserve_order` so
   `calculation_results` comes back in execution order rather than
   alphabetized. 8 new tests
-  (`runtime_completeness_tests/test_phase6_rust_default_dispatch.py`).
+  (`runtime_completeness_tests/test_native_runtime_dispatch.py`).
   Optimizers (SGD/Momentum/Adam/AdamW) remain Pending, per an explicit
   decision to treat that as separate, not-yet-scoped work (see AGENTS.md).
 - Added Phase 5 "Rust Autograd" to `reasonscript-tensor-core`

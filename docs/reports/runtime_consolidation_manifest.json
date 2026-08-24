@@ -8,6 +8,7 @@
     "reason_ci_passes_without_python_fallback",
     "documentation_and_package_manifest_updated"
   ],
+  "deletion_gates_status": "passed",
   "execution_paths": {
     "installed_distribution": {
       "computation_vm_binary_packaged": true,
@@ -658,12 +659,17 @@
     ]
   },
   "native_failure_policy": "structured_diagnostic_without_python_execution",
-  "phase": 8,
-  "retirement_candidates": {
-    "bridges": [
+  "phase": 9,
+  "retained_assets": {
+    "compatibility_rust_layouts": [
+      "ReasonRuntime",
+      "RuntimeReal",
+      "HybridRuntime"
+    ],
+    "native_host_bridge": [
       "frontend/computation_ir/rust_bridge.py"
     ],
-    "python_reference_only": [
+    "python_reference_implementations": [
       "frontend/integrated_computation_runtime.py",
       "frontend/computation_ir/interpreter.py",
       "frontend/tensor/runtime.py",
@@ -672,13 +678,6 @@
       "frontend/vision/runtime.py",
       "frontend/runtime_integration.py",
       "toolchain/reasoning_runtime.py"
-    ],
-    "rust_layouts_after_migration": [
-      "ReasonRuntime",
-      "RuntimeReal",
-      "HybridRuntime",
-      "RuntimeComplex",
-      "Legacy/runtime"
     ]
   },
   "rust_workspaces": [
@@ -686,8 +685,7 @@
     "VisualizationRuntime",
     "ClusterRuntime",
     "RuntimeReal",
-    "HybridRuntime",
-    "RuntimeComplex"
+    "HybridRuntime"
   ],
   "schema": "reasonscript-runtime-consolidation-manifest/1.0",
   "version": "1.0"

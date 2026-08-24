@@ -90,7 +90,6 @@ PYTEST_GROUPS = {
 RUST_CRATES = [
     "HybridRuntime",
     "RuntimeReal",
-    "RuntimeComplex",
     "Test",
     "TestPlayground",
     "apps/reasonscript-ide/src-tauri",

@@ -165,8 +165,9 @@ what's safe without a breaking syntax change:
 
 **Explicitly out of scope for this increment** (do not assume these are
 done): the new `reason-computation-ir/0.1` IR, any Rust crate beyond the
-runtimes that already exist in this repository (`RuntimeReal`,
-`RuntimeComplex`, `HybridRuntime`, etc.), `Parameter<T, Shape>` /
+runtimes that already existed at that phase (`RuntimeReal`,
+`RuntimeComplex`, `HybridRuntime`, etc.; `RuntimeComplex` was removed in
+Runtime Rust Consolidation Phase 9), `Parameter<T, Shape>` /
 `TensorArray<T, S>` types as first-class generic types, `Unknown` →
 `TypeVar`/`Any`/`ErrorType` splitting, and introducing `//` as an
 integer-division operator (`//` is currently the ReasonScript
@@ -646,73 +647,30 @@ Phase 8 of `docs/development/runtime_rust_consolidation_plan.md` is complete:
   were deleted.
 
 `VisualizationRuntime` and `ClusterRuntime` remain separate by design because
-they retain justified process boundaries. Phase 9 audits the remaining legacy
-runtime crates and removes only assets proven obsolete.
+they retain justified process boundaries. The Phase 9 audit is recorded below.
+
+## Rust Runtime Consolidation — Phase 9 Cleanup
+
+Phase 9 of `docs/development/runtime_rust_consolidation_plan.md` is complete:
+
+- deleted unreferenced `Legacy/runtime` and the placeholder `RuntimeComplex`;
+- removed obsolete Phase 6 optional-dispatch helpers, Tensor-I/O fallback
+  detection, fallback result metadata, and shadow-mode guidance;
+- removed corresponding tests, build matrix entries, and pytest exclusions;
+- retained Python evaluator/reference modules because active differential
+  suites still use them as independent semantic oracles; and
+- retained `RuntimeReal`/`HybridRuntime` because current SDK, DTO, baseline,
+  and compatibility contracts still depend on them.
+
+The runtime consolidation plan is complete. Product calculations execute only
+through the installed/source `ReasonRuntime` host.
 
 ## Modernization Plan — Phase 6 Rust Default Execution
 
-Phase 6 ("Rust主実行器: Rust default、Python fallback") is implemented in
-`scripts/reason_cli.py`, the actual entry point `reason run`/`reason check`
-use for calculation/Tensor programs (`_run_result`, gated by
-`_requires_integrated_runtime` — note this is a *different* code path
-from `toolchain/run_cmd.py`'s `reason run`, which executes the older
-`reason-ir/0.1` state/goal/transition pipeline against `RuntimeReal`/
-`HybridRuntime` and is untouched by this phase):
-
-- `_try_rust_execution()`: lowers the program, resolves the compiled
-  `reason-computation-runtime` binary, and runs it. Returns `None` (fall
-  back to `execute_program`, unchanged below it) when: the binary isn't
-  built, `lower_program` raises `LoweringError` (an unsupported language
-  construct), the program touches `tensor.load`/`save` but the caller
-  wasn't granted both filesystem capabilities (Rust has no equivalent
-  gate to Python's `TIO-001` check, so this routes those programs to
-  Python rather than silently bypassing it), or the Rust run itself
-  fails for any reason (including a genuine runtime error like division
-  by zero) — that last case intentionally re-derives the diagnostic via
-  Python's already-tested error-handling path rather than reshaping a
-  Rust `code`+`message` into Python's diagnostic dict shape here.
-- On success, `result["execution_mode"] = "integrated-rust"` (vs.
-  `"integrated"` for the Python path), so which engine ran is always
-  visible in `reason run --json` output.
-- `include_trace` (`reason run --trace` or `--json`) uses Rust for loop,
-  Tensor, and Vision programs and returns native metadata/trace. Optimizer
-  trace remains an explicit Python fallback until its trace contract is
-  implemented.
-- Shadow mode (`REASONSCRIPT_SHADOW_MODE=1`): after a successful Rust run,
-  also runs the same program through Python and prints a mismatch
-  warning to stderr (without failing the run) if `calculations` disagree
-  — `_shadow_check_against_python()`. Opt-in, for validating parity on
-  real programs during the migration without paying double-execution
-  cost by default.
-- `runtime-cli`'s `serde_json` now uses the `preserve_order` feature:
-  `calculation_results` must come back in execution order (Python's
-  `next(reversed(calculations.values()))` semantics for picking the
-  "current" result value), and plain `serde_json::Map` is BTreeMap-backed
-  and would have silently alphabetized the keys instead.
-
-**Verified**: `runtime_completeness_tests/test_phase6_rust_default_dispatch.py`
-covers the Rust-success path, the unsupported-construct fallback, the
-always-Python trace path, both `tensor.load`/`save` capability-gating
-cases, `_uses_tensor_io`'s detection, and a shadow-mode agreement case
-(asserting `print` is never called when both engines agree). One
-pre-existing test (`test_scalar_calculation_uses_integrated_runtime_without_trigger_construct`)
-had hardcoded `execution_mode == "integrated"` for a plain scalar
-calculation with no Tensor calls at all — now that Rust correctly
-executes it too, this was updated to accept either mode (the program has
-no unsupported construct, so which one runs is just "is the binary
-built", not a correctness question).
-
-**Not done in this phase** (documented gaps, not oversights): the Python
-AST evaluator has NOT been removed from the "normal path" — it remains
-the always-available fallback, which is exactly what "Rust default、
-Python fallback" (the plan's own phrase) asks for, not a stepping stone
-to deletion. Full trace/diagnostic parity (Rust producing
-`tensor_trace`/`loop_trace`/`vision_trace` equivalents) is unbuilt. The
-gate's "Model D batch=8" / "Transformer学習・評価・介入がRustのみで完了"
-criteria are unattainable in this repository — no Transformer fixture
-exists here (see the earlier Phase 4 investigation); the "Rust
-default/Python fallback" *architecture* itself is what's been built and
-verified instead.
+The original Rust-default/Python-fallback transition is superseded by Runtime
+Rust Consolidation Phases 7–9 above. Product execution is now strict native
+execution through `ReasonRuntime`; the old probe helpers, fallback metadata,
+and shadow-mode flag were removed. Python engines are reference-only.
 
 ## Modernization Plan — Phase 7 IR Optimization
 
@@ -785,8 +743,8 @@ what a program computes.
 
 **CLI**: `reason computation-ir --optimize [--json|--validate] <file.rsn>`
 (`toolchain/computation_ir_cmd.py`) runs the optimizer before printing/
-validating the IR. This is opt-in and inspection-only: `_try_rust_execution`/
-`interpret_program`'s default execution paths (Phase 6) do NOT apply the
+validating the IR. This is opt-in and inspection-only: native product execution
+and `interpret_program`'s reference path do NOT apply the
 optimizer automatically. No before/after "cell dispatch" or "5x speedup"
 benchmark was attempted: the plan's Phase 7 gate metrics ("cell dispatch
 90%以上削減、現行比5倍以上") are framed around the Relation Matrix/Tensor
@@ -928,8 +886,7 @@ default, completely unchanged `CompatReference` --
   repository runs under this mode without ever touching the new code
   paths at all.
 - `NumericMode::NativeFast` (`REASONSCRIPT_NUMERIC_MODE=native-fast`,
-  `runtime-cli/src/main.rs`'s `numeric_mode_from_env`, mirroring the
-  `REASONSCRIPT_SHADOW_MODE` env-var precedent from Phase 6): real `f32`
+  `runtime-cli/src/main.rs`'s `numeric_mode_from_env`): real `f32`
   rounding, and parallel (`rayon`) execution for the highest-traffic ops.
 
 **Real `f32` rounding** (`Dtype::round_for_mode`): compat-reference

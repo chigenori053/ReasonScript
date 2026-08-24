@@ -18,8 +18,7 @@ from pathlib import Path
 from unittest import mock
 
 from frontend.computation_ir.rust_bridge import find_binary
-from frontend.language_surface import parse
-from scripts.reason_cli import _run_result, _try_rust_execution, _uses_tensor_io
+from scripts.reason_cli import _run_result
 
 _BINARY = find_binary()
 
@@ -98,7 +97,6 @@ class RustFirstDispatchTests(unittest.TestCase):
             {
                 "attempted": "rust_computation_vm",
                 "selected": "rust_computation_vm",
-                "fallback_reason": None,
             },
         )
 
@@ -119,10 +117,7 @@ class RustFirstDispatchTests(unittest.TestCase):
             result = _run_result(source, "normal", include_trace=False)
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_mode"], "integrated-rust")
-        self.assertEqual(
-            result["artifacts"]["runtime_dispatch"]["fallback_reason"],
-            None,
-        )
+        self.assertNotIn("fallback_reason", result["artifacts"]["runtime_dispatch"])
 
     def test_tensor_trace_now_uses_rust(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -142,10 +137,7 @@ class RustFirstDispatchTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_mode"], "integrated-rust")
         self.assertIn("trace", result)
-        self.assertEqual(
-            result["artifacts"]["runtime_dispatch"]["fallback_reason"],
-            None,
-        )
+        self.assertNotIn("fallback_reason", result["artifacts"]["runtime_dispatch"])
 
     def test_phase5_vision_trace_uses_in_process_rust(self):
         fixture = Path(__file__).resolve().parents[1] / "tests/fixtures/vision_language"
@@ -217,11 +209,8 @@ class RustFirstDispatchTests(unittest.TestCase):
                 }
                 """,
             )
-            program = parse(source.read_text(encoding="utf-8"))
-            # The Rust host owns capability enforcement. The compatibility
-            # probe returns None on its native TIO-001 failure, but no Python
-            # evaluator is invoked by the production path.
-            self.assertIsNone(_try_rust_execution(program, Path(directory), False, False))
+            # The Rust host owns capability enforcement; no Python evaluator
+            # is invoked by the production path.
             run_result = _run_result(source, "normal", include_trace=False)
             self.assertFalse(run_result["ok"])
             self.assertEqual(run_result["execution_mode"], "integrated-rust")
@@ -246,36 +235,18 @@ class RustFirstDispatchTests(unittest.TestCase):
                 }
                 """,
             )
-            program = parse(source.read_text(encoding="utf-8"))
-            result = _try_rust_execution(program, Path(directory), True, True)
-            self.assertIsNotNone(result)
+            result = _run_result(
+                source,
+                "normal",
+                include_trace=False,
+                allow_read=True,
+                allow_write=True,
+            )
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["execution_mode"], "integrated-rust")
             self.assertTrue((Path(directory) / "out.rstensor").is_file())
 
-    def test_uses_tensor_io_detects_load_and_save(self):
-        from frontend.computation_ir import lower_program
-
-        loads = parse(
-            """
-            module M {
-                calculation Answer {
-                    result = tensor.load("x.rstensor")
-                }
-            }
-            """
-        )
-        no_io = parse(
-            """
-            module M {
-                calculation Answer {
-                    result = tensor.to_array(tensor.create([1.0], "f64"))
-                }
-            }
-            """
-        )
-        self.assertTrue(_uses_tensor_io(lower_program(loads)))
-        self.assertFalse(_uses_tensor_io(lower_program(no_io)))
-
-    def test_legacy_shadow_environment_does_not_enable_python_execution(self):
+    def test_native_result_is_stable_without_shadow_execution(self):
         with tempfile.TemporaryDirectory() as directory:
             source = _write(
                 Path(directory),

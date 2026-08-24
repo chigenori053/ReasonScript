@@ -78,4 +78,3 @@ Exit code is non-zero if any category fails.
 
 - All Python test runs use `pytest` with `--tb=short` for readable output.
 - `PYTHONPATH=.` is required; `pytest.ini` sets this automatically.
-- Rust tests in `RuntimeComplex` are excluded from the standard matrix (heavy; run manually when needed).

@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_PROGRESS` — Phases 0–8 completed; Phase 9 cleanup.
+`COMPLETED` — Phases 0–9 validated.
 
 ## Objective
 
@@ -68,7 +68,13 @@ an explicit adapter.
    `NativeReasonUnitRuntime/`, and `VisionRuntime/` directories and their
    duplicate lockfiles/targets were deleted.
 10. **Phase 9 — cleanup:** remove obsolete tests, fixtures, build entries,
-    flags, package rules, and documentation.
+    flags, package rules, and documentation. **Completed:** removed the
+    unreferenced `Legacy/runtime` implementation and `RuntimeComplex`
+    placeholder, Phase 6 fallback probes/detectors/metadata, stale shadow-mode
+    guidance, obsolete test/build/pytest entries, and renamed the runtime
+    dispatch regression suite. Python reference runtimes and
+    `RuntimeReal/HybridRuntime` were retained because current differential
+    tests and SDK/DTO compatibility contracts still depend on them.
 
 ## Deletion policy
 

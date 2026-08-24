@@ -118,7 +118,7 @@ def build_manifest() -> dict[str, Any]:
     return {
         "schema": MANIFEST_SCHEMA,
         "version": "1.0",
-        "phase": 8,
+        "phase": 9,
         "execution_paths": {
             "standalone_source": {
                 "primary": "rust_computation_vm",
@@ -140,10 +140,10 @@ def build_manifest() -> dict[str, Any]:
         "namespaces": namespaces,
         "rust_workspaces": [
             "ReasonRuntime", "VisualizationRuntime", "ClusterRuntime",
-            "RuntimeReal", "HybridRuntime", "RuntimeComplex",
+            "RuntimeReal", "HybridRuntime",
         ],
-        "retirement_candidates": {
-            "python_reference_only": [
+        "retained_assets": {
+            "python_reference_implementations": [
                 "frontend/integrated_computation_runtime.py",
                 "frontend/computation_ir/interpreter.py",
                 "frontend/tensor/runtime.py",
@@ -153,10 +153,9 @@ def build_manifest() -> dict[str, Any]:
                 "frontend/runtime_integration.py",
                 "toolchain/reasoning_runtime.py",
             ],
-            "bridges": ["frontend/computation_ir/rust_bridge.py"],
-            "rust_layouts_after_migration": [
+            "native_host_bridge": ["frontend/computation_ir/rust_bridge.py"],
+            "compatibility_rust_layouts": [
                 "ReasonRuntime", "RuntimeReal", "HybridRuntime",
-                "RuntimeComplex", "Legacy/runtime",
             ],
         },
         "deletion_gates": [
@@ -168,6 +167,7 @@ def build_manifest() -> dict[str, Any]:
             "reason_ci_passes_without_python_fallback",
             "documentation_and_package_manifest_updated",
         ],
+        "deletion_gates_status": "passed",
     }
 
 
