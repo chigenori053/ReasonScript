@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 from .manifest import Manifest, ManifestError
+from .pipeline import PipelineError, compile_package_sources
 from .workspace import (
     PackageGraphService,
     WorkspaceError,
@@ -14,7 +14,15 @@ from .workspace import (
 )
 
 
-def run(project_root: Path, package: str | None = None) -> int:
+def run(
+    project_root: Path,
+    package: str | None = None,
+    *,
+    entry: str | None = None,
+    include_trace: bool = False,
+    filesystem_read: bool = False,
+    filesystem_write: bool = False,
+) -> int:
     try:
         workspace = PackageGraphService().discover(project_root)
     except WorkspaceError as error:
@@ -30,15 +38,37 @@ def run(project_root: Path, package: str | None = None) -> int:
         except WorkspaceError as error:
             _print_workspace_error(error)
             return 1
-        return _run_package(node.path, workspace_package=node.name)
+        return _run_package(
+            node.path,
+            workspace_package=node.name,
+            entry=entry,
+            include_trace=include_trace,
+            filesystem_read=filesystem_read,
+            filesystem_write=filesystem_write,
+        )
 
     if package is not None and package != workspace.default_package.name:
         _print_workspace_error(WorkspaceError(f"unknown package: {package}"))
         return 1
-    return _run_package(workspace.default_package.path, workspace_package=workspace.default_package.name)
+    return _run_package(
+        workspace.default_package.path,
+        workspace_package=workspace.default_package.name,
+        entry=entry,
+        include_trace=include_trace,
+        filesystem_read=filesystem_read,
+        filesystem_write=filesystem_write,
+    )
 
 
-def _run_package(project_root: Path, *, workspace_package: str | None = None) -> int:
+def _run_package(
+    project_root: Path,
+    *,
+    workspace_package: str | None = None,
+    entry: str | None = None,
+    include_trace: bool = False,
+    filesystem_read: bool = False,
+    filesystem_write: bool = False,
+) -> int:
     try:
         manifest = Manifest.load(project_root)
     except ManifestError as e:
@@ -46,55 +76,89 @@ def _run_package(project_root: Path, *, workspace_package: str | None = None) ->
         return 1
 
     ir_dir = project_root / "target" / "ir"
-    if not ir_dir.exists() or not any(ir_dir.glob("*.json")):
+    if not ir_dir.is_dir() or not any(ir_dir.glob("*.json")):
         print("Error:\n\nNoBuildArtifacts\n\nRun 'reason build' first.")
         return 1
 
-    sys.path.insert(0, str(project_root.parent))
+    src_dir = project_root / "src"
+    sources = sorted(src_dir.rglob("*.rsn")) if src_dir.exists() else []
+    if not sources:
+        print("Error:\n\nNoSourceFiles\n\nsrc/ contains no .rsn files.")
+        return 1
+
     try:
-        from frontend.runtime_integration import (
-            execute_runtime_operations_with_registry,
-            hybrid_runtime_registry,
-            runtime_real_registry,
+        compiled = compile_package_sources(
+            [(path.read_text(encoding="utf-8"), path) for path in sources]
         )
-    except ImportError as e:
-        print(f"Error:\n\nRuntimeImportError\n\n{e}")
+    except PipelineError as error:
+        print(f"Error:\n\n{error.code}\n\n{error.message}")
+        return 1
+
+    try:
+        from frontend.integrated_computation_runtime import (
+            IntegratedRuntimeError,
+            LoopLimitError,
+            execute_program,
+        )
+        from frontend.tensor import TensorError
+
+        integrated = execute_program(
+            compiled.surface_ast,
+            resource_root=project_root,
+            filesystem_read=filesystem_read,
+            filesystem_write=filesystem_write,
+        )
+        runtime_result = integrated.to_dict()
+    except TensorError as error:
+        print(
+            json.dumps(
+                {"status": "failure", "diagnostics": [error.diagnostic.to_dict()]},
+                indent=2,
+            )
+        )
+        return 2
+    except (IntegratedRuntimeError, LoopLimitError) as error:
+        print(
+            json.dumps(
+                {
+                    "status": "failure",
+                    "diagnostics": [
+                        {
+                            "code": error.code,
+                            "severity": "fatal",
+                            "category": "runtime.integrated",
+                            "message": str(error),
+                        }
+                    ],
+                },
+                indent=2,
+            )
+        )
         return 2
 
-    if manifest.backend == "HybridRuntime":
-        registry = hybrid_runtime_registry()
-    else:
-        registry = runtime_real_registry()
-
-    ir_files = sorted(ir_dir.glob("*.json"))
-    errors: list[str] = []
-    goal_reached = False
-
-    for ir_path in ir_files:
-        reason_ir = json.loads(ir_path.read_text(encoding="utf-8"))
-        runtime_ops = reason_ir.get("metadata", {}).get("runtime_operations") or []
-        if not runtime_ops:
-            goal_reached = True
-            continue
-        try:
-            report = execute_runtime_operations_with_registry(reason_ir, registry)
-        except Exception as e:
-            errors.append(f"{ir_path.name}: {e}")
-            continue
-        if not report.diagnostics:
-            goal_reached = True
-
-    if errors:
-        for e in errors:
-            print(f"Error:\n\nRuntimeError\n\n{e}")
-        return 2
+    calculations = runtime_result["calculations"]
+    if entry is not None:
+        entry_name = entry.rsplit("::", 1)[-1].rsplit(".", 1)[-1]
+        if entry_name not in calculations:
+            print(f"Error:\n\nUnknownEntry\n\nNo calculation named: {entry}")
+            return 1
+        runtime_result["result"] = calculations[entry_name]
 
     result = {
         "status": "success",
-        "goal_reached": goal_reached,
+        "goal_reached": bool(calculations),
         "backend": manifest.backend,
         "package": workspace_package or manifest.name,
+        "runtime_result": runtime_result,
     }
+    if entry is not None:
+        result["entry"] = entry
+    if include_trace:
+        result["trace"] = (
+            runtime_result["tensor_trace"]
+            + runtime_result["loop_trace"]
+            + runtime_result["vision_trace"]
+        )
     print(json.dumps(result, indent=2))
     return 0
 

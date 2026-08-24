@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .manifest import Manifest, ManifestError
-from .pipeline import PipelineError, compile_source
+from .pipeline import PipelineError, compile_package_sources, compile_source
 from .workspace import (
     PackageGraphService,
     WorkspaceError,
@@ -65,12 +65,28 @@ def _run_package(project_root: Path) -> int:
 
     passed: list[str] = []
     failed: list[tuple[str, str]] = []
+    source_files = (
+        sorted((project_root / "src").rglob("*.rsn"))
+        if (project_root / "src").is_dir()
+        else []
+    )
+    package_sources = [
+        (path.read_text(encoding="utf-8"), path) for path in source_files
+    ]
 
     for test_path in test_files:
         name = test_path.stem
-        source = test_path.read_text(encoding="utf-8")
+        test_source = test_path.read_text(encoding="utf-8")
         try:
-            compile_source(source, test_path)
+            if any(
+                line.lstrip().startswith("import ")
+                for line in test_source.splitlines()
+            ):
+                compile_package_sources(
+                    [*package_sources, (test_source, test_path)]
+                )
+            else:
+                compile_source(test_source, test_path)
             passed.append(name)
         except PipelineError as e:
             failed.append((name, f"{e.code}: {e.message}"))

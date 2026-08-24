@@ -27,8 +27,8 @@ TERMINATOR_KINDS = ("jump", "branch", "return", "result", "trap")
 # ReasonScript language surface: scope is bounded to what
 # `frontend.integrated_computation_runtime` (the AST evaluator this IR is
 # differentially tested against) itself supports. Constructs outside this
-# set (pattern matching, Optional/Some, map/set literals, vision/ruo
-# calls, reason_object graph queries, runtime.search/simulate/predict/plan)
+# set (pattern matching, Optional/Some, map/set literals, reason_object graph
+# queries, runtime.search/simulate/predict/plan)
 # are out of scope for this phase and are rejected by the lowering with a
 # clear "not supported" error rather than silently mishandled.
 EXPRESSION_OPS = (
@@ -44,6 +44,7 @@ EXPRESSION_OPS = (
     "member",
     "call_tensor",
     "call_vision",
+    "call_ruo",
     "call_optimizer",
     "call_relation",
     "call_array_append",

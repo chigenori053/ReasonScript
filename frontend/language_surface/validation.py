@@ -289,6 +289,31 @@ RUNTIME_RESULT_TYPES = {
     "SimulationResult",
     "PredictionResult",
     "PlanningResult",
+    "Tensor",
+    "TensorArtifactReceipt",
+    "VisionObservation",
+    "VisionBuildResult",
+    # RUO-N2 opaque values are first-class surface types. They expose no
+    # fields; callers move them through bindings/functions and use ``ruo.*``.
+    "ReasonObject",
+    "ReasonObjectSnapshot",
+    "ReasonEntityRef",
+    "ReasonQuery",
+    "ReasonQueryResult",
+    "ReasonTransaction",
+    "ReasonTransactionResult",
+    "ReasonSelector",
+    "ReasonSelection",
+    "ReasonProjection",
+    "ReasonTensorView",
+    "ReasonDiagnosticSet",
+    "ReasonOperation",
+    "ReasonProjectionProfile",
+    "ReasonStatus",
+    "ReasonValue",
+    "StableId",
+    "Path",
+    "OverwritePolicy",
 }
 
 
@@ -1671,6 +1696,39 @@ _RUO_METHOD_ARITY = {
     "save": (3, 3), "tensor_view": (2, 3), "status": (1, 1), "diagnostics": (1, 1),
 }
 
+_RUO_METHOD_TYPES: dict[str, tuple[tuple[str, ...], ...]] = {
+    "object_id": (("ReasonObject", "ReasonObjectSnapshot"),),
+    "snapshot": (("ReasonObject",),),
+    # A bound ReasonObject is accepted where a snapshot/transaction is
+    # expected for RUO-N2 source compatibility; runtime dispatch takes an
+    # immutable snapshot (or begins a transaction) at that boundary.
+    "resolve": (("ReasonObjectSnapshot", "ReasonObject"), ("StableId", "String")),
+    "query": (("ReasonObjectSnapshot", "ReasonObject"), ("ReasonQuery", "String", "Map")),
+    "begin": (("ReasonObjectSnapshot", "ReasonObject"),),
+    "apply": (("ReasonTransaction", "ReasonObject"), ("ReasonOperation", "String", "Map")),
+    "validate": (("ReasonTransaction", "ReasonObject"),),
+    "commit": (("ReasonTransaction", "ReasonObject"),),
+    "rollback": (("ReasonTransaction", "ReasonObject"),),
+    "select": (("ReasonObjectSnapshot", "ReasonObject"), ("ReasonSelector", "String", "Map")),
+    "materialize": (("ReasonObjectSnapshot", "ReasonObject"), ("ReasonSelector", "String", "Map")),
+    "project": (("ReasonObjectSnapshot", "ReasonObject"), ("ReasonProjectionProfile", "String", "Map")),
+    "save": (("ReasonObjectSnapshot", "ReasonObject"), ("Path", "String"), ("OverwritePolicy", "String")),
+    "tensor_view": (("ReasonObjectSnapshot", "ReasonObject"), ("StableId", "String"), ("ReasonSelector", "String", "Map")),
+    "status": (("ReasonValue", "Any"),),
+    "diagnostics": (("ReasonValue", "Any"),),
+}
+
+_RUO_OUTPUT_TYPES = {
+    "object_id": "StableId", "snapshot": "ReasonObjectSnapshot",
+    "resolve": "ReasonEntityRef", "query": "ReasonQueryResult",
+    "begin": "ReasonTransaction", "apply": "ReasonTransaction",
+    "validate": "ReasonTransactionResult", "commit": "ReasonTransactionResult",
+    "rollback": "ReasonTransactionResult", "select": "ReasonSelection",
+    "materialize": "ReasonSelection", "project": "ReasonProjection",
+    "save": "ReasonTransactionResult", "tensor_view": "ReasonTensorView",
+    "status": "ReasonStatus", "diagnostics": "ReasonDiagnosticSet",
+}
+
 
 def _ruo_call_name(value: CallExpressionNode) -> str | None:
     callee = value.callee
@@ -1839,6 +1897,8 @@ def _expression_type(
             GoalNode: StateKind.GOAL,
             ConstraintNode: StateKind.CONSTRAINT,
         }.get(type(declaration))
+        if isinstance(declaration, ReasonObjectBindingNode):
+            return NamedTypeNode("ReasonObject")
         return StateTypeNode(state_kind) if state_kind is not None else _UNKNOWN_TYPE
     if isinstance(value, QualifiedIdentifierNode):
         if _CURRENT_NAMESPACE is None:
@@ -2001,6 +2061,25 @@ def _expression_type(
             return _UNKNOWN_TYPE
         raise SurfaceValidationError("CV5-7 index access requires collection type")
     if isinstance(value, CallExpressionNode):
+        ruo_method = _ruo_call_name(value)
+        if ruo_method is not None:
+            _validate_ruo_call(value)
+            expected_arguments = _RUO_METHOD_TYPES[ruo_method]
+            for index, (argument, accepted) in enumerate(zip(value.arguments, expected_arguments), 1):
+                argument_value = argument.expression if isinstance(argument, ExpressionNode) else argument
+                actual = _expression_type(argument_value, symbols, bindings)
+                actual_name = _type_name(actual)
+                if (
+                    "Any" not in accepted
+                    and actual is not _UNKNOWN_TYPE
+                    and actual_name not in accepted
+                    and not ("Map" in accepted and isinstance(actual, MapTypeNode))
+                ):
+                    raise SurfaceValidationError(
+                        f"RUO-N2-009 ruo.{ruo_method} argument {index} expects "
+                        f"{' or '.join(accepted)}, received {actual_name}"
+                    )
+            return NamedTypeNode(_RUO_OUTPUT_TYPES[ruo_method])
         if _array_call_name(value) == "append":
             if len(value.arguments) != 2:
                 raise SurfaceValidationError(
@@ -2050,6 +2129,12 @@ def _expression_type(
                 return PrimitiveTypeNode(PrimitiveKind.INT)
             if tensor_function == "tensor.dtype":
                 return PrimitiveTypeNode(PrimitiveKind.STRING)
+            if tensor_function == "tensor.scalar":
+                # Tensor dtype is not represented in the surface type system.
+                # The runtime can therefore return an Int, Float, or Bool;
+                # preserve that uncertainty instead of incorrectly claiming
+                # that the result is a Tensor.
+                return _UNKNOWN_TYPE
             if tensor_function == "tensor.save":
                 return NamedTypeNode("TensorArtifactReceipt")
             return NamedTypeNode("Tensor")
@@ -2162,6 +2247,11 @@ def _require_compatible(
         )
     if isinstance(actual, OptionalTypeNode):
         raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
+    if expected is _UNKNOWN_TYPE:
+        # Untyped legacy bindings remain compatible with concrete values. The
+        # previous implementation only treated an unknown *actual* value as
+        # compatible, making compatibility asymmetric for reassignment.
+        return
     if isinstance(expected, ArrayTypeNode) and isinstance(actual, ArrayTypeNode):
         _require_type_equal(expected.element_type, actual.element_type, location)
         return

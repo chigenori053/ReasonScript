@@ -28,6 +28,7 @@ from frontend.language_surface.nodes import (
     FunctionDeclarationNode,
     IdentifierNode,
     IfStatementNode,
+    ImportNode,
     IndexAccessNode,
     IndexAssignmentStatementNode,
     IntegerLiteralNode,
@@ -40,6 +41,8 @@ from frontend.language_surface.nodes import (
     NullLiteralNode,
     ParenthesizedExpressionNode,
     ProgramNode,
+    QualifiedIdentifierNode,
+    ReasonObjectBindingNode,
     ResultStatementNode,
     ReturnStatementNode,
     StringLiteralNode,
@@ -49,6 +52,11 @@ from frontend.language_surface.nodes import (
     WhileStatementNode,
 )
 from frontend.relation.integration import relation_call_name
+from frontend.reason_object_runtime import (
+    ReasonObjectRuntimeError,
+    call_ruo,
+    load_reason_object,
+)
 from frontend.tensor.integration import LOWERINGS, tensor_call_name
 from frontend.tensor.optimizers import optimizer_call_name
 from frontend.tensor.runtime import TensorError, TensorRuntime, TensorValueRef
@@ -88,6 +96,13 @@ class IntegratedRuntimeError(ValueError):
 class RuntimeStruct:
     type_name: str
     fields: dict[str, Any]
+
+
+@dataclass
+class RuntimeFunction:
+    node: FunctionDeclarationNode
+    bindings: dict[str, "RuntimeFunction"]
+    globals: dict[str, Any] | None = None
 
 
 _RELATION_ARGUMENT_COUNTS: dict[str, int] = {
@@ -227,16 +242,61 @@ def execute_program(
     vision_runtime = VisionRuntimeBridge(resource_root or Path.cwd(), filesystem_read=filesystem_read, filesystem_write=filesystem_write)
     loop_trace: list[dict[str, Any]] = []
     calculations: dict[str, Any] = {}
+    object_root = (resource_root or Path.cwd()).resolve()
+    module_objects: dict[str, dict[str, Any]] = {}
     for module in program.modules:
-        functions = {
-            item.name: item
-            for item in module.body
-            if isinstance(item, FunctionDeclarationNode)
-        }
+        loaded: dict[str, Any] = {}
+        for item in module.body:
+            if not isinstance(item, ReasonObjectBindingNode):
+                continue
+            try:
+                loaded[item.name] = load_reason_object(
+                    object_root / item.source_path,
+                    object_root,
+                    filesystem_read=filesystem_read,
+                    filesystem_write=filesystem_write,
+                    expected_object_id=item.expected_object_id,
+                )
+            except ReasonObjectRuntimeError as error:
+                raise IntegratedRuntimeError(error.code, str(error)) from error
+        module_objects[module.name] = loaded
+    function_registry: dict[str, RuntimeFunction] = {}
+    package_prefix = f"{program.package.name}." if program.package is not None else ""
+    for module in program.modules:
+        for item in module.body:
+            if isinstance(item, FunctionDeclarationNode):
+                canonical = f"{package_prefix}{module.name}::{item.name}"
+                function_registry[canonical] = RuntimeFunction(item, {})
+
+    module_functions: dict[str, dict[str, RuntimeFunction]] = {}
+    for module in program.modules:
+        bindings = dict(function_registry)
+        for item in module.body:
+            if isinstance(item, FunctionDeclarationNode):
+                canonical = f"{package_prefix}{module.name}::{item.name}"
+                bindings[item.name] = function_registry[canonical]
+            elif isinstance(item, ImportNode) and item.resolution is not None:
+                for exposed_name in item.resolution.exposed_names:
+                    canonical = (
+                        f"{item.resolution.namespace}::"
+                        f"{item.resolution.symbol or exposed_name}"
+                    )
+                    if canonical in function_registry:
+                        bindings[exposed_name] = function_registry[canonical]
+        module_functions[module.name] = bindings
+
+    for canonical, function in function_registry.items():
+        module_namespace = canonical.rsplit("::", 1)[0]
+        module_name = module_namespace.rsplit(".", 1)[-1]
+        function.bindings = module_functions[module_name]
+        function.globals = module_objects[module_name]
+
+    for module in program.modules:
+        functions = module_functions[module.name]
         for calculation in (
             item for item in module.body if isinstance(item, CalculationNode)
         ):
-            env = dict(calculations)
+            env = {**module_objects[module.name], **calculations}
             try:
                 _statements(
                     calculation.body,
@@ -578,6 +638,22 @@ def _expression(
             "RT-FIELD-001", f"member access is unsupported: {value.member}"
         )
     if isinstance(value, CallExpressionNode):
+        if (
+            isinstance(value.callee, MemberAccessNode)
+            and isinstance(value.callee.object, IdentifierNode)
+            and value.callee.object.name == "ruo"
+        ):
+            arguments = [
+                _expression(
+                    argument, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for argument in value.arguments
+            ]
+            try:
+                return call_ruo(f"ruo.{value.callee.member}", *arguments)
+            except ReasonObjectRuntimeError as error:
+                raise IntegratedRuntimeError(error.code, str(error)) from error
         vision_function = vision_call_name(value)
         if vision_function is not None:
             arguments = [
@@ -676,16 +752,25 @@ def _expression(
                     "RT-CALL-005", f"{value.callee.name}() argument must be Int or Float"
                 )
             return float(argument) if value.callee.name == "float" else int(argument)
-        if isinstance(value.callee, IdentifierNode):
-            function_node = functions.get(value.callee.name)
-            if function_node is None:
-                raise IntegratedRuntimeError(
-                    "RT-CALL-001", f"unknown runtime function: {value.callee.name}"
+        if isinstance(value.callee, (IdentifierNode, QualifiedIdentifierNode)):
+            function_ref = (
+                functions.get(value.callee.name)
+                if isinstance(value.callee, IdentifierNode)
+                else functions.get(
+                    value.callee.resolved_name
+                    or "::".join((*value.callee.path, value.callee.symbol))
                 )
+            )
+            if function_ref is None:
+                raise IntegratedRuntimeError(
+                    "RT-CALL-001",
+                    f"unknown runtime function: {_callee_label(value.callee)}",
+                )
+            function_node = function_ref.node
             if len(value.arguments) != len(function_node.parameters):
                 raise IntegratedRuntimeError(
                     "RT-CALL-002",
-                    f"function argument count mismatch: {value.callee.name}",
+                    f"function argument count mismatch: {_callee_label(value.callee)}",
                 )
             if call_depth >= max_call_depth:
                 raise IntegratedRuntimeError(
@@ -699,10 +784,11 @@ def _expression(
                 )
                 for argument in value.arguments
             ]
-            local_env = {
+            local_env = dict(function_ref.globals or {})
+            local_env.update({
                 _parameter_name(parameter): argument
                 for parameter, argument in zip(function_node.parameters, arguments)
-            }
+            })
             try:
                 with runtime.protect(env):
                     _statements(
@@ -713,7 +799,7 @@ def _expression(
                         10_000,
                         f"fn.{function_node.name}",
                         vision_runtime,
-                        functions,
+                        function_ref.bindings,
                         max_call_depth,
                         call_depth + 1,
                     )
@@ -727,6 +813,12 @@ def _expression(
 
 def _parameter_name(parameter: Any) -> str:
     return parameter["name"] if isinstance(parameter, dict) else str(parameter)
+
+
+def _callee_label(callee: IdentifierNode | QualifiedIdentifierNode) -> str:
+    if isinstance(callee, IdentifierNode):
+        return callee.name
+    return callee.resolved_name or "::".join((*callee.path, callee.symbol))
 
 
 def _index_value(collection: Any, index: Any, runtime: TensorRuntime) -> Any:
@@ -842,6 +934,8 @@ def _plain(value: Any, runtime: TensorRuntime) -> Any:
             name: _plain(item, runtime)
             for name, item in sorted(value.fields.items())
         }
+    if hasattr(value, "to_runtime_value"):
+        return _plain(value.to_runtime_value(), runtime)
     if isinstance(value, dict):
         return {
             str(name): _plain(item, runtime)
@@ -860,6 +954,8 @@ def _trace_plain(value: Any) -> Any:
             name: _trace_plain(item)
             for name, item in sorted(value.fields.items())
         }
+    if hasattr(value, "to_runtime_value"):
+        return _trace_plain(value.to_runtime_value())
     if isinstance(value, dict):
         return {
             str(name): _trace_plain(item)

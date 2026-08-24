@@ -65,6 +65,21 @@ def main() -> int:
                     return run(["source-run", *args[1:]], project_root)
             except OSError:
                 pass
+            package_root = _package_root_for_source(source_path, project_root)
+            if package_root is not None and _requires_package_run(
+                package_root,
+                source_path,
+                entry=_option_arg(args[1:], "--entry"),
+            ):
+                from toolchain.run_cmd import run
+
+                return run(
+                    package_root,
+                    entry=_option_arg(args[1:], "--entry"),
+                    include_trace="--trace" in args[1:],
+                    filesystem_read="--allow-read" in args[1:],
+                    filesystem_write="--allow-write" in args[1:],
+                )
         from scripts.reason_cli import main as reason_main
         return reason_main(args)
 
@@ -78,7 +93,14 @@ def main() -> int:
 
     if command == "run":
         from toolchain.run_cmd import run
-        return run(project_root, package=package)
+        return run(
+            project_root,
+            package=package,
+            entry=_option_arg(args[1:], "--entry"),
+            include_trace="--trace" in args[1:],
+            filesystem_read="--allow-read" in args[1:],
+            filesystem_write="--allow-write" in args[1:],
+        )
 
     if command == "test":
         from toolchain.runner_cmd import run
@@ -281,19 +303,61 @@ def _package_arg(args: list[str]) -> str | None:
     return args[index + 1]
 
 
+def _option_arg(args: list[str], option: str) -> str | None:
+    if option not in args:
+        return None
+    index = args.index(option)
+    return args[index + 1] if index + 1 < len(args) else None
+
+
 def _source_file_arg(args: list[str]) -> str | None:
     skip_next = False
     for arg in args:
         if skip_next:
             skip_next = False
             continue
-        if arg in {"--compiler-mode", "--out"}:
+        if arg in {
+            "--compiler-mode",
+            "--entry",
+            "--out",
+            "--package",
+            "--result-output",
+        }:
             skip_next = True
             continue
         if arg.startswith("--"):
             continue
         return arg if arg.endswith(".rsn") else None
     return None
+
+
+def _package_root_for_source(source_path: Path, cwd: Path) -> Path | None:
+    resolved = source_path if source_path.is_absolute() else cwd / source_path
+    if not resolved.is_file():
+        return None
+    for candidate in (resolved.parent, *resolved.parents):
+        if (candidate / "reason.toml").is_file():
+            return candidate
+    return None
+
+
+def _requires_package_run(
+    package_root: Path, source_path: Path, *, entry: str | None
+) -> bool:
+    """Keep standalone source behavior unless project context is required."""
+    if entry is not None:
+        return True
+    source_dir = package_root / "src"
+    if source_dir.is_dir() and sum(1 for _ in source_dir.rglob("*.rsn")) > 1:
+        return True
+    resolved = source_path if source_path.is_absolute() else Path.cwd() / source_path
+    try:
+        return any(
+            line.lstrip().startswith("import ")
+            for line in resolved.read_text(encoding="utf-8").splitlines()
+        )
+    except OSError:
+        return False
 
 
 if __name__ == "__main__":

@@ -4,6 +4,17 @@
 
 ### Fixed
 
+- Completed first-class ReasonUnit Object bindings in the language and Python
+  computation runtimes. `ReasonObject` and related opaque RUO types now resolve
+  in function signatures, `reason_object` identifiers infer `ReasonObject`,
+  `ruo.*` calls provide result types and statically reject known argument-kind
+  mismatches, and both the AST evaluator and Python Computation IR interpreter
+  execute capability-confined Object bindings through a shared dispatcher.
+  Added `call_ruo` and Object binding records to `reason-computation-ir/0.1`;
+  the Rust VM now verifies native Objects and executes identity, snapshot,
+  resolution, status, and diagnostics, with the remaining operations routed to
+  the Python fallback. RUO-W1 world-level cutover remains explicitly deferred.
+
 - Hardened the `optimizer.*` implementation after a completeness audit:
   `optimizer_dispatch.rs` now checks argument count upfront (a hand-built
   IR document with too few arguments previously panicked via an

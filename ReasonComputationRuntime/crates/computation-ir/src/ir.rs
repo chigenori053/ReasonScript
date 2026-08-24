@@ -19,6 +19,16 @@ pub struct Program {
     pub package: Option<String>,
     pub calculations: Vec<String>,
     pub functions: Vec<Function>,
+    #[serde(default)]
+    pub reason_object_bindings: Vec<ReasonObjectBinding>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReasonObjectBinding {
+    pub name: String,
+    pub source_path: String,
+    #[serde(default)]
+    pub expected_object_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -131,6 +141,11 @@ pub enum Expr {
     },
     #[serde(rename = "call_vision")]
     CallVision {
+        function_id: String,
+        arguments: Vec<Expr>,
+    },
+    #[serde(rename = "call_ruo")]
+    CallRuo {
         function_id: String,
         arguments: Vec<Expr>,
     },

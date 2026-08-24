@@ -169,6 +169,7 @@ dependencies = [
 name = "reasonscript-computation-ir"
 version = "0.1.0"
 dependencies = [
+ "reasonscript-native-reasonunit-runtime",
  "reasonscript-tensor-core",
  "serde",
  "serde_json",
@@ -180,6 +181,15 @@ version = "0.1.0"
 dependencies = [
  "reasonscript-computation-ir",
  "serde_json",
+]
+
+[[package]]
+name = "reasonscript-native-reasonunit-runtime"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]

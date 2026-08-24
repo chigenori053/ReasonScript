@@ -524,6 +524,10 @@ def _try_rust_execution(program: Any, resource_root: Path, allow_read: bool, all
         ir_document = lower_program(program)
     except LoweringError:
         return None
+    if ir_document.get("reason_object_bindings") and not allow_read:
+        # Native RUO loading performs filesystem I/O. Preserve the same
+        # explicit capability gate as the Python runtime.
+        return None
     if not allow_read or not allow_write:
         # tensor.load/save need filesystem capabilities; the Rust CLI has
         # no equivalent gate and would just perform the I/O, so route

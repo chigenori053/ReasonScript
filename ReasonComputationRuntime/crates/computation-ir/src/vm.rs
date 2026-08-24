@@ -12,6 +12,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::path::{Component, Path};
 use std::rc::Rc;
 
 use crate::ir::{Block, Expr, Function, Instruction, Program, Terminator};
@@ -46,11 +47,15 @@ pub struct Vm<'a> {
     max_loop_iterations: u64,
     max_call_depth: u32,
     tensors: RefCell<reasonscript_tensor_core::TensorStore>,
+    reason_objects: RefCell<HashMap<String, Value>>,
 }
 
 impl<'a> Vm<'a> {
     pub fn new(program: &'a Program) -> Self {
-        Self::with_numeric_mode(program, reasonscript_tensor_core::NumericMode::CompatReference)
+        Self::with_numeric_mode(
+            program,
+            reasonscript_tensor_core::NumericMode::CompatReference,
+        )
     }
 
     /// Phase 9: selects `NumericMode::NativeFast` (real `f32` rounding
@@ -73,6 +78,7 @@ impl<'a> Vm<'a> {
             tensors: RefCell::new(reasonscript_tensor_core::TensorStore::with_numeric_mode(
                 numeric_mode,
             )),
+            reason_objects: RefCell::new(HashMap::new()),
         }
     }
 
@@ -86,6 +92,35 @@ impl<'a> Vm<'a> {
         &self,
         program: &Program,
     ) -> Result<Vec<(String, Value)>, RuntimeError> {
+        let mut object_bindings = HashMap::new();
+        for binding in &program.reason_object_bindings {
+            let source = Path::new(&binding.source_path);
+            if source.is_absolute()
+                || source.components().any(|part| {
+                    matches!(
+                        part,
+                        Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                    )
+                })
+            {
+                return Err(RuntimeError::new(
+                    "RUO-N2-006",
+                    "Object path escapes resource root",
+                ));
+            }
+            let object = reasonscript_native_reasonunit_runtime::load_ruo(source)
+                .map_err(|error| RuntimeError::new(&error.code, error.message))?;
+            if let Some(expected) = &binding.expected_object_id {
+                if object.object_id.as_str() != expected {
+                    return Err(RuntimeError::new(
+                        "RUO-N2-013",
+                        "expected Object ID assertion failed",
+                    ));
+                }
+            }
+            object_bindings.insert(binding.name.clone(), Value::ReasonObject(Rc::new(object)));
+        }
+        *self.reason_objects.borrow_mut() = object_bindings;
         let mut calculations: Vec<(String, Value)> = Vec::new();
         for calculation_id in &program.calculations {
             let function = *self.functions.get(calculation_id.as_str()).ok_or_else(|| {
@@ -98,6 +133,12 @@ impl<'a> Vm<'a> {
                 .iter()
                 .map(|(name, value)| (name.clone(), value.clone()))
                 .collect();
+            env.extend(
+                self.reason_objects
+                    .borrow()
+                    .iter()
+                    .map(|(name, value)| (name.clone(), value.clone())),
+            );
             match self.run_function(function, &mut env, 0)? {
                 Outcome::Result(value) => calculations.push((calculation_id.clone(), value)),
                 Outcome::NoValue => {}
@@ -374,6 +415,16 @@ impl<'a> Vm<'a> {
                     "{function_id}: vision execution is not implemented in the Phase 3 Rust VM"
                 ),
             )),
+            Expr::CallRuo {
+                function_id,
+                arguments,
+            } => {
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    values.push(self.eval_expr(argument, env, call_depth)?);
+                }
+                call_ruo(function_id, values)
+            }
             Expr::CallOptimizer {
                 function_id,
                 arguments,
@@ -466,8 +517,8 @@ impl<'a> Vm<'a> {
         for argument_expr in argument_exprs {
             arguments.push(self.eval_expr(argument_expr, env, call_depth)?);
         }
-        let mut local_env: HashMap<String, Value> =
-            function.parameters.iter().cloned().zip(arguments).collect();
+        let mut local_env: HashMap<String, Value> = self.reason_objects.borrow().clone();
+        local_env.extend(function.parameters.iter().cloned().zip(arguments));
         match self.run_function(function, &mut local_env, call_depth + 1)? {
             Outcome::Return(value) => Ok(value),
             Outcome::NoValue => Err(RuntimeError::new(
@@ -479,6 +530,94 @@ impl<'a> Vm<'a> {
                 format!("function {name} used result instead of return"),
             )),
         }
+    }
+}
+
+fn call_ruo(function_id: &str, arguments: Vec<Value>) -> Result<Value, RuntimeError> {
+    let object = match arguments.first() {
+        Some(Value::ReasonObject(value)) | Some(Value::ReasonObjectSnapshot(value)) => value,
+        Some(other) => {
+            return Err(RuntimeError::new(
+                "RUO-N2-009",
+                format!(
+                    "{function_id} requires ReasonObject, got {}",
+                    other.type_name()
+                ),
+            ))
+        }
+        None => {
+            return Err(RuntimeError::new(
+                "RUO-N2-009",
+                format!("{function_id} requires an argument"),
+            ))
+        }
+    };
+    match function_id {
+        "ruo.object_id" => Ok(Value::String(Rc::from(object.object_id.as_str()))),
+        "ruo.snapshot" => Ok(Value::ReasonObjectSnapshot(object.clone())),
+        "ruo.status" => Ok(Value::String(Rc::from(
+            if matches!(arguments.first(), Some(Value::ReasonObjectSnapshot(_))) {
+                "snapshot"
+            } else {
+                "loaded"
+            },
+        ))),
+        "ruo.diagnostics" => Ok(Value::Array(Rc::new(RefCell::new(Vec::new())))),
+        "ruo.resolve" => {
+            let stable_id = match arguments.get(1) {
+                Some(Value::String(value)) => value.as_ref(),
+                _ => {
+                    return Err(RuntimeError::new(
+                        "RUO-N2-009",
+                        "ruo.resolve requires StableId",
+                    ))
+                }
+            };
+            if object.object_id.as_str() == stable_id {
+                return Ok(Value::Json(Rc::new(
+                    object.logical["object_identity"].clone(),
+                )));
+            }
+            for registry in [
+                "units",
+                "payloads",
+                "states",
+                "relations",
+                "constraints",
+                "evidence_registry",
+                "projection_descriptors",
+                "revisions",
+            ] {
+                for item in object
+                    .logical
+                    .get(registry)
+                    .and_then(serde_json::Value::as_array)
+                    .into_iter()
+                    .flatten()
+                {
+                    if [
+                        "entity_id",
+                        "payload_id",
+                        "state_id",
+                        "relation_id",
+                        "constraint_id",
+                        "evidence_id",
+                        "projection_id",
+                        "revision_id",
+                    ]
+                    .iter()
+                    .any(|key| item.get(key).and_then(serde_json::Value::as_str) == Some(stable_id))
+                    {
+                        return Ok(Value::Json(Rc::new(item.clone())));
+                    }
+                }
+            }
+            Ok(Value::Null)
+        }
+        _ => Err(RuntimeError::new(
+            "RT-UNSUPPORTED-001",
+            format!("{function_id}: native RUO operation is not implemented"),
+        )),
     }
 }
 
@@ -578,7 +717,11 @@ fn python_mod_f64(a: f64, b: f64) -> f64 {
     }
 }
 
-pub(crate) fn eval_comparison(operator: &str, left: Value, right: Value) -> Result<Value, RuntimeError> {
+pub(crate) fn eval_comparison(
+    operator: &str,
+    left: Value,
+    right: Value,
+) -> Result<Value, RuntimeError> {
     if operator == "Equal" {
         return Ok(Value::Bool(left == right));
     }

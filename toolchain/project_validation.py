@@ -9,9 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from frontend.integrated_computation_runtime import execute_program
-from frontend.language_surface.integration import compile_program, project_program
-from frontend.language_surface.parser import parse
 from frontend.tensor.integration import tensor_operations
+from toolchain.pipeline import PipelineError, compile_package_sources
 
 SCHEMA_VERSION = "reasonscript-project-validation/0.1"
 
@@ -41,28 +40,44 @@ def validate_project(root: str | Path, *, repetitions: int = 3) -> dict[str, Any
     runtime_total = 0
     runtime_passed = 0
     canonical_runs: list[str] = []
-    for source_path in sources:
+    if sources:
         try:
-            program = parse(source_path.read_text(encoding="utf-8"))
-            project_program(program)
-            reason_irs = compile_program(program)
-            passed += 1
-            if any(tensor_operations(module) for module in program.modules) or _has_loop(source_path):
-                runtime_total += 1
+            compiled = compile_package_sources(
+                [(path.read_text(encoding="utf-8"), path) for path in sources]
+            )
+            passed = len(sources)
+            if not compiled.reason_irs:
+                diagnostics.append(
+                    _diagnostic("PV-005", "Reason IR was not generated for the package")
+                )
+            runtime_total = int(
+                any(
+                    tensor_operations(module)
+                    for module in compiled.surface_ast.modules
+                )
+                or any(_has_loop(source_path) for source_path in sources)
+            )
+            if runtime_total:
                 run_hashes = []
                 for _ in range(repetitions):
-                    payload = execute_program(program).to_dict()
+                    payload = execute_program(
+                        compiled.surface_ast, resource_root=project_root
+                    ).to_dict()
                     encoded = _canonical(payload)
                     run_hashes.append(hashlib.sha256(encoded.encode()).hexdigest())
                 canonical_runs.extend(run_hashes)
                 if len(set(run_hashes)) == 1:
-                    runtime_passed += 1
+                    runtime_passed = runtime_total
                 else:
-                    diagnostics.append(_diagnostic("PV-008", f"Non-deterministic runtime result: {source_path.name}"))
-            elif not reason_irs:
-                diagnostics.append(_diagnostic("PV-005", f"Reason IR was not generated: {source_path.name}"))
+                    diagnostics.append(
+                        _diagnostic(
+                            "PV-008", "Non-deterministic package runtime result"
+                        )
+                    )
+        except PipelineError as error:
+            diagnostics.append(_diagnostic("PV-004", f"{error.code}: {error.message}"))
         except Exception as error:
-            diagnostics.append(_diagnostic("PV-004", f"{source_path.name}: {error}"))
+            diagnostics.append(_diagnostic("PV-004", f"package runtime: {error}"))
     phases.append(_phase("source_check", passed == len(sources), count=passed))
     phases.append(_phase("semantic_validation", passed == len(sources)))
     phases.append(_phase("runtime_execution", runtime_passed == runtime_total, count=runtime_passed))

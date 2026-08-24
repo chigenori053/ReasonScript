@@ -29,6 +29,7 @@ from frontend.integrated_computation_runtime import (
     _index_value,
     call_relation,
 )
+from frontend.reason_object_runtime import ReasonObjectRuntimeError, call_ruo, load_reason_object
 from frontend.tensor.runtime import TensorRuntime
 from frontend.vision.runtime import VisionRuntimeBridge
 
@@ -71,11 +72,23 @@ def interpret_program(
         resource_root or Path.cwd(), filesystem_read=filesystem_read, filesystem_write=filesystem_write
     )
     functions = {function["id"]: function for function in ir_program["functions"]}
-    ctx = _Context(functions, runtime, vision_runtime, max_loop_iterations, max_call_depth)
+    object_root = (resource_root or Path.cwd()).resolve()
+    global_env: dict[str, Any] = {}
+    for binding in ir_program.get("reason_object_bindings", []):
+        try:
+            global_env[binding["name"]] = load_reason_object(
+                object_root / binding["source_path"], object_root,
+                filesystem_read=filesystem_read,
+                filesystem_write=filesystem_write,
+                expected_object_id=binding.get("expected_object_id"),
+            )
+        except ReasonObjectRuntimeError as error:
+            raise IntegratedRuntimeError(error.code, str(error)) from error
+    ctx = _Context(functions, runtime, vision_runtime, max_loop_iterations, max_call_depth, global_env)
 
     calculations: dict[str, Any] = {}
     for calculation_id in ir_program["calculations"]:
-        env = dict(calculations)
+        env = {**global_env, **calculations}
         try:
             _run_function(functions[calculation_id], env, ctx, 0)
         except _IRResult as result:
@@ -90,14 +103,15 @@ def interpret_program(
 
 
 class _Context:
-    __slots__ = ("functions", "runtime", "vision_runtime", "max_loop_iterations", "max_call_depth")
+    __slots__ = ("functions", "runtime", "vision_runtime", "max_loop_iterations", "max_call_depth", "global_env")
 
-    def __init__(self, functions, runtime, vision_runtime, max_loop_iterations, max_call_depth):
+    def __init__(self, functions, runtime, vision_runtime, max_loop_iterations, max_call_depth, global_env):
         self.functions = functions
         self.runtime = runtime
         self.vision_runtime = vision_runtime
         self.max_loop_iterations = max_loop_iterations
         self.max_call_depth = max_call_depth
+        self.global_env = global_env
 
 
 def _run_function(function_ir: dict[str, Any], env: dict[str, Any], ctx: _Context, call_depth: int) -> None:
@@ -246,6 +260,12 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         source_span = node.get("source_span")
         return ctx.runtime.call(node["function_id"], *arguments, _source_location=source_span)
+    if op == "call_ruo":
+        arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
+        try:
+            return call_ruo(node["function_id"], *arguments)
+        except ReasonObjectRuntimeError as error:
+            raise IntegratedRuntimeError(error.code, str(error)) from error
     if op == "call_optimizer":
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         source_span = node.get("source_span")
@@ -285,7 +305,7 @@ def _call_function(
     if call_depth >= ctx.max_call_depth:
         raise IntegratedRuntimeError("RT-CALL-003", f"function call depth exceeded: {ctx.max_call_depth}")
     arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in argument_nodes]
-    local_env = dict(zip(function_ir["parameters"], arguments))
+    local_env = {**ctx.global_env, **dict(zip(function_ir["parameters"], arguments))}
     try:
         with ctx.runtime.protect(env):
             _run_function(function_ir, local_env, ctx, call_depth + 1)

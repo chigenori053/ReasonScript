@@ -5,8 +5,8 @@ ReasonScript modernization plan. Scope is bounded to exactly what
 `frontend.integrated_computation_runtime` (the existing AST evaluator)
 supports, since that is the oracle this IR is differentially tested
 against (`frontend.computation_ir.differential`); constructs it doesn't
-handle (pattern matching, Optional/Some, map/set literals, vision/ruo
-calls, reason_object graph queries, runtime.search/simulate/predict/plan)
+handle (pattern matching, Optional/Some, map/set literals, reason_object graph
+queries, runtime.search/simulate/predict/plan)
 raise `LoweringError` rather than being silently mishandled.
 """
 
@@ -46,6 +46,7 @@ from frontend.language_surface.nodes import (
     ParenthesizedExpressionNode,
     ProgramNode,
     ResultStatementNode,
+    ReasonObjectBindingNode,
     ReturnStatementNode,
     StringLiteralNode,
     StructLiteralNode,
@@ -78,7 +79,15 @@ def lower_program(program: ProgramNode) -> dict[str, Any]:
     """
     functions: list[dict[str, Any]] = []
     calculation_ids: list[str] = []
+    reason_object_bindings: list[dict[str, Any]] = []
     for module in program.modules:
+        reason_object_bindings.extend({
+            "name": item.name,
+            "source_path": item.source_path,
+            "resource_root": item.resource_root,
+            "load_mode": item.load_mode,
+            "expected_object_id": item.expected_object_id,
+        } for item in module.body if isinstance(item, ReasonObjectBindingNode))
         declared_function_nodes = tuple(
             item for item in module.body if isinstance(item, FunctionDeclarationNode)
         )
@@ -102,6 +111,7 @@ def lower_program(program: ProgramNode) -> dict[str, Any]:
         "package": program.package.name if program.package is not None else None,
         "calculations": calculation_ids,
         "functions": functions,
+        "reason_object_bindings": reason_object_bindings,
         "tensor_contract_version": "0.2",
     }
 
@@ -494,6 +504,16 @@ def _lower_expression(value: Any, declared_functions: frozenset) -> dict[str, An
 
 
 def _lower_call(value: CallExpressionNode, declared_functions: frozenset) -> dict[str, Any]:
+    if (
+        isinstance(value.callee, MemberAccessNode)
+        and isinstance(value.callee.object, IdentifierNode)
+        and value.callee.object.name == "ruo"
+    ):
+        return {
+            "op": "call_ruo",
+            "function_id": f"ruo.{value.callee.member}",
+            "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
+        }
     vision_function = vision_call_name(value)
     if vision_function is not None:
         return {

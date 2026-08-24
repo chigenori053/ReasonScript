@@ -19,6 +19,8 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
+use reasonscript_native_reasonunit_runtime::NativeReasonUnitObject;
+
 #[derive(Clone, Debug)]
 pub enum Value {
     Null,
@@ -29,6 +31,9 @@ pub enum Value {
     Array(Rc<RefCell<Vec<Value>>>),
     Struct(Rc<StructValue>),
     Tensor(Rc<str>),
+    ReasonObject(Rc<NativeReasonUnitObject>),
+    ReasonObjectSnapshot(Rc<NativeReasonUnitObject>),
+    Json(Rc<serde_json::Value>),
 }
 
 #[derive(Debug)]
@@ -59,6 +64,7 @@ impl Value {
                         .collect(),
                 ),
             })),
+            Value::Json(value) => Value::Json(Rc::new((**value).clone())),
             other => other.clone(),
         }
     }
@@ -73,6 +79,9 @@ impl Value {
             Value::Array(_) => "Array",
             Value::Struct(_) => "Struct",
             Value::Tensor(_) => "Tensor",
+            Value::ReasonObject(_) => "ReasonObject",
+            Value::ReasonObjectSnapshot(_) => "ReasonObjectSnapshot",
+            Value::Json(_) => "ReasonValue",
         }
     }
 }
@@ -90,6 +99,13 @@ impl PartialEq for Value {
                 a.type_name == b.type_name && *a.fields.borrow() == *b.fields.borrow()
             }
             (Value::Tensor(a), Value::Tensor(b)) => a == b,
+            (Value::ReasonObject(a), Value::ReasonObject(b)) => {
+                a.object_id == b.object_id && a.revision_id == b.revision_id
+            }
+            (Value::ReasonObjectSnapshot(a), Value::ReasonObjectSnapshot(b)) => {
+                a.object_id == b.object_id && a.revision_id == b.revision_id
+            }
+            (Value::Json(a), Value::Json(b)) => a == b,
             _ => false,
         }
     }
@@ -112,6 +128,11 @@ impl fmt::Display for Value {
             Value::Array(_) => write!(f, "<array>"),
             Value::Struct(value) => write!(f, "<struct {}>", value.type_name),
             Value::Tensor(id) => write!(f, "<tensor {id}>"),
+            Value::ReasonObject(value) => write!(f, "<reason_object {}>", value.object_id.as_str()),
+            Value::ReasonObjectSnapshot(value) => {
+                write!(f, "<reason_object_snapshot {}>", value.object_id.as_str())
+            }
+            Value::Json(_) => write!(f, "<reason_value>"),
         }
     }
 }
@@ -153,5 +174,16 @@ pub fn to_json(value: &Value) -> serde_json::Value {
             // isn't meaningful).
             serde_json::json!({ "tensor_id": id.to_string() })
         }
+        Value::ReasonObject(value) => serde_json::json!({
+            "object_id": value.object_id.as_str(),
+            "revision_id": value.revision_id.as_str(),
+            "status": "loaded",
+        }),
+        Value::ReasonObjectSnapshot(value) => serde_json::json!({
+            "object_id": value.object_id.as_str(),
+            "revision_id": value.revision_id.as_str(),
+            "status": "snapshot",
+        }),
+        Value::Json(value) => (**value).clone(),
     }
 }

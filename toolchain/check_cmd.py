@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .manifest import Manifest, ManifestError
-from .pipeline import PipelineError, validate_source
+from .pipeline import PipelineError, validate_package_sources
 from .workspace import (
     PackageGraphService,
     WorkspaceError,
@@ -62,17 +62,12 @@ def _run_package(project_root: Path) -> int:
         print("Error:\n\nNoSourceFiles\n\nNo .rsn files found in src/.")
         return 1
 
-    errors: list[str] = []
-    for src_path in sources:
-        source = src_path.read_text(encoding="utf-8")
-        try:
-            validate_source(source, src_path)
-        except PipelineError as e:
-            errors.append(f"{src_path}: {e.code}: {e.message}")
-
-    if errors:
-        for e in errors:
-            print(f"Error:\n\n{e}")
+    try:
+        validate_package_sources(
+            [(src_path.read_text(encoding="utf-8"), src_path) for src_path in sources]
+        )
+    except PipelineError as e:
+        print(f"Error:\n\n{e.code}: {e.message}")
         return 1
 
     print(f"Check passed. {len(sources)} file(s) validated.")
