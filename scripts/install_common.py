@@ -84,14 +84,14 @@ def install(prefix: Path, json_output: bool) -> int:
             if not cargo:
                 raise RuntimeError("cargo is required to build the Rust Runtime Host from source")
             host_build = subprocess.run(
-                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonComputationRuntime/Cargo.toml")],
+                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonRuntime/Cargo.toml")],
                 text=True,
                 capture_output=True,
             )
             if host_build.returncode:
                 raise RuntimeError(f"Reason Runtime Host build failed: {host_build.stderr.strip()}")
             shutil.copy2(
-                ROOT / "ReasonComputationRuntime" / "target" / "release" / host_name,
+                ROOT / "ReasonRuntime" / "target" / "release" / host_name,
                 host_binary,
             )
         host_binary.chmod(0o755)
@@ -103,15 +103,15 @@ def install(prefix: Path, json_output: bool) -> int:
         else:
             cargo = shutil.which("cargo")
             if not cargo:
-                raise RuntimeError("cargo is required to build the native VisionRuntime from source")
+                raise RuntimeError("cargo is required to build the native ReasonRuntime/crates/vision-core from source")
             vision_build = subprocess.run(
-                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisionRuntime/Cargo.toml")],
+                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonRuntime/crates/vision-core/Cargo.toml")],
                 text=True,
                 capture_output=True,
             )
             if vision_build.returncode:
-                raise RuntimeError(f"VisionRuntime build failed: {vision_build.stderr.strip()}")
-            shutil.copy2(ROOT / "VisionRuntime" / "target" / "release" / vision_name, vision_binary)
+                raise RuntimeError(f"ReasonRuntime/crates/vision-core build failed: {vision_build.stderr.strip()}")
+            shutil.copy2(ROOT / "ReasonRuntime" / "target" / "release" / vision_name, vision_binary)
         vision_binary.chmod(0o755)
         visualization_name = "reason-visualization.exe" if os.name == "nt" else "reason-visualization"
         visualization_binary = temp / "bin" / visualization_name
@@ -145,7 +145,7 @@ def install(prefix: Path, json_output: bool) -> int:
             if not cargo:
                 raise RuntimeError(
                     "cargo is required to build the native "
-                    "NativeReasonUnitRuntime from source"
+                    "ReasonRuntime/crates/reason-object-core from source"
                 )
             reasonunit_build = subprocess.run(
                 [
@@ -154,19 +154,19 @@ def install(prefix: Path, json_output: bool) -> int:
                     "--offline",
                     "--release",
                     "--manifest-path",
-                    str(ROOT / "NativeReasonUnitRuntime/Cargo.toml"),
+                    str(ROOT / "ReasonRuntime/crates/reason-object-core/Cargo.toml"),
                 ],
                 text=True,
                 capture_output=True,
             )
             if reasonunit_build.returncode:
                 raise RuntimeError(
-                    "NativeReasonUnitRuntime build failed: "
+                    "ReasonRuntime/crates/reason-object-core build failed: "
                     f"{reasonunit_build.stderr.strip()}"
                 )
             shutil.copy2(
                 ROOT
-                / "NativeReasonUnitRuntime"
+                / "ReasonRuntime"
                 / "target"
                 / "release"
                 / reasonunit_name,

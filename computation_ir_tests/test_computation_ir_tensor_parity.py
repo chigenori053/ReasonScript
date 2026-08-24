@@ -1,6 +1,6 @@
 """Phase 4 gate: Rust Tensor forward vs. Python, for the ~50 tensor.*
 functions the Rust VM implements (see
-ReasonComputationRuntime/crates/computation-ir/src/tensor_dispatch.rs's
+ReasonRuntime/crates/computation-ir/src/tensor_dispatch.rs's
 module doc for the exact list and what's deferred).
 
 Each case lowers a program once and runs it through both the Python IR

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_phase19_reason_run_executes_explicit_graph_query_source(tmp_path: Path) -> None:
-    build = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    build = subprocess.run(["cargo", "build", "--manifest-path", "ReasonRuntime/crates/reason-object-core/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert build.returncode == 0, build.stderr
     write_graph(reference_graph(), tmp_path / "graph.rgraph")
     source = tmp_path / "probe.rsn"

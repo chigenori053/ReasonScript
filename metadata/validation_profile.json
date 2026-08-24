@@ -185,7 +185,7 @@
       "required": true
     },
     "vision-runtime-v0.1": {
-      "path": "VisionRuntime",
+      "path": "ReasonRuntime/crates/vision-core",
       "required": true
     },
     "semantic-visualization-runtime-v0.1": {
@@ -193,11 +193,11 @@
       "required": true
     },
     "reasonunit-runtime-v1.0": {
-      "path": "NativeReasonUnitRuntime",
+      "path": "ReasonRuntime/crates/reason-object-core",
       "required": true
     },
     "runtime-host-v1.0": {
-      "path": "ReasonComputationRuntime",
+      "path": "ReasonRuntime",
       "required": true
     }
   },

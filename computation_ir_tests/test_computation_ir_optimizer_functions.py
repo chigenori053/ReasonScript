@@ -6,7 +6,7 @@ Implements the (previously deferred, per AGENTS.md's earlier
 (`frontend/tensor/runtime.py`, the numeric implementation both execution
 engines share), the `call_optimizer` IR node consumed by both
 `frontend.computation_ir.interpreter` and
-`ReasonComputationRuntime/crates/computation-ir/src/optimizer_dispatch.rs`.
+`ReasonRuntime/crates/computation-ir/src/optimizer_dispatch.rs`.
 
 Same differential pattern as every other `computation_ir_tests` parity
 suite: lower once, run through both `interpret_program` and the Rust CLI,

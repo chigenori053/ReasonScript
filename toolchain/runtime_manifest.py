@@ -118,7 +118,7 @@ def build_manifest() -> dict[str, Any]:
     return {
         "schema": MANIFEST_SCHEMA,
         "version": "1.0",
-        "phase": 7,
+        "phase": 8,
         "execution_paths": {
             "standalone_source": {
                 "primary": "rust_computation_vm",
@@ -139,9 +139,8 @@ def build_manifest() -> dict[str, Any]:
         "native_failure_policy": "structured_diagnostic_without_python_execution",
         "namespaces": namespaces,
         "rust_workspaces": [
-            "ReasonComputationRuntime", "NativeReasonUnitRuntime", "VisionRuntime",
-            "VisualizationRuntime", "ClusterRuntime", "RuntimeReal",
-            "HybridRuntime", "RuntimeComplex",
+            "ReasonRuntime", "VisualizationRuntime", "ClusterRuntime",
+            "RuntimeReal", "HybridRuntime", "RuntimeComplex",
         ],
         "retirement_candidates": {
             "python_reference_only": [
@@ -156,8 +155,8 @@ def build_manifest() -> dict[str, Any]:
             ],
             "bridges": ["frontend/computation_ir/rust_bridge.py"],
             "rust_layouts_after_migration": [
-                "ReasonComputationRuntime", "NativeReasonUnitRuntime", "VisionRuntime",
-                "RuntimeReal", "HybridRuntime", "RuntimeComplex", "Legacy/runtime",
+                "ReasonRuntime", "RuntimeReal", "HybridRuntime",
+                "RuntimeComplex", "Legacy/runtime",
             ],
         },
         "deletion_gates": [

@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_PROGRESS` — Phases 0–7 completed; Phase 8 workspace consolidation.
+`IN_PROGRESS` — Phases 0–8 completed; Phase 9 cleanup.
 
 ## Objective
 
@@ -61,7 +61,12 @@ an explicit adapter.
    lowering, capability, bridge, and runtime failures are stable diagnostics;
    no production fallback branch remains.
 9. **Phase 8 — workspace consolidation:** move retained Rust crates into the
-   target workspace and delete superseded directories.
+   target workspace and delete superseded directories. **Completed:** the
+   computation VM/Tensor/reasoning workspace is now `ReasonRuntime/`; RUO and
+   Vision are member crates at `crates/reason-object-core` and
+   `crates/vision-core`. The superseded `ReasonComputationRuntime/`,
+   `NativeReasonUnitRuntime/`, and `VisionRuntime/` directories and their
+   duplicate lockfiles/targets were deleted.
 10. **Phase 9 — cleanup:** remove obsolete tests, fixtures, build entries,
     flags, package rules, and documentation.
 

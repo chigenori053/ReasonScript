@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_phase14_native_graph_loader_has_rgo_f1_identity_parity(tmp_path: Path) -> None:
-    build = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    build = subprocess.run(["cargo", "build", "--manifest-path", "ReasonRuntime/crates/reason-object-core/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert build.returncode == 0, build.stderr
     source = tmp_path / "graph.rgraph"
     write_graph(reference_graph(), source)
@@ -25,7 +25,7 @@ def test_phase14_native_graph_loader_has_rgo_f1_identity_parity(tmp_path: Path) 
 
 
 def test_phase14_native_graph_loader_rejects_tampered_rgo_f1(tmp_path: Path) -> None:
-    build = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    build = subprocess.run(["cargo", "build", "--manifest-path", "ReasonRuntime/crates/reason-object-core/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert build.returncode == 0, build.stderr
     source = tmp_path / "graph.rgraph"
     write_graph(reference_graph(), source)
@@ -40,7 +40,7 @@ def test_phase14_native_graph_loader_rejects_tampered_rgo_f1(tmp_path: Path) -> 
 
 
 def test_phase15_native_graph_queries_match_python_contract(tmp_path: Path) -> None:
-    build = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    build = subprocess.run(["cargo", "build", "--manifest-path", "ReasonRuntime/crates/reason-object-core/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert build.returncode == 0, build.stderr
     source = tmp_path / "graph.rgraph"
     write_graph(reference_graph(), source)
@@ -52,7 +52,7 @@ def test_phase15_native_graph_queries_match_python_contract(tmp_path: Path) -> N
 
 
 def test_phase16_native_metadata_transaction_is_atomic_and_matches_python(tmp_path: Path) -> None:
-    build = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    build = subprocess.run(["cargo", "build", "--manifest-path", "ReasonRuntime/crates/reason-object-core/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert build.returncode == 0, build.stderr
     source, proposal = tmp_path / "graph.rgraph", tmp_path / "proposal.json"
     graph = reference_graph(); write_graph(graph, source)

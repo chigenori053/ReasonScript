@@ -17,7 +17,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-_CRATE_ROOT = Path(__file__).resolve().parents[2] / "ReasonComputationRuntime"
+_CRATE_ROOT = Path(__file__).resolve().parents[2] / "ReasonRuntime"
 _DISTRIBUTION_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -74,7 +74,7 @@ def run_ir(
         raise FileNotFoundError(
             "reason-runtime-host binary not found; searched: "
             + ", ".join(str(candidate) for candidate in binary_candidates())
-            + ". Build it with: cargo build --manifest-path ReasonComputationRuntime/Cargo.toml"
+            + ". Build it with: cargo build --manifest-path ReasonRuntime/Cargo.toml"
         )
     request_id = "python-bridge"
     request = {

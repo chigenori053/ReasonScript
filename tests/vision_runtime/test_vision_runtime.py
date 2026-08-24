@@ -52,7 +52,7 @@ def test_vision_object_python_ruo_writer_to_native_reader(tmp_path: Path) -> Non
     )
     object_path = tmp_path / "earth_surface.ruo"
     assert write_file(object_value, object_path)["ok"]
-    binary = ROOT / "NativeReasonUnitRuntime/target/debug/reasonunit-runtime-native"
+    binary = ROOT / "ReasonRuntime/target/debug/reasonunit-runtime-native"
     completed = subprocess.run(
         [str(binary), "load", str(object_path)],
         cwd=tmp_path,

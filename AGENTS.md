@@ -628,7 +628,26 @@ Phase 7 of `docs/development/runtime_rust_consolidation_plan.md` is complete:
 - Python AST/IR/Tensor/RUO/Vision/reasoning engines are reference-only under
   `docs/development/python_reference_runtime.md`.
 
-Phase 8 workspace consolidation is next.
+Phase 8 workspace consolidation is recorded below.
+
+## Rust Runtime Consolidation — Phase 8 Workspace Consolidation
+
+Phase 8 of `docs/development/runtime_rust_consolidation_plan.md` is complete:
+
+- the canonical product runtime workspace is `ReasonRuntime/`;
+- Computation IR/VM, Tensor, reasoning, RUO, Vision, and the runtime host are
+  member crates in that workspace;
+- RUO and Vision retain their standalone compatibility binaries, emitted into
+  the shared `ReasonRuntime/target` directory;
+- package build, source install, validation, binary discovery, tests, and the
+  Visualization runtime dependency use the consolidated paths; and
+- the superseded `ReasonComputationRuntime/`, `NativeReasonUnitRuntime/`, and
+  `VisionRuntime/` directories, independent targets, and duplicate lockfiles
+  were deleted.
+
+`VisualizationRuntime` and `ClusterRuntime` remain separate by design because
+they retain justified process boundaries. Phase 9 audits the remaining legacy
+runtime crates and removes only assets proven obsolete.
 
 ## Modernization Plan — Phase 6 Rust Default Execution
 

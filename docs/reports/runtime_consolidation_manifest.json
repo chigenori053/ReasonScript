@@ -658,7 +658,7 @@
     ]
   },
   "native_failure_policy": "structured_diagnostic_without_python_execution",
-  "phase": 7,
+  "phase": 8,
   "retirement_candidates": {
     "bridges": [
       "frontend/computation_ir/rust_bridge.py"
@@ -674,9 +674,7 @@
       "toolchain/reasoning_runtime.py"
     ],
     "rust_layouts_after_migration": [
-      "ReasonComputationRuntime",
-      "NativeReasonUnitRuntime",
-      "VisionRuntime",
+      "ReasonRuntime",
       "RuntimeReal",
       "HybridRuntime",
       "RuntimeComplex",
@@ -684,9 +682,7 @@
     ]
   },
   "rust_workspaces": [
-    "ReasonComputationRuntime",
-    "NativeReasonUnitRuntime",
-    "VisionRuntime",
+    "ReasonRuntime",
     "VisualizationRuntime",
     "ClusterRuntime",
     "RuntimeReal",

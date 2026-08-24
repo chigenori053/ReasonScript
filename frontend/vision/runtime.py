@@ -1,4 +1,4 @@
-"""Capability-checked bridge from integrated execution to Rust VisionRuntime."""
+"""Capability-checked bridge from integrated execution to Rust ReasonRuntime/crates/vision-core."""
 
 from __future__ import annotations
 
@@ -127,7 +127,7 @@ class VisionRuntimeBridge:
 
     def _native(self, arguments: list[str]) -> dict[str, Any]:
         repository = Path(__file__).resolve().parents[2]
-        crate = repository / "VisionRuntime"
+        crate = repository / "ReasonRuntime"
         binary_name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
         installed_binary = repository / "bin" / binary_name
         release_binary = crate / "target" / "release" / binary_name

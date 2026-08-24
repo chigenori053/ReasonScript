@@ -104,7 +104,7 @@ def _write_payload(package: Path, target_platform: str) -> Path:
     if not cargo:
         raise BuildRejected("cargo is required to build the native runtimes")
     host_build = subprocess.run(
-        [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonComputationRuntime/Cargo.toml")],
+        [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonRuntime/Cargo.toml")],
         text=True,
         capture_output=True,
     )
@@ -112,19 +112,12 @@ def _write_payload(package: Path, target_platform: str) -> Path:
         raise BuildRejected(f"Reason Runtime Host build failed: {host_build.stderr.strip()}")
     host_name = "reason-runtime-host.exe" if target_platform == "windows" else "reason-runtime-host"
     shutil.copy2(
-        ROOT / "ReasonComputationRuntime" / "target" / "release" / host_name,
+        ROOT / "ReasonRuntime" / "target" / "release" / host_name,
         payload / "bin" / host_name,
     )
     (payload / "bin" / host_name).chmod(0o755)
-    vision_build = subprocess.run(
-        [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisionRuntime/Cargo.toml")],
-        text=True,
-        capture_output=True,
-    )
-    if vision_build.returncode:
-        raise BuildRejected(f"VisionRuntime build failed: {vision_build.stderr.strip()}")
     vision_name = "reason-vision.exe" if target_platform == "windows" else "reason-vision"
-    shutil.copy2(ROOT / "VisionRuntime" / "target" / "release" / vision_name, payload / "bin" / vision_name)
+    shutil.copy2(ROOT / "ReasonRuntime" / "target" / "release" / vision_name, payload / "bin" / vision_name)
     (payload / "bin" / vision_name).chmod(0o755)
     visualization_build = subprocess.run(
         [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisualizationRuntime/Cargo.toml")],
@@ -135,30 +128,13 @@ def _write_payload(package: Path, target_platform: str) -> Path:
     visualization_name = "reason-visualization.exe" if target_platform == "windows" else "reason-visualization"
     shutil.copy2(ROOT / "VisualizationRuntime" / "target" / "release" / visualization_name, payload / "bin" / visualization_name)
     (payload / "bin" / visualization_name).chmod(0o755)
-    reasonunit_build = subprocess.run(
-        [
-            cargo,
-            "build",
-            "--offline",
-            "--release",
-            "--manifest-path",
-            str(ROOT / "NativeReasonUnitRuntime/Cargo.toml"),
-        ],
-        text=True,
-        capture_output=True,
-    )
-    if reasonunit_build.returncode:
-        raise BuildRejected(
-            "NativeReasonUnitRuntime build failed: "
-            f"{reasonunit_build.stderr.strip()}"
-        )
     reasonunit_name = (
         "reasonunit-runtime-native.exe"
         if target_platform == "windows"
         else "reasonunit-runtime-native"
     )
     shutil.copy2(
-        ROOT / "NativeReasonUnitRuntime" / "target" / "release" / reasonunit_name,
+        ROOT / "ReasonRuntime" / "target" / "release" / reasonunit_name,
         payload / "bin" / reasonunit_name,
     )
     (payload / "bin" / reasonunit_name).chmod(0o755)

@@ -29,6 +29,13 @@
 
 ### Added
 
+- Completed Rust runtime consolidation Phase 8: renamed the primary workspace
+  to `ReasonRuntime/`, moved the RUO and Vision libraries/binaries into
+  `crates/reason-object-core` and `crates/vision-core`, switched build/install/
+  validation discovery to the unified workspace target, and deleted the
+  superseded `ReasonComputationRuntime`, `NativeReasonUnitRuntime`, and
+  `VisionRuntime` directory layouts and duplicate Cargo lockfiles.
+
 - Completed Rust runtime consolidation Phase 7: removed Python evaluator
   fallback from standalone and project execution, switched project validation
   and `reason tensor import|inspect|verify` to the Rust host, and separated the

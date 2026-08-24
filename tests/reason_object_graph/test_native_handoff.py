@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_phase10_native_runtime_and_reason_graph_have_stable_unit_identity_parity(tmp_path: Path) -> None:
-    build = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    build = subprocess.run(["cargo", "build", "--manifest-path", "ReasonRuntime/crates/reason-object-core/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert build.returncode == 0, build.stderr
     logical = reference_object()
     logical["relations"][0].update({"source_id": "ruo:unit:text", "target_id": "ruo:unit:numeric", "relation_class": "internal", "endpoint_resolution": "resolved"})

@@ -9,7 +9,7 @@ Python/Rust differential test against (`svd` isn't wired into the
 why). Correctness is instead established independently on each side
 against the same closed-form values and mathematical invariants
 (reconstruction, orthogonality) -- this file and
-`ReasonComputationRuntime/crates/tensor-core/src/linalg.rs`'s own
+`ReasonRuntime/crates/tensor-core/src/linalg.rs`'s own
 `#[cfg(test)]` module deliberately use the *same* input matrices, so a
 divergence between the two implementations would show up as one side's
 test failing to match the shared expected values, even without a

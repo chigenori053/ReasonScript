@@ -18,8 +18,7 @@ VISION_DISTRIBUTION_PROFILE = "reasonscript-vision-install-distribution/0.1"
 DISTRIBUTION_TARGETS = (
     "toolchain", "scripts", "schemas", "frontend", "runtime", "examples",
     "standard_library", "metadata", "playground", "conformance", "canonical_fixtures",
-    "VisionRuntime", "VisualizationRuntime", "NativeReasonUnitRuntime",
-    "ReasonComputationRuntime",
+    "VisualizationRuntime", "ReasonRuntime",
 )
 
 COMPONENTS = (
@@ -36,10 +35,10 @@ COMPONENTS = (
     ("conformance-core", "conformance"),
     ("canonical-fixtures", "canonical_fixtures"),
     ("ml-evaluation-visualization-v0.2", "runtime/visualization/evaluation"),
-    ("vision-runtime-v0.1", "VisionRuntime"),
+    ("vision-runtime-v0.1", "ReasonRuntime/crates/vision-core"),
     ("semantic-visualization-runtime-v0.1", "VisualizationRuntime"),
-    ("reasonunit-runtime-v1.0", "NativeReasonUnitRuntime"),
-    ("runtime-host-v1.0", "ReasonComputationRuntime"),
+    ("reasonunit-runtime-v1.0", "ReasonRuntime/crates/reason-object-core"),
+    ("runtime-host-v1.0", "ReasonRuntime"),
 )
 
 EVALUATION_IMPORTS = (
@@ -68,10 +67,10 @@ EVALUATION_SCHEMAS = (
 INTEGRITY_ENTRY_POINTS = (
     "reason", "VERSION", "scripts/reason_cli.py", "toolchain/__main__.py",
     "playground/backend/main.py", "metadata/release_manifest.json",
-    "VisionRuntime/Cargo.toml", "frontend/vision/contracts.py",
+    "ReasonRuntime/crates/vision-core/Cargo.toml", "frontend/vision/contracts.py",
     "VisualizationRuntime/Cargo.toml",
-    "NativeReasonUnitRuntime/Cargo.toml",
-    "ReasonComputationRuntime/Cargo.toml",
+    "ReasonRuntime/crates/reason-object-core/Cargo.toml",
+    "ReasonRuntime/Cargo.toml",
     "schemas/vision_observation.schema.json",
 )
 
@@ -130,14 +129,14 @@ def validate_staged_distribution(root: Path, repository_root: Path | None = None
             raise DistributionError("IF-DC-006", "Required ML Evaluation schema is missing.", "ml-evaluation", f"schemas/{schema}")
     vision_binary = _vision_binary(root)
     if vision_binary is None:
-        raise DistributionError("IF-DC-001", "Required VisionRuntime native executable is missing.", "vision-runtime", "bin/reason-vision")
+        raise DistributionError("IF-DC-001", "Required ReasonRuntime/crates/vision-core native executable is missing.", "vision-runtime", "bin/reason-vision")
     proc = subprocess.run([str(vision_binary), "verify-native"], cwd=tempfile.gettempdir(), text=True, capture_output=True)
     try:
         native = json.loads(proc.stdout)
     except json.JSONDecodeError as error:
-        raise DistributionError("IF-DC-003", "VisionRuntime native smoke output is invalid.", "vision-runtime", str(vision_binary)) from error
+        raise DistributionError("IF-DC-003", "ReasonRuntime/crates/vision-core native smoke output is invalid.", "vision-runtime", str(vision_binary)) from error
     if proc.returncode or native.get("ok") is not True or native.get("unsafe_blocks") != 0 or native.get("profile") != "reasonscript-vision-runtime/0.1":
-        raise DistributionError("IF-DC-003", "VisionRuntime native smoke validation failed.", "vision-runtime", str(vision_binary))
+        raise DistributionError("IF-DC-003", "ReasonRuntime/crates/vision-core native smoke validation failed.", "vision-runtime", str(vision_binary))
     if not (root / "schemas/vision_observation.schema.json").is_file():
         raise DistributionError("IF-DC-006", "Vision observation schema is missing.", "vision-runtime", "schemas/vision_observation.schema.json")
     payload["vision_runtime"] = {"path": str(vision_binary), "profile": native.get("profile"), "unsafe_blocks": 0}
@@ -236,8 +235,8 @@ def _vision_binary(root: Path) -> Path | None:
     name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
     candidates = (
         root / "bin" / name,
-        root / "VisionRuntime" / "target" / "release" / name,
-        root / "VisionRuntime" / "target" / "debug" / name,
+        root / "ReasonRuntime" / "target" / "release" / name,
+        root / "ReasonRuntime" / "target" / "debug" / name,
     )
     return next((path for path in candidates if path.is_file()), None)
 
@@ -250,8 +249,8 @@ def _reasonunit_binary(root: Path) -> Path | None:
     )
     candidates = (
         root / "bin" / name,
-        root / "NativeReasonUnitRuntime" / "target" / "release" / name,
-        root / "NativeReasonUnitRuntime" / "target" / "debug" / name,
+        root / "ReasonRuntime" / "target" / "release" / name,
+        root / "ReasonRuntime" / "target" / "debug" / name,
     )
     return next((path for path in candidates if path.is_file()), None)
 
@@ -266,8 +265,8 @@ def _runtime_host_binary(root: Path) -> Path | None:
     name = "reason-runtime-host.exe" if os.name == "nt" else "reason-runtime-host"
     candidates = (
         root / "bin" / name,
-        root / "ReasonComputationRuntime" / "target" / "release" / name,
-        root / "ReasonComputationRuntime" / "target" / "debug" / name,
+        root / "ReasonRuntime" / "target" / "release" / name,
+        root / "ReasonRuntime" / "target" / "debug" / name,
     )
     return next((path for path in candidates if path.is_file()), None)
 

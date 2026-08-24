@@ -27,11 +27,12 @@ def _path(value: str) -> Path:
 
 def _invoke(root: Path, args: list[str]) -> dict[str, Any]:
     distribution_root = Path(__file__).resolve().parents[1]
-    crate = distribution_root / "VisionRuntime"
+    crate = distribution_root / "ReasonRuntime/crates/vision-core"
+    workspace_target = distribution_root / "ReasonRuntime" / "target"
     binary_name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
     installed_binary = distribution_root / "bin" / binary_name
-    release_binary = crate / "target" / "release" / binary_name
-    debug_binary = crate / "target" / "debug" / binary_name
+    release_binary = workspace_target / "release" / binary_name
+    debug_binary = workspace_target / "debug" / binary_name
     binary = installed_binary if installed_binary.is_file() else (release_binary if release_binary.is_file() else debug_binary)
     sources = [crate / "Cargo.toml", *(crate / "src").glob("*.rs")]
     binary_current = installed_binary.is_file() or (binary.is_file() and binary.stat().st_mtime_ns >= max(path.stat().st_mtime_ns for path in sources))

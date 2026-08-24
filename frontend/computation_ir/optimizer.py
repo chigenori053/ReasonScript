@@ -3,7 +3,7 @@
 Runs entirely on the Python side, on the same JSON `lower_program`
 produces, so a single implementation benefits both consumers of the IR:
 `frontend.computation_ir.interpreter` (Python) and the Rust
-`reason-computation-runtime` (`ReasonComputationRuntime/`) -- optimizing
+`reason-computation-runtime` (`ReasonRuntime/`) -- optimizing
 the IR once optimizes both backends, rather than duplicating passes in
 two languages.
 
@@ -51,7 +51,7 @@ code motion/hoisting, a Relation Matrix-style cache (no relation engine
 exists to cache against), gradient pruning as a *compile-time* IR pass
 (the interpreter and Rust VM already only walk tape nodes reachable from
 the requested loss at `grad()`-call time -- see
-`ReasonComputationRuntime/crates/tensor-core/src/autograd.rs` -- which is
+`ReasonRuntime/crates/tensor-core/src/autograd.rs` -- which is
 this codebase's form of "don't generate a VJP that can't reach the
 loss"), liveness-driven Tensor buffer reuse, and kernel fusion
 (`fused softmax`/batched matmul don't apply: `softmax` isn't implemented

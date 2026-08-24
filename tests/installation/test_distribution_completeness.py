@@ -65,10 +65,10 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     assert "semantic-visualization-runtime-v0.1" in ids
     assert "reasonunit-runtime-v1.0" in ids
     assert "runtime-host-v1.0" in ids
-    assert (home / "current/VisionRuntime/Cargo.toml").is_file()
-    assert (home / "current/NativeReasonUnitRuntime/Cargo.toml").is_file()
+    assert (home / "current/ReasonRuntime/crates/vision-core/Cargo.toml").is_file()
+    assert (home / "current/ReasonRuntime/crates/reason-object-core/Cargo.toml").is_file()
     assert (home / "current/VisualizationRuntime/Cargo.toml").is_file()
-    assert (home / "current/ReasonComputationRuntime/Cargo.toml").is_file()
+    assert (home / "current/ReasonRuntime/Cargo.toml").is_file()
     assert (home / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
     assert (home / "current/bin" / ("reason-visualization.exe" if os.name == "nt" else "reason-visualization")).is_file()
     reasonunit_binary = home / "current/bin" / (
@@ -152,8 +152,8 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     package = Path(json.loads(result.stdout)["path"])
-    assert (package / "payload/VisionRuntime/Cargo.toml").is_file()
-    assert (package / "payload/NativeReasonUnitRuntime/Cargo.toml").is_file()
+    assert (package / "payload/ReasonRuntime/crates/vision-core/Cargo.toml").is_file()
+    assert (package / "payload/ReasonRuntime/crates/reason-object-core/Cargo.toml").is_file()
     assert (package / "payload/VisualizationRuntime/Cargo.toml").is_file()
     assert (package / "payload/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
     assert (package / "payload/bin" / ("reason-visualization.exe" if os.name == "nt" else "reason-visualization")).is_file()

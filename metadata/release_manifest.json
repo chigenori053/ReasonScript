@@ -23,10 +23,10 @@
     {"id": "playground-backend", "source": "playground/backend", "required": true},
     {"id": "conformance-core", "source": "conformance", "required": true},
     {"id": "canonical-fixtures", "source": "canonical_fixtures", "required": true},
-    {"id": "vision-runtime-v0.1", "source": "VisionRuntime", "required": true},
+    {"id": "vision-runtime-v0.1", "source": "ReasonRuntime/crates/vision-core", "required": true},
     {"id": "semantic-visualization-runtime-v0.1", "source": "VisualizationRuntime", "required": true},
-    {"id": "reasonunit-runtime-v1.0", "source": "NativeReasonUnitRuntime", "required": true},
-    {"id": "runtime-host-v1.0", "source": "ReasonComputationRuntime", "required": true}
+    {"id": "reasonunit-runtime-v1.0", "source": "ReasonRuntime/crates/reason-object-core", "required": true},
+    {"id": "runtime-host-v1.0", "source": "ReasonRuntime", "required": true}
   ],
   "cli_version": "0.5.5.3",
   "runtime_compatibility": ">=0.5.0,<0.6.0"

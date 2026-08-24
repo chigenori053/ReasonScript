@@ -9,9 +9,9 @@ and the compiled `reason-computation-runtime` Rust binary
 The whole module is skipped if the Rust binary hasn't been built (e.g. a
 plain `pytest` run in a sandbox without a `cargo build` step first) --
 build it with:
-    cargo build --manifest-path ReasonComputationRuntime/Cargo.toml
+    cargo build --manifest-path ReasonRuntime/Cargo.toml
 or via `python3 scripts/test_platform.py test`, which builds and
-`cargo test`s `ReasonComputationRuntime` before running pytest.
+`cargo test`s `ReasonRuntime` before running pytest.
 """
 
 from __future__ import annotations
