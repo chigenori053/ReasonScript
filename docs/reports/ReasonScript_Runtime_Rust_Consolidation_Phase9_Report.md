@@ -25,11 +25,15 @@ entries, metadata, and guidance have been removed.
 - Platform validation passed: 1207 main tests passed with 3 optional skips;
   all Rust, integration, golden, compatibility, and playground suites pass.
 - `reason ci` passed every required phase.
-- Development package `reasonscript-0.5.5.3-macos-arm64.zip` self-validation
-  passed (SHA-256
-  `5e5e2489022adcb6ada5eebe9a5c3ea2228fa0d3fc2a853c9fa325d55d70a6a5`).
+- Release package `reasonscript-0.5.5.3-macos-arm64.zip` was generated from
+  clean commit `194a6e260962716d58d3777b6119922a6b4d7ac3`; self-validation passed
+  (SHA-256
+  `cba30376977f6c0caf1ccd0440cf697fb2c21ab7e490b1b256e16777916b5a72`).
 - Local Install Foundation update completed from 0.5.5.1 to 0.5.5.3; doctor,
   install validation, project, scalar, Tensor, and loop smoke checks passed.
+- The clean release package has the same payload digest as the installed
+  validated development build; the updater correctly reported
+  `already_up_to_date` for the same 0.5.5.3 payload.
 - Installed `reason run` reports `execution_mode: integrated-rust`.
 
 ## Generated Artifacts
