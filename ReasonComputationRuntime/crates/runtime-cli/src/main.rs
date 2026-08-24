@@ -156,21 +156,10 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         );
     }
     let numeric_mode = numeric_mode_from_name(numeric_mode_name.unwrap_or("compat-reference"));
-    let trace_enabled = request
-        .pointer("/context/trace/enabled")
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false);
-    if trace_enabled {
-        return fail_request(
-            request_id,
-            "RTH-CAP-001",
-            "trace output is not implemented by the Rust runtime host",
-        );
-    }
-
     let vm = Vm::with_numeric_mode(&program, numeric_mode);
     match vm.run_calculations(&program) {
         Ok(calculations) => {
+            let loop_trace = vm.loop_trace();
             let mut results = serde_json::Map::new();
             for (name, value) in calculations {
                 results.insert(name, to_json(&value));
@@ -186,7 +175,8 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                     "diagnostics": [],
                     "metadata": {
                         "host_profile": HOST_PROFILE,
-                        "trace": [],
+                        "trace": loop_trace,
+                        "loop_trace": loop_trace,
                         "tensor_metadata": [],
                         "reason_object_metadata": [],
                     },

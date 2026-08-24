@@ -16,7 +16,7 @@ use std::path::{Component, Path};
 use std::rc::Rc;
 
 use crate::ir::{Block, Expr, Function, Instruction, Program, Terminator};
-use crate::value::{StructValue, Value};
+use crate::value::{to_json, StructValue, Value};
 
 #[derive(Debug)]
 pub struct RuntimeError {
@@ -57,6 +57,8 @@ pub struct Vm<'a> {
     max_call_depth: u32,
     tensors: RefCell<reasonscript_tensor_core::TensorStore>,
     reason_objects: RefCell<HashMap<String, Value>>,
+    loop_trace: RefCell<Vec<serde_json::Value>>,
+    loop_frames: RefCell<HashMap<String, (i64, serde_json::Value)>>,
 }
 
 impl<'a> Vm<'a> {
@@ -88,7 +90,13 @@ impl<'a> Vm<'a> {
                 numeric_mode,
             )),
             reason_objects: RefCell::new(HashMap::new()),
+            loop_trace: RefCell::new(Vec::new()),
+            loop_frames: RefCell::new(HashMap::new()),
         }
+    }
+
+    pub fn loop_trace(&self) -> Vec<serde_json::Value> {
+        self.loop_trace.borrow().clone()
     }
 
     /// Executes every calculation in program order, mirroring
@@ -253,6 +261,46 @@ impl<'a> Vm<'a> {
         call_depth: u32,
     ) -> Result<(), RuntimeError> {
         match instruction {
+            Instruction::TraceLoopStart { loop_id, counter } => {
+                let iteration = match env.get(counter) {
+                    Some(Value::Int(value)) => *value + 1,
+                    _ => {
+                        return Err(RuntimeError::new(
+                            "IR-EXEC-009",
+                            "loop trace counter is missing",
+                        ))
+                    }
+                };
+                env.insert(counter.clone(), Value::Int(iteration));
+                self.loop_frames
+                    .borrow_mut()
+                    .insert(loop_id.clone(), (iteration, trace_env(env)));
+                Ok(())
+            }
+            Instruction::TraceLoopEnd {
+                loop_id,
+                break_triggered,
+                continue_triggered,
+            } => {
+                let Some((iteration, previous_state)) =
+                    self.loop_frames.borrow_mut().remove(loop_id)
+                else {
+                    return Err(RuntimeError::new(
+                        "IR-EXEC-009",
+                        "loop trace frame is missing",
+                    ));
+                };
+                self.loop_trace.borrow_mut().push(serde_json::json!({
+                    "loop_id": loop_id,
+                    "iteration": iteration,
+                    "condition": true,
+                    "previous_state": previous_state,
+                    "updated_state": trace_env(env),
+                    "break_triggered": break_triggered,
+                    "continue_triggered": continue_triggered,
+                }));
+                Ok(())
+            }
             Instruction::Assign { target, expr } => {
                 let value = self.eval_expr(expr, env, call_depth)?;
                 env.insert(target.clone(), value);
@@ -565,6 +613,17 @@ impl<'a> Vm<'a> {
             )),
         }
     }
+}
+
+fn trace_env(env: &HashMap<String, Value>) -> serde_json::Value {
+    let mut visible = std::collections::BTreeMap::new();
+    for (name, value) in env {
+        if name.starts_with("__for_") || name.starts_with("__trace_") {
+            continue;
+        }
+        visible.insert(name.clone(), to_json(value));
+    }
+    serde_json::to_value(visible).expect("trace environment is JSON-compatible")
 }
 
 fn call_ruo(function_id: &str, arguments: Vec<Value>) -> Result<Value, RuntimeError> {

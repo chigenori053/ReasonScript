@@ -88,9 +88,9 @@ def _run_package(
 
     runtime_result: dict | None = None
     execution_mode = "integrated"
-    fallback_reason: str | None = "trace_requested" if include_trace else None
+    fallback_reason: str | None = None
     computation_path = project_root / "target" / "computation_ir" / "package.json"
-    if not include_trace and computation_path.is_file():
+    if computation_path.is_file():
         try:
             computation_ir = json.loads(computation_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -104,10 +104,11 @@ def _run_package(
                 filesystem_read,
                 filesystem_write,
                 backend=manifest.backend,
+                include_trace=include_trace,
             )
             if runtime_result is not None:
                 execution_mode = "integrated-rust"
-    elif not include_trace:
+    else:
         support_path = project_root / "target" / "runtime" / "runtime_support.json"
         try:
             support = json.loads(support_path.read_text(encoding="utf-8"))

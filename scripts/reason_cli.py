@@ -438,12 +438,13 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
         # back rather than being re-shaped into Python's diagnostic
         # format here, so the diagnostic the user sees always comes from
         # Python's already-tested error path.
-        if include_trace:
-            rust_runtime_result, fallback_reason = None, "trace_requested"
-        else:
-            rust_runtime_result, fallback_reason = _try_rust_execution_details(
-                program, resource_root, allow_read, allow_write
-            )
+        rust_runtime_result, fallback_reason = _try_rust_execution_details(
+            program,
+            resource_root,
+            allow_read,
+            allow_write,
+            include_trace=include_trace,
+        )
         if rust_runtime_result is not None:
             if _shadow_mode_enabled():
                 _shadow_check_against_python(program, rust_runtime_result, resource_root, allow_read, allow_write)
@@ -458,6 +459,12 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
                 "selected": "rust_computation_vm",
                 "fallback_reason": None,
             }
+            if include_trace:
+                result["trace"] = (
+                    rust_runtime_result["tensor_trace"]
+                    + rust_runtime_result["loop_trace"]
+                    + rust_runtime_result["vision_trace"]
+                )
             return result
 
         result["artifacts"]["runtime_dispatch"] = {
@@ -537,7 +544,12 @@ def _try_rust_execution(program: Any, resource_root: Path, allow_read: bool, all
 
 
 def _try_rust_execution_details(
-    program: Any, resource_root: Path, allow_read: bool, allow_write: bool
+    program: Any,
+    resource_root: Path,
+    allow_read: bool,
+    allow_write: bool,
+    *,
+    include_trace: bool = False,
 ) -> tuple[dict[str, Any] | None, str | None]:
     """Return the Rust result and a stable reason when Python is required.
 
@@ -547,7 +559,13 @@ def _try_rust_execution_details(
     """
     from toolchain.runtime_dispatch import try_rust_program
 
-    return try_rust_program(program, resource_root, allow_read, allow_write)
+    return try_rust_program(
+        program,
+        resource_root,
+        allow_read,
+        allow_write,
+        include_trace=include_trace,
+    )
 
 
 def _uses_tensor_io(ir_document: dict[str, Any]) -> bool:

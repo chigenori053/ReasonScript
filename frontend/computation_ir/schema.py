@@ -52,4 +52,7 @@ EXPRESSION_OPS = (
     "call_cast",
 )
 
-INSTRUCTION_OPS = ("assign", "index_assign", "field_assign", "expr")
+INSTRUCTION_OPS = (
+    "assign", "index_assign", "field_assign", "expr",
+    "trace_loop_start", "trace_loop_end",
+)

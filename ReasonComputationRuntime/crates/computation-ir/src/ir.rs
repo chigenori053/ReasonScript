@@ -65,6 +65,14 @@ pub enum Instruction {
     },
     #[serde(rename = "expr")]
     Expr { expr: Expr },
+    #[serde(rename = "trace_loop_start")]
+    TraceLoopStart { loop_id: String, counter: String },
+    #[serde(rename = "trace_loop_end")]
+    TraceLoopEnd {
+        loop_id: String,
+        break_triggered: bool,
+        continue_triggered: bool,
+    },
 }
 
 #[derive(Debug, Deserialize)]

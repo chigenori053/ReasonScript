@@ -265,6 +265,8 @@ def _eliminate_dead_locals(
     for block_id in order:
         block = blocks_by_id[block_id]
         for instruction in block["instructions"]:
+            if instruction.get("op") == "trace_loop_start":
+                read_names.add(instruction["counter"])
             for key in ("expr", "collection", "index", "object"):
                 if key in instruction:
                     _collect_reads(instruction[key], read_names)

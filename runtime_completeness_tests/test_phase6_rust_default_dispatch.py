@@ -104,7 +104,7 @@ class RustFirstDispatchTests(unittest.TestCase):
         self.assertIn("trace", result)
         self.assertEqual(
             result["artifacts"]["runtime_dispatch"]["fallback_reason"],
-            "trace_requested",
+            "rust_trace_operation_unsupported",
         )
 
     def test_tensor_io_without_capability_falls_back_to_python(self):

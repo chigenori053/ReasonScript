@@ -13,6 +13,7 @@ def try_rust_program(
     filesystem_write: bool,
     *,
     backend: str = "RuntimeReal",
+    include_trace: bool = False,
 ) -> tuple[dict[str, Any] | None, str | None]:
     from frontend.computation_ir import LoweringError, lower_program
 
@@ -26,6 +27,7 @@ def try_rust_program(
         filesystem_read,
         filesystem_write,
         backend=backend,
+        include_trace=include_trace,
     )
 
 
@@ -36,6 +38,7 @@ def try_rust_ir(
     filesystem_write: bool,
     *,
     backend: str = "RuntimeReal",
+    include_trace: bool = False,
 ) -> tuple[dict[str, Any] | None, str | None]:
     from frontend.computation_ir.rust_bridge import find_binary, run_ir
 
@@ -44,6 +47,8 @@ def try_rust_ir(
         return None, "rust_binary_missing"
     if unsupported_rust_operations(ir_document):
         return None, "rust_operation_unsupported"
+    if include_trace and rust_trace_unsupported_operations(ir_document):
+        return None, "rust_trace_operation_unsupported"
     if ir_document.get("reason_object_bindings") and not filesystem_read:
         return None, "ruo_read_capability_not_granted"
     if uses_tensor_io(ir_document) and not (filesystem_read and filesystem_write):
@@ -56,6 +61,7 @@ def try_rust_ir(
             filesystem_read=filesystem_read,
             filesystem_write=filesystem_write,
             backend=backend,
+            trace_enabled=include_trace,
         )
     except (OSError, ValueError):
         return None, "rust_bridge_error"
@@ -67,9 +73,9 @@ def try_rust_ir(
         "schema_version": "reasonscript-integrated-runtime/0.1",
         "status": "success",
         "result": result_value,
-        "tensor_metadata": [],
-        "tensor_trace": [],
-        "loop_trace": [],
+        "tensor_metadata": outcome.metadata.get("tensor_metadata", []),
+        "tensor_trace": outcome.metadata.get("tensor_trace", []),
+        "loop_trace": outcome.metadata.get("loop_trace", []),
         "vision_trace": [],
         "calculations": calculations,
     }, None
@@ -119,3 +125,20 @@ def uses_tensor_io(ir_document: dict[str, Any]) -> bool:
         return False
 
     return walk(ir_document)
+
+
+def rust_trace_unsupported_operations(ir_document: dict[str, Any]) -> tuple[str, ...]:
+    unsupported: set[str] = set()
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("op") in {"call_tensor", "call_optimizer", "call_vision"}:
+                unsupported.add(str(node.get("function_id", node.get("op"))))
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(ir_document)
+    return tuple(sorted(unsupported))

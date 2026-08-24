@@ -64,15 +64,15 @@ def test_runtime_host_executes_versioned_request():
 
 
 @pytest.mark.skipif(HOST is None, reason="reason-runtime-host binary not built")
-def test_runtime_host_returns_structured_diagnostic_for_unsupported_trace():
+def test_runtime_host_accepts_trace_request():
     program = _program("1")
     completed = subprocess.run(
         [str(HOST)], input=json.dumps(_request(program, trace=True)), text=True, capture_output=True
     )
     payload = json.loads(completed.stdout)
-    assert completed.returncode == 1
+    assert completed.returncode == 0
     assert payload["schema"] == "reasonscript-runtime-result/1.0"
-    assert payload["diagnostics"][0]["code"] == "RTH-CAP-001"
+    assert payload["metadata"]["trace"] == []
 
 
 @pytest.mark.skipif(HOST is None, reason="reason-runtime-host binary not built")

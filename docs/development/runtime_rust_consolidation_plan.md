@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_PROGRESS` — Phases 0–2 completed; Phase 3 VM completeness.
+`IN_PROGRESS` — Phases 0–3 completed; Phase 4 Tensor completeness.
 
 ## Objective
 

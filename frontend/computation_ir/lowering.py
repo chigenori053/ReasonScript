@@ -133,7 +133,16 @@ def _lower_function(
     body: tuple[Any, ...],
     declared_functions: dict[str, str],
 ) -> dict[str, Any]:
-    builder = _BlockBuilder(function_id, declared_functions=declared_functions)
+    trace_scope = (
+        f"fn.{function_id.rsplit('::', 1)[-1]}"
+        if function_id.startswith("fn.")
+        else function_id
+    )
+    builder = _BlockBuilder(
+        function_id,
+        declared_functions=declared_functions,
+        trace_scope=trace_scope,
+    )
     entry = builder.new_block("entry")
     builder.enter(entry)
     _lower_statements(body, builder, loop=None)
@@ -167,6 +176,7 @@ def _parameter_name(parameter: Any) -> str:
 class _LoopTargets:
     continue_target: str
     break_target: str
+    trace_loop_id: str
 
 
 @dataclass
@@ -177,6 +187,7 @@ class _BlockBuilder:
     counter: int = 0
     current_id: str | None = None
     declared_functions: dict[str, str] = field(default_factory=dict)
+    trace_scope: str = ""
 
     def new_block(self, hint: str) -> str:
         self.counter += 1
@@ -280,11 +291,13 @@ def _lower_statement(statement: Any, builder: _BlockBuilder, *, loop: _LoopTarge
     if isinstance(statement, BreakStatementNode):
         if loop is None:
             raise LoweringError("IR-LOWER-003", "break outside of a loop")
+        builder.emit({"op": "trace_loop_end", "loop_id": loop.trace_loop_id, "break_triggered": True, "continue_triggered": False})
         builder.jump_to(loop.break_target)
         return
     if isinstance(statement, ContinueStatementNode):
         if loop is None:
             raise LoweringError("IR-LOWER-004", "continue outside of a loop")
+        builder.emit({"op": "trace_loop_end", "loop_id": loop.trace_loop_id, "break_triggered": False, "continue_triggered": True})
         builder.jump_to(loop.continue_target)
         return
     if isinstance(statement, IfStatementNode):
@@ -351,6 +364,9 @@ def _lower_while(statement: WhileStatementNode, builder: _BlockBuilder, *, loop:
     cond_block = builder.new_block("while_cond")
     body_block = builder.new_block("while_body")
     after_block = builder.new_block("while_after")
+    loop_id = f"{builder.trace_scope}.while"
+    trace_counter = f"__trace_iteration_{builder.counter}__"
+    builder.emit({"op": "assign", "target": trace_counter, "expr": {"op": "const", "kind": "int", "value": 0}})
     builder.jump_to(cond_block)
     builder.enter(cond_block)
     builder.terminate({
@@ -360,10 +376,14 @@ def _lower_while(statement: WhileStatementNode, builder: _BlockBuilder, *, loop:
         "else": after_block,
     })
     builder.enter(body_block)
+    builder.emit({"op": "trace_loop_start", "loop_id": loop_id, "counter": trace_counter})
     _lower_statements(
-        statement.body, builder, loop=_LoopTargets(cond_block, after_block)
+        statement.body,
+        builder,
+        loop=_LoopTargets(cond_block, after_block, loop_id),
     )
     if builder.current_terminator() is None:
+        builder.emit({"op": "trace_loop_end", "loop_id": loop_id, "break_triggered": False, "continue_triggered": False})
         builder.jump_to(cond_block)
     builder.enter(after_block)
 
@@ -371,12 +391,24 @@ def _lower_while(statement: WhileStatementNode, builder: _BlockBuilder, *, loop:
 def _lower_loop(statement: LoopStatementNode, builder: _BlockBuilder) -> None:
     body_block = builder.new_block("loop_body")
     after_block = builder.new_block("loop_after")
+    loop_id = f"{builder.trace_scope}.loop"
+    trace_counter = f"__trace_iteration_{builder.counter}__"
+    builder.emit({"op": "assign", "target": trace_counter, "expr": {"op": "const", "kind": "int", "value": 0}})
     builder.jump_to(body_block)
     builder.enter(body_block)
-    _lower_statements(
-        statement.body, builder, loop=_LoopTargets(body_block, after_block)
-    )
+    builder.emit({"op": "trace_loop_start", "loop_id": loop_id, "counter": trace_counter})
+    previous_scope = builder.trace_scope
+    builder.trace_scope = loop_id
+    try:
+        _lower_statements(
+            statement.body,
+            builder,
+            loop=_LoopTargets(body_block, after_block, loop_id),
+        )
+    finally:
+        builder.trace_scope = previous_scope
     if builder.current_terminator() is None:
+        builder.emit({"op": "trace_loop_end", "loop_id": loop_id, "break_triggered": False, "continue_triggered": False})
         builder.jump_to(body_block)
     builder.enter(after_block)
 
@@ -392,6 +424,9 @@ def _lower_for(statement: ForStatementNode, builder: _BlockBuilder) -> None:
     body_block = builder.new_block("for_body")
     increment_block = builder.new_block("for_increment")
     after_block = builder.new_block("for_after")
+    loop_id = f"{builder.trace_scope}.for.{statement.iterator}"
+    trace_counter = f"__trace_iteration_{builder.counter}__"
+    builder.emit({"op": "assign", "target": trace_counter, "expr": {"op": "const", "kind": "int", "value": 0}})
 
     builder.jump_to(cond_block)
     builder.enter(cond_block)
@@ -414,10 +449,19 @@ def _lower_for(statement: ForStatementNode, builder: _BlockBuilder) -> None:
             "index": {"op": "local", "name": index_local},
         },
     })
-    _lower_statements(
-        statement.body, builder, loop=_LoopTargets(increment_block, after_block)
-    )
+    builder.emit({"op": "trace_loop_start", "loop_id": loop_id, "counter": trace_counter})
+    previous_scope = builder.trace_scope
+    builder.trace_scope = loop_id
+    try:
+        _lower_statements(
+            statement.body,
+            builder,
+            loop=_LoopTargets(increment_block, after_block, loop_id),
+        )
+    finally:
+        builder.trace_scope = previous_scope
     if builder.current_terminator() is None:
+        builder.emit({"op": "trace_loop_end", "loop_id": loop_id, "break_triggered": False, "continue_triggered": False})
         builder.jump_to(increment_block)
 
     builder.enter(increment_block)

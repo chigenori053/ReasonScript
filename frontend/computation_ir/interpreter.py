@@ -27,6 +27,7 @@ from frontend.integrated_computation_runtime import (
     LoopLimitError,
     RuntimeStruct,
     _index_value,
+    _trace_env,
     call_relation,
 )
 from frontend.reason_object_runtime import ReasonObjectRuntimeError, call_ruo, load_reason_object
@@ -99,11 +100,16 @@ def interpret_program(
         else:
             runtime.collect(calculations)
     value = next(reversed(calculations.values()), None) if calculations else None
-    return IntegratedComputationResult(value, runtime, [], calculations, vision_runtime)
+    return IntegratedComputationResult(
+        value, runtime, ctx.loop_trace, calculations, vision_runtime
+    )
 
 
 class _Context:
-    __slots__ = ("functions", "runtime", "vision_runtime", "max_loop_iterations", "max_call_depth", "global_env")
+    __slots__ = (
+        "functions", "runtime", "vision_runtime", "max_loop_iterations",
+        "max_call_depth", "global_env", "loop_trace", "loop_frames",
+    )
 
     def __init__(self, functions, runtime, vision_runtime, max_loop_iterations, max_call_depth, global_env):
         self.functions = functions
@@ -112,6 +118,8 @@ class _Context:
         self.max_loop_iterations = max_loop_iterations
         self.max_call_depth = max_call_depth
         self.global_env = global_env
+        self.loop_trace = []
+        self.loop_frames = {}
 
 
 def _run_function(function_ir: dict[str, Any], env: dict[str, Any], ctx: _Context, call_depth: int) -> None:
@@ -155,6 +163,26 @@ def _run_function(function_ir: dict[str, Any], env: dict[str, Any], ctx: _Contex
 
 def _execute_instruction(instruction: dict[str, Any], env: dict[str, Any], ctx: _Context, call_depth: int) -> None:
     op = instruction["op"]
+    if op == "trace_loop_start":
+        loop_id = instruction["loop_id"]
+        counter = instruction["counter"]
+        iteration = int(env[counter]) + 1
+        env[counter] = iteration
+        ctx.loop_frames[loop_id] = (iteration, _visible_trace_env(env))
+        return
+    if op == "trace_loop_end":
+        loop_id = instruction["loop_id"]
+        iteration, previous = ctx.loop_frames.pop(loop_id)
+        ctx.loop_trace.append({
+            "loop_id": loop_id,
+            "iteration": iteration,
+            "condition": True,
+            "previous_state": previous,
+            "updated_state": _visible_trace_env(env),
+            "break_triggered": instruction["break_triggered"],
+            "continue_triggered": instruction["continue_triggered"],
+        })
+        return
     if op == "assign":
         env[instruction["target"]] = _eval_expr(instruction["expr"], env, ctx, call_depth)
         return
@@ -185,6 +213,13 @@ def _execute_instruction(instruction: dict[str, Any], env: dict[str, Any], ctx: 
         owner.fields[member] = new_value
         return
     raise IRExecutionError("IR-EXEC-002", f"unknown instruction op: {op}")
+
+
+def _visible_trace_env(env: dict[str, Any]) -> dict[str, Any]:
+    return _trace_env({
+        name: value for name, value in env.items()
+        if not name.startswith(("__for_", "__trace_"))
+    })
 
 
 _BINARY_OPS = {

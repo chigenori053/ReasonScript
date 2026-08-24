@@ -49,11 +49,12 @@ def find_binary() -> Path | None:
 
 
 class RustRunResult:
-    def __init__(self, ok: bool, calculation_results: dict[str, Any] | None, error_code: str | None, error_message: str | None):
+    def __init__(self, ok: bool, calculation_results: dict[str, Any] | None, error_code: str | None, error_message: str | None, metadata: dict[str, Any] | None = None):
         self.ok = ok
         self.calculation_results = calculation_results
         self.error_code = error_code
         self.error_message = error_message
+        self.metadata = metadata or {}
 
 
 def run_ir(
@@ -64,6 +65,7 @@ def run_ir(
     filesystem_read: bool = True,
     filesystem_write: bool = True,
     backend: str = "RuntimeReal",
+    trace_enabled: bool = False,
 ) -> RustRunResult:
     resolved = binary or find_binary()
     if resolved is None:
@@ -86,7 +88,7 @@ def run_ir(
                 "network": False,
             },
             "limits": {},
-            "trace": {"enabled": False},
+            "trace": {"enabled": trace_enabled},
             "numeric_mode": os.environ.get("REASONSCRIPT_NUMERIC_MODE", "compat-reference"),
             "backend": backend,
         },
@@ -101,7 +103,9 @@ def run_ir(
     )
     payload = json.loads(completed.stdout)
     if payload.get("ok"):
-        return RustRunResult(True, payload["calculation_results"], None, None)
+        return RustRunResult(
+            True, payload["calculation_results"], None, None, payload.get("metadata")
+        )
     diagnostics = payload.get("diagnostics", [])
     diagnostic = diagnostics[0] if diagnostics else {}
     return RustRunResult(
@@ -109,4 +113,5 @@ def run_ir(
         None,
         diagnostic.get("code", payload.get("error_code")),
         diagnostic.get("message", payload.get("error_message")),
+        payload.get("metadata"),
     )
