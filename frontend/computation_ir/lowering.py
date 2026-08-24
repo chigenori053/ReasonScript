@@ -81,6 +81,7 @@ def lower_program(program: ProgramNode) -> dict[str, Any]:
     functions: list[dict[str, Any]] = []
     calculation_ids: list[str] = []
     reason_object_bindings: list[dict[str, Any]] = []
+    package_name = program.package.name if program.package is not None else None
     for module in program.modules:
         reason_object_bindings.extend({
             "name": item.name,
@@ -96,10 +97,19 @@ def lower_program(program: ProgramNode) -> dict[str, Any]:
         # `functions` dict, which is likewise rebuilt per module: a bare
         # `float`/`int` call only resolves to the builtin cast when it
         # isn't shadowed by a `fn float`/`fn int` declared in this module.
-        declared_function_names = frozenset(item.name for item in declared_function_nodes)
+        module_namespace = f"{package_name}.{module.name}" if package_name else module.name
+        declared_function_names = {
+            item.name: f"{module_namespace}::{item.name}"
+            for item in declared_function_nodes
+        }
         for item in declared_function_nodes:
             functions.append(
-                _lower_function(f"fn.{item.name}", item.parameters, item.body, declared_function_names)
+                _lower_function(
+                    f"fn.{declared_function_names[item.name]}",
+                    item.parameters,
+                    item.body,
+                    declared_function_names,
+                )
             )
         for item in module.body:
             if isinstance(item, CalculationNode):
@@ -121,7 +131,7 @@ def _lower_function(
     function_id: str,
     parameters: tuple[Any, ...],
     body: tuple[Any, ...],
-    declared_functions: frozenset,
+    declared_functions: dict[str, str],
 ) -> dict[str, Any]:
     builder = _BlockBuilder(function_id, declared_functions=declared_functions)
     entry = builder.new_block("entry")
@@ -166,7 +176,7 @@ class _BlockBuilder:
     order: list[str] = field(default_factory=list)
     counter: int = 0
     current_id: str | None = None
-    declared_functions: frozenset = field(default_factory=frozenset)
+    declared_functions: dict[str, str] = field(default_factory=dict)
 
     def new_block(self, hint: str) -> str:
         self.counter += 1
@@ -429,7 +439,7 @@ def _unwrap(value: Any) -> Any:
     return value.expression if isinstance(value, ExpressionNode) else value
 
 
-def _lower_expression(value: Any, declared_functions: frozenset) -> dict[str, Any]:
+def _lower_expression(value: Any, declared_functions: dict[str, str]) -> dict[str, Any]:
     value = _unwrap(value)
     source_span = getattr(value, "_source_location", None)
 
@@ -504,7 +514,7 @@ def _lower_expression(value: Any, declared_functions: frozenset) -> dict[str, An
     raise LoweringError("IR-LOWER-006", f"unsupported expression: {type(value).__name__}")
 
 
-def _lower_call(value: CallExpressionNode, declared_functions: frozenset) -> dict[str, Any]:
+def _lower_call(value: CallExpressionNode, declared_functions: dict[str, str]) -> dict[str, Any]:
     if (
         isinstance(value.callee, MemberAccessNode)
         and isinstance(value.callee.object, IdentifierNode)
@@ -571,13 +581,14 @@ def _lower_call(value: CallExpressionNode, declared_functions: frozenset) -> dic
     if isinstance(value.callee, IdentifierNode):
         return {
             "op": "call_function",
-            "name": value.callee.name,
+            "name": declared_functions.get(value.callee.name, value.callee.name),
             "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
         }
     if isinstance(value.callee, QualifiedIdentifierNode):
         return {
             "op": "call_function",
-            "name": value.callee.symbol,
+            "name": value.callee.resolved_name
+            or "::".join((*value.callee.path, value.callee.symbol)),
             "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
         }
     raise LoweringError("IR-LOWER-009", "unsupported call target")

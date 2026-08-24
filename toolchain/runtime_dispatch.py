@@ -42,6 +42,8 @@ def try_rust_ir(
     binary = find_binary()
     if binary is None:
         return None, "rust_binary_missing"
+    if unsupported_rust_operations(ir_document):
+        return None, "rust_operation_unsupported"
     if ir_document.get("reason_object_bindings") and not filesystem_read:
         return None, "ruo_read_capability_not_granted"
     if uses_tensor_io(ir_document) and not (filesystem_read and filesystem_write):
@@ -71,6 +73,36 @@ def try_rust_ir(
         "vision_trace": [],
         "calculations": calculations,
     }, None
+
+
+def unsupported_rust_operations(ir_document: dict[str, Any]) -> tuple[str, ...]:
+    """Preflight namespace calls so unsupported features never masquerade as
+    native runtime failures and never need execute-then-fallback probing.
+    """
+    from toolchain.runtime_manifest import RUST_RUO_FUNCTIONS, RUST_TENSOR_FUNCTIONS
+
+    unsupported: set[str] = set()
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            op = node.get("op")
+            function_id = node.get("function_id")
+            if op == "call_tensor" and isinstance(function_id, str):
+                if function_id.removeprefix("tensor.") not in RUST_TENSOR_FUNCTIONS:
+                    unsupported.add(function_id)
+            elif op == "call_ruo" and isinstance(function_id, str):
+                if function_id not in RUST_RUO_FUNCTIONS:
+                    unsupported.add(function_id)
+            elif op == "call_vision" and isinstance(function_id, str):
+                unsupported.add(function_id)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(ir_document)
+    return tuple(sorted(unsupported))
 
 
 def uses_tensor_io(ir_document: dict[str, Any]) -> bool:

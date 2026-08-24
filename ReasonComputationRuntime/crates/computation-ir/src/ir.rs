@@ -94,80 +94,154 @@ pub enum Expr {
     Const {
         kind: String,
         value: serde_json::Value,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "local")]
-    Local { name: String },
+    Local {
+        name: String,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "array")]
-    Array { elements: Vec<Expr> },
+    Array {
+        elements: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "struct")]
     Struct {
         type_name: String,
         fields: BTreeMap<String, Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "unary")]
     Unary {
         operator: String,
         operand: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "binary")]
     Binary {
         operator: String,
         left: Box<Expr>,
         right: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "comparison")]
     Comparison {
         operator: String,
         left: Box<Expr>,
         right: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "logical")]
     Logical {
         operator: String,
         left: Box<Expr>,
         right: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "index")]
     Index {
         collection: Box<Expr>,
         index: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "member")]
-    Member { object: Box<Expr>, member: String },
+    Member {
+        object: Box<Expr>,
+        member: String,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "call_tensor")]
     CallTensor {
         function_id: String,
         arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "call_vision")]
     CallVision {
         function_id: String,
         arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "call_ruo")]
     CallRuo {
         function_id: String,
         arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "call_optimizer")]
     CallOptimizer {
         function_id: String,
         arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "call_relation")]
     CallRelation {
         function_id: String,
         arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "call_array_append")]
     CallArrayAppend {
         collection: Box<Expr>,
         item: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
     },
     #[serde(rename = "call_function")]
-    CallFunction { name: String, arguments: Vec<Expr> },
+    CallFunction {
+        name: String,
+        arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "call_cast")]
-    CallCast { name: String, argument: Box<Expr> },
+    CallCast {
+        name: String,
+        argument: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
+}
+
+impl Expr {
+    pub fn source_span(&self) -> Option<&serde_json::Value> {
+        match self {
+            Expr::Const { source_span, .. }
+            | Expr::Local { source_span, .. }
+            | Expr::Array { source_span, .. }
+            | Expr::Struct { source_span, .. }
+            | Expr::Unary { source_span, .. }
+            | Expr::Binary { source_span, .. }
+            | Expr::Comparison { source_span, .. }
+            | Expr::Logical { source_span, .. }
+            | Expr::Index { source_span, .. }
+            | Expr::Member { source_span, .. }
+            | Expr::CallTensor { source_span, .. }
+            | Expr::CallVision { source_span, .. }
+            | Expr::CallRuo { source_span, .. }
+            | Expr::CallOptimizer { source_span, .. }
+            | Expr::CallRelation { source_span, .. }
+            | Expr::CallArrayAppend { source_span, .. }
+            | Expr::CallFunction { source_span, .. }
+            | Expr::CallCast { source_span, .. } => source_span.as_ref(),
+        }
+    }
 }
 
 pub fn decode(source: &str) -> Result<Program, serde_json::Error> {

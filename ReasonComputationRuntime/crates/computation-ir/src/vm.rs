@@ -22,6 +22,7 @@ use crate::value::{StructValue, Value};
 pub struct RuntimeError {
     pub code: String,
     pub message: String,
+    pub source_location: Option<serde_json::Value>,
 }
 
 impl RuntimeError {
@@ -29,7 +30,15 @@ impl RuntimeError {
         RuntimeError {
             code: code.to_string(),
             message: message.into(),
+            source_location: None,
         }
+    }
+
+    fn with_source_location(mut self, source_location: Option<&serde_json::Value>) -> Self {
+        if self.source_location.is_none() {
+            self.source_location = source_location.cloned();
+        }
+        self
     }
 }
 
@@ -322,19 +331,31 @@ impl<'a> Vm<'a> {
         env: &mut HashMap<String, Value>,
         call_depth: u32,
     ) -> Result<Value, RuntimeError> {
+        self.eval_expr_inner(expr, env, call_depth)
+            .map_err(|error| error.with_source_location(expr.source_span()))
+    }
+
+    fn eval_expr_inner(
+        &self,
+        expr: &Expr,
+        env: &mut HashMap<String, Value>,
+        call_depth: u32,
+    ) -> Result<Value, RuntimeError> {
         match expr {
-            Expr::Const { kind, value } => const_value(kind, value),
-            Expr::Local { name } => env.get(name).cloned().ok_or_else(|| {
+            Expr::Const { kind, value, .. } => const_value(kind, value),
+            Expr::Local { name, .. } => env.get(name).cloned().ok_or_else(|| {
                 RuntimeError::new("RT-NAME-001", format!("unknown runtime name: {name}"))
             }),
-            Expr::Array { elements } => {
+            Expr::Array { elements, .. } => {
                 let mut items = Vec::with_capacity(elements.len());
                 for element in elements {
                     items.push(self.eval_expr(element, env, call_depth)?);
                 }
                 Ok(Value::Array(Rc::new(RefCell::new(items))))
             }
-            Expr::Struct { type_name, fields } => {
+            Expr::Struct {
+                type_name, fields, ..
+            } => {
                 let mut evaluated = HashMap::new();
                 for (name, field_expr) in fields {
                     evaluated.insert(name.clone(), self.eval_expr(field_expr, env, call_depth)?);
@@ -344,7 +365,9 @@ impl<'a> Vm<'a> {
                     fields: RefCell::new(evaluated),
                 })))
             }
-            Expr::Unary { operator, operand } => {
+            Expr::Unary {
+                operator, operand, ..
+            } => {
                 let value = self.eval_expr(operand, env, call_depth)?;
                 match (operator.as_str(), value) {
                     ("Negate", Value::Int(v)) => Ok(Value::Int(-v)),
@@ -360,6 +383,7 @@ impl<'a> Vm<'a> {
                 operator,
                 left,
                 right,
+                ..
             } => {
                 let left_value = self.eval_expr(left, env, call_depth)?;
                 let right_value = self.eval_expr(right, env, call_depth)?;
@@ -369,6 +393,7 @@ impl<'a> Vm<'a> {
                 operator,
                 left,
                 right,
+                ..
             } => {
                 let left_value = self.eval_expr(left, env, call_depth)?;
                 let right_value = self.eval_expr(right, env, call_depth)?;
@@ -378,6 +403,7 @@ impl<'a> Vm<'a> {
                 operator,
                 left,
                 right,
+                ..
             } => {
                 let left_value = as_bool(self.eval_expr(left, env, call_depth)?)?;
                 if operator == "And" {
@@ -390,18 +416,21 @@ impl<'a> Vm<'a> {
                 let right_value = as_bool(self.eval_expr(right, env, call_depth)?)?;
                 Ok(Value::Bool(right_value))
             }
-            Expr::Index { collection, index } => {
+            Expr::Index {
+                collection, index, ..
+            } => {
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
                 let index_value = self.eval_expr(index, env, call_depth)?;
                 index_value_lookup(collection_value, index_value)
             }
-            Expr::Member { object, member } => {
+            Expr::Member { object, member, .. } => {
                 let owner = self.eval_expr(object, env, call_depth)?;
                 member_lookup(owner, member)
             }
             Expr::CallTensor {
                 function_id,
                 arguments,
+                ..
             } => {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
@@ -418,6 +447,7 @@ impl<'a> Vm<'a> {
             Expr::CallRuo {
                 function_id,
                 arguments,
+                ..
             } => {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
@@ -428,6 +458,7 @@ impl<'a> Vm<'a> {
             Expr::CallOptimizer {
                 function_id,
                 arguments,
+                ..
             } => {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
@@ -438,6 +469,7 @@ impl<'a> Vm<'a> {
             Expr::CallRelation {
                 function_id,
                 arguments,
+                ..
             } => {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
@@ -445,7 +477,9 @@ impl<'a> Vm<'a> {
                 }
                 crate::relation_dispatch::call(function_id, values)
             }
-            Expr::CallArrayAppend { collection, item } => {
+            Expr::CallArrayAppend {
+                collection, item, ..
+            } => {
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
                 let item_value = self.eval_expr(item, env, call_depth)?;
                 match collection_value {
@@ -463,7 +497,7 @@ impl<'a> Vm<'a> {
                     )),
                 }
             }
-            Expr::CallCast { name, argument } => {
+            Expr::CallCast { name, argument, .. } => {
                 let value = self.eval_expr(argument, env, call_depth)?;
                 let numeric = match value {
                     Value::Int(v) => v as f64,
@@ -484,9 +518,9 @@ impl<'a> Vm<'a> {
                     Ok(Value::Int(numeric.trunc() as i64))
                 }
             }
-            Expr::CallFunction { name, arguments } => {
-                self.call_function(name, arguments, env, call_depth)
-            }
+            Expr::CallFunction {
+                name, arguments, ..
+            } => self.call_function(name, arguments, env, call_depth),
         }
     }
 

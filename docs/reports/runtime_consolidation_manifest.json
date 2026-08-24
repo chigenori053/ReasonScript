@@ -29,6 +29,7 @@
     "computation_ir_lowering_unsupported",
     "trace_requested",
     "native_runtime_error",
+    "rust_operation_unsupported",
     "rust_bridge_error",
     "built_computation_ir_missing",
     "built_computation_ir_invalid",

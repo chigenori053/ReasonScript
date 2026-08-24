@@ -96,3 +96,26 @@ def test_runtime_host_retains_raw_computation_ir_compatibility():
     assert completed.returncode == 0
     assert "schema" not in payload
     assert payload["calculation_results"] == {"Answer": 3}
+
+
+@pytest.mark.skipif(HOST is None, reason="reason-runtime-host binary not built")
+def test_runtime_host_diagnostic_preserves_expression_source_location():
+    program = lower_program(
+        parse(
+            """module M {
+              calculation Answer {
+                let value = tensor.create([1.0, 2.0])
+                result = tensor.softmax(value)
+              }
+            }
+            """
+        )
+    )
+    completed = subprocess.run(
+        [str(HOST)], input=json.dumps(_request(program)), text=True, capture_output=True
+    )
+    payload = json.loads(completed.stdout)
+    assert completed.returncode == 1
+    diagnostic = payload["diagnostics"][0]
+    assert diagnostic["code"] == "RT-UNSUPPORTED-001"
+    assert diagnostic["source_location"] == {"line": 4, "column": 26}

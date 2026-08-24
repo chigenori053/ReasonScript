@@ -19,7 +19,8 @@
           "code": {"type": "string"},
           "severity": {"enum": ["info", "warning", "error", "fatal"]},
           "category": {"type": "string"},
-          "message": {"type": "string"}
+          "message": {"type": "string"},
+          "source_location": {"type": ["object", "null"]}
         }
       }
     },

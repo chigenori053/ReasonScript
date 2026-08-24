@@ -81,7 +81,7 @@ class RustFirstDispatchTests(unittest.TestCase):
         self.assertEqual(result["execution_mode"], "integrated")
         self.assertEqual(
             result["artifacts"]["runtime_dispatch"]["fallback_reason"],
-            "native_runtime_error",
+            "rust_operation_unsupported",
         )
 
     def test_include_trace_always_uses_python(self):

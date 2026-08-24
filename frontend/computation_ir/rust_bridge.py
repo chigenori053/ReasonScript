@@ -68,7 +68,7 @@ def run_ir(
     resolved = binary or find_binary()
     if resolved is None:
         raise FileNotFoundError(
-            "reason-computation-runtime binary not found; searched: "
+            "reason-runtime-host binary not found; searched: "
             + ", ".join(str(candidate) for candidate in binary_candidates())
             + ". Build it with: cargo build --manifest-path ReasonComputationRuntime/Cargo.toml"
         )

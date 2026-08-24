@@ -142,6 +142,27 @@ class RustParityTests(unittest.TestCase):
         )
         self.assertEqual(results["Answer"], 30)
 
+    def test_qualified_functions_with_same_symbol_keep_distinct_ids(self):
+        results = self.assert_parity(
+            """pub module Left {
+  pub fn Score(value: int) -> int {
+    return value + 1
+  }
+}
+pub module Right {
+  pub fn Score(value: int) -> int {
+    return value + 10
+  }
+}
+module Main {
+  calculation Answer {
+    result = Left::Score(1) + Right::Score(1)
+  }
+}
+"""
+        )
+        self.assertEqual(results["Answer"], 13)
+
     def test_array_index_out_of_range_error_code_matches(self):
         self.assert_parity(
             """module M {

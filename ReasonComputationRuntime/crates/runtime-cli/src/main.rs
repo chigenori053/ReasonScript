@@ -194,7 +194,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Err(error) => fail_request(request_id, &error.code, &error.message),
+        Err(error) => fail_runtime_request(request_id, &error),
     }
 }
 
@@ -246,6 +246,27 @@ fn fail_io(message: &str) -> ExitCode {
 }
 
 fn fail_request(request_id: &str, code: &str, message: &str) -> ExitCode {
+    fail_request_with_location(request_id, code, message, None)
+}
+
+fn fail_runtime_request(
+    request_id: &str,
+    error: &reasonscript_computation_ir::RuntimeError,
+) -> ExitCode {
+    fail_request_with_location(
+        request_id,
+        &error.code,
+        &error.message,
+        error.source_location.clone(),
+    )
+}
+
+fn fail_request_with_location(
+    request_id: &str,
+    code: &str,
+    message: &str,
+    source_location: Option<serde_json::Value>,
+) -> ExitCode {
     let payload = serde_json::json!({
         "schema": RESULT_SCHEMA,
         "request_id": request_id,
@@ -257,6 +278,7 @@ fn fail_request(request_id: &str, code: &str, message: &str) -> ExitCode {
             "severity": "error",
             "category": "runtime",
             "message": message,
+            "source_location": source_location,
         }],
         "metadata": {
             "host_profile": HOST_PROFILE,
