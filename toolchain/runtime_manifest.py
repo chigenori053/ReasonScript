@@ -27,7 +27,8 @@ RUST_TENSOR_FUNCTIONS = frozenset(
     minimum equal not_equal greater greater_equal less less_equal negate abs
     exp log sqrt sum mean min max argmax argmin dot matmul norm cast to_array
     scalar random_uniform random_normal random_bernoulli random_permutation
-    load save parameter detach requires_grad grad
+    load save parameter detach requires_grad grad slice narrow gather concat
+    stack relu softmax linear conv2d max_pool2d avg_pool2d
     """.split()
 )
 
@@ -125,7 +126,7 @@ def build_manifest() -> dict[str, Any]:
             "standalone_source": {
                 "primary": "rust_computation_vm",
                 "fallback": "python_ast_runtime",
-                "trace_engine": "python_ast_runtime",
+                "trace_engine": "rust_computation_vm_with_domain_fallback",
             },
             "project": {
                 "primary": "rust_computation_vm",

@@ -313,6 +313,15 @@ own phase ordering intends.
 
 ## Modernization Plan — Phase 4 Rust Tensor Forward
 
+**Phase 4 completion update:** all 65 frozen Tensor Standard Functions now
+execute in the Rust host. The previously deferred `slice`, `narrow`, `gather`,
+`concat`, `stack`, `relu`, `softmax`, `linear`, `conv2d`, `max_pool2d`, and
+`avg_pool2d` operations and their differentiable VJPs are implemented.
+The host now enforces Tensor resource limits, filesystem capabilities,
+resource-root-confined `.rstensor` paths, and emits native Tensor metadata and
+Tensor trace. The older subset and simplification notes below are retained as
+historical implementation context and are superseded by this update.
+
 Phase 4 ("Rust Tensor forward") has been implemented as a new
 `reasonscript-tensor-core` crate in `ReasonComputationRuntime/`, wired
 into `computation-ir`'s VM so `call_tensor` executes for real instead of

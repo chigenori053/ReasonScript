@@ -21,7 +21,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::process::ExitCode;
 
-use reasonscript_computation_ir::{decode, to_json, NumericMode, Vm};
+use reasonscript_computation_ir::{decode, to_json, NumericMode, TensorPolicy, Vm};
 
 const REQUEST_SCHEMA: &str = "reasonscript-runtime-request/1.0";
 const RESULT_SCHEMA: &str = "reasonscript-runtime-result/1.0";
@@ -156,10 +156,76 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         );
     }
     let numeric_mode = numeric_mode_from_name(numeric_mode_name.unwrap_or("compat-reference"));
-    let vm = Vm::with_numeric_mode(&program, numeric_mode);
+    let limits = context
+        .get("limits")
+        .and_then(serde_json::Value::as_object)
+        .unwrap();
+    let mut tensor_policy = TensorPolicy::default();
+    tensor_policy.max_rank = limit(limits, "max_rank", tensor_policy.max_rank);
+    tensor_policy.max_elements = limit(limits, "max_elements", tensor_policy.max_elements);
+    tensor_policy.max_tensor_bytes =
+        limit(limits, "max_tensor_bytes", tensor_policy.max_tensor_bytes);
+    tensor_policy.max_live_tensors =
+        limit(limits, "max_live_tensors", tensor_policy.max_live_tensors);
+    tensor_policy.max_shape_dimension = limit(
+        limits,
+        "max_shape_dimension",
+        tensor_policy.max_shape_dimension,
+    );
+    tensor_policy.max_artifact_bytes = limit(
+        limits,
+        "max_artifact_bytes",
+        tensor_policy.max_artifact_bytes,
+    );
+    tensor_policy.inline_elements = limit(limits, "inline_elements", tensor_policy.inline_elements);
+    tensor_policy.max_autograd_nodes = limit(
+        limits,
+        "max_autograd_nodes",
+        tensor_policy.max_autograd_nodes,
+    );
+    tensor_policy.max_saved_tensor_bytes = limit(
+        limits,
+        "max_saved_tensor_bytes",
+        tensor_policy.max_saved_tensor_bytes,
+    );
+    let capabilities = context
+        .get("capabilities")
+        .and_then(serde_json::Value::as_object)
+        .unwrap();
+    let filesystem_read = capabilities
+        .get("filesystem_read")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let filesystem_write = capabilities
+        .get("filesystem_write")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let trace_enabled = request
+        .pointer("/context/trace/enabled")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let resource_root = std::path::PathBuf::from(
+        context
+            .get("resource_root")
+            .and_then(serde_json::Value::as_str)
+            .unwrap(),
+    );
+    let vm = Vm::with_runtime_context(
+        &program,
+        numeric_mode,
+        tensor_policy,
+        resource_root,
+        filesystem_read,
+        filesystem_write,
+        trace_enabled,
+    );
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let loop_trace = vm.loop_trace();
+            let tensor_trace = vm.tensor_trace();
+            let tensor_metadata = vm.tensor_metadata();
+            let mut combined_trace = loop_trace.clone();
+            combined_trace.extend(tensor_trace.clone());
             let mut results = serde_json::Map::new();
             for (name, value) in calculations {
                 results.insert(name, to_json(&value));
@@ -175,9 +241,10 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                     "diagnostics": [],
                     "metadata": {
                         "host_profile": HOST_PROFILE,
-                        "trace": loop_trace,
+                        "trace": combined_trace,
                         "loop_trace": loop_trace,
-                        "tensor_metadata": [],
+                        "tensor_trace": tensor_trace,
+                        "tensor_metadata": tensor_metadata,
                         "reason_object_metadata": [],
                     },
                 })
@@ -186,6 +253,14 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         }
         Err(error) => fail_runtime_request(request_id, &error),
     }
+}
+
+fn limit(limits: &serde_json::Map<String, serde_json::Value>, name: &str, default: usize) -> usize {
+    limits
+        .get(name)
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .unwrap_or(default)
 }
 
 fn numeric_mode_from_name(name: &str) -> NumericMode {

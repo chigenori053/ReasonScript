@@ -8,12 +8,10 @@
 //! and every op above that has a VJP on the Python side (all of them
 //! except the comparisons, creation, inspection, RNG, and I/O ops, which
 //! are non-differentiable or not float-producing) now tapes itself via
-//! `TensorStore::insert_with_grad` -- ~50 of the 65 Tensor Standard
-//! Functions total. Deliberately NOT implemented here (return
-//! `RT-UNSUPPORTED-001`, not a wrong answer or a panic): `slice`,
-//! `narrow`, `gather`, `concat`, `stack` (indexing-heavy shape ops) and
-//! `relu`/`softmax`/`linear`/`conv2d`/`max_pool2d`/`avg_pool2d`
-//! (neural-net inference ops, and their VJPs). Optimizers
+//! `TensorStore::insert_with_grad`. Phase 4 completion adds the remaining
+//! indexing, shape, inference, convolution, and pooling operations and their
+//! Python-compatible VJPs, so all 65 frozen Tensor Standard Functions are
+//! dispatched natively. Optimizers
 //! (`SGD`/`Momentum`/`Adam`/`AdamW`) live in a separate `optimizer.*`
 //! namespace dispatched by the sibling `optimizer_dispatch` module, not
 //! here -- see that module's doc comment.
@@ -26,7 +24,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use reasonscript_tensor_core::{autograd, ops, rng, Dtype, GradOp, NumericMode, TensorData, TensorStore};
+use reasonscript_tensor_core::{
+    autograd, ops, rng, Dtype, GradOp, NumericMode, TensorData, TensorStore,
+};
 
 use crate::value::Value;
 use crate::vm::RuntimeError;
@@ -50,6 +50,11 @@ pub fn call(function_id: &str, args: Vec<Value>, store: &RefCell<TensorStore>) -
         "transpose" => transpose(args, store),
         "squeeze" => squeeze(args, store),
         "unsqueeze" => unsqueeze(args, store),
+        "concat" => concat(args, store, false),
+        "stack" => concat(args, store, true),
+        "slice" => tensor_slice(args, store, false),
+        "narrow" => tensor_slice(args, store, true),
+        "gather" => gather(args, store),
         "add" => binary(args, store, "add", |a, b| a + b, None),
         "subtract" => binary(args, store, "subtract", |a, b| a - b, None),
         "multiply" => binary(args, store, "multiply", |a, b| a * b, None),
@@ -68,6 +73,8 @@ pub fn call(function_id: &str, args: Vec<Value>, store: &RefCell<TensorStore>) -
         "exp" => unary(args, store, "exp", f64::exp, None),
         "log" => unary(args, store, "log", f64::ln, None),
         "sqrt" => unary(args, store, "sqrt", f64::sqrt, None),
+        "relu" => unary(args, store, "relu", |v| v.max(0.0), None),
+        "softmax" => softmax(args, store),
         "sum" => reduce(args, store, "sum", ops::ReduceOp::Sum),
         "mean" => reduce(args, store, "mean", ops::ReduceOp::Mean),
         "min" => reduce(args, store, "min", ops::ReduceOp::Min),
@@ -76,6 +83,10 @@ pub fn call(function_id: &str, args: Vec<Value>, store: &RefCell<TensorStore>) -
         "argmin" => arg_reduce(args, store, ops::ArgOp::Min),
         "dot" => linalg_dot(args, store),
         "matmul" => linalg_matmul(args, store),
+        "linear" => linear(args, store),
+        "conv2d" => conv2d(args, store),
+        "max_pool2d" => pool2d(args, store, true),
+        "avg_pool2d" => pool2d(args, store, false),
         "norm" => norm(args, store),
         "cast" => cast(args, store),
         "to_array" => to_array(args, store),
@@ -223,6 +234,39 @@ fn as_i64_list(value: &Value) -> Result<Vec<i64>, RuntimeError> {
             "RT-CALL-005",
             format!("expected an Int array, got {}", other.type_name()),
         )),
+    }
+}
+
+fn optional_i64_list(
+    args: &[Value],
+    index: usize,
+    default: Option<&[i64]>,
+) -> Result<Option<Vec<i64>>, RuntimeError> {
+    match arg(args, index) {
+        None => Ok(default.map(ToOwned::to_owned)),
+        Some(Value::Null) => Ok(None),
+        Some(value) => Ok(Some(as_i64_list(value)?)),
+    }
+}
+
+fn tensor_ids(args: &[Value], index: usize) -> Result<Vec<Rc<str>>, RuntimeError> {
+    match arg(args, index) {
+        Some(Value::Array(items)) => items
+            .borrow()
+            .iter()
+            .map(|value| match value {
+                Value::Tensor(id) => Ok(id.clone()),
+                other => Err(RuntimeError::new(
+                    "RT-CALL-005",
+                    format!("expected a Tensor array, got {} element", other.type_name()),
+                )),
+            })
+            .collect(),
+        Some(other) => Err(RuntimeError::new(
+            "RT-CALL-005",
+            format!("expected a Tensor array, got {}", other.type_name()),
+        )),
+        None => Err(RuntimeError::new("RT-CALL-002", "missing Tensor array")),
     }
 }
 
@@ -474,6 +518,111 @@ fn unsqueeze(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
     )
 }
 
+fn concat(args: Vec<Value>, store: &RefCell<TensorStore>, stack: bool) -> VResult {
+    let inputs = tensor_ids(&args, 0)?;
+    let tensors = inputs
+        .iter()
+        .map(|id| fetch(store, id))
+        .collect::<Result<Vec<_>, _>>()?;
+    let axis = required_i64(&args, 1, Some(0))?;
+    let (shape, dtype, data) = if stack {
+        ops::stack(&tensors, axis).map_err(core_err)?
+    } else {
+        ops::concat(&tensors, axis).map_err(core_err)?
+    };
+    let normalized_axis = reasonscript_tensor_core::shape::normalize_axis(
+        axis,
+        if stack {
+            shape.len()
+        } else {
+            tensors[0].shape.len()
+        },
+        false,
+    )
+    .map_err(core_err)?;
+    store_insert_grad(
+        store,
+        shape,
+        dtype,
+        data,
+        GradOp::Concat {
+            inputs: inputs.iter().map(ToString::to_string).collect(),
+            axis: normalized_axis,
+            stack,
+        },
+    )
+}
+
+fn tensor_slice(args: Vec<Value>, store: &RefCell<TensorStore>, narrow: bool) -> VResult {
+    let input = tensor_id(&args, 0)?;
+    let tensor = fetch(store, &input)?;
+    let (starts, ends, axes, steps) = if narrow {
+        let axis = required_i64(&args, 1, None)?;
+        let start = required_i64(&args, 2, None)?;
+        let length = required_i64(&args, 3, None)?;
+        if length <= 0 {
+            return Err(RuntimeError::new(
+                "TSF-021",
+                "narrow length must be positive",
+            ));
+        }
+        (
+            vec![start],
+            vec![start + length],
+            Some(vec![axis]),
+            Some(vec![1]),
+        )
+    } else {
+        let starts = as_i64_list(
+            arg(&args, 1).ok_or_else(|| RuntimeError::new("RT-CALL-002", "missing starts"))?,
+        )?;
+        let ends = as_i64_list(
+            arg(&args, 2).ok_or_else(|| RuntimeError::new("RT-CALL-002", "missing ends"))?,
+        )?;
+        let axes = optional_i64_list(&args, 3, None)?;
+        let steps = optional_i64_list(&args, 4, None)?;
+        (starts, ends, axes, steps)
+    };
+    let (shape, dtype, data) =
+        ops::slice(&tensor, &starts, &ends, axes.as_deref(), steps.as_deref()).map_err(core_err)?;
+    store_insert_grad(
+        store,
+        shape,
+        dtype,
+        data,
+        GradOp::Slice {
+            input: input.to_string(),
+            starts,
+            ends,
+            axes,
+            steps,
+        },
+    )
+}
+
+fn gather(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
+    let input = tensor_id(&args, 0)?;
+    let indices = tensor_id(&args, 1)?;
+    let source = fetch(store, &input)?;
+    let index_tensor = fetch(store, &indices)?;
+    let axis = required_i64(&args, 2, Some(0))?;
+    let normalized_axis =
+        reasonscript_tensor_core::shape::normalize_axis(axis, source.shape.len(), false)
+            .map_err(core_err)?;
+    let (shape, dtype, data) = ops::gather(&source, &index_tensor, axis).map_err(core_err)?;
+    store_insert_grad(
+        store,
+        shape,
+        dtype,
+        data,
+        GradOp::Gather {
+            input: input.to_string(),
+            indices: indices.to_string(),
+            axis: normalized_axis,
+        },
+    )
+}
+
 // ---- broadcast / elementwise --------------------------------------------
 
 fn binary(
@@ -664,6 +813,130 @@ fn linalg_matmul(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
     )
 }
 
+fn softmax(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
+    let input = tensor_id(&args, 0)?;
+    let tensor = fetch(store, &input)?;
+    let axis = required_i64(&args, 1, Some(-1))?;
+    let normalized_axis =
+        reasonscript_tensor_core::shape::normalize_axis(axis, tensor.shape.len(), false)
+            .map_err(core_err)?;
+    let (shape, dtype, data) = ops::softmax(&tensor, axis).map_err(core_err)?;
+    store_insert_grad(
+        store,
+        shape,
+        dtype,
+        data,
+        GradOp::Softmax {
+            input: input.to_string(),
+            axis: normalized_axis,
+        },
+    )
+}
+
+fn linear(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
+    let left = tensor_id(&args, 0)?;
+    let right = tensor_id(&args, 1)?;
+    let bias = match arg(&args, 2) {
+        None | Some(Value::Null) => None,
+        Some(_) => Some(tensor_id(&args, 2)?),
+    };
+    let left_tensor = fetch(store, &left)?;
+    let right_tensor = fetch(store, &right)?;
+    let bias_tensor = bias.as_deref().map(|id| fetch(store, id)).transpose()?;
+    let (shape, dtype, data) =
+        ops::linear(&left_tensor, &right_tensor, bias_tensor.as_ref()).map_err(core_err)?;
+    store_insert_grad(
+        store,
+        shape,
+        dtype,
+        data,
+        GradOp::Linear {
+            left: left.to_string(),
+            right: right.to_string(),
+            bias: bias.map(|id| id.to_string()),
+        },
+    )
+}
+
+fn conv2d(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
+    let input = tensor_id(&args, 0)?;
+    let weight = tensor_id(&args, 1)?;
+    let bias = match arg(&args, 2) {
+        None | Some(Value::Null) => None,
+        Some(_) => Some(tensor_id(&args, 2)?),
+    };
+    let stride = optional_i64_list(&args, 3, Some(&[1, 1]))?.unwrap_or_else(|| vec![1, 1]);
+    let padding = optional_i64_list(&args, 4, Some(&[0, 0]))?.unwrap_or_else(|| vec![0, 0]);
+    let dilation = optional_i64_list(&args, 5, Some(&[1, 1]))?.unwrap_or_else(|| vec![1, 1]);
+    let groups = required_i64(&args, 6, Some(1))?;
+    let source = fetch(store, &input)?;
+    let kernel = fetch(store, &weight)?;
+    let bias_tensor = bias.as_deref().map(|id| fetch(store, id)).transpose()?;
+    let (shape, dtype, data) = ops::conv2d(
+        &source,
+        &kernel,
+        bias_tensor.as_ref(),
+        &stride,
+        &padding,
+        &dilation,
+        groups,
+    )
+    .map_err(core_err)?;
+    store_insert_grad(
+        store,
+        shape,
+        dtype,
+        data,
+        GradOp::Conv2d {
+            input: input.to_string(),
+            weight: weight.to_string(),
+            bias: bias.map(|id| id.to_string()),
+            stride,
+            padding,
+            dilation,
+            groups: groups as usize,
+        },
+    )
+}
+
+fn pool2d(args: Vec<Value>, store: &RefCell<TensorStore>, maximum: bool) -> VResult {
+    let input = tensor_id(&args, 0)?;
+    let source = fetch(store, &input)?;
+    let kernel = as_i64_list(
+        arg(&args, 1).ok_or_else(|| RuntimeError::new("RT-CALL-002", "missing kernel"))?,
+    )?;
+    let stride = optional_i64_list(&args, 2, None)?;
+    let padding = optional_i64_list(&args, 3, Some(&[0, 0]))?.unwrap_or_else(|| vec![0, 0]);
+    let count_include_pad = if maximum {
+        false
+    } else {
+        optional_bool(&args, 4, false)?
+    };
+    let (shape, dtype, data) = ops::pool2d(
+        &source,
+        &kernel,
+        stride.as_deref(),
+        &padding,
+        maximum,
+        count_include_pad,
+    )
+    .map_err(core_err)?;
+    store_insert_grad(
+        store,
+        shape,
+        dtype,
+        data,
+        GradOp::Pool2d {
+            input: input.to_string(),
+            kernel,
+            stride,
+            padding,
+            maximum,
+            count_include_pad,
+        },
+    )
+}
+
 fn norm(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
     let input = tensor_id(&args, 0)?;
     let tensor = fetch(store, &input)?;
@@ -700,6 +973,10 @@ fn cast(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
 
 fn to_array(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
     let tensor = fetch(store, &tensor_id(&args, 0)?)?;
+    store
+        .borrow()
+        .check_inline_size(tensor.data.len())
+        .map_err(core_err)?;
     Ok(json_to_value(reasonscript_tensor_core::json::nested_json(
         &tensor,
     )))
@@ -761,8 +1038,12 @@ fn random_permutation(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult
 // ---- I/O --------------------------------------------------------
 
 fn load(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
-    let path =
+    let raw_path =
         as_str(arg(&args, 0).ok_or_else(|| RuntimeError::new("RT-CALL-002", "missing path"))?)?;
+    let path = store
+        .borrow()
+        .resolve_io_path(&raw_path, false)
+        .map_err(core_err)?;
     let bytes = std::fs::read(&path).map_err(|error| {
         RuntimeError::new("TIO-003", format!("Tensor file cannot be read: {error}"))
     })?;
@@ -772,9 +1053,21 @@ fn load(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
 
 fn save(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
     let tensor = fetch(store, &tensor_id(&args, 0)?)?;
-    let path =
+    let raw_path =
         as_str(arg(&args, 1).ok_or_else(|| RuntimeError::new("RT-CALL-002", "missing path"))?)?;
+    let overwrite = optional_bool(&args, 2, false)?;
+    let path = store
+        .borrow()
+        .resolve_io_path(&raw_path, true)
+        .map_err(core_err)?;
+    if path.exists() && !overwrite {
+        return Err(RuntimeError::new("TIO-005", "Tensor file already exists"));
+    }
     let (payload, checksum) = reasonscript_tensor_core::io::encode(&tensor);
+    store
+        .borrow()
+        .check_artifact_size(payload.len())
+        .map_err(core_err)?;
     if let Some(parent) = std::path::Path::new(&path).parent() {
         if !parent.as_os_str().is_empty() {
             std::fs::create_dir_all(parent).map_err(|error| {
@@ -782,15 +1075,27 @@ fn save(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
             })?;
         }
     }
-    std::fs::write(&path, &payload).map_err(|error| {
-        RuntimeError::new("TIO-005", format!("atomic Tensor write failed: {error}"))
-    })?;
+    let temporary = path.with_file_name(format!(
+        ".{}.{}.tmp",
+        path.file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("tensor"),
+        std::process::id()
+    ));
+    std::fs::write(&temporary, &payload)
+        .and_then(|_| std::fs::rename(&temporary, &path))
+        .map_err(|error| {
+            RuntimeError::new("TIO-005", format!("atomic Tensor write failed: {error}"))
+        })?;
     let mut fields = std::collections::HashMap::new();
     fields.insert(
         "profile".to_string(),
         Value::String(Rc::from(reasonscript_tensor_core::io::PROFILE)),
     );
-    fields.insert("path".to_string(), Value::String(Rc::from(path.as_str())));
+    fields.insert(
+        "path".to_string(),
+        Value::String(Rc::from(raw_path.as_str())),
+    );
     fields.insert("byte_size".to_string(), Value::Int(payload.len() as i64));
     fields.insert(
         "checksum".to_string(),
@@ -805,9 +1110,11 @@ fn save(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
 // ---- autograd (Phase 5) --------------------------------------------------
 
 fn parameter(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
-    let tensor = fetch(store, &tensor_id(&args, 0)?)?;
+    let source_id = tensor_id(&args, 0)?;
+    let tensor = fetch(store, &source_id)?;
     autograd::require_f32_or_f64(&tensor).map_err(core_err)?;
     let mut store_mut = store.borrow_mut();
+    store_mut.autograd.drop_graph(&source_id);
     let id = store_mut
         .insert(tensor.shape, tensor.dtype, tensor.data)
         .map_err(core_err)?;
@@ -816,10 +1123,12 @@ fn parameter(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
 }
 
 fn detach(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
-    let tensor = fetch(store, &tensor_id(&args, 0)?)?;
+    let source_id = tensor_id(&args, 0)?;
+    let tensor = fetch(store, &source_id)?;
     // Deliberately plain `insert`, not `insert_with_grad`: detach breaks
     // the graph, matching Python's `detach()` (drops the source's graph
     // association and creates a fresh, untracked Tensor).
+    store.borrow_mut().autograd.drop_graph(&source_id);
     store_insert(store, tensor.shape, tensor.dtype, tensor.data)
 }
 

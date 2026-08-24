@@ -62,7 +62,7 @@ class RustFirstDispatchTests(unittest.TestCase):
             },
         )
 
-    def test_unsupported_tensor_function_falls_back_to_python(self):
+    def test_softmax_now_uses_rust(self):
         with tempfile.TemporaryDirectory() as directory:
             source = _write(
                 Path(directory),
@@ -78,13 +78,13 @@ class RustFirstDispatchTests(unittest.TestCase):
             )
             result = _run_result(source, "normal", include_trace=False)
         self.assertTrue(result["ok"])
-        self.assertEqual(result["execution_mode"], "integrated")
+        self.assertEqual(result["execution_mode"], "integrated-rust")
         self.assertEqual(
             result["artifacts"]["runtime_dispatch"]["fallback_reason"],
-            "rust_operation_unsupported",
+            None,
         )
 
-    def test_include_trace_always_uses_python(self):
+    def test_tensor_trace_now_uses_rust(self):
         with tempfile.TemporaryDirectory() as directory:
             source = _write(
                 Path(directory),
@@ -100,11 +100,11 @@ class RustFirstDispatchTests(unittest.TestCase):
             )
             result = _run_result(source, "normal", include_trace=True)
         self.assertTrue(result["ok"])
-        self.assertEqual(result["execution_mode"], "integrated")
+        self.assertEqual(result["execution_mode"], "integrated-rust")
         self.assertIn("trace", result)
         self.assertEqual(
             result["artifacts"]["runtime_dispatch"]["fallback_reason"],
-            "rust_trace_operation_unsupported",
+            None,
         )
 
     def test_tensor_io_without_capability_falls_back_to_python(self):

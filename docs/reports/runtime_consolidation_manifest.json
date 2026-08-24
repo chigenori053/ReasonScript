@@ -21,7 +21,7 @@
     "standalone_source": {
       "fallback": "python_ast_runtime",
       "primary": "rust_computation_vm",
-      "trace_engine": "python_ast_runtime"
+      "trace_engine": "rust_computation_vm_with_domain_fallback"
     }
   },
   "fallback_reasons": [
@@ -288,9 +288,9 @@
       },
       {
         "name": "tensor.avg_pool2d",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.cast",
@@ -300,15 +300,15 @@
       },
       {
         "name": "tensor.concat",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.conv2d",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.create",
@@ -372,9 +372,9 @@
       },
       {
         "name": "tensor.gather",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.grad",
@@ -408,9 +408,9 @@
       },
       {
         "name": "tensor.linear",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.load",
@@ -438,9 +438,9 @@
       },
       {
         "name": "tensor.max_pool2d",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.maximum",
@@ -474,9 +474,9 @@
       },
       {
         "name": "tensor.narrow",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.negate",
@@ -546,9 +546,9 @@
       },
       {
         "name": "tensor.relu",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.requires_grad",
@@ -588,15 +588,15 @@
       },
       {
         "name": "tensor.slice",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.softmax",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.sqrt",
@@ -612,9 +612,9 @@
       },
       {
         "name": "tensor.stack",
-        "production_fallback": "python_ast_runtime",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "tensor.subtract",

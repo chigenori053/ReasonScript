@@ -189,14 +189,7 @@ module Main {
         )
         self.assertEqual(results["Answer"], 3)
 
-    def test_unimplemented_tensor_op_is_rejected_by_the_rust_vm(self):
-        # `tensor.create`/`to_array` are implemented as of Phase 4 (see
-        # test_computation_ir_tensor_parity.py for that coverage) --
-        # `tensor.softmax` remains genuinely out of scope (a Phase 4+
-        # inference op), so this is deliberately NOT a parity assertion:
-        # Python succeeds while Rust must reject cleanly with
-        # RT-UNSUPPORTED-001 rather than crashing or silently producing a
-        # wrong result.
+    def test_softmax_is_implemented_by_the_rust_vm(self):
         source = """module M {
   calculation Answer {
     let a = tensor.create([1.0, 2.0], "f64")
@@ -204,12 +197,7 @@ module Main {
   }
 }
 """
-        python_results, python_error = _python_outcome(source)
-        self.assertIsNone(python_error)
-        self.assertIn("Answer", python_results)
-
-        _, rust_error = _rust_outcome(source)
-        self.assertEqual(rust_error, "RT-UNSUPPORTED-001")
+        self.assert_parity(source)
 
 
 if __name__ == "__main__":

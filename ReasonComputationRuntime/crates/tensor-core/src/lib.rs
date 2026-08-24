@@ -23,4 +23,4 @@ pub use autograd::{Autograd, GradOp};
 pub use dtype::{Dtype, NumericMode};
 pub use error::{Result, TensorCoreError};
 pub use linalg::{svd, SvdResult};
-pub use store::{TensorData, TensorStore};
+pub use store::{TensorData, TensorPolicy, TensorStore};

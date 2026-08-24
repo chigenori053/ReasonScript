@@ -51,7 +51,10 @@ def try_rust_ir(
         return None, "rust_trace_operation_unsupported"
     if ir_document.get("reason_object_bindings") and not filesystem_read:
         return None, "ruo_read_capability_not_granted"
-    if uses_tensor_io(ir_document) and not (filesystem_read and filesystem_write):
+    tensor_io = tensor_io_operations(ir_document)
+    if ("tensor.load" in tensor_io and not filesystem_read) or (
+        "tensor.save" in tensor_io and not filesystem_write
+    ):
         return None, "tensor_io_capability_not_granted"
     try:
         outcome = run_ir(
@@ -111,20 +114,28 @@ def unsupported_rust_operations(ir_document: dict[str, Any]) -> tuple[str, ...]:
     return tuple(sorted(unsupported))
 
 
-def uses_tensor_io(ir_document: dict[str, Any]) -> bool:
+def tensor_io_operations(ir_document: dict[str, Any]) -> frozenset[str]:
+    operations: set[str] = set()
+
     def walk(node: Any) -> bool:
         if isinstance(node, dict):
             if node.get("op") == "call_tensor" and node.get("function_id") in {
                 "tensor.load",
                 "tensor.save",
             }:
-                return True
-            return any(walk(value) for value in node.values())
+                operations.add(node["function_id"])
+            for value in node.values():
+                walk(value)
         if isinstance(node, list):
-            return any(walk(item) for item in node)
-        return False
+            for item in node:
+                walk(item)
 
-    return walk(ir_document)
+    walk(ir_document)
+    return frozenset(operations)
+
+
+def uses_tensor_io(ir_document: dict[str, Any]) -> bool:
+    return bool(tensor_io_operations(ir_document))
 
 
 def rust_trace_unsupported_operations(ir_document: dict[str, Any]) -> tuple[str, ...]:
@@ -132,7 +143,7 @@ def rust_trace_unsupported_operations(ir_document: dict[str, Any]) -> tuple[str,
 
     def walk(node: Any) -> None:
         if isinstance(node, dict):
-            if node.get("op") in {"call_tensor", "call_optimizer", "call_vision"}:
+            if node.get("op") in {"call_optimizer", "call_vision"}:
                 unsupported.add(str(node.get("function_id", node.get("op"))))
             for value in node.values():
                 walk(value)

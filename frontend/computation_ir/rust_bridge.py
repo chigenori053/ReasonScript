@@ -66,6 +66,7 @@ def run_ir(
     filesystem_write: bool = True,
     backend: str = "RuntimeReal",
     trace_enabled: bool = False,
+    limits: dict[str, int] | None = None,
 ) -> RustRunResult:
     resolved = binary or find_binary()
     if resolved is None:
@@ -87,7 +88,7 @@ def run_ir(
                 "filesystem_write": filesystem_write,
                 "network": False,
             },
-            "limits": {},
+            "limits": limits or {},
             "trace": {"enabled": trace_enabled},
             "numeric_mode": os.environ.get("REASONSCRIPT_NUMERIC_MODE", "compat-reference"),
             "backend": backend,

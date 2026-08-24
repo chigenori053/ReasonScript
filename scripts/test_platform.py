@@ -25,6 +25,7 @@ PYTEST_GROUPS = {
         "binding_lowering_tests",
         "calculation_semantics_tests",
         "computation_model_tests",
+        "computation_ir_tests",
         "decision_transition_tests",
         "dependency_graph_tests",
         "execution_plan_tests",

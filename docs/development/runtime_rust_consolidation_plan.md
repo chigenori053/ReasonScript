@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_PROGRESS` — Phases 0–3 completed; Phase 4 Tensor completeness.
+`IN_PROGRESS` — Phases 0–4 completed; Phase 5 RUO and Vision.
 
 ## Objective
 

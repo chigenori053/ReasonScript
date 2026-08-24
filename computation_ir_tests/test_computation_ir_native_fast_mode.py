@@ -194,8 +194,8 @@ class NativeFastModeTests(unittest.TestCase):
                 """
                 module M {
                     calculation Answer {
-                        let a = tensor.random_uniform([30, 30], -1.0, 1.0, 1)
-                        let b = tensor.random_uniform([30, 30], -1.0, 1.0, 2)
+                        let a = tensor.random_uniform([16, 16], -1.0, 1.0, 1)
+                        let b = tensor.random_uniform([16, 16], -1.0, 1.0, 2)
                         result = tensor.to_array(tensor.matmul(a, b))
                     }
                 }

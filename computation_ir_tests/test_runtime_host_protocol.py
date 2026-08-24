@@ -105,7 +105,7 @@ def test_runtime_host_diagnostic_preserves_expression_source_location():
             """module M {
               calculation Answer {
                 let value = tensor.create([1.0, 2.0])
-                result = tensor.softmax(value)
+                result = tensor.scalar(value)
               }
             }
             """
@@ -117,5 +117,5 @@ def test_runtime_host_diagnostic_preserves_expression_source_location():
     payload = json.loads(completed.stdout)
     assert completed.returncode == 1
     diagnostic = payload["diagnostics"][0]
-    assert diagnostic["code"] == "RT-UNSUPPORTED-001"
+    assert diagnostic["code"] == "TSF-011"
     assert diagnostic["source_location"] == {"line": 4, "column": 26}

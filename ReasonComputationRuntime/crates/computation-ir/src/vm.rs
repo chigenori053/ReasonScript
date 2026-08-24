@@ -4,15 +4,13 @@
 //! instruction-for-instruction (same block-walk loop, same per-block
 //! visit-count loop guard, same RT-* error codes). `call_tensor` is
 //! dispatched to `crate::tensor_dispatch`, which forwards to
-//! `reasonscript_tensor_core` (Phase 4) for the ~50 Tensor Standard
-//! Functions it implements, and returns `RT-UNSUPPORTED-001` for the
-//! rest (conv2d/pooling/softmax/relu/linear/autograd -- see
-//! `tensor_dispatch.rs`'s module doc for the exact deferred list).
+//! `reasonscript_tensor_core` for all 65 frozen Tensor Standard Functions,
+//! including autograd and Tensor trace/metadata collection.
 //! `call_vision` remains entirely unimplemented (out of scope).
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
 use crate::ir::{Block, Expr, Function, Instruction, Program, Terminator};
@@ -59,6 +57,8 @@ pub struct Vm<'a> {
     reason_objects: RefCell<HashMap<String, Value>>,
     loop_trace: RefCell<Vec<serde_json::Value>>,
     loop_frames: RefCell<HashMap<String, (i64, serde_json::Value)>>,
+    trace_enabled: bool,
+    tensor_trace: RefCell<Vec<serde_json::Value>>,
 }
 
 impl<'a> Vm<'a> {
@@ -77,26 +77,62 @@ impl<'a> Vm<'a> {
         program: &'a Program,
         numeric_mode: reasonscript_tensor_core::NumericMode,
     ) -> Self {
+        Self::with_runtime_context(
+            program,
+            numeric_mode,
+            reasonscript_tensor_core::TensorPolicy::default(),
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            true,
+            true,
+            false,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_runtime_context(
+        program: &'a Program,
+        numeric_mode: reasonscript_tensor_core::NumericMode,
+        tensor_policy: reasonscript_tensor_core::TensorPolicy,
+        resource_root: PathBuf,
+        filesystem_read: bool,
+        filesystem_write: bool,
+        trace_enabled: bool,
+    ) -> Self {
         let functions = program
             .functions
             .iter()
             .map(|function| (function.id.as_str(), function))
             .collect();
+        let mut tensors = reasonscript_tensor_core::TensorStore::with_numeric_mode(numeric_mode);
+        tensors.configure_context(
+            tensor_policy,
+            resource_root,
+            filesystem_read,
+            filesystem_write,
+        );
         Vm {
             functions,
             max_loop_iterations: DEFAULT_MAX_LOOP_ITERATIONS,
             max_call_depth: DEFAULT_MAX_CALL_DEPTH,
-            tensors: RefCell::new(reasonscript_tensor_core::TensorStore::with_numeric_mode(
-                numeric_mode,
-            )),
+            tensors: RefCell::new(tensors),
             reason_objects: RefCell::new(HashMap::new()),
             loop_trace: RefCell::new(Vec::new()),
             loop_frames: RefCell::new(HashMap::new()),
+            trace_enabled,
+            tensor_trace: RefCell::new(Vec::new()),
         }
     }
 
     pub fn loop_trace(&self) -> Vec<serde_json::Value> {
         self.loop_trace.borrow().clone()
+    }
+
+    pub fn tensor_trace(&self) -> Vec<serde_json::Value> {
+        self.tensor_trace.borrow().clone()
+    }
+
+    pub fn tensor_metadata(&self) -> Vec<serde_json::Value> {
+        self.tensors.borrow().metadata()
     }
 
     /// Executes every calculation in program order, mirroring
@@ -166,6 +202,7 @@ impl<'a> Vm<'a> {
                     ))
                 }
             }
+            self.collect_tensors(calculations.iter().map(|(_, value)| value));
         }
         Ok(calculations)
     }
@@ -200,6 +237,7 @@ impl<'a> Vm<'a> {
             })?;
             for instruction in &block.instructions {
                 self.execute_instruction(instruction, env, call_depth)?;
+                self.collect_tensors(env.values());
             }
             match &block.terminator {
                 Terminator::Jump { target } => {
@@ -237,6 +275,14 @@ impl<'a> Vm<'a> {
                 }
             }
         }
+    }
+
+    fn collect_tensors<'v>(&self, values: impl Iterator<Item = &'v Value>) {
+        let mut roots = std::collections::HashSet::new();
+        for value in values {
+            collect_tensor_ids(value, &mut roots);
+        }
+        self.tensors.borrow_mut().collect(&roots);
     }
 
     fn resolve_block_id<'b>(
@@ -478,13 +524,37 @@ impl<'a> Vm<'a> {
             Expr::CallTensor {
                 function_id,
                 arguments,
-                ..
+                source_span,
             } => {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
                     values.push(self.eval_expr(argument, env, call_depth)?);
                 }
-                crate::tensor_dispatch::call(function_id, values, &self.tensors)
+                let result =
+                    crate::tensor_dispatch::call(function_id, values.clone(), &self.tensors)
+                        .map_err(|error| error.with_source_location(source_span.as_ref()))?;
+                if self.trace_enabled {
+                    let mut trace = self.tensor_trace.borrow_mut();
+                    let ordinal = trace.len() + 1;
+                    let inputs: Vec<_> = values
+                        .iter()
+                        .map(|value| tensor_trace_value(value, &self.tensors.borrow()))
+                        .collect();
+                    trace.push(serde_json::json!({
+                        "step_id": format!("step_{ordinal:04}"),
+                        "operation_type": "standard_function_call",
+                        "function_id": function_id,
+                        "inputs": inputs,
+                        "output": tensor_trace_value(&result, &self.tensors.borrow()),
+                        "status": "success",
+                        "diagnostics": [],
+                        "operation_id": format!("op_tensor_call_{ordinal:03}"),
+                        "semantic_operation": function_id,
+                        "lowered_operations": [function_id],
+                        "source_ref": source_span,
+                    }));
+                }
+                Ok(result)
             }
             Expr::CallVision { function_id, .. } => Err(RuntimeError::new(
                 "RT-UNSUPPORTED-001",
@@ -624,6 +694,44 @@ fn trace_env(env: &HashMap<String, Value>) -> serde_json::Value {
         visible.insert(name.clone(), to_json(value));
     }
     serde_json::to_value(visible).expect("trace environment is JSON-compatible")
+}
+
+fn tensor_trace_value(
+    value: &Value,
+    store: &reasonscript_tensor_core::TensorStore,
+) -> serde_json::Value {
+    match value {
+        Value::Tensor(id) => store
+            .tensor_info(id)
+            .unwrap_or_else(|| serde_json::json!({"tensor_id": id.as_ref()})),
+        Value::Array(items) => serde_json::Value::Array(
+            items
+                .borrow()
+                .iter()
+                .map(|item| tensor_trace_value(item, store))
+                .collect(),
+        ),
+        _ => to_json(value),
+    }
+}
+
+fn collect_tensor_ids(value: &Value, roots: &mut std::collections::HashSet<String>) {
+    match value {
+        Value::Tensor(id) => {
+            roots.insert(id.to_string());
+        }
+        Value::Array(items) => {
+            for item in items.borrow().iter() {
+                collect_tensor_ids(item, roots);
+            }
+        }
+        Value::Struct(value) => {
+            for item in value.fields.borrow().values() {
+                collect_tensor_ids(item, roots);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn call_ruo(function_id: &str, arguments: Vec<Value>) -> Result<Value, RuntimeError> {
@@ -998,12 +1106,7 @@ mod tests {
     }
 
     #[test]
-    fn tensor_softmax_reports_unsupported_rather_than_panicking() {
-        // tensor.create etc. are implemented (Phase 4); tensor.softmax is
-        // deliberately still out of scope (see tensor_dispatch.rs's
-        // module doc for the exact deferred list) and must report
-        // RT-UNSUPPORTED-001 rather than panicking or being silently
-        // wrong.
+    fn tensor_softmax_executes_in_rust() {
         let ir = r#"{
             "schema": "reason-computation-ir/0.1",
             "calculations": ["Answer"],
@@ -1017,14 +1120,31 @@ mod tests {
                     "terminator": {
                         "kind": "result",
                         "value": {
-                            "op": "call_tensor", "function_id": "tensor.softmax", "arguments": []
+                            "op": "call_tensor", "function_id": "tensor.to_array", "arguments": [{
+                                "op": "call_tensor", "function_id": "tensor.softmax", "arguments": [{
+                                    "op": "call_tensor", "function_id": "tensor.create", "arguments": [{
+                                        "op": "array", "elements": [
+                                            {"op": "const", "kind": "float", "value": 1.0},
+                                            {"op": "const", "kind": "float", "value": 2.0}
+                                        ]
+                                    }, {"op": "const", "kind": "string", "value": "f64"}]
+                                }]
+                            }]
                         }
                     }
                 }]
             }]
         }"#;
-        let error = run(ir).expect_err("must fail");
-        assert_eq!(error.code, "RT-UNSUPPORTED-001");
+        let results = run(ir).expect("softmax should execute");
+        let values = match &results[0].1 {
+            Value::Array(values) => values.borrow(),
+            _ => panic!("softmax array"),
+        };
+        let first = match values[0] {
+            Value::Float(value) => value,
+            _ => panic!("softmax float"),
+        };
+        assert!((first - 0.2689414213699951).abs() < 1e-12);
     }
 
     #[test]
