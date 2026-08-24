@@ -28,7 +28,7 @@ from frontend.language_surface.nodes import (
     to_json_value,
 )
 
-from .runtime import DTYPES, TensorRuntime
+from .contracts import DTYPES, tensor_function_contracts
 from .operations import operation_signature
 
 LOWERINGS: dict[str, tuple[str, ...]] = {
@@ -63,8 +63,8 @@ class TensorSemanticError(ValueError):
 
 def public_registry() -> tuple[dict[str, Any], ...]:
     """Return the deterministic, serializable Tensor namespace registry."""
-    runtime = TensorRuntime()
-    return tuple(runtime.contracts[name].to_dict() for name in runtime.function_ids())
+    contracts = tensor_function_contracts()
+    return tuple(contracts[name].to_dict() for name in sorted(contracts))
 
 
 def tensor_call_name(value: Any) -> str | None:

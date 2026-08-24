@@ -14,70 +14,59 @@
       "effective_primary": "rust_computation_vm"
     },
     "project": {
-      "fallback": "python_ast_runtime",
+      "fallback": null,
       "manifest_backend_selects_engine": true,
       "primary": "rust_computation_vm"
     },
     "standalone_source": {
-      "fallback": "python_ast_runtime",
+      "fallback": null,
       "primary": "rust_computation_vm",
-      "trace_engine": "rust_computation_vm_with_domain_fallback"
+      "trace_engine": "rust_computation_vm"
     }
   },
-  "fallback_reasons": [
-    "rust_binary_missing",
-    "computation_ir_lowering_unsupported",
-    "native_runtime_error",
-    "rust_operation_unsupported",
-    "rust_trace_operation_unsupported",
-    "rust_bridge_error",
-    "built_computation_ir_missing",
-    "built_computation_ir_invalid",
-    "ruo_read_capability_not_granted",
-    "tensor_io_capability_not_granted"
-  ],
+  "fallback_reasons": [],
   "namespaces": {
     "optimizer": [
       {
         "name": "optimizer.adam",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "optimizer.adam_moment1",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "optimizer.adam_moment2",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "optimizer.adamw",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "optimizer.momentum",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "optimizer.momentum_velocity",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "optimizer.sgd",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       }
     ],
@@ -85,25 +74,25 @@
       {
         "name": "runtime.search",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "runtime.simulate",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "runtime.predict",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "runtime.plan",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       }
     ],
@@ -111,55 +100,55 @@
       {
         "name": "relation.filter_eq",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "relation.filter_ne",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "relation.filter_gt",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "relation.filter_gte",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "relation.filter_lt",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "relation.filter_lte",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "relation.count",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "relation.distinct_by",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "relation.sort_by",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       }
     ],
@@ -167,97 +156,97 @@
       {
         "name": "ruo.object_id",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.snapshot",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.resolve",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.query",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.begin",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.apply",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.validate",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.commit",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.rollback",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.select",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.materialize",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.project",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.save",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.tensor_view",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.status",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "ruo.diagnostics",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       }
     ],
@@ -265,391 +254,391 @@
       {
         "name": "tensor.abs",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.add",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.argmax",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.argmin",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.avg_pool2d",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.cast",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.concat",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.conv2d",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.create",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.detach",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.dimension",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.divide",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.dot",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.dtype",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.equal",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.exp",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.flatten",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.full",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.gather",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.grad",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.greater",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.greater_equal",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.less",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.less_equal",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.linear",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.load",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.log",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.matmul",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.max",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.max_pool2d",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.maximum",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.mean",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.min",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.minimum",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.multiply",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.narrow",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.negate",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.norm",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.not_equal",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.ones",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.parameter",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.power",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.random_bernoulli",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.random_normal",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.random_permutation",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.random_uniform",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.rank",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.relu",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.requires_grad",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.reshape",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.save",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.scalar",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.shape",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.size",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.slice",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.softmax",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.sqrt",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.squeeze",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.stack",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.subtract",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.sum",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.to_array",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.transpose",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.unsqueeze",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "tensor.zeros",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       }
     ],
@@ -657,23 +646,24 @@
       {
         "name": "vision.build_ruo",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       },
       {
         "name": "vision.infer",
         "production_fallback": null,
-        "python": "implemented",
+        "python": "reference_only",
         "rust": "implemented"
       }
     ]
   },
-  "phase": 0,
+  "native_failure_policy": "structured_diagnostic_without_python_execution",
+  "phase": 7,
   "retirement_candidates": {
     "bridges": [
       "frontend/computation_ir/rust_bridge.py"
     ],
-    "python_production": [
+    "python_reference_only": [
       "frontend/integrated_computation_runtime.py",
       "frontend/computation_ir/interpreter.py",
       "frontend/tensor/runtime.py",

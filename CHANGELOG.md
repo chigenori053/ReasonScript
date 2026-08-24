@@ -29,6 +29,14 @@
 
 ### Added
 
+- Completed Rust runtime consolidation Phase 7: removed Python evaluator
+  fallback from standalone and project execution, switched project validation
+  and `reason tensor import|inspect|verify` to the Rust host, and separated the
+  compiler's Tensor contract registry from the Python Tensor evaluator. Native
+  host/lowering/capability/bridge/runtime failures now remain structured Rust
+  diagnostics. Python evaluators are retained only as differential-test and
+  benchmark references pending their final deletion gates.
+
 - Completed Rust runtime consolidation Phase 6: added an in-process Rust
   reasoning core for `runtime.search`, `runtime.simulate`, `runtime.predict`,
   and `runtime.plan`; lowered those calls through Computation IR; propagated

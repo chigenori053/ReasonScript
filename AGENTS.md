@@ -590,8 +590,8 @@ The separate runtime-consolidation plan at
 - the frozen runtime consolidation manifest records complete RUO/Vision Rust
   coverage.
 
-Python RUO/Vision runtimes are retained as reference/fallback implementations
-until Phase 7 deletion gates pass.
+Python RUO/Vision runtimes are retained as reference-only implementations.
+Phase 7 removed every production fallback path.
 
 ## Rust Runtime Consolidation — Phase 6 Reasoning Core
 
@@ -610,8 +610,25 @@ Phase 6 of `docs/development/runtime_rust_consolidation_plan.md` is complete:
 - the runtime consolidation manifest records all four reasoning functions as
   implemented in Rust and backend selection as effective.
 
-Phase 7 production-fallback retirement is next. Python reasoning engines remain
-reference/fallback code until the deletion gates pass.
+Python reasoning engines remain reference-only until their final deletion
+gates pass.
+
+## Rust Runtime Consolidation — Phase 7 Python Runtime Retirement
+
+Phase 7 of `docs/development/runtime_rust_consolidation_plan.md` is complete:
+
+- standalone and built-project execution select only `reason-runtime-host`;
+- project validation executes repeated native runs for determinism;
+- `reason tensor import|inspect|verify` executes Tensor I/O through the host;
+- missing hosts, unsupported lowering/operations, capability denials, bridge
+  errors, and native runtime errors are returned as structured diagnostics and
+  never trigger Python execution;
+- Tensor contract/manifest tooling imports a backend-neutral static registry;
+  and
+- Python AST/IR/Tensor/RUO/Vision/reasoning engines are reference-only under
+  `docs/development/python_reference_runtime.md`.
+
+Phase 8 workspace consolidation is next.
 
 ## Modernization Plan — Phase 6 Rust Default Execution
 

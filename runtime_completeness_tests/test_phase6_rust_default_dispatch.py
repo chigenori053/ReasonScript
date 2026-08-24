@@ -1,11 +1,9 @@
-"""Phase 6 ("Rust主実行器"): `scripts/reason_cli.py`'s Rust-first dispatch.
+"""Phase 7 strict native dispatch (building on the Phase 6 Rust default).
 
-Covers the "Rust default, Python fallback" architecture added to
-`_run_result`/`_try_rust_execution`: the Rust computation runtime is
-tried first for programs it can fully handle, and execution transparently
-falls back to the Python AST evaluator for anything it can't (an
-unsupported Tensor function, or `tensor.load`/`save` without filesystem
-capabilities granted) -- with identical `calculations` either way.
+Covers that production execution always selects the Rust computation host.
+Unsupported programs, missing capabilities, and native runtime failures are
+reported as structured diagnostics and never execute the Python reference
+evaluator.
 
 Tests that require the compiled Rust binary skip (not fail) if it hasn't
 been built, matching the other `computation_ir_tests` parity suites.
@@ -13,7 +11,6 @@ been built, matching the other `computation_ir_tests` parity suites.
 
 from __future__ import annotations
 
-import os
 import shutil
 import tempfile
 import unittest
@@ -35,6 +32,48 @@ def _write(directory: Path, name: str, source: str) -> Path:
 
 @unittest.skipUnless(_BINARY is not None, "reason-computation-runtime binary not built")
 class RustFirstDispatchTests(unittest.TestCase):
+    def test_product_dispatch_has_no_python_evaluator_import(self):
+        repository = Path(__file__).resolve().parents[1]
+        product_dispatch = (
+            repository / "scripts/reason_cli.py",
+            repository / "toolchain/run_cmd.py",
+            repository / "toolchain/project_validation.py",
+        )
+        forbidden = (
+            "frontend.integrated_computation_runtime",
+            "frontend.computation_ir.interpreter",
+        )
+        for path in product_dispatch:
+            source = path.read_text(encoding="utf-8")
+            for module in forbidden:
+                self.assertNotIn(module, source, f"{path} imports {module}")
+
+    def test_missing_native_host_is_a_diagnostic_not_a_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = _write(
+                Path(directory),
+                "native_required.rsn",
+                """
+                module M {
+                    calculation Answer {
+                        result = 42
+                    }
+                }
+                """,
+            )
+            with mock.patch(
+                "frontend.computation_ir.rust_bridge.find_binary",
+                return_value=None,
+            ):
+                result = _run_result(source, "normal", include_trace=False)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["execution_mode"], "integrated-rust")
+        self.assertEqual(result["diagnostics"][-1]["code"], "RTH-HOST-001")
+        self.assertEqual(
+            result["artifacts"]["runtime_dispatch"]["selected"],
+            "rust_computation_vm",
+        )
+
     def test_fully_supported_program_uses_rust(self):
         with tempfile.TemporaryDirectory() as directory:
             source = _write(
@@ -163,7 +202,7 @@ class RustFirstDispatchTests(unittest.TestCase):
             self.assertEqual(result["execution_mode"], "integrated-rust")
             self.assertIn("ruo:object:universal-fixture", result["runtime_output"][0]["entity_ids"])
 
-    def test_tensor_io_without_capability_falls_back_to_python(self):
+    def test_tensor_io_without_capability_is_rejected_by_rust(self):
         with tempfile.TemporaryDirectory() as directory:
             source = _write(
                 Path(directory),
@@ -179,11 +218,18 @@ class RustFirstDispatchTests(unittest.TestCase):
                 """,
             )
             program = parse(source.read_text(encoding="utf-8"))
-            # No filesystem_read/write capability granted -> Rust must
-            # not be attempted (it has no equivalent capability gate, so
-            # it would silently perform the write Python's TIO-001 check
-            # is supposed to block).
+            # The Rust host owns capability enforcement. The compatibility
+            # probe returns None on its native TIO-001 failure, but no Python
+            # evaluator is invoked by the production path.
             self.assertIsNone(_try_rust_execution(program, Path(directory), False, False))
+            run_result = _run_result(source, "normal", include_trace=False)
+            self.assertFalse(run_result["ok"])
+            self.assertEqual(run_result["execution_mode"], "integrated-rust")
+            self.assertEqual(run_result["diagnostics"][-1]["code"], "TIO-001")
+            self.assertEqual(
+                run_result["artifacts"]["runtime_dispatch"]["selected"],
+                "rust_computation_vm",
+            )
 
     def test_tensor_io_with_capability_uses_rust(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -229,7 +275,7 @@ class RustFirstDispatchTests(unittest.TestCase):
         self.assertTrue(_uses_tensor_io(lower_program(loads)))
         self.assertFalse(_uses_tensor_io(lower_program(no_io)))
 
-    def test_shadow_mode_agrees_silently_and_does_not_change_result(self):
+    def test_legacy_shadow_environment_does_not_enable_python_execution(self):
         with tempfile.TemporaryDirectory() as directory:
             source = _write(
                 Path(directory),
@@ -244,16 +290,10 @@ class RustFirstDispatchTests(unittest.TestCase):
                 }
                 """,
             )
-            with mock.patch.dict(os.environ, {"REASONSCRIPT_SHADOW_MODE": "1"}), mock.patch(
-                "builtins.print"
-            ) as mock_print:
-                result = _run_result(source, "normal", include_trace=False)
+            result = _run_result(source, "normal", include_trace=False)
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_mode"], "integrated-rust")
         self.assertEqual(result["runtime_output"], [[6.0, 8.0]])
-        # Rust and Python agree on this program, so shadow mode must stay
-        # silent -- no mismatch warning printed to stderr.
-        mock_print.assert_not_called()
 
 
 if __name__ == "__main__":

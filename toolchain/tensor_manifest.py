@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from frontend.tensor import tensor_function_contracts
+from frontend.tensor.contracts import tensor_function_contracts
 
 MANIFEST_SCHEMA = "reasonscript-tensor-function-manifest/1.0"
 DEFAULT_BASELINE_PATH = Path("docs/reports/tensor_function_manifest.json")

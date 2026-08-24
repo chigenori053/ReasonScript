@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 from .manifest import Manifest, ManifestError
-from .pipeline import PipelineError, compile_package_sources
 from .workspace import (
     PackageGraphService,
     WorkspaceError,
@@ -86,90 +85,59 @@ def _run_package(
         print("Error:\n\nNoSourceFiles\n\nsrc/ contains no .rsn files.")
         return 1
 
-    runtime_result: dict | None = None
-    execution_mode = "integrated"
-    fallback_reason: str | None = None
     computation_path = project_root / "target" / "computation_ir" / "package.json"
-    if computation_path.is_file():
-        try:
-            computation_ir = json.loads(computation_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            fallback_reason = "built_computation_ir_invalid"
-        else:
-            from toolchain.runtime_dispatch import try_rust_ir
-
-            runtime_result, fallback_reason = try_rust_ir(
-                computation_ir,
-                project_root,
-                filesystem_read,
-                filesystem_write,
-                backend=manifest.backend,
-                include_trace=include_trace,
-            )
-            if runtime_result is not None:
-                execution_mode = "integrated-rust"
-    else:
+    if not computation_path.is_file():
         support_path = project_root / "target" / "runtime" / "runtime_support.json"
         try:
             support = json.loads(support_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             support = {}
-        fallback_reason = (
+        reason = (
             "computation_ir_lowering_unsupported"
             if support.get("rust_executable") is False
             else "built_computation_ir_missing"
         )
+        print(
+            json.dumps(
+                {
+                    "status": "failure",
+                    "diagnostics": [{
+                        "code": "RTH-IR-001",
+                        "severity": "error",
+                        "category": "runtime.native",
+                        "message": "native computation IR is unavailable; run 'reason build' after resolving unsupported language constructs",
+                        "reason": reason,
+                    }],
+                },
+                indent=2,
+            )
+        )
+        return 2
+    try:
+        computation_ir = json.loads(computation_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        print(json.dumps({"status": "failure", "diagnostics": [{
+            "code": "RTH-IR-002",
+            "severity": "error",
+            "category": "runtime.native",
+            "message": f"built computation IR is invalid: {error}",
+        }]}, indent=2))
+        return 2
 
-    if runtime_result is None:
-        try:
-            compiled = compile_package_sources(
-                [(path.read_text(encoding="utf-8"), path) for path in sources]
-            )
-        except PipelineError as error:
-            print(f"Error:\n\n{error.code}\n\n{error.message}")
-            return 1
+    from toolchain.runtime_dispatch import RustDispatchError, execute_rust_ir
 
-        try:
-            from frontend.integrated_computation_runtime import (
-                IntegratedRuntimeError,
-                LoopLimitError,
-                execute_program,
-            )
-            from frontend.tensor import TensorError
-
-            integrated = execute_program(
-                compiled.surface_ast,
-                resource_root=project_root,
-                filesystem_read=filesystem_read,
-                filesystem_write=filesystem_write,
-            )
-            runtime_result = integrated.to_dict()
-        except TensorError as error:
-            print(
-                json.dumps(
-                    {"status": "failure", "diagnostics": [error.diagnostic.to_dict()]},
-                    indent=2,
-                )
-            )
-            return 2
-        except (IntegratedRuntimeError, LoopLimitError) as error:
-            print(
-                json.dumps(
-                    {
-                        "status": "failure",
-                        "diagnostics": [
-                            {
-                                "code": error.code,
-                                "severity": "fatal",
-                                "category": "runtime.integrated",
-                                "message": str(error),
-                            }
-                        ],
-                    },
-                    indent=2,
-                )
-            )
-            return 2
+    try:
+        runtime_result = execute_rust_ir(
+            computation_ir,
+            project_root,
+            filesystem_read,
+            filesystem_write,
+            backend=manifest.backend,
+            include_trace=include_trace,
+        )
+    except RustDispatchError as error:
+        print(json.dumps({"status": "failure", "diagnostics": [error.to_diagnostic()]}, indent=2))
+        return 2
 
     calculations = runtime_result["calculations"]
     if entry is not None:
@@ -185,11 +153,11 @@ def _run_package(
         "backend": manifest.backend,
         "package": workspace_package or manifest.name,
         "runtime_result": runtime_result,
-        "execution_mode": execution_mode,
+        "execution_mode": "integrated-rust",
         "runtime_dispatch": {
             "attempted": "rust_computation_vm",
-            "selected": "rust_computation_vm" if execution_mode == "integrated-rust" else "python_ast_runtime",
-            "fallback_reason": fallback_reason,
+            "selected": "rust_computation_vm",
+            "fallback_reason": None,
         },
     }
     if entry is not None:

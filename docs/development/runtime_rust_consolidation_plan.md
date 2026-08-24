@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_PROGRESS` — Phases 0–6 completed; Phase 7 Python runtime retirement.
+`IN_PROGRESS` — Phases 0–7 completed; Phase 8 workspace consolidation.
 
 ## Objective
 
@@ -55,7 +55,11 @@ an explicit adapter.
    host's in-process `reasoning-core`, preserve the Optional result/trace/plan
    ABI, and select RuntimeReal or HybridRuntime provenance from `reason.toml`.
 8. **Phase 7 — Python runtime retirement:** remove production fallback and move
-   Python evaluators to reference-only tests before deletion.
+   Python evaluators to reference-only tests before deletion. **Completed:**
+   standalone execution, project execution/validation, Tensor artifact CLI,
+   and contract manifests no longer invoke a Python evaluator. Native host,
+   lowering, capability, bridge, and runtime failures are stable diagnostics;
+   no production fallback branch remains.
 9. **Phase 8 — workspace consolidation:** move retained Rust crates into the
    target workspace and delete superseded directories.
 10. **Phase 9 — cleanup:** remove obsolete tests, fixtures, build entries,

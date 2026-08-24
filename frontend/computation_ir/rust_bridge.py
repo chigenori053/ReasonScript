@@ -49,12 +49,13 @@ def find_binary() -> Path | None:
 
 
 class RustRunResult:
-    def __init__(self, ok: bool, calculation_results: dict[str, Any] | None, error_code: str | None, error_message: str | None, metadata: dict[str, Any] | None = None):
+    def __init__(self, ok: bool, calculation_results: dict[str, Any] | None, error_code: str | None, error_message: str | None, metadata: dict[str, Any] | None = None, diagnostic: dict[str, Any] | None = None):
         self.ok = ok
         self.calculation_results = calculation_results
         self.error_code = error_code
         self.error_message = error_message
         self.metadata = metadata or {}
+        self.diagnostic = diagnostic
 
 
 def run_ir(
@@ -115,4 +116,5 @@ def run_ir(
         diagnostic.get("code", payload.get("error_code")),
         diagnostic.get("message", payload.get("error_message")),
         payload.get("metadata"),
+        diagnostic,
     )

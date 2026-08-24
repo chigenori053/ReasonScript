@@ -8,9 +8,9 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from frontend.integrated_computation_runtime import execute_program
-from frontend.tensor.integration import tensor_operations
+from frontend.language_surface.nodes import CalculationNode
 from toolchain.pipeline import PipelineError, compile_package_sources
+from toolchain.runtime_dispatch import RustDispatchError, execute_rust_program
 
 SCHEMA_VERSION = "reasonscript-project-validation/0.1"
 
@@ -52,17 +52,21 @@ def validate_project(root: str | Path, *, repetitions: int = 3) -> dict[str, Any
                 )
             runtime_total = int(
                 any(
-                    tensor_operations(module)
+                    isinstance(item, CalculationNode)
                     for module in compiled.surface_ast.modules
+                    for item in module.body
                 )
-                or any(_has_loop(source_path) for source_path in sources)
             )
             if runtime_total:
                 run_hashes = []
                 for _ in range(repetitions):
-                    payload = execute_program(
-                        compiled.surface_ast, resource_root=project_root
-                    ).to_dict()
+                    payload = execute_rust_program(
+                        compiled.surface_ast,
+                        project_root,
+                        False,
+                        False,
+                        backend=_manifest_backend(manifest),
+                    )
                     encoded = _canonical(payload)
                     run_hashes.append(hashlib.sha256(encoded.encode()).hexdigest())
                 canonical_runs.extend(run_hashes)
@@ -75,6 +79,8 @@ def validate_project(root: str | Path, *, repetitions: int = 3) -> dict[str, Any
                         )
                     )
         except PipelineError as error:
+            diagnostics.append(_diagnostic("PV-004", f"{error.code}: {error.message}"))
+        except RustDispatchError as error:
             diagnostics.append(_diagnostic("PV-004", f"{error.code}: {error.message}"))
         except Exception as error:
             diagnostics.append(_diagnostic("PV-004", f"package runtime: {error}"))
@@ -110,6 +116,17 @@ def validate_project(root: str | Path, *, repetitions: int = 3) -> dict[str, Any
         "diagnostics": diagnostics,
     }
     return report
+
+
+def _manifest_backend(manifest: dict[str, Any] | None) -> str:
+    if not isinstance(manifest, dict):
+        return "RuntimeReal"
+    runtime = manifest.get("runtime", {})
+    if isinstance(runtime, dict) and isinstance(runtime.get("backend"), str):
+        return runtime["backend"]
+    if isinstance(manifest.get("backend"), str):
+        return manifest["backend"]
+    return "RuntimeReal"
 
 
 def write_project_validation_report(root: Path, report: dict[str, Any]) -> Path:

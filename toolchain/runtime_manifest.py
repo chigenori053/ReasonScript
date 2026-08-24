@@ -1,10 +1,9 @@
 """Frozen runtime-consolidation capability manifest.
 
-Phase 0 of the Rust runtime consolidation freezes the currently observable
-execution topology before any dispatch or packaging changes are made.  This
-manifest is intentionally separate from the Tensor function contract: it
-records *where* an operation executes, whether Rust is complete, and which
-production fallback keeps the operation working today.
+Phase 0 froze the observable execution topology. Phase 7 updates that frozen
+contract after the intentional removal of Python production fallback. This
+manifest remains separate from the Tensor function contract and records where
+operations execute and whether a Python reference implementation is retained.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from frontend.tensor import tensor_function_contracts
+from frontend.tensor.contracts import tensor_function_contracts
 from frontend.vision.contracts import public_registry as vision_public_registry
 
 
@@ -68,7 +67,7 @@ def stable_json(value: Any) -> str:
 def _operation(name: str, *, python: bool, rust: bool, fallback: str | None) -> dict[str, Any]:
     return {
         "name": name,
-        "python": "implemented" if python else "absent",
+        "python": "reference_only" if python else "absent",
         "rust": "implemented" if rust else "unsupported",
         "production_fallback": fallback,
     }
@@ -119,16 +118,16 @@ def build_manifest() -> dict[str, Any]:
     return {
         "schema": MANIFEST_SCHEMA,
         "version": "1.0",
-        "phase": 0,
+        "phase": 7,
         "execution_paths": {
             "standalone_source": {
                 "primary": "rust_computation_vm",
-                "fallback": "python_ast_runtime",
-                "trace_engine": "rust_computation_vm_with_domain_fallback",
+                "fallback": None,
+                "trace_engine": "rust_computation_vm",
             },
             "project": {
                 "primary": "rust_computation_vm",
-                "fallback": "python_ast_runtime",
+                "fallback": None,
                 "manifest_backend_selects_engine": True,
             },
             "installed_distribution": {
@@ -136,18 +135,8 @@ def build_manifest() -> dict[str, Any]:
                 "effective_primary": "rust_computation_vm",
             },
         },
-        "fallback_reasons": [
-            "rust_binary_missing",
-            "computation_ir_lowering_unsupported",
-            "native_runtime_error",
-            "rust_operation_unsupported",
-            "rust_trace_operation_unsupported",
-            "rust_bridge_error",
-            "built_computation_ir_missing",
-            "built_computation_ir_invalid",
-            "ruo_read_capability_not_granted",
-            "tensor_io_capability_not_granted",
-        ],
+        "fallback_reasons": [],
+        "native_failure_policy": "structured_diagnostic_without_python_execution",
         "namespaces": namespaces,
         "rust_workspaces": [
             "ReasonComputationRuntime", "NativeReasonUnitRuntime", "VisionRuntime",
@@ -155,7 +144,7 @@ def build_manifest() -> dict[str, Any]:
             "HybridRuntime", "RuntimeComplex",
         ],
         "retirement_candidates": {
-            "python_production": [
+            "python_reference_only": [
                 "frontend/integrated_computation_runtime.py",
                 "frontend/computation_ir/interpreter.py",
                 "frontend/tensor/runtime.py",

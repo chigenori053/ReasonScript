@@ -2,11 +2,34 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 
-def try_rust_program(
+@dataclass(frozen=True)
+class RustDispatchError(RuntimeError):
+    """A product-visible failure to execute through the native Rust host."""
+
+    reason: str
+    code: str
+    message: str
+    diagnostic: dict[str, Any] | None = None
+
+    def __str__(self) -> str:
+        return self.message
+
+    def to_diagnostic(self) -> dict[str, Any]:
+        result = dict(self.diagnostic or {})
+        result.setdefault("code", self.code)
+        result.setdefault("severity", "error")
+        result.setdefault("category", "runtime.native")
+        result.setdefault("message", self.message)
+        result["stage"] = "runtime"
+        return result
+
+
+def execute_rust_program(
     program: Any,
     resource_root: Path,
     filesystem_read: bool,
@@ -14,14 +37,18 @@ def try_rust_program(
     *,
     backend: str = "RuntimeReal",
     include_trace: bool = False,
-) -> tuple[dict[str, Any] | None, str | None]:
+) -> dict[str, Any]:
     from frontend.computation_ir import LoweringError, lower_program
 
     try:
         ir_document = lower_program(program)
-    except LoweringError:
-        return None, "computation_ir_lowering_unsupported"
-    return try_rust_ir(
+    except LoweringError as error:
+        raise RustDispatchError(
+            "computation_ir_lowering_unsupported",
+            "RTH-LOWER-001",
+            f"program cannot be lowered to the native computation IR: {error}",
+        ) from error
+    return execute_rust_ir(
         ir_document,
         resource_root,
         filesystem_read,
@@ -31,7 +58,7 @@ def try_rust_program(
     )
 
 
-def try_rust_ir(
+def execute_rust_ir(
     ir_document: dict[str, Any],
     resource_root: Path,
     filesystem_read: bool,
@@ -39,23 +66,33 @@ def try_rust_ir(
     *,
     backend: str = "RuntimeReal",
     include_trace: bool = False,
-) -> tuple[dict[str, Any] | None, str | None]:
+) -> dict[str, Any]:
     from frontend.computation_ir.rust_bridge import find_binary, run_ir
 
     binary = find_binary()
     if binary is None:
-        return None, "rust_binary_missing"
-    if unsupported_rust_operations(ir_document):
-        return None, "rust_operation_unsupported"
-    if include_trace and rust_trace_unsupported_operations(ir_document):
-        return None, "rust_trace_operation_unsupported"
-    if ir_document.get("reason_object_bindings") and not filesystem_read:
-        return None, "ruo_read_capability_not_granted"
-    tensor_io = tensor_io_operations(ir_document)
-    if ("tensor.load" in tensor_io and not filesystem_read) or (
-        "tensor.save" in tensor_io and not filesystem_write
-    ):
-        return None, "tensor_io_capability_not_granted"
+        raise RustDispatchError(
+            "rust_binary_missing",
+            "RTH-HOST-001",
+            "native ReasonScript runtime host is not installed or built",
+        )
+    unsupported = unsupported_rust_operations(ir_document)
+    if unsupported:
+        raise RustDispatchError(
+            "rust_operation_unsupported",
+            "RTH-UNSUPPORTED-001",
+            "native runtime does not support: " + ", ".join(unsupported),
+        )
+    trace_unsupported = (
+        rust_trace_unsupported_operations(ir_document) if include_trace else ()
+    )
+    if trace_unsupported:
+        raise RustDispatchError(
+            "rust_trace_operation_unsupported",
+            "RTH-TRACE-001",
+            "native runtime trace does not support: "
+            + ", ".join(trace_unsupported),
+        )
     try:
         outcome = run_ir(
             ir_document,
@@ -66,10 +103,19 @@ def try_rust_ir(
             backend=backend,
             trace_enabled=include_trace,
         )
-    except (OSError, ValueError):
-        return None, "rust_bridge_error"
+    except (OSError, ValueError) as error:
+        raise RustDispatchError(
+            "rust_bridge_error",
+            "RTH-BRIDGE-001",
+            f"native runtime host invocation failed: {error}",
+        ) from error
     if not outcome.ok:
-        return None, "native_runtime_error"
+        raise RustDispatchError(
+            "native_runtime_error",
+            outcome.error_code or "RTH-RUNTIME-001",
+            outcome.error_message or "native runtime execution failed",
+            diagnostic=outcome.diagnostic,
+        )
     calculations = outcome.calculation_results or {}
     result_value = next(reversed(calculations.values()), None) if calculations else None
     return {
@@ -82,7 +128,7 @@ def try_rust_ir(
         "vision_trace": outcome.metadata.get("vision_trace", []),
         "reasoning_trace": outcome.metadata.get("reasoning_trace", []),
         "calculations": calculations,
-    }, None
+    }
 
 
 def unsupported_rust_operations(ir_document: dict[str, Any]) -> tuple[str, ...]:
