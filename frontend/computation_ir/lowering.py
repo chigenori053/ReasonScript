@@ -5,8 +5,8 @@ ReasonScript modernization plan. Scope is bounded to exactly what
 `frontend.integrated_computation_runtime` (the existing AST evaluator)
 supports, since that is the oracle this IR is differentially tested
 against (`frontend.computation_ir.differential`); constructs it doesn't
-handle (pattern matching, Optional/Some, map/set literals, reason_object graph
-queries, runtime.search/simulate/predict/plan)
+handle (pattern matching, Optional/Some, map/set literals and reason_object
+graph queries)
 raise `LoweringError` rather than being silently mishandled.
 """
 
@@ -32,6 +32,7 @@ from frontend.language_surface.nodes import (
     FloatLiteralNode,
     ForStatementNode,
     FunctionDeclarationNode,
+    GoalNode,
     IdentifierNode,
     IfStatementNode,
     IndexAccessNode,
@@ -46,9 +47,15 @@ from frontend.language_surface.nodes import (
     ParenthesizedExpressionNode,
     ProgramNode,
     QualifiedIdentifierNode,
+    ReasonGraphDeclarationNode,
     ResultStatementNode,
     ReasonObjectBindingNode,
     ReturnStatementNode,
+    RuntimeCallExpressionNode,
+    RuntimeCallKind,
+    StateDeclarationNode,
+    ConstraintNode,
+    ExecutionPlanDeclarationNode,
     StringLiteralNode,
     StructLiteralNode,
     UnaryExpressionNode,
@@ -81,6 +88,7 @@ def lower_program(program: ProgramNode) -> dict[str, Any]:
     functions: list[dict[str, Any]] = []
     calculation_ids: list[str] = []
     reason_object_bindings: list[dict[str, Any]] = []
+    reasoning_bindings: dict[str, str] = {}
     package_name = program.package.name if program.package is not None else None
     for module in program.modules:
         reason_object_bindings.extend({
@@ -90,6 +98,15 @@ def lower_program(program: ProgramNode) -> dict[str, Any]:
             "load_mode": item.load_mode,
             "expected_object_id": item.expected_object_id,
         } for item in module.body if isinstance(item, ReasonObjectBindingNode))
+        for item in module.body:
+            if isinstance(item, (
+                GoalNode,
+                StateDeclarationNode,
+                ConstraintNode,
+                ReasonGraphDeclarationNode,
+                ExecutionPlanDeclarationNode,
+            )):
+                reasoning_bindings[item.name] = item.name
         declared_function_nodes = tuple(
             item for item in module.body if isinstance(item, FunctionDeclarationNode)
         )
@@ -123,6 +140,7 @@ def lower_program(program: ProgramNode) -> dict[str, Any]:
         "calculations": calculation_ids,
         "functions": functions,
         "reason_object_bindings": reason_object_bindings,
+        "reasoning_bindings": reasoning_bindings,
         "tensor_contract_version": "0.2",
     }
 
@@ -552,6 +570,25 @@ def _lower_expression(value: Any, declared_functions: dict[str, str]) -> dict[st
             "op": "member",
             "object": _lower_expression(value.object, declared_functions),
             "member": value.member,
+        })
+    if isinstance(value, RuntimeCallExpressionNode):
+        function_id = {
+            RuntimeCallKind.SEARCH: "runtime.search",
+            RuntimeCallKind.SIMULATION: "runtime.simulate",
+            RuntimeCallKind.PREDICTION: "runtime.predict",
+            RuntimeCallKind.PLANNING: "runtime.plan",
+        }.get(value.kind)
+        if function_id is None:
+            raise LoweringError(
+                "IR-LOWER-006", f"unsupported Runtime call: {value.method}"
+            )
+        return spanned({
+            "op": "call_reasoning",
+            "function_id": function_id,
+            "arguments": [
+                _lower_expression(argument, declared_functions)
+                for argument in value.arguments
+            ],
         })
     if isinstance(value, CallExpressionNode):
         return spanned(_lower_call(value, declared_functions))

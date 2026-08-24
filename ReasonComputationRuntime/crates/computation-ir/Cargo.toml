@@ -12,3 +12,4 @@ sha2 = "0.10"
 reasonscript-tensor-core = { path = "../tensor-core" }
 reasonscript-native-reasonunit-runtime = { path = "../../../NativeReasonUnitRuntime" }
 reasonscript-vision-runtime = { path = "../../../VisionRuntime" }
+reasonscript-reasoning-core = { path = "../reasoning-core" }

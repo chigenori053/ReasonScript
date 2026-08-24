@@ -32,7 +32,10 @@ def test_phase5_manifest_records_tensor_ruo_and_vision_completion():
 
 
 def test_manifest_records_current_product_dispatch_split():
-    paths = build_manifest()["execution_paths"]
+    manifest = build_manifest()
+    paths = manifest["execution_paths"]
     assert paths["standalone_source"]["primary"] == "rust_computation_vm"
     assert paths["project"]["primary"] == "rust_computation_vm"
     assert paths["installed_distribution"]["computation_vm_binary_packaged"] is True
+    assert paths["project"]["manifest_backend_selects_engine"] is True
+    assert all(item["rust"] == "implemented" for item in manifest["namespaces"]["reasoning"])

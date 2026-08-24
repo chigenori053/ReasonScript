@@ -464,6 +464,7 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
                     rust_runtime_result["tensor_trace"]
                     + rust_runtime_result["loop_trace"]
                     + rust_runtime_result["vision_trace"]
+                    + rust_runtime_result.get("reasoning_trace", [])
                 )
             return result
 
@@ -483,7 +484,7 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
             result["artifacts"]["runtime_result"] = runtime_result
             result["artifacts"]["tensor_metadata"] = runtime_result["tensor_metadata"]
             if include_trace:
-                result["trace"] = runtime_result["tensor_trace"] + runtime_result["loop_trace"] + runtime_result["vision_trace"]
+                result["trace"] = runtime_result["tensor_trace"] + runtime_result["loop_trace"] + runtime_result["vision_trace"] + runtime_result.get("reasoning_trace", [])
         except TensorError as error:
             diagnostic = error.diagnostic.to_dict()
             diagnostic.update({"stage": "runtime", "source_file": _display_path(path)})

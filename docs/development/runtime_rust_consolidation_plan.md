@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_PROGRESS` — Phases 0–5 completed; Phase 6 Rust reasoning core.
+`IN_PROGRESS` — Phases 0–6 completed; Phase 7 Python runtime retirement.
 
 ## Objective
 
@@ -51,6 +51,9 @@ an explicit adapter.
    Vision trace parity.
 7. **Phase 6 — reasoning:** connect search/simulate/predict/plan to a canonical
    Rust reasoning core and make manifest backend selection effective.
+   **Completed:** the four operations lower to Computation IR, execute in the
+   host's in-process `reasoning-core`, preserve the Optional result/trace/plan
+   ABI, and select RuntimeReal or HybridRuntime provenance from `reason.toml`.
 8. **Phase 7 — Python runtime retirement:** remove production fallback and move
    Python evaluators to reference-only tests before deletion.
 9. **Phase 8 — workspace consolidation:** move retained Rust crates into the

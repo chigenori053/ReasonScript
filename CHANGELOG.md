@@ -29,6 +29,13 @@
 
 ### Added
 
+- Completed Rust runtime consolidation Phase 6: added an in-process Rust
+  reasoning core for `runtime.search`, `runtime.simulate`, `runtime.predict`,
+  and `runtime.plan`; lowered those calls through Computation IR; propagated
+  RuntimeReal/HybridRuntime backend selection; and returned native reasoning
+  result, trace, and ExecutionPlan data. Differential tests freeze the existing
+  Optional result and diagnostic ABI against both Python reference evaluators.
+
 - Completed Rust runtime consolidation Phase 5: all 16 `ruo.*` functions and
   both `vision.*` functions now execute as libraries inside the Rust runtime
   host. Added canonical RUO-F1 save/publication, transaction and query parity,

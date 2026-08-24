@@ -21,6 +21,8 @@ pub struct Program {
     pub functions: Vec<Function>,
     #[serde(default)]
     pub reason_object_bindings: Vec<ReasonObjectBinding>,
+    #[serde(default)]
+    pub reasoning_bindings: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -204,6 +206,13 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
+    #[serde(rename = "call_reasoning")]
+    CallReasoning {
+        function_id: String,
+        arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "call_array_append")]
     CallArrayAppend {
         collection: Box<Expr>,
@@ -245,6 +254,7 @@ impl Expr {
             | Expr::CallRuo { source_span, .. }
             | Expr::CallOptimizer { source_span, .. }
             | Expr::CallRelation { source_span, .. }
+            | Expr::CallReasoning { source_span, .. }
             | Expr::CallArrayAppend { source_span, .. }
             | Expr::CallFunction { source_span, .. }
             | Expr::CallCast { source_span, .. } => source_span.as_ref(),

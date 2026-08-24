@@ -591,7 +591,27 @@ The separate runtime-consolidation plan at
   coverage.
 
 Python RUO/Vision runtimes are retained as reference/fallback implementations
-until Phase 7 deletion gates pass. Phase 6 (Rust reasoning core) is next.
+until Phase 7 deletion gates pass.
+
+## Rust Runtime Consolidation — Phase 6 Reasoning Core
+
+Phase 6 of `docs/development/runtime_rust_consolidation_plan.md` is complete:
+
+- `runtime.search`, `runtime.simulate`, `runtime.predict`, and `runtime.plan`
+  lower to `call_reasoning` in Computation IR;
+- `ReasonComputationRuntime/crates/reasoning-core` executes the frozen
+  deterministic reasoning ABI in-process;
+- Goal/State/Constraint/ReasonGraph/ExecutionPlan declarations are available
+  as stable reasoning bindings in calculations and user functions;
+- RuntimeReal/HybridRuntime selection from the host request changes native
+  engine provenance;
+- Optional results, reasoning trace, ExecutionPlan, and
+  `ReasoningTypeConversionFailed` match the Python reference engines; and
+- the runtime consolidation manifest records all four reasoning functions as
+  implemented in Rust and backend selection as effective.
+
+Phase 7 production-fallback retirement is next. Python reasoning engines remain
+reference/fallback code until the deletion gates pass.
 
 ## Modernization Plan — Phase 6 Rust Default Execution
 

@@ -15,7 +15,7 @@ use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
 use crate::ir::{Block, Expr, Function, Instruction, Program, Terminator};
-use crate::value::{to_json, RuntimeReasonObject, StructValue, Value};
+use crate::value::{from_json, to_json, RuntimeReasonObject, StructValue, Value};
 
 #[derive(Debug)]
 pub struct RuntimeError {
@@ -56,14 +56,17 @@ pub struct Vm<'a> {
     max_call_depth: u32,
     tensors: RefCell<reasonscript_tensor_core::TensorStore>,
     reason_objects: RefCell<HashMap<String, Value>>,
+    reasoning_bindings: HashMap<String, Value>,
     loop_trace: RefCell<Vec<serde_json::Value>>,
     loop_frames: RefCell<HashMap<String, (i64, serde_json::Value)>>,
     trace_enabled: bool,
     tensor_trace: RefCell<Vec<serde_json::Value>>,
     vision_trace: RefCell<Vec<serde_json::Value>>,
+    reasoning_trace: RefCell<Vec<serde_json::Value>>,
     resource_root: PathBuf,
     filesystem_read: bool,
     filesystem_write: bool,
+    backend: String,
 }
 
 impl<'a> Vm<'a> {
@@ -90,6 +93,7 @@ impl<'a> Vm<'a> {
             true,
             true,
             false,
+            "RuntimeReal".to_owned(),
         )
     }
 
@@ -102,6 +106,7 @@ impl<'a> Vm<'a> {
         filesystem_read: bool,
         filesystem_write: bool,
         trace_enabled: bool,
+        backend: String,
     ) -> Self {
         let functions = program
             .functions
@@ -121,14 +126,21 @@ impl<'a> Vm<'a> {
             max_call_depth: DEFAULT_MAX_CALL_DEPTH,
             tensors: RefCell::new(tensors),
             reason_objects: RefCell::new(HashMap::new()),
+            reasoning_bindings: program
+                .reasoning_bindings
+                .iter()
+                .map(|(name, value)| (name.clone(), Value::String(Rc::from(value.as_str()))))
+                .collect(),
             loop_trace: RefCell::new(Vec::new()),
             loop_frames: RefCell::new(HashMap::new()),
             trace_enabled,
             tensor_trace: RefCell::new(Vec::new()),
             vision_trace: RefCell::new(Vec::new()),
+            reasoning_trace: RefCell::new(Vec::new()),
             resource_root,
             filesystem_read,
             filesystem_write,
+            backend,
         }
     }
 
@@ -146,6 +158,10 @@ impl<'a> Vm<'a> {
 
     pub fn vision_trace(&self) -> Vec<serde_json::Value> {
         self.vision_trace.borrow().clone()
+    }
+
+    pub fn reasoning_trace(&self) -> Vec<serde_json::Value> {
+        self.reasoning_trace.borrow().clone()
     }
 
     /// Executes every calculation in program order, mirroring
@@ -225,6 +241,7 @@ impl<'a> Vm<'a> {
                 .iter()
                 .map(|(name, value)| (name.clone(), value.clone()))
                 .collect();
+            env.extend(self.reasoning_bindings.clone());
             env.extend(
                 self.reason_objects
                     .borrow()
@@ -638,6 +655,26 @@ impl<'a> Vm<'a> {
                 }
                 crate::optimizer_dispatch::call(function_id, values, &self.tensors)
             }
+            Expr::CallReasoning {
+                function_id,
+                arguments,
+                ..
+            } => {
+                let expression = arguments
+                    .first()
+                    .ok_or_else(|| RuntimeError::new("RV-5", "RuntimeCallArgumentCountMismatch"))?;
+                let argument = self.eval_expr(expression, env, call_depth)?;
+                let outcome = reasonscript_reasoning_core::execute(
+                    function_id,
+                    &to_json(&argument),
+                    &self.backend,
+                )
+                .map_err(|error| RuntimeError::new(&error.code, error.message))?;
+                if self.trace_enabled {
+                    self.reasoning_trace.borrow_mut().push(outcome.trace);
+                }
+                Ok(Value::Json(Rc::new(outcome.value)))
+            }
             Expr::CallRelation {
                 function_id,
                 arguments,
@@ -724,6 +761,7 @@ impl<'a> Vm<'a> {
             arguments.push(self.eval_expr(argument_expr, env, call_depth)?);
         }
         let mut local_env: HashMap<String, Value> = self.reason_objects.borrow().clone();
+        local_env.extend(self.reasoning_bindings.clone());
         local_env.extend(function.parameters.iter().cloned().zip(arguments));
         match self.run_function(function, &mut local_env, call_depth + 1)? {
             Outcome::Return(value) => Ok(value),
@@ -962,6 +1000,12 @@ fn member_lookup(owner: Value, member: &str) -> Result<Value, RuntimeError> {
                 )
             }),
         Value::Array(items) if member == "length" => Ok(Value::Int(items.borrow().len() as i64)),
+        Value::Json(value) => value
+            .as_object()
+            .and_then(|values| values.get(member))
+            .cloned()
+            .map(from_json)
+            .ok_or_else(|| RuntimeError::new("RT-FIELD-001", format!("unknown field {member}"))),
         other => Err(RuntimeError::new(
             "RT-FIELD-001",
             format!(

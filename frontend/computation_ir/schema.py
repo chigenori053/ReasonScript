@@ -28,7 +28,7 @@ TERMINATOR_KINDS = ("jump", "branch", "return", "result", "trap")
 # `frontend.integrated_computation_runtime` (the AST evaluator this IR is
 # differentially tested against) itself supports. Constructs outside this
 # set (pattern matching, Optional/Some, map/set literals, reason_object graph
-# queries, runtime.search/simulate/predict/plan)
+# queries)
 # are out of scope for this phase and are rejected by the lowering with a
 # clear "not supported" error rather than silently mishandled.
 EXPRESSION_OPS = (
@@ -47,6 +47,7 @@ EXPRESSION_OPS = (
     "call_ruo",
     "call_optimizer",
     "call_relation",
+    "call_reasoning",
     "call_array_append",
     "call_function",
     "call_cast",

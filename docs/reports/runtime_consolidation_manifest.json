@@ -15,7 +15,7 @@
     },
     "project": {
       "fallback": "python_ast_runtime",
-      "manifest_backend_selects_engine": false,
+      "manifest_backend_selects_engine": true,
       "primary": "rust_computation_vm"
     },
     "standalone_source": {
@@ -84,27 +84,27 @@
     "reasoning": [
       {
         "name": "runtime.search",
-        "production_fallback": "python_runtime_integration",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "runtime.simulate",
-        "production_fallback": "python_runtime_integration",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "runtime.predict",
-        "production_fallback": "python_runtime_integration",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       },
       {
         "name": "runtime.plan",
-        "production_fallback": "python_runtime_integration",
+        "production_fallback": null,
         "python": "implemented",
-        "rust": "unsupported"
+        "rust": "implemented"
       }
     ],
     "relation": [

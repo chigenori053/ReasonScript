@@ -111,7 +111,7 @@ def build_manifest() -> dict[str, Any]:
             for name in vision_names
         ],
         "reasoning": [
-            _operation(name, python=True, rust=False, fallback="python_runtime_integration")
+            _operation(name, python=True, rust=True, fallback=None)
             for name in REASONING_FUNCTIONS
         ],
     }
@@ -129,7 +129,7 @@ def build_manifest() -> dict[str, Any]:
             "project": {
                 "primary": "rust_computation_vm",
                 "fallback": "python_ast_runtime",
-                "manifest_backend_selects_engine": False,
+                "manifest_backend_selects_engine": True,
             },
             "installed_distribution": {
                 "computation_vm_binary_packaged": True,

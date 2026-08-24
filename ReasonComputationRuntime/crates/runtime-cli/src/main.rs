@@ -210,6 +210,11 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             .and_then(serde_json::Value::as_str)
             .unwrap(),
     );
+    let backend = context
+        .get("backend")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("RuntimeReal")
+        .to_owned();
     let vm = Vm::with_runtime_context(
         &program,
         numeric_mode,
@@ -218,16 +223,19 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         filesystem_read,
         filesystem_write,
         trace_enabled,
+        backend,
     );
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let loop_trace = vm.loop_trace();
             let tensor_trace = vm.tensor_trace();
             let vision_trace = vm.vision_trace();
+            let reasoning_trace = vm.reasoning_trace();
             let tensor_metadata = vm.tensor_metadata();
             let mut combined_trace = loop_trace.clone();
             combined_trace.extend(tensor_trace.clone());
             combined_trace.extend(vision_trace.clone());
+            combined_trace.extend(reasoning_trace.clone());
             let mut results = serde_json::Map::new();
             for (name, value) in calculations {
                 results.insert(name, to_json(&value));
@@ -247,6 +255,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "loop_trace": loop_trace,
                         "tensor_trace": tensor_trace,
                         "vision_trace": vision_trace,
+                        "reasoning_trace": reasoning_trace,
                         "tensor_metadata": tensor_metadata,
                         "reason_object_metadata": [],
                     },

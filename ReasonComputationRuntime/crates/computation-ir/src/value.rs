@@ -233,3 +233,20 @@ pub fn to_json(value: &Value) -> serde_json::Value {
         Value::Json(value) => (**value).clone(),
     }
 }
+
+pub fn from_json(value: serde_json::Value) -> Value {
+    match value {
+        serde_json::Value::Null => Value::Null,
+        serde_json::Value::Bool(value) => Value::Bool(value),
+        serde_json::Value::Number(value) => value
+            .as_i64()
+            .map(Value::Int)
+            .or_else(|| value.as_f64().map(Value::Float))
+            .unwrap_or(Value::Null),
+        serde_json::Value::String(value) => Value::String(Rc::from(value)),
+        serde_json::Value::Array(values) => Value::Array(Rc::new(RefCell::new(
+            values.into_iter().map(from_json).collect(),
+        ))),
+        value @ serde_json::Value::Object(_) => Value::Json(Rc::new(value)),
+    }
+}

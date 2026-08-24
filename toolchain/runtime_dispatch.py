@@ -80,6 +80,7 @@ def try_rust_ir(
         "tensor_trace": outcome.metadata.get("tensor_trace", []),
         "loop_trace": outcome.metadata.get("loop_trace", []),
         "vision_trace": outcome.metadata.get("vision_trace", []),
+        "reasoning_trace": outcome.metadata.get("reasoning_trace", []),
         "calculations": calculations,
     }, None
 

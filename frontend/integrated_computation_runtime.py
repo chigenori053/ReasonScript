@@ -26,6 +26,7 @@ from frontend.language_surface.nodes import (
     FloatLiteralNode,
     ForStatementNode,
     FunctionDeclarationNode,
+    GoalNode,
     IdentifierNode,
     IfStatementNode,
     ImportNode,
@@ -42,9 +43,14 @@ from frontend.language_surface.nodes import (
     ParenthesizedExpressionNode,
     ProgramNode,
     QualifiedIdentifierNode,
+    ReasonGraphDeclarationNode,
     ReasonObjectBindingNode,
     ResultStatementNode,
     ReturnStatementNode,
+    RuntimeCallExpressionNode,
+    StateDeclarationNode,
+    ConstraintNode,
+    ExecutionPlanDeclarationNode,
     StringLiteralNode,
     StructLiteralNode,
     UnaryExpressionNode,
@@ -57,6 +63,7 @@ from frontend.reason_object_runtime import (
     call_ruo,
     load_reason_object,
 )
+from frontend.reasoning_reference import ReasoningReferenceError, call_reasoning
 from frontend.tensor.integration import LOWERINGS, tensor_call_name
 from frontend.tensor.optimizers import optimizer_call_name
 from frontend.tensor.runtime import TensorError, TensorRuntime, TensorValueRef
@@ -220,6 +227,7 @@ class IntegratedComputationResult:
             "tensor_trace": [_stable_trace(item) for item in self.runtime.trace],
             "loop_trace": list(self.loop_trace),
             "vision_trace": list(self.vision_runtime.trace) if self.vision_runtime is not None else [],
+            "reasoning_trace": list(getattr(self.runtime, "reasoning_trace", [])),
             "calculations": {
                 name: _plain(value, self.runtime)
                 for name, value in sorted(self.calculation_results.items())
@@ -239,6 +247,7 @@ def execute_program(
         filesystem_read=filesystem_read,
         filesystem_write=filesystem_write,
     )
+    runtime.reasoning_trace = []
     vision_runtime = VisionRuntimeBridge(resource_root or Path.cwd(), filesystem_read=filesystem_read, filesystem_write=filesystem_write)
     loop_trace: list[dict[str, Any]] = []
     calculations: dict[str, Any] = {}
@@ -247,6 +256,14 @@ def execute_program(
     for module in program.modules:
         loaded: dict[str, Any] = {}
         for item in module.body:
+            if isinstance(item, (
+                GoalNode,
+                StateDeclarationNode,
+                ConstraintNode,
+                ReasonGraphDeclarationNode,
+                ExecutionPlanDeclarationNode,
+            )):
+                loaded[item.name] = item.name
             if not isinstance(item, ReasonObjectBindingNode):
                 continue
             try:
@@ -632,11 +649,24 @@ def _expression(
                     f"unknown field {value.member} on {owner.type_name}",
                 )
             return owner.fields[value.member]
+        if isinstance(owner, dict) and value.member in owner:
+            return owner[value.member]
         if isinstance(owner, (list, tuple, dict)) and value.member == "length":
             return len(owner)
         raise IntegratedRuntimeError(
             "RT-FIELD-001", f"member access is unsupported: {value.member}"
         )
+    if isinstance(value, RuntimeCallExpressionNode):
+        argument = _expression(
+            value.arguments[0], env, runtime, vision_runtime,
+            functions, max_call_depth, call_depth,
+        )
+        try:
+            result, trace = call_reasoning(f"runtime.{value.method}", argument)
+        except ReasoningReferenceError as error:
+            raise IntegratedRuntimeError(error.code, str(error)) from error
+        runtime.reasoning_trace.append(trace)
+        return result
     if isinstance(value, CallExpressionNode):
         if (
             isinstance(value.callee, MemberAccessNode)

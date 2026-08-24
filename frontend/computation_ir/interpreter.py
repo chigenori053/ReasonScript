@@ -31,6 +31,7 @@ from frontend.integrated_computation_runtime import (
     call_relation,
 )
 from frontend.reason_object_runtime import ReasonObjectRuntimeError, call_ruo, load_reason_object
+from frontend.reasoning_reference import ReasoningReferenceError, call_reasoning
 from frontend.tensor.runtime import TensorRuntime
 from frontend.vision.runtime import VisionRuntimeBridge
 
@@ -69,12 +70,14 @@ def interpret_program(
         filesystem_read=filesystem_read,
         filesystem_write=filesystem_write,
     )
+    runtime.reasoning_trace = []
     vision_runtime = VisionRuntimeBridge(
         resource_root or Path.cwd(), filesystem_read=filesystem_read, filesystem_write=filesystem_write
     )
     functions = {function["id"]: function for function in ir_program["functions"]}
     object_root = (resource_root or Path.cwd()).resolve()
     global_env: dict[str, Any] = {}
+    global_env.update(ir_program.get("reasoning_bindings", {}))
     for binding in ir_program.get("reason_object_bindings", []):
         try:
             global_env[binding["name"]] = load_reason_object(
@@ -288,6 +291,8 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
                     "RT-FIELD-001", f"unknown field {member} on {owner.type_name}"
                 )
             return owner.fields[member]
+        if isinstance(owner, dict) and member in owner:
+            return owner[member]
         if isinstance(owner, (list, tuple, dict)) and member == "length":
             return len(owner)
         raise IntegratedRuntimeError("RT-FIELD-001", f"member access is unsupported: {member}")
@@ -311,6 +316,14 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
     if op == "call_vision":
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         return ctx.vision_runtime.call(node["function_id"], *arguments)
+    if op == "call_reasoning":
+        arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
+        try:
+            result, trace = call_reasoning(node["function_id"], arguments[0])
+        except ReasoningReferenceError as error:
+            raise IntegratedRuntimeError(error.code, str(error)) from error
+        ctx.runtime.reasoning_trace.append(trace)
+        return result
     if op == "call_array_append":
         collection = _eval_expr(node["collection"], env, ctx, call_depth)
         item = _eval_expr(node["item"], env, ctx, call_depth)

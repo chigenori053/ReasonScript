@@ -37,7 +37,8 @@ applies to this IR's actual shape:
   straight-line block (no branches to reason about), a repeated
   structurally-identical *pure* expression is replaced with a reference
   to the local that already holds its value. `call_tensor`/`call_vision`/
-  `call_optimizer`/`call_relation`/`call_function`/`call_array_append`
+  `call_ruo`/`call_optimizer`/`call_relation`/`call_reasoning`/
+  `call_function`/`call_array_append`
   are treated as impure (never deduplicated) -- Tensor, Optimizer, and
   Relation calls can all raise (shape/dtype errors, or an incomparable
   field type), and a
@@ -205,6 +206,8 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
         return {**expr, "object": _fold_expr(expr["object"])}
     if op == "call_tensor":
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
+    if op in ("call_ruo", "call_reasoning"):
+        return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_vision":
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_optimizer":
@@ -320,7 +323,7 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
     if op == "member":
         _collect_reads(expr["object"], out)
         return
-    if op in ("call_tensor", "call_vision", "call_optimizer", "call_relation", "call_function"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_reasoning", "call_function"):
         for argument in expr["arguments"]:
             _collect_reads(argument, out)
         return
@@ -344,6 +347,8 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         return all(_is_side_effect_free(argument) for argument in expr["arguments"])
     if op == "call_vision":
         return False  # unknown side-effect surface; never eliminate
+    if op in ("call_ruo", "call_reasoning"):
+        return False  # may mutate, diagnose, or emit observable trace
     if op == "call_optimizer":
         # Every `optimizer.*` function is a pure elementwise step over its
         # Tensor/scalar arguments (see frontend/tensor/optimizers.py) --
@@ -434,7 +439,7 @@ def _reads_name(expr: dict[str, Any], name: str) -> bool:
 
 def _is_cse_eligible(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
-    if op in ("call_tensor", "call_vision", "call_optimizer", "call_relation", "call_function", "call_array_append"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_reasoning", "call_function", "call_array_append"):
         return False  # never dedupe calls: see module docstring
     if op == "const" or op == "local":
         return True
