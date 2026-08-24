@@ -28,8 +28,8 @@ def test_phase0_manifest_does_not_claim_known_rust_gaps_are_complete():
     assert "ruo.commit" not in RUST_RUO_FUNCTIONS
 
 
-def test_phase0_manifest_records_current_product_dispatch_split():
+def test_manifest_records_current_product_dispatch_split():
     paths = build_manifest()["execution_paths"]
     assert paths["standalone_source"]["primary"] == "rust_computation_vm"
     assert paths["project"]["primary"] == "python_ast_runtime"
-    assert paths["installed_distribution"]["computation_vm_binary_packaged"] is False
+    assert paths["installed_distribution"]["computation_vm_binary_packaged"] is True

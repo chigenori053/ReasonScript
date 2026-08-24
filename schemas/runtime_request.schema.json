@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/runtime_request.schema.json",
+  "title": "ReasonScript Runtime Request 1.0",
+  "type": "object",
+  "required": ["schema", "request_id", "operation", "program", "context"],
+  "properties": {
+    "schema": {"const": "reasonscript-runtime-request/1.0"},
+    "request_id": {"type": "string", "minLength": 1},
+    "operation": {"const": "execute"},
+    "program": {"type": "object"},
+    "context": {
+      "type": "object",
+      "required": ["resource_root", "capabilities", "limits", "trace", "numeric_mode"],
+      "properties": {
+        "resource_root": {"type": "string"},
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "filesystem_read": {"type": "boolean"},
+            "filesystem_write": {"type": "boolean"},
+            "network": {"type": "boolean"}
+          },
+          "additionalProperties": false
+        },
+        "limits": {"type": "object"},
+        "trace": {
+          "type": "object",
+          "required": ["enabled"],
+          "properties": {"enabled": {"type": "boolean"}},
+          "additionalProperties": false
+        },
+        "numeric_mode": {"enum": ["compat-reference", "native-fast"]},
+        "backend": {"enum": ["RuntimeReal", "HybridRuntime"]}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

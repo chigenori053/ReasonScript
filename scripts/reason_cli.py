@@ -567,7 +567,13 @@ def _try_rust_execution_details(
         if _uses_tensor_io(ir_document):
             return None, "tensor_io_capability_not_granted"
     try:
-        outcome = run_ir(ir_document, binary=binary, cwd=resource_root)
+        outcome = run_ir(
+            ir_document,
+            binary=binary,
+            cwd=resource_root,
+            filesystem_read=allow_read,
+            filesystem_write=allow_write,
+        )
     except (OSError, ValueError):
         return None, "rust_bridge_error"
     if not outcome.ok:

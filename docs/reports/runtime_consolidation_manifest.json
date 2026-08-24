@@ -10,8 +10,8 @@
   ],
   "execution_paths": {
     "installed_distribution": {
-      "computation_vm_binary_packaged": false,
-      "effective_primary": "python_ast_runtime"
+      "computation_vm_binary_packaged": true,
+      "effective_primary": "rust_computation_vm"
     },
     "project": {
       "fallback": null,

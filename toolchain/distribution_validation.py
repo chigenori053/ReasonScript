@@ -19,6 +19,7 @@ DISTRIBUTION_TARGETS = (
     "toolchain", "scripts", "schemas", "frontend", "runtime", "examples",
     "standard_library", "metadata", "playground", "conformance", "canonical_fixtures",
     "VisionRuntime", "VisualizationRuntime", "NativeReasonUnitRuntime",
+    "ReasonComputationRuntime",
 )
 
 COMPONENTS = (
@@ -38,6 +39,7 @@ COMPONENTS = (
     ("vision-runtime-v0.1", "VisionRuntime"),
     ("semantic-visualization-runtime-v0.1", "VisualizationRuntime"),
     ("reasonunit-runtime-v1.0", "NativeReasonUnitRuntime"),
+    ("runtime-host-v1.0", "ReasonComputationRuntime"),
 )
 
 EVALUATION_IMPORTS = (
@@ -69,6 +71,7 @@ INTEGRITY_ENTRY_POINTS = (
     "VisionRuntime/Cargo.toml", "frontend/vision/contracts.py",
     "VisualizationRuntime/Cargo.toml",
     "NativeReasonUnitRuntime/Cargo.toml",
+    "ReasonComputationRuntime/Cargo.toml",
     "schemas/vision_observation.schema.json",
 )
 
@@ -190,6 +193,42 @@ def validate_staged_distribution(root: Path, repository_root: Path | None = None
         "profile": reasonunit_native.get("native_execution_provenance"),
         "unsafe_blocks": 0,
     }
+    runtime_host = _runtime_host_binary(root)
+    if runtime_host is None:
+        raise DistributionError(
+            "IF-DC-001",
+            "Required Rust Runtime Host executable is missing.",
+            "runtime-host",
+            "bin/reason-runtime-host",
+        )
+    proc = subprocess.run(
+        [str(runtime_host), "verify-native"],
+        cwd=tempfile.gettempdir(),
+        text=True,
+        capture_output=True,
+    )
+    try:
+        host_native = json.loads(proc.stdout)
+    except json.JSONDecodeError as error:
+        raise DistributionError(
+            "IF-DC-003", "Rust Runtime Host smoke output is invalid.",
+            "runtime-host", str(runtime_host),
+        ) from error
+    if (
+        proc.returncode
+        or host_native.get("ok") is not True
+        or host_native.get("unsafe_blocks") != 0
+        or host_native.get("profile") != "reasonscript-runtime-host/1.0"
+    ):
+        raise DistributionError(
+            "IF-DC-003", "Rust Runtime Host smoke validation failed.",
+            "runtime-host", str(runtime_host),
+        )
+    payload["runtime_host"] = {
+        "path": str(runtime_host),
+        "profile": host_native.get("profile"),
+        "unsafe_blocks": 0,
+    }
     return payload
 
 
@@ -220,6 +259,16 @@ def _reasonunit_binary(root: Path) -> Path | None:
 def _visualization_binary(root: Path) -> Path | None:
     name = "reason-visualization.exe" if os.name == "nt" else "reason-visualization"
     candidates = (root / "bin" / name, root / "VisualizationRuntime" / "target" / "release" / name, root / "VisualizationRuntime" / "target" / "debug" / name)
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def _runtime_host_binary(root: Path) -> Path | None:
+    name = "reason-runtime-host.exe" if os.name == "nt" else "reason-runtime-host"
+    candidates = (
+        root / "bin" / name,
+        root / "ReasonComputationRuntime" / "target" / "release" / name,
+        root / "ReasonComputationRuntime" / "target" / "debug" / name,
+    )
     return next((path for path in candidates if path.is_file()), None)
 
 

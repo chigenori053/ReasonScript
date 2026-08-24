@@ -6,7 +6,7 @@ license = "Apache-2.0"
 description = "Execution CLI for reason-computation-ir/0.1."
 
 [[bin]]
-name = "reason-computation-runtime"
+name = "reason-runtime-host"
 path = "src/main.rs"
 
 [dependencies]

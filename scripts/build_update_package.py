@@ -102,7 +102,20 @@ def _write_payload(package: Path, target_platform: str) -> Path:
     runtime_launcher.chmod(0o755)
     cargo = shutil.which("cargo")
     if not cargo:
-        raise BuildRejected("cargo is required to build the native VisionRuntime")
+        raise BuildRejected("cargo is required to build the native runtimes")
+    host_build = subprocess.run(
+        [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonComputationRuntime/Cargo.toml")],
+        text=True,
+        capture_output=True,
+    )
+    if host_build.returncode:
+        raise BuildRejected(f"Reason Runtime Host build failed: {host_build.stderr.strip()}")
+    host_name = "reason-runtime-host.exe" if target_platform == "windows" else "reason-runtime-host"
+    shutil.copy2(
+        ROOT / "ReasonComputationRuntime" / "target" / "release" / host_name,
+        payload / "bin" / host_name,
+    )
+    (payload / "bin" / host_name).chmod(0o755)
     vision_build = subprocess.run(
         [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisionRuntime/Cargo.toml")],
         text=True,

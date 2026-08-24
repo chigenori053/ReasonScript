@@ -74,6 +74,27 @@ def install(prefix: Path, json_output: bool) -> int:
             encoding="utf-8",
         )
         runtime_launcher.chmod(0o755)
+        host_name = "reason-runtime-host.exe" if os.name == "nt" else "reason-runtime-host"
+        host_binary = temp / "bin" / host_name
+        packaged_host = ROOT / "bin" / host_name
+        if packaged_host.is_file():
+            shutil.copy2(packaged_host, host_binary)
+        else:
+            cargo = shutil.which("cargo")
+            if not cargo:
+                raise RuntimeError("cargo is required to build the Rust Runtime Host from source")
+            host_build = subprocess.run(
+                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonComputationRuntime/Cargo.toml")],
+                text=True,
+                capture_output=True,
+            )
+            if host_build.returncode:
+                raise RuntimeError(f"Reason Runtime Host build failed: {host_build.stderr.strip()}")
+            shutil.copy2(
+                ROOT / "ReasonComputationRuntime" / "target" / "release" / host_name,
+                host_binary,
+            )
+        host_binary.chmod(0o755)
         vision_name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
         vision_binary = temp / "bin" / vision_name
         packaged_vision = ROOT / "bin" / vision_name

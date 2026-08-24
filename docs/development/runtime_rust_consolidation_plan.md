@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_PROGRESS` — Phase 0 completed; Phase 1 protocol and host implementation.
+`IN_PROGRESS` — Phases 0–1 completed; Phase 2 dispatch convergence.
 
 ## Objective
 

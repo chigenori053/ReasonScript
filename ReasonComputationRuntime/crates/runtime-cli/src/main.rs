@@ -1,8 +1,9 @@
-//! `reason-computation-runtime` -- Phase 3 primitive execution CLI.
+//! `reason-runtime-host` -- versioned ReasonScript execution host.
 //!
-//! Reads a `reason-computation-ir/0.1` JSON document (file path argument,
-//! or `-` for stdin), executes every calculation in it via the
-//! Tensor-less VM, and prints a JSON result to stdout:
+//! Reads a `reasonscript-runtime-request/1.0` envelope (file path argument,
+//! or `-` for stdin), executes its computation IR, and returns a
+//! `reasonscript-runtime-result/1.0` envelope. Raw
+//! `reason-computation-ir/0.1` remains accepted during migration.
 //!
 //! ```json
 //! {"ok": true, "calculation_results": {"Answer": 3.5}}
@@ -22,13 +23,42 @@ use std::process::ExitCode;
 
 use reasonscript_computation_ir::{decode, to_json, NumericMode, Vm};
 
+const REQUEST_SCHEMA: &str = "reasonscript-runtime-request/1.0";
+const RESULT_SCHEMA: &str = "reasonscript-runtime-result/1.0";
+const HOST_PROFILE: &str = "reasonscript-runtime-host/1.0";
+
 fn main() -> ExitCode {
     let path = env::args().nth(1);
+    if path.as_deref() == Some("verify-native") {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ok": true,
+                "profile": HOST_PROFILE,
+                "request_schema": REQUEST_SCHEMA,
+                "result_schema": RESULT_SCHEMA,
+                "unsafe_blocks": 0,
+            })
+        );
+        return ExitCode::SUCCESS;
+    }
     let source = match read_source(path.as_deref()) {
         Ok(source) => source,
         Err(message) => return fail_io(&message),
     };
 
+    let document: serde_json::Value = match serde_json::from_str(&source) {
+        Ok(value) => value,
+        Err(error) => return fail("IR-DECODE-001", &error.to_string()),
+    };
+    if document.get("schema").and_then(serde_json::Value::as_str) == Some(REQUEST_SCHEMA) {
+        return run_request(&document);
+    }
+
+    run_legacy(&source)
+}
+
+fn run_legacy(source: &str) -> ExitCode {
     let program = match decode(&source) {
         Ok(program) => program,
         Err(error) => return fail("IR-DECODE-001", &error.to_string()),
@@ -49,6 +79,129 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(error) => fail(&error.code, &error.message),
+    }
+}
+
+fn run_request(request: &serde_json::Value) -> ExitCode {
+    let request_id = request
+        .get("request_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("");
+    if request_id.is_empty() {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-001",
+            "runtime request_id must be a non-empty string",
+        );
+    }
+    if request.get("operation").and_then(serde_json::Value::as_str) != Some("execute") {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-002",
+            "runtime request operation must be execute",
+        );
+    }
+    let Some(program_value) = request.get("program") else {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-003",
+            "runtime request program is required",
+        );
+    };
+    let Some(context) = request
+        .get("context")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-003",
+            "runtime request context is required",
+        );
+    };
+    if !context
+        .get("capabilities")
+        .is_some_and(serde_json::Value::is_object)
+        || !context
+            .get("limits")
+            .is_some_and(serde_json::Value::is_object)
+        || !context
+            .get("trace")
+            .is_some_and(serde_json::Value::is_object)
+        || !context
+            .get("resource_root")
+            .is_some_and(serde_json::Value::is_string)
+    {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-003",
+            "runtime request context is malformed",
+        );
+    }
+    let source = match serde_json::to_string(program_value) {
+        Ok(value) => value,
+        Err(error) => return fail_request(request_id, "RTH-PROTO-003", &error.to_string()),
+    };
+    let program = match decode(&source) {
+        Ok(program) => program,
+        Err(error) => return fail_request(request_id, "IR-DECODE-001", &error.to_string()),
+    };
+    let numeric_mode_name = request
+        .pointer("/context/numeric_mode")
+        .and_then(serde_json::Value::as_str);
+    if !matches!(numeric_mode_name, Some("compat-reference" | "native-fast")) {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-004",
+            "numeric_mode must be compat-reference or native-fast",
+        );
+    }
+    let numeric_mode = numeric_mode_from_name(numeric_mode_name.unwrap_or("compat-reference"));
+    let trace_enabled = request
+        .pointer("/context/trace/enabled")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    if trace_enabled {
+        return fail_request(
+            request_id,
+            "RTH-CAP-001",
+            "trace output is not implemented by the Rust runtime host",
+        );
+    }
+
+    let vm = Vm::with_numeric_mode(&program, numeric_mode);
+    match vm.run_calculations(&program) {
+        Ok(calculations) => {
+            let mut results = serde_json::Map::new();
+            for (name, value) in calculations {
+                results.insert(name, to_json(&value));
+            }
+            println!(
+                "{}",
+                serde_json::json!({
+                    "schema": RESULT_SCHEMA,
+                    "request_id": request_id,
+                    "ok": true,
+                    "execution_mode": "rust",
+                    "calculation_results": results,
+                    "diagnostics": [],
+                    "metadata": {
+                        "host_profile": HOST_PROFILE,
+                        "trace": [],
+                        "tensor_metadata": [],
+                        "reason_object_metadata": [],
+                    },
+                })
+            );
+            ExitCode::SUCCESS
+        }
+        Err(error) => fail_request(request_id, &error.code, &error.message),
+    }
+}
+
+fn numeric_mode_from_name(name: &str) -> NumericMode {
+    match name {
+        "native-fast" => NumericMode::NativeFast,
+        _ => NumericMode::CompatReference,
     }
 }
 
@@ -90,4 +243,28 @@ fn fail(code: &str, message: &str) -> ExitCode {
 
 fn fail_io(message: &str) -> ExitCode {
     fail("IR-IO-001", message)
+}
+
+fn fail_request(request_id: &str, code: &str, message: &str) -> ExitCode {
+    let payload = serde_json::json!({
+        "schema": RESULT_SCHEMA,
+        "request_id": request_id,
+        "ok": false,
+        "execution_mode": "rust",
+        "calculation_results": null,
+        "diagnostics": [{
+            "code": code,
+            "severity": "error",
+            "category": "runtime",
+            "message": message,
+        }],
+        "metadata": {
+            "host_profile": HOST_PROFILE,
+            "trace": [],
+            "tensor_metadata": [],
+            "reason_object_metadata": [],
+        },
+    });
+    println!("{payload}");
+    ExitCode::FAILURE
 }

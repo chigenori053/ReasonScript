@@ -133,8 +133,8 @@ def build_manifest() -> dict[str, Any]:
                 "manifest_backend_selects_engine": False,
             },
             "installed_distribution": {
-                "computation_vm_binary_packaged": False,
-                "effective_primary": "python_ast_runtime",
+                "computation_vm_binary_packaged": True,
+                "effective_primary": "rust_computation_vm",
             },
         },
         "fallback_reasons": [
