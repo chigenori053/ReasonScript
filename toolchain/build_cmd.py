@@ -14,12 +14,14 @@ from .workspace import (
 )
 
 _CACHE_KEY_FILE = ".reason_build_cache"
+_BUILD_FORMAT_VERSION = "runtime-consolidation-phase2"
 
 
 def _cache_key(project_root: Path, dependency_roots: tuple[Path, ...] = ()) -> str:
     import hashlib
 
     h = hashlib.sha256()
+    h.update(_BUILD_FORMAT_VERSION.encode("utf-8"))
     for root in (project_root, *dependency_roots):
         manifest_path = root / "reason.toml"
         if manifest_path.exists():
@@ -99,7 +101,8 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
     ast_dir = target / "ast"
     ir_dir = target / "ir"
     meta_dir = target / "metadata"
-    for d in (ast_dir, ir_dir, meta_dir, target / "runtime"):
+    computation_ir_dir = target / "computation_ir"
+    for d in (ast_dir, ir_dir, meta_dir, computation_ir_dir, target / "runtime"):
         d.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -146,6 +149,35 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
         stale.unlink()
     (ast_dir / "package.json").write_text(
         json.dumps(ast_payload, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+    from frontend.computation_ir import LoweringError, lower_program, validate_program
+
+    computation_path = computation_ir_dir / "package.json"
+    support_path = target / "runtime" / "runtime_support.json"
+    try:
+        computation_ir = lower_program(result.surface_ast)
+        validation_errors = validate_program(computation_ir)
+        if validation_errors:
+            raise LoweringError("IR-LOWER-010", "; ".join(validation_errors))
+    except LoweringError as error:
+        computation_path.unlink(missing_ok=True)
+        runtime_support = {
+            "schema": "reasonscript-runtime-build-support/1.0",
+            "rust_executable": False,
+            "diagnostic": {"code": error.code, "message": str(error)},
+        }
+    else:
+        computation_path.write_text(
+            json.dumps(computation_ir, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        runtime_support = {
+            "schema": "reasonscript-runtime-build-support/1.0",
+            "rust_executable": True,
+            "computation_ir": "target/computation_ir/package.json",
+        }
+    support_path.write_text(
+        json.dumps(runtime_support, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
     _save_cache(target, current_key)

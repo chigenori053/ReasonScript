@@ -63,6 +63,7 @@ def run_ir(
     cwd: Path | None = None,
     filesystem_read: bool = True,
     filesystem_write: bool = True,
+    backend: str = "RuntimeReal",
 ) -> RustRunResult:
     resolved = binary or find_binary()
     if resolved is None:
@@ -87,6 +88,7 @@ def run_ir(
             "limits": {},
             "trace": {"enabled": False},
             "numeric_mode": os.environ.get("REASONSCRIPT_NUMERIC_MODE", "compat-reference"),
+            "backend": backend,
         },
     }
     completed = subprocess.run(

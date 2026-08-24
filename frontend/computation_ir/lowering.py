@@ -45,6 +45,7 @@ from frontend.language_surface.nodes import (
     NullLiteralNode,
     ParenthesizedExpressionNode,
     ProgramNode,
+    QualifiedIdentifierNode,
     ResultStatementNode,
     ReasonObjectBindingNode,
     ReturnStatementNode,
@@ -571,6 +572,12 @@ def _lower_call(value: CallExpressionNode, declared_functions: frozenset) -> dic
         return {
             "op": "call_function",
             "name": value.callee.name,
+            "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
+        }
+    if isinstance(value.callee, QualifiedIdentifierNode):
+        return {
+            "op": "call_function",
+            "name": value.callee.symbol,
             "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
         }
     raise LoweringError("IR-LOWER-009", "unsupported call target")

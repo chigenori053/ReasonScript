@@ -65,6 +65,7 @@ def test_check_build_and_project_validate_share_complete_module_graph(
         "Train.json",
         "model.json",
     }
+    assert (tmp_path / "target/computation_ir/package.json").is_file()
 
     report = validate_project(tmp_path)
     assert report["status"] == "passed", report["diagnostics"]
@@ -83,6 +84,8 @@ def test_package_run_executes_imported_function_and_entry(tmp_path: Path, capsys
     assert payload["runtime_result"]["result"] == 42
     assert payload["runtime_result"]["calculations"] == {"Main": 42}
     assert payload["trace"] == []
+    assert payload["execution_mode"] == "integrated"
+    assert payload["runtime_dispatch"]["fallback_reason"] == "trace_requested"
 
 
 def test_file_form_run_uses_package_context_and_does_not_ignore_entry(
@@ -103,6 +106,25 @@ def test_file_form_run_uses_package_context_and_does_not_ignore_entry(
     payload = json.loads(capsys.readouterr().out)
     assert payload["entry"] == "Train::Main"
     assert payload["runtime_result"]["calculations"] == {"Main": 42}
+    assert payload["execution_mode"] == "integrated-rust"
+    assert payload["runtime_dispatch"]["selected"] == "rust_computation_vm"
+
+
+def test_project_run_executes_built_computation_ir_without_reparsing_source(
+    tmp_path: Path, capsys
+) -> None:
+    _write_project(tmp_path)
+    assert build_cmd.run(tmp_path) == 0
+    capsys.readouterr()
+    # The source remains present for package identity, but is deliberately
+    # invalid after the build. A successful run proves the Rust path consumed
+    # target/computation_ir/package.json rather than recompiling source.
+    (tmp_path / "src/train.rsn").write_text("not valid ReasonScript\n", encoding="utf-8")
+
+    assert run(tmp_path, entry="Train::Main") == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["execution_mode"] == "integrated-rust"
+    assert payload["runtime_result"]["result"] == 42
 
 
 def test_run_rejects_unknown_or_missing_executable_entry(

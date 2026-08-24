@@ -128,8 +128,8 @@ def build_manifest() -> dict[str, Any]:
                 "trace_engine": "python_ast_runtime",
             },
             "project": {
-                "primary": "python_ast_runtime",
-                "fallback": None,
+                "primary": "rust_computation_vm",
+                "fallback": "python_ast_runtime",
                 "manifest_backend_selects_engine": False,
             },
             "installed_distribution": {
@@ -143,6 +143,8 @@ def build_manifest() -> dict[str, Any]:
             "trace_requested",
             "native_runtime_error",
             "rust_bridge_error",
+            "built_computation_ir_missing",
+            "built_computation_ir_invalid",
             "ruo_read_capability_not_granted",
             "tensor_io_capability_not_granted",
         ],

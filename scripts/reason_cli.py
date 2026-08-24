@@ -545,64 +545,15 @@ def _try_rust_execution_details(
     callers and tests.  Product dispatch uses this detailed form so Phase 0's
     frozen fallback categories are observable in run artifacts.
     """
-    from frontend.computation_ir import LoweringError, lower_program
-    from frontend.computation_ir.rust_bridge import find_binary, run_ir
+    from toolchain.runtime_dispatch import try_rust_program
 
-    binary = find_binary()
-    if binary is None:
-        return None, "rust_binary_missing"
-    try:
-        ir_document = lower_program(program)
-    except LoweringError:
-        return None, "computation_ir_lowering_unsupported"
-    if ir_document.get("reason_object_bindings") and not allow_read:
-        # Native RUO loading performs filesystem I/O. Preserve the same
-        # explicit capability gate as the Python runtime.
-        return None, "ruo_read_capability_not_granted"
-    if not allow_read or not allow_write:
-        # tensor.load/save need filesystem capabilities; the Rust CLI has
-        # no equivalent gate and would just perform the I/O, so route
-        # programs that haven't been granted both through Python instead
-        # of silently bypassing the capability check.
-        if _uses_tensor_io(ir_document):
-            return None, "tensor_io_capability_not_granted"
-    try:
-        outcome = run_ir(
-            ir_document,
-            binary=binary,
-            cwd=resource_root,
-            filesystem_read=allow_read,
-            filesystem_write=allow_write,
-        )
-    except (OSError, ValueError):
-        return None, "rust_bridge_error"
-    if not outcome.ok:
-        return None, "native_runtime_error"
-    calculations = outcome.calculation_results
-    result_value = next(reversed(calculations.values()), None) if calculations else None
-    return {
-        "schema_version": "reasonscript-integrated-runtime/0.1",
-        "status": "success",
-        "result": result_value,
-        "tensor_metadata": [],
-        "tensor_trace": [],
-        "loop_trace": [],
-        "vision_trace": [],
-        "calculations": calculations,
-    }, None
+    return try_rust_program(program, resource_root, allow_read, allow_write)
 
 
 def _uses_tensor_io(ir_document: dict[str, Any]) -> bool:
-    def walk(node: Any) -> bool:
-        if isinstance(node, dict):
-            if node.get("op") == "call_tensor" and node.get("function_id") in {"tensor.load", "tensor.save"}:
-                return True
-            return any(walk(value) for value in node.values())
-        if isinstance(node, list):
-            return any(walk(item) for item in node)
-        return False
+    from toolchain.runtime_dispatch import uses_tensor_io
 
-    return walk(ir_document)
+    return uses_tensor_io(ir_document)
 
 
 def _shadow_mode_enabled() -> bool:

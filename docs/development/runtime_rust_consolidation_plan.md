@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_PROGRESS` — Phases 0–1 completed; Phase 2 dispatch convergence.
+`IN_PROGRESS` — Phases 0–2 completed; Phase 3 VM completeness.
 
 ## Objective
 
