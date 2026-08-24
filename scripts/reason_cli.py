@@ -438,7 +438,12 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
         # back rather than being re-shaped into Python's diagnostic
         # format here, so the diagnostic the user sees always comes from
         # Python's already-tested error path.
-        rust_runtime_result = None if include_trace else _try_rust_execution(program, resource_root, allow_read, allow_write)
+        if include_trace:
+            rust_runtime_result, fallback_reason = None, "trace_requested"
+        else:
+            rust_runtime_result, fallback_reason = _try_rust_execution_details(
+                program, resource_root, allow_read, allow_write
+            )
         if rust_runtime_result is not None:
             if _shadow_mode_enabled():
                 _shadow_check_against_python(program, rust_runtime_result, resource_root, allow_read, allow_write)
@@ -448,7 +453,18 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
             result["goal_reached"] = True
             result["artifacts"]["runtime_result"] = rust_runtime_result
             result["artifacts"]["tensor_metadata"] = rust_runtime_result["tensor_metadata"]
+            result["artifacts"]["runtime_dispatch"] = {
+                "attempted": "rust_computation_vm",
+                "selected": "rust_computation_vm",
+                "fallback_reason": None,
+            }
             return result
+
+        result["artifacts"]["runtime_dispatch"] = {
+            "attempted": "rust_computation_vm",
+            "selected": "python_ast_runtime",
+            "fallback_reason": fallback_reason,
+        }
 
         try:
             integrated = execute_program(program, resource_root=resource_root, filesystem_read=allow_read, filesystem_write=allow_write)
@@ -514,33 +530,48 @@ def _try_rust_execution(program: Any, resource_root: Path, allow_read: bool, all
     (a documented Phase 6 follow-up, not silently dropped -- callers
     that asked for `include_trace` never reach this function at all).
     """
+    result, _reason = _try_rust_execution_details(
+        program, resource_root, allow_read, allow_write
+    )
+    return result
+
+
+def _try_rust_execution_details(
+    program: Any, resource_root: Path, allow_read: bool, allow_write: bool
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Return the Rust result and a stable reason when Python is required.
+
+    The compatibility wrapper above retains the old optional-result API for
+    callers and tests.  Product dispatch uses this detailed form so Phase 0's
+    frozen fallback categories are observable in run artifacts.
+    """
     from frontend.computation_ir import LoweringError, lower_program
     from frontend.computation_ir.rust_bridge import find_binary, run_ir
 
     binary = find_binary()
     if binary is None:
-        return None
+        return None, "rust_binary_missing"
     try:
         ir_document = lower_program(program)
     except LoweringError:
-        return None
+        return None, "computation_ir_lowering_unsupported"
     if ir_document.get("reason_object_bindings") and not allow_read:
         # Native RUO loading performs filesystem I/O. Preserve the same
         # explicit capability gate as the Python runtime.
-        return None
+        return None, "ruo_read_capability_not_granted"
     if not allow_read or not allow_write:
         # tensor.load/save need filesystem capabilities; the Rust CLI has
         # no equivalent gate and would just perform the I/O, so route
         # programs that haven't been granted both through Python instead
         # of silently bypassing the capability check.
         if _uses_tensor_io(ir_document):
-            return None
+            return None, "tensor_io_capability_not_granted"
     try:
         outcome = run_ir(ir_document, binary=binary, cwd=resource_root)
     except (OSError, ValueError):
-        return None
+        return None, "rust_bridge_error"
     if not outcome.ok:
-        return None
+        return None, "native_runtime_error"
     calculations = outcome.calculation_results
     result_value = next(reversed(calculations.values()), None) if calculations else None
     return {
@@ -552,7 +583,7 @@ def _try_rust_execution(program: Any, resource_root: Path, allow_read: bool, all
         "loop_trace": [],
         "vision_trace": [],
         "calculations": calculations,
-    }
+    }, None
 
 
 def _uses_tensor_io(ir_document: dict[str, Any]) -> bool:

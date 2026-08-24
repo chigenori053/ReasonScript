@@ -53,6 +53,14 @@ class RustFirstDispatchTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_mode"], "integrated-rust")
         self.assertEqual(result["runtime_output"], [[[19.0, 22.0], [43.0, 50.0]]])
+        self.assertEqual(
+            result["artifacts"]["runtime_dispatch"],
+            {
+                "attempted": "rust_computation_vm",
+                "selected": "rust_computation_vm",
+                "fallback_reason": None,
+            },
+        )
 
     def test_unsupported_tensor_function_falls_back_to_python(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -71,6 +79,10 @@ class RustFirstDispatchTests(unittest.TestCase):
             result = _run_result(source, "normal", include_trace=False)
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_mode"], "integrated")
+        self.assertEqual(
+            result["artifacts"]["runtime_dispatch"]["fallback_reason"],
+            "native_runtime_error",
+        )
 
     def test_include_trace_always_uses_python(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -90,6 +102,10 @@ class RustFirstDispatchTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["execution_mode"], "integrated")
         self.assertIn("trace", result)
+        self.assertEqual(
+            result["artifacts"]["runtime_dispatch"]["fallback_reason"],
+            "trace_requested",
+        )
 
     def test_tensor_io_without_capability_falls_back_to_python(self):
         with tempfile.TemporaryDirectory() as directory:
