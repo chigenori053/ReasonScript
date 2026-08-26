@@ -20,6 +20,11 @@ def main() -> int:
 
     command = args[0]
 
+    # Handle help before project discovery, source reads, or output creation.
+    if any(arg in {"--help", "-h"} for arg in args[1:]):
+        _command_usage(command)
+        return 0
+
     if command == "init":
         if len(args) < 2:
             print("Usage: reason init <project_name>")
@@ -297,6 +302,11 @@ def _usage() -> None:
     print("  reasoning-runtime run <source.rsn> Generate a Reasoning Runtime Result")
     print("  cluster       Plan, run, simulate, validate, and compare cluster execution")
     print("  phase8-golden validate Run Phase 8 golden validation")
+
+
+def _command_usage(command: str) -> None:
+    print(f"Usage: reason {command} [args]")
+    print("Run 'reason help' for the full command list.")
 
 
 def _package_arg(args: list[str]) -> str | None:

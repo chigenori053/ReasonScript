@@ -12,6 +12,8 @@ use crate::error::{Result, TensorCoreError};
 use crate::shape::{all_coords, broadcast_flat_index, coords, flat_index, normalize_axis, product};
 use crate::store::{TensorData, TensorStore};
 
+type GradientData = (Vec<usize>, crate::dtype::Dtype, Vec<f64>);
+
 /// One recorded forward operation, enough information to compute its
 /// VJP without re-deriving axis/keep_dims/etc. from a generic argument
 /// list (unlike Python, which replays `node.arguments`/`node.attributes`
@@ -222,7 +224,7 @@ impl Autograd {
         store: &TensorStore,
         loss_id: &str,
         parameter_ids: &[&str],
-    ) -> Result<Vec<(Vec<usize>, crate::dtype::Dtype, Vec<f64>)>> {
+    ) -> Result<Vec<GradientData>> {
         let loss = store.get(loss_id)?;
         if loss.data.len() != 1 {
             return Err(TensorCoreError::new(
@@ -936,7 +938,7 @@ fn pool2d_vjp(
     let output = store.get(output_id)?;
     let stride = stride.unwrap_or(kernel);
     let (kernel_h, kernel_w) = (kernel[0] as usize, kernel[1] as usize);
-    let (stride_h, stride_w) = (stride[0] as i64, stride[1] as i64);
+    let (stride_h, stride_w) = (stride[0], stride[1]);
     let (pad_h, pad_w) = (padding[0], padding[1]);
     let (batch, channels, in_h, in_w) = (
         source.shape[0],

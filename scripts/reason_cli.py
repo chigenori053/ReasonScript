@@ -160,14 +160,15 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace or args.json, allow_read=args.allow_read, allow_write=args.allow_write)
+    # JSON selects an envelope only. Trace collection is opt-in.
+    result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace, allow_read=args.allow_read, allow_write=args.allow_write)
     if args.result_output and result.get("ok"):
         runtime_result = result.get("runtime_result")
         if not isinstance(runtime_result, dict) or "result" not in runtime_result:
             raise CliFileSystemError(
                 "--result-output requires an integrated numerical result"
             )
-        _write_result_file(Path(args.result_output), runtime_result["result"])
+        _write_result_file(Path(args.result_output), runtime_result)
     if args.out:
         _write_out(Path(args.out), result)
     if args.json:

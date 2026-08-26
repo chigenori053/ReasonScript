@@ -264,17 +264,37 @@ def _logical_lines(
 ) -> tuple[list[str], list[tuple[int, int, str]]]:
     lines: list[str] = []
     locations: list[tuple[int, int, str]] = []
+    pending: str | None = None
+    pending_line = 0
+    pending_column = 1
     for line_number, raw in enumerate(source.splitlines(), start=1):
         uncommented = _strip_line_comment(raw)
         line = uncommented.strip()
         if not line:
             continue
+        # A trailing backslash continues a Code statement on the next physical
+        # line. Insert whitespace so tokens from adjacent lines never merge.
+        if pending is not None:
+            line = f"{pending} {line}"
+            base_column = pending_column
+        else:
+            base_column = len(uncommented) - len(uncommented.lstrip()) + 1
+        if line.endswith("\\"):
+            if pending is None:
+                pending_line, pending_column = line_number, base_column
+            pending = line[:-1].rstrip()
+            continue
+        effective_line_number = pending_line if pending is not None else line_number
+        pending = None
         line = re.sub(r"}\s*(elif\b)", r"}\n\1", line)
         line = re.sub(r"}\s*(else\b)", r"}\n\1", line)
-        base_column = len(uncommented) - len(uncommented.lstrip()) + 1
         for part in (part.strip() for part in line.splitlines() if part.strip()):
             lines.append(part)
-            locations.append((line_number, base_column + line.find(part), part))
+            locations.append((effective_line_number, base_column + line.find(part), part))
+    if pending is not None:
+        raise SurfaceSyntaxError(
+            f"line continuation at {pending_line}:{pending_column} is missing a following line"
+        )
     return lines, locations
 
 

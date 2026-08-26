@@ -1,7 +1,7 @@
 {
   "schema_version": "reasonscript-release-manifest/1.0",
-  "reason_version": "0.5.5.3",
-  "runtime_version": "0.5.5.3",
+  "reason_version": "0.5.5.4",
+  "runtime_version": "0.5.5.4",
   "language_version": "0.7",
   "minimum_python": "3.11",
   "supported_platforms": [
@@ -28,6 +28,6 @@
     {"id": "reasonunit-runtime-v1.0", "source": "ReasonRuntime/crates/reason-object-core", "required": true},
     {"id": "runtime-host-v1.0", "source": "ReasonRuntime", "required": true}
   ],
-  "cli_version": "0.5.5.3",
+  "cli_version": "0.5.5.4",
   "runtime_compatibility": ">=0.5.0,<0.6.0"
 }

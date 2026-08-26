@@ -11,6 +11,7 @@ from typing import Any
 from frontend.language_surface.nodes import CalculationNode
 from toolchain.pipeline import PipelineError, compile_package_sources
 from toolchain.runtime_dispatch import RustDispatchError, execute_rust_program
+from toolchain.artifacts import validate_artifact_directory
 
 SCHEMA_VERSION = "reasonscript-project-validation/0.1"
 
@@ -149,7 +150,14 @@ def _artifact_contract(root: Path, diagnostics: list[dict[str, Any]]) -> bool:
     if not manifests and not generated_only:
         diagnostics.append(_diagnostic("PV-006", "Artifact JSON exists without a manifest"))
         return False
-    return True
+    if generated_only:
+        return True
+    # Reuse the canonical validator: a recognized manifest name alone is not
+    # a contract.  Both historical spellings are checked identically.
+    document = validate_artifact_directory(artifact_root)
+    for diagnostic in document.get("diagnostics", []):
+        diagnostics.append(_diagnostic("PV-006", diagnostic.get("message", "invalid artifact")))
+    return not document.get("diagnostics")
 
 
 def _golden_contract(root: Path, diagnostics: list[dict[str, Any]]) -> bool:

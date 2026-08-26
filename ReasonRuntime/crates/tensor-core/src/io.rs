@@ -107,7 +107,7 @@ fn pack(tensor: &TensorData) -> Vec<u8> {
 
 fn unpack(dtype: Dtype, body: &[u8]) -> Result<Vec<f64>> {
     let width = dtype.byte_width();
-    if width == 0 || body.len() % width != 0 {
+    if width == 0 || !body.len().is_multiple_of(width) {
         return Err(TensorCoreError::new(
             "TIO-003",
             "Tensor payload alignment is invalid",

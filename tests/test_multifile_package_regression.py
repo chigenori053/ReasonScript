@@ -3,13 +3,49 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 from toolchain import build_cmd, check_cmd, runner_cmd
 from toolchain.__main__ import main as toolchain_main
 from toolchain.project_validation import validate_project
 from toolchain.run_cmd import run
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(scope="module")
+def native_runtime_host() -> Path:
+    """Build the actual host binary required by project-mode execution.
+
+    `cargo test` creates only hashed test executables, whereas the Python
+    bridge intentionally resolves the normal `reason-runtime-host` binary.
+    Keeping the build here makes these integration tests independent of test
+    order and of a developer having run a separate build command.
+    """
+    from frontend.computation_ir.rust_bridge import find_binary
+
+    # Avoid an unnecessary Cargo lock/write when the host was already built.
+    binary = find_binary()
+    if binary is not None:
+        return binary
+
+    runtime_root = ROOT / "ReasonRuntime"
+    completed = subprocess.run(
+        ["cargo", "build", "-p", "reasonscript-computation-runtime-cli"],
+        cwd=runtime_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    binary = find_binary()
+    assert binary is not None, "cargo build did not produce reason-runtime-host"
+    return binary
 
 
 def _write_project(root: Path, *, with_calculation: bool = True) -> None:
@@ -52,7 +88,7 @@ pub module model {
 
 
 def test_check_build_and_project_validate_share_complete_module_graph(
-    tmp_path: Path, capsys
+    tmp_path: Path, capsys, native_runtime_host: Path
 ) -> None:
     _write_project(tmp_path)
 
@@ -72,7 +108,9 @@ def test_check_build_and_project_validate_share_complete_module_graph(
     assert report["sources_passed"] == 2
 
 
-def test_package_run_executes_imported_function_and_entry(tmp_path: Path, capsys) -> None:
+def test_package_run_executes_imported_function_and_entry(
+    tmp_path: Path, capsys, native_runtime_host: Path
+) -> None:
     _write_project(tmp_path)
     assert build_cmd.run(tmp_path) == 0
     capsys.readouterr()
@@ -89,7 +127,7 @@ def test_package_run_executes_imported_function_and_entry(tmp_path: Path, capsys
 
 
 def test_file_form_run_uses_package_context_and_does_not_ignore_entry(
-    tmp_path: Path, capsys, monkeypatch
+    tmp_path: Path, capsys, monkeypatch, native_runtime_host: Path
 ) -> None:
     _write_project(tmp_path)
     assert build_cmd.run(tmp_path) == 0
@@ -111,7 +149,7 @@ def test_file_form_run_uses_package_context_and_does_not_ignore_entry(
 
 
 def test_project_run_executes_built_computation_ir_without_reparsing_source(
-    tmp_path: Path, capsys
+    tmp_path: Path, capsys, native_runtime_host: Path
 ) -> None:
     _write_project(tmp_path)
     assert build_cmd.run(tmp_path) == 0
@@ -128,7 +166,7 @@ def test_project_run_executes_built_computation_ir_without_reparsing_source(
 
 
 def test_run_rejects_unknown_or_missing_executable_entry(
-    tmp_path: Path, capsys
+    tmp_path: Path, capsys, native_runtime_host: Path
 ) -> None:
     _write_project(tmp_path)
     assert build_cmd.run(tmp_path) == 0

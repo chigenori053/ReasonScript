@@ -228,23 +228,31 @@ def validate_artifact_directory(directory: Path, *, expected: tuple[str, ...] = 
             diagnostics.append(_artifact_diag("AR-006", f"Determinism violation: {path.name}", file=path.name))
         diagnostics.extend(_validate_artifact_payload(path.name, value))
 
-    manifest = parsed.get("artifact_manifest.json")
+    # `manifest.json` is the legacy spelling accepted by project validation;
+    # it is subject to exactly the same structural checks as the canonical
+    # filename, not merely treated as evidence that a manifest exists.
+    manifest_filename = (
+        "artifact_manifest.json"
+        if "artifact_manifest.json" in parsed
+        else "manifest.json"
+    )
+    manifest = parsed.get(manifest_filename)
     if not isinstance(manifest, dict):
-        diagnostics.append(_artifact_diag("AR-009", "Invalid manifest: artifact_manifest.json missing", file="artifact_manifest.json"))
+        diagnostics.append(_artifact_diag("AR-009", "Invalid manifest: artifact_manifest.json or manifest.json missing", file="artifact_manifest.json"))
     else:
         artifacts = manifest.get("artifacts")
         if not isinstance(artifacts, list) or not all(isinstance(item, str) for item in artifacts):
-            diagnostics.append(_artifact_diag("AR-009", "Invalid manifest: artifacts must be a string array", file="artifact_manifest.json"))
+            diagnostics.append(_artifact_diag("AR-009", "Invalid manifest: artifacts must be a string array", file=manifest_filename))
         else:
             seen: set[str] = set()
             for filename in artifacts:
                 if filename in seen:
-                    diagnostics.append(_artifact_diag("AR-008", f"Duplicate artifact: {filename}", file="artifact_manifest.json"))
+                    diagnostics.append(_artifact_diag("AR-008", f"Duplicate artifact: {filename}", file=manifest_filename))
                 seen.add(filename)
                 if not (directory / filename).is_file():
-                    diagnostics.append(_artifact_diag("AR-007", f"Broken artifact reference: {filename}", file="artifact_manifest.json"))
+                    diagnostics.append(_artifact_diag("AR-007", f"Broken artifact reference: {filename}", file=manifest_filename))
         if manifest.get("artifact_version") != ARTIFACT_VERSION:
-            diagnostics.append(_artifact_diag("AR-009", "Invalid manifest: artifact_version mismatch", file="artifact_manifest.json"))
+            diagnostics.append(_artifact_diag("AR-009", "Invalid manifest: artifact_version mismatch", file=manifest_filename))
 
     return diagnostics_document(diagnostics)
 

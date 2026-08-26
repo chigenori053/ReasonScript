@@ -1175,7 +1175,7 @@ pub fn load_reason_graph(path: &Path) -> Result<NativeReasonGraph, NativeError> 
             "RGO-F1 graph digest mismatch",
         ));
     }
-    let content = [&lines[0][..], b"\n", &lines[1][..], b"\n"].concat();
+    let content = [lines[0], b"\n", lines[1], b"\n"].concat();
     if seal.get("content_stream_sha256").and_then(Value::as_str) != Some(sha256(&content).as_str())
     {
         return Err(NativeError::new(

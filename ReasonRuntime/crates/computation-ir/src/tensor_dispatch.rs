@@ -350,7 +350,7 @@ pub(crate) fn fetch(store: &RefCell<TensorStore>, id: &str) -> Result<TensorData
     store
         .borrow()
         .get(id)
-        .map(|tensor| tensor.clone())
+        .cloned()
         .map_err(core_err)
 }
 
@@ -666,7 +666,7 @@ fn divide(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
     let right_id = operand_id(&args, 1, store)?;
     let left = fetch(store, &left_id)?;
     let right = fetch(store, &right_id)?;
-    if right.data.iter().any(|&value| value == 0.0) {
+    if right.data.contains(&0.0) {
         return Err(RuntimeError::new(
             "TSF-012",
             "Tensor backend execution failed",

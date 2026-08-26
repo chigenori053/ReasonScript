@@ -167,6 +167,12 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
             "rust_executable": False,
             "diagnostic": {"code": error.code, "message": str(error)},
         }
+        support_path.write_text(
+            json.dumps(runtime_support, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        # A successful build is always runnable by `reason run`.
+        print(f"Error:\n\n{error.code}: {error}")
+        return 1
     else:
         computation_path.write_text(
             json.dumps(computation_ir, indent=2, ensure_ascii=False), encoding="utf-8"

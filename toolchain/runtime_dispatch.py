@@ -83,16 +83,10 @@ def execute_rust_ir(
             "RTH-UNSUPPORTED-001",
             "native runtime does not support: " + ", ".join(unsupported),
         )
-    trace_unsupported = (
-        rust_trace_unsupported_operations(ir_document) if include_trace else ()
-    )
-    if trace_unsupported:
-        raise RustDispatchError(
-            "rust_trace_operation_unsupported",
-            "RTH-TRACE-001",
-            "native runtime trace does not support: "
-            + ", ".join(trace_unsupported),
-        )
+    # Trace is observational.  An operation without a trace adapter must not
+    # turn an otherwise executable calculation into a runtime failure.
+    trace_unsupported = rust_trace_unsupported_operations(ir_document) if include_trace else ()
+    trace_enabled = include_trace and not trace_unsupported
     try:
         outcome = run_ir(
             ir_document,
@@ -101,7 +95,7 @@ def execute_rust_ir(
             filesystem_read=filesystem_read,
             filesystem_write=filesystem_write,
             backend=backend,
-            trace_enabled=include_trace,
+            trace_enabled=trace_enabled,
         )
     except (OSError, ValueError) as error:
         raise RustDispatchError(
@@ -127,6 +121,13 @@ def execute_rust_ir(
         "loop_trace": outcome.metadata.get("loop_trace", []),
         "vision_trace": outcome.metadata.get("vision_trace", []),
         "reasoning_trace": outcome.metadata.get("reasoning_trace", []),
+        "trace_diagnostics": ([{
+            "code": "RTH-TRACE-001",
+            "severity": "warning",
+            "category": "runtime.trace",
+            "message": "native runtime trace was omitted for unsupported operations: " + ", ".join(trace_unsupported),
+            "operations": list(trace_unsupported),
+        }] if trace_unsupported else []),
         "calculations": calculations,
     }
 

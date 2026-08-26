@@ -23,7 +23,7 @@ pub fn random_unit(function: &str, seed: i64, stream: i64, counter: u64) -> Resu
 }
 
 pub fn uniform(low: f64, high: f64, seed: i64, stream: i64, count: usize) -> Result<Vec<f64>> {
-    if !(high > low) {
+    if high.partial_cmp(&low) != Some(std::cmp::Ordering::Greater) {
         return Err(TensorCoreError::new(
             "RNG-001",
             "invalid random_uniform contract",

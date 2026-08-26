@@ -297,7 +297,7 @@ fn validate_shape(shape: &[usize], dtype: Dtype, policy: &TensorPolicy) -> Resul
     if shape.is_empty() {
         return Ok(()); // rank-0 scalar Tensor
     }
-    if shape.iter().any(|&dimension| dimension == 0) {
+    if shape.contains(&0) {
         return Err(TensorCoreError::new(
             "TSF-009",
             "Empty tensor is not allowed",

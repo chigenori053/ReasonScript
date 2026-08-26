@@ -59,7 +59,7 @@ fn main() -> ExitCode {
 }
 
 fn run_legacy(source: &str) -> ExitCode {
-    let program = match decode(&source) {
+    let program = match decode(source) {
         Ok(program) => program,
         Err(error) => return fail("IR-DECODE-001", &error.to_string()),
     };

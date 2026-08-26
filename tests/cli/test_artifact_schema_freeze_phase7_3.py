@@ -12,6 +12,7 @@ from toolchain.artifacts import (
     validate_artifact_directory,
     write_artifact_directory,
 )
+from toolchain.project_validation import _artifact_contract
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV = REPO_ROOT / "scripts" / "dev.py"
@@ -187,3 +188,28 @@ def test_artifact_validation_rules_ar_001_through_ar_010(tmp_path: Path) -> None
     duplicate.mkdir()
     duplicate.joinpath("artifact_manifest.json").write_text(stable_json({"artifact_version": "1.0", "artifacts": ["a.json", "a.json"]}), encoding="utf-8")
     assert "AR-008" in _codes(validate_artifact_directory(duplicate))
+
+
+def test_project_validation_rejects_name_only_and_unknown_manifest(tmp_path: Path) -> None:
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    artifacts.joinpath("manifest.json").write_text("{}\n", encoding="utf-8")
+    diagnostics: list[dict[str, object]] = []
+
+    assert not _artifact_contract(tmp_path, diagnostics)
+    assert diagnostics[0]["code"] == "PV-006"
+
+
+def test_legacy_manifest_name_uses_the_same_schema_and_reference_rules(tmp_path: Path) -> None:
+    manifest = {
+        "version": "1.0",
+        "schema": "reasonscript-artifact-manifest/1.0",
+        "artifact_version": "1.0",
+        "generator": "test",
+        "generated_at": "1970-01-01T00:00:00Z",
+        "language_version": "0.5",
+        "artifacts": ["missing.json"],
+    }
+    tmp_path.joinpath("manifest.json").write_text(stable_json(manifest), encoding="utf-8")
+
+    assert "AR-007" in _codes(validate_artifact_directory(tmp_path))

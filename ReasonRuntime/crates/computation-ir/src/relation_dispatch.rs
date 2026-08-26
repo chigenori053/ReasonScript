@@ -135,7 +135,7 @@ fn distinct_by(mut args: Vec<Value>) -> VResult {
     let mut kept = Vec::new();
     for row in rows {
         let key = field(&row, &field_name)?;
-        if !seen.iter().any(|existing| *existing == key) {
+        if !seen.contains(&key) {
             seen.push(key);
             kept.push(row);
         }

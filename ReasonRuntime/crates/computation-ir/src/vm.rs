@@ -258,7 +258,10 @@ impl<'a> Vm<'a> {
                     ))
                 }
             }
-            self.collect_tensors(calculations.iter().map(|(_, value)| value));
+            // A calculation boundary is not a tensor ownership boundary:
+            // optimizer/autograd state can still retain handles referenced by
+            // subsequent calculations.  The VM owns one fresh TensorStore per
+            // program run, so defer collection until that store is dropped.
         }
         Ok(calculations)
     }
@@ -647,13 +650,22 @@ impl<'a> Vm<'a> {
             Expr::CallOptimizer {
                 function_id,
                 arguments,
-                ..
+                source_span,
             } => {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
                     values.push(self.eval_expr(argument, env, call_depth)?);
                 }
                 crate::optimizer_dispatch::call(function_id, values, &self.tensors)
+                    // Optimizer dispatch previously discarded the expression
+                    // span, making TSF-001 impossible to locate in source.
+                    .map_err(|error| {
+                        RuntimeError::new(
+                            &error.code,
+                            format!("{} (while executing {function_id})", error.message),
+                        )
+                        .with_source_location(source_span.as_ref())
+                    })
             }
             Expr::CallReasoning {
                 function_id,

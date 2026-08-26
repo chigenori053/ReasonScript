@@ -461,12 +461,16 @@ pub fn build_ruo(observation: &VisionObservation) -> Result<VisionBundle, Vision
             ]
         })
         .collect();
+    let mut tensor_projection = TensorProjection {
+        payloads: &mut payloads,
+        resources: &mut resources,
+        external_resources: &mut external_resources,
+        base: &base,
+        owner_id: &frame_id,
+        revision_id,
+    };
     add_tensor(
-        &mut payloads,
-        &mut resources,
-        &mut external_resources,
-        &base,
-        &frame_id,
+        &mut tensor_projection,
         "detections",
         vec![detections.len(), 6],
         detection_values,
@@ -479,23 +483,17 @@ pub fn build_ruo(observation: &VisionObservation) -> Result<VisionBundle, Vision
             "confidence",
             "class_index",
         ]),
-        revision_id,
         &evidence_ids,
     )?;
 
     if let Some(input) = &observation.input_tensor {
         add_tensor(
-            &mut payloads,
-            &mut resources,
-            &mut external_resources,
-            &base,
-            &frame_id,
+            &mut tensor_projection,
             "input",
             input.shape.clone(),
             input.values.clone(),
             None,
             None,
-            revision_id,
             &[],
         )?;
     }
@@ -508,17 +506,12 @@ pub fn build_ruo(observation: &VisionObservation) -> Result<VisionBundle, Vision
             .flat_map(|d| d.embedding.clone().unwrap_or_default())
             .collect();
         add_tensor(
-            &mut payloads,
-            &mut resources,
-            &mut external_resources,
-            &base,
-            &frame_id,
+            &mut tensor_projection,
             "embeddings",
             vec![detections.len(), width],
             values,
             Some(unit_ids.clone()),
             None,
-            revision_id,
             &evidence_ids,
         )?;
     }
@@ -583,18 +576,22 @@ pub fn write_bundle(bundle: &VisionBundle, output: &Path) -> Result<(), VisionEr
     Ok(())
 }
 
+struct TensorProjection<'a> {
+    payloads: &'a mut Vec<Value>,
+    resources: &'a mut BTreeMap<String, Vec<u8>>,
+    external_resources: &'a mut Vec<Value>,
+    base: &'a dyn Fn(&str) -> Value,
+    owner_id: &'a str,
+    revision_id: &'a str,
+}
+
 fn add_tensor(
-    payloads: &mut Vec<Value>,
-    resources: &mut BTreeMap<String, Vec<u8>>,
-    external_resources: &mut Vec<Value>,
-    base: &impl Fn(&str) -> Value,
-    owner_id: &str,
+    projection: &mut TensorProjection<'_>,
     role: &str,
     shape: Vec<usize>,
     values: Vec<f32>,
     axis0_ids: Option<Vec<String>>,
     axis1_labels: Option<Vec<&str>>,
-    revision_id: &str,
     evidence_refs: &[String],
 ) -> Result<(), VisionError> {
     if checked_product(&shape)? != values.len() {
@@ -604,8 +601,8 @@ fn add_tensor(
             "generated tensor shape mismatch",
         ));
     }
-    let payload_id = format!("ruo:payload:tensor:vision:{role}:{}", stable_key(owner_id));
-    let resource_id = format!("ruo:resource:vision:{role}:{}", stable_key(owner_id));
+    let payload_id = format!("ruo:payload:tensor:vision:{role}:{}", stable_key(projection.owner_id));
+    let resource_id = format!("ruo:resource:vision:{role}:{}", stable_key(projection.owner_id));
     let locator = format!("resources/{role}.ruot");
     let bytes = encode_f32(&values)?;
     let mut axes: Vec<Value> = shape
@@ -621,7 +618,7 @@ fn add_tensor(
     if let Some(ids) = axis0_ids {
         axes[0]["identity_mapping"] = json!({
             "mapping_version": "1", "ordered_ids": ids, "uniqueness": "unique",
-            "source_object_revision": revision_id, "partial": false
+            "source_object_revision": projection.revision_id, "partial": false
         });
     }
     if let Some(labels) = axis1_labels {
@@ -642,14 +639,14 @@ fn add_tensor(
         "evidence_refs": evidence_refs, "extensions": {"reasonscript.vision": {"critical": false, "role": role}}
     });
     body["logical_digest"] = Value::String(tensor_logical_digest(&body, &values));
-    payloads.push(merge(
-        base("payload"),
+    projection.payloads.push(merge(
+        (projection.base)("payload"),
         json!({
-            "payload_id": payload_id, "owner_id": owner_id, "profile_id": "ruo.payload.tensor/1",
+            "payload_id": payload_id, "owner_id": projection.owner_id, "profile_id": "ruo.payload.tensor/1",
             "value_presence": "present", "value": body, "evidence_refs": evidence_refs
         }),
     ));
-    external_resources.push(json!({
+    projection.external_resources.push(json!({
         "resource_id": resource_id, "owner_payload_id": payload_id,
         "content_sha256": sha_prefixed(&bytes).trim_start_matches("sha256:"),
         "byte_size": bytes.len(), "media_type": "application/vnd.reasonscript.ruo-tensor",
@@ -659,7 +656,7 @@ fn add_tensor(
         "representation": "dense_resource", "dtype": "float32", "shape_digest": sha_prefixed(serde_json::to_string(&shape).unwrap_or_default().as_bytes()),
         "chunks": [], "evidence_refs": evidence_refs, "provenance_refs": evidence_refs
     }));
-    resources.insert(locator, bytes);
+    projection.resources.insert(locator, bytes);
     Ok(())
 }
 

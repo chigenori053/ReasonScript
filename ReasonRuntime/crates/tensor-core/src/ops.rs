@@ -316,7 +316,7 @@ pub fn slice(
         ranges[normalized] = positive_slice_indexes(*start, *end, *step, tensor.shape[normalized]);
     }
     let shape: Vec<usize> = ranges.iter().map(Vec::len).collect();
-    if shape.iter().any(|size| *size == 0) {
+    if shape.contains(&0) {
         return Err(TensorCoreError::new(
             "TSF-009",
             "Empty tensor is not allowed",
@@ -941,12 +941,12 @@ pub fn matmul_parallel(
         .into_par_iter()
         .map(|row| {
             let mut row_data = vec![0.0; n];
-            for col in 0..n {
+            for (col, output) in row_data.iter_mut().enumerate() {
                 let mut sum = 0.0;
                 for inner in 0..k {
                     sum += left.data[row * k + inner] * right.data[inner * n + col];
                 }
-                row_data[col] = sum;
+                *output = sum;
             }
             row_data
         })
