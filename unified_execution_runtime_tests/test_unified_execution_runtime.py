@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from frontend.unified_execution_runtime import (
     ExecutionRequest, RuntimeCapability, RuntimePressure, RuntimeProfiler, UnifiedExecutionOrchestrator,
-    WorkloadEstimate,
+    WorkloadEstimate, WorkloadEstimator,
     default_runtime_adapters,
     runtime_info,
 )
@@ -64,3 +64,9 @@ def test_profiler_and_artifacts_record_trace_and_pressure():
     assert artifacts["execution_trace.json"][0]["event"] == "LOCAL"
     assert artifacts["runtime_profile.json"]["peak_live_tensors"] == 3
     assert artifacts["execution_result.json"]["request_id"] == "profiled"
+
+
+def test_workload_estimator_reads_execution_plan_metadata():
+    estimate = WorkloadEstimator.from_plan({"steps": [1, 2], "workload": {"parallelizable": True, "estimated_memory": 64}})
+    assert estimate.estimated_operations == 2
+    assert estimate.parallelizable is True

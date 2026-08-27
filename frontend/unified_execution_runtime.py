@@ -49,6 +49,24 @@ class WorkloadEstimate:
     transfer_cost: int = 0
 
 
+class WorkloadEstimator:
+    """Derive a stable placement estimate from ExecutionPlan metadata."""
+
+    @staticmethod
+    def from_plan(plan: Mapping[str, Any]) -> WorkloadEstimate:
+        metadata = plan.get("workload", plan.get("metadata", {}))
+        operations = plan.get("operations", plan.get("steps", ()))
+        return WorkloadEstimate(
+            estimated_operations=int(metadata.get("estimated_operations", len(operations))),
+            estimated_memory=int(metadata.get("estimated_memory", 0)),
+            estimated_peak_live_tensors=int(metadata.get("estimated_peak_live_tensors", 0)),
+            estimated_autograd_nodes=int(metadata.get("estimated_autograd_nodes", 0)),
+            parallelizable=bool(metadata.get("parallelizable", False)),
+            dependency_depth=int(metadata.get("dependency_depth", 0)),
+            transfer_cost=int(metadata.get("transfer_cost", 0)),
+        )
+
+
 @dataclass(frozen=True)
 class RuntimePressure:
     live_tensors: int = 0
