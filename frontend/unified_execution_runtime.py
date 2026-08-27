@@ -72,6 +72,38 @@ class RuntimePressure:
         return PressureLevel.NORMAL
 
 
+@dataclass
+class RuntimeProfiler:
+    """Deterministic metrics and trace recorder for one execution request."""
+
+    started_ns: int = field(default_factory=time.perf_counter_ns)
+    function_calls: int = 0
+    tensor_allocations: int = 0
+    tensor_releases: int = 0
+    peak_live_tensors: int = 0
+    autograd_nodes: int = 0
+    branch_evaluations: int = 0
+    cluster_offloads: int = 0
+    worker_tasks: int = 0
+    transfer_bytes: int = 0
+    merge_time_ns: int = 0
+    trace: list[dict[str, Any]] = field(default_factory=list)
+
+    def record(self, event: str, **details: Any) -> dict[str, Any]:
+        entry = {"step": len(self.trace) + 1, "event": event, **details}
+        self.trace.append(entry)
+        if event.startswith("CLUSTER"):
+            self.cluster_offloads += 1
+        return entry
+
+    def observe_pressure(self, pressure: RuntimePressure) -> None:
+        self.peak_live_tensors = max(self.peak_live_tensors, pressure.live_tensors)
+        self.autograd_nodes = max(self.autograd_nodes, pressure.autograd_nodes)
+
+    def snapshot(self) -> dict[str, Any]:
+        return {"execution_time_ns": time.perf_counter_ns() - self.started_ns, "function_calls": self.function_calls, "tensor_allocations": self.tensor_allocations, "tensor_releases": self.tensor_releases, "peak_live_tensors": self.peak_live_tensors, "autograd_nodes": self.autograd_nodes, "branch_evaluations": self.branch_evaluations, "cluster_offloads": self.cluster_offloads, "worker_tasks": self.worker_tasks, "transfer_bytes": self.transfer_bytes, "merge_time_ns": self.merge_time_ns}
+
+
 @dataclass(frozen=True)
 class ExecutionRequest:
     request_id: str
@@ -86,6 +118,7 @@ class ExecutionResult:
     value: Any
     backend_id: str
     trace: tuple[Mapping[str, Any], ...] = ()
+    profile: Mapping[str, Any] = field(default_factory=dict)
 
 
 class ExecutionBackend(Protocol):
@@ -205,19 +238,27 @@ class UnifiedExecutionOrchestrator:
             result.append(ExecutionPartition(index, operation_id, hashlib.sha256(seed).hexdigest(), workers[index % len(workers)]))
         return result
 
-    def execute(self, request: ExecutionRequest, *, preferred_backend: str | None = None) -> ExecutionResult:
+    def execute(self, request: ExecutionRequest, *, preferred_backend: str | None = None, profiler: RuntimeProfiler | None = None) -> ExecutionResult:
+        profiler = profiler or RuntimeProfiler()
         decision = self.plan(request, preferred_backend=preferred_backend)
+        profiler.record(decision.placement, backend=decision.backend_id, reason=decision.reason)
         started = time.perf_counter()
         value = self.backends[decision.backend_id].execute(request)
         event = {"step": 1, "event": decision.placement, "backend": decision.backend_id, "reason": decision.reason, "elapsed_ms": round((time.perf_counter() - started) * 1000, 3)}
-        return ExecutionResult(request.request_id, value, decision.backend_id, (event,))
+        return ExecutionResult(request.request_id, value, decision.backend_id, (event,), profiler.snapshot())
 
-    def artifacts(self, request: ExecutionRequest, decision: ExecutionDecision, pressure: RuntimePressure | None = None) -> dict[str, Any]:
+    def artifacts(self, request: ExecutionRequest, decision: ExecutionDecision, pressure: RuntimePressure | None = None, profiler: RuntimeProfiler | None = None, result: ExecutionResult | None = None) -> dict[str, Any]:
+        profiler = profiler or RuntimeProfiler()
+        pressure = pressure or RuntimePressure()
+        profiler.observe_pressure(pressure)
         return {
             "execution_plan.json": dict(request.execution_plan),
             "runtime_capabilities.json": [asdict(item) for item in self.capabilities()],
             "workload_estimate.json": asdict(request.workload),
-            "runtime_pressure.json": asdict(pressure or RuntimePressure()),
+            "runtime_pressure.json": {**asdict(pressure), "level": pressure.level(self.backends[decision.backend_id].capability).value},
+            "runtime_profile.json": profiler.snapshot(),
+            "execution_trace.json": list(profiler.trace),
             "cluster_plan.json": {"used": decision.placement.startswith("CLUSTER"), "placement": decision.placement, "backend": decision.backend_id},
             "determinism_manifest.json": {"policy_version": decision.policy_version, "canonical_json": True},
+            "execution_result.json": {"request_id": result.request_id, "backend": result.backend_id, "value": result.value} if result is not None else None,
         }

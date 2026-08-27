@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from frontend.unified_execution_runtime import (
-    ExecutionRequest, RuntimeCapability, RuntimePressure, UnifiedExecutionOrchestrator,
+    ExecutionRequest, RuntimeCapability, RuntimePressure, RuntimeProfiler, UnifiedExecutionOrchestrator,
     WorkloadEstimate,
     default_runtime_adapters,
     runtime_info,
@@ -53,3 +53,14 @@ def test_default_runtime_catalog_is_backend_transparent():
     assert catalog["TensorRuntime"].execution_engine == "python"
     assert catalog["RuntimeReal"].execution_engine == "rust"
     assert runtime_info()["orchestrator"]["enabled"] is True
+
+
+def test_profiler_and_artifacts_record_trace_and_pressure():
+    runtime = _orchestrator()
+    request = ExecutionRequest("profiled", {"id": 1})
+    profiler = RuntimeProfiler()
+    result = runtime.execute(request, profiler=profiler)
+    artifacts = runtime.artifacts(request, runtime.plan(request), RuntimePressure(live_tensors=3), profiler, result)
+    assert artifacts["execution_trace.json"][0]["event"] == "LOCAL"
+    assert artifacts["runtime_profile.json"]["peak_live_tensors"] == 3
+    assert artifacts["execution_result.json"]["request_id"] == "profiled"
