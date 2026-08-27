@@ -400,16 +400,58 @@ class ClusterRuntimeAdapter:
 
     workers: tuple[str, ...]
     worker_execute: Callable[[ExecutionPartition, ExecutionRequest], Any]
-    capability: RuntimeCapability = field(default_factory=lambda: RuntimeCapability("ClusterRuntime", "rust", ("orchestration",), parallel_execution=True))
+    available_workers: tuple[str, ...] | None = None
+    policy_version: str = "UERA-0.1"
+    reduction: str = "canonical_list"
+    planner: Callable[..., Mapping[str, Any]] | None = None
+    last_plan: dict[str, Any] = field(default_factory=dict, compare=False)
+    capability: RuntimeCapability = field(default_factory=lambda: RuntimeCapability(
+        "ClusterRuntime",
+        "rust",
+        ("orchestration",),
+        ("Int", "Float", "Bool", "Complex"),
+        tensor_support=True,
+        autograd_support=True,
+        complex_support=True,
+        reason_unit_support=True,
+        parallel_execution=True,
+    ))
 
     def execute(self, request: ExecutionRequest) -> Any:
-        operations = request.execution_plan.get("operations", request.execution_plan.get("steps", ()))
-        partitions = self.partitions(request, [str(item) for item in operations])
+        operations = _operation_ids(request.execution_plan)
+        partitions = self.partitions(request, operations)
         completed = [(partition, self.worker_execute(partition, request)) for partition in partitions]
-        return self.reduce(completed)
+        reduced = self.reduce(completed)
+        if self.reduction == "single_result" and len(reduced) == 1:
+            return reduced[0]
+        return reduced
 
     def partitions(self, request: ExecutionRequest, operation_ids: Iterable[str]) -> list[ExecutionPartition]:
-        return _canonical_partitions(request, operation_ids, self.workers, "UERA-0.1")
+        operation_ids = tuple(operation_ids)
+        available = (
+            self.workers if self.available_workers is None else self.available_workers
+        )
+        planner = self.planner or _cluster_plan_runner
+        plan = dict(planner(
+            request,
+            operation_ids,
+            self.workers,
+            available,
+            self.policy_version,
+        ))
+        self.last_plan.clear()
+        self.last_plan.update(plan)
+        return [
+            ExecutionPartition(
+                int(item["partition_index"]),
+                str(item["operation_id"]),
+                str(item["partition_id"]),
+                str(item["assigned_worker"]),
+                str(item["preferred_worker"]),
+                bool(item["fallback_used"]),
+            )
+            for item in plan["partitions"]
+        ]
 
     @staticmethod
     def reduce(completed: Iterable[tuple[ExecutionPartition, Any]]) -> list[Any]:
@@ -417,15 +459,36 @@ class ClusterRuntimeAdapter:
         return [value for _, value in sorted(completed, key=lambda item: item[0].partition_index)]
 
 
-def default_runtime_adapters() -> tuple[RuntimeAdapter, ...]:
-    """Return the v0.1 catalog with executable adapters for every local Runtime."""
+@dataclass(frozen=True)
+class ClusterWorkerExecutor:
+    """Dispatch a cluster partition through an existing local runtime adapter."""
+
+    backends: tuple[RuntimeAdapter, ...]
+
+    def __call__(self, partition: ExecutionPartition, request: ExecutionRequest) -> Any:
+        orchestrator = UnifiedExecutionOrchestrator(self.backends)
+        backend_id = orchestrator.resolve_backend(request, parallel=False)
+        return orchestrator.backends[backend_id].execute(request)
+
+
+def _local_runtime_adapters() -> tuple[RuntimeAdapter, ...]:
     return (
         RuntimeAdapter(RuntimeCapability("RuntimeReal", "rust", ("identity", "scalar", "reasoning"), ("Int", "Float", "Bool")), _rust_runner("RuntimeReal", "uera_adapter")),
         RuntimeAdapter(RuntimeCapability("TensorRuntime", "python", ("identity", "tensor", "autograd"), ("Int", "Float"), tensor_support=True, autograd_support=True, memory_limit=256 * 1024 * 1024, tensor_limit=1_000), _tensor_runner),
         RuntimeAdapter(RuntimeCapability("RuntimeComplex", "rust", ("identity", "complex"), ("Int", "Float", "Complex"), complex_support=True), _rust_runner("RuntimeComplex", "uera_adapter")),
         RuntimeAdapter(RuntimeCapability("ReasonUnitRuntime", "rust", ("identity", "reason_unit"), reason_unit_support=True), _rust_runner("NativeReasonUnitRuntime", "reasonunit-runtime-native")),
-        RuntimeAdapter(RuntimeCapability("ClusterRuntime", "rust", ("orchestration",), parallel_execution=True)),
     )
+
+
+def default_runtime_adapters() -> tuple[ExecutionBackend, ...]:
+    """Return the v0.1 catalog with executable adapters for every local Runtime."""
+    local = _local_runtime_adapters()
+    cluster = ClusterRuntimeAdapter(
+        ("worker-0", "worker-1"),
+        ClusterWorkerExecutor(local),
+        reduction="single_result",
+    )
+    return (*local, cluster)
 
 
 def runtime_info() -> dict[str, Any]:
@@ -455,6 +518,8 @@ class ExecutionPartition:
     operation_id: str
     partition_id: str
     worker_id: str
+    preferred_worker: str = ""
+    fallback_used: bool = False
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -465,16 +530,110 @@ def _semantic_digest(value: Any) -> str:
     return "sha256:" + hashlib.sha256(_canonical_json(value)).hexdigest()
 
 
-def _canonical_partitions(request: ExecutionRequest, operation_ids: Iterable[str], workers: Iterable[str], policy_version: str) -> list[ExecutionPartition]:
-    workers = sorted(workers)
+def _canonical_partitions(
+    request: ExecutionRequest,
+    operation_ids: Iterable[str],
+    workers: Iterable[str],
+    policy_version: str,
+    available_workers: Iterable[str] | None = None,
+) -> list[ExecutionPartition]:
+    workers = sorted(set(workers))
     if not workers:
-        raise ValueError("UER-OFF-001: no cluster workers available")
-    plan_bytes = _canonical_json(request.execution_plan)
+        raise ValueError("CRR-UER-001: no cluster workers configured")
+    available = set(available_workers if available_workers is not None else workers)
+    if not available:
+        raise ValueError("CRR-UER-002: no cluster workers available")
+    if not available <= set(workers):
+        raise ValueError("CRR-UER-003: available worker is not configured")
     result = []
     for index, operation_id in enumerate(operation_ids):
-        seed = plan_bytes + b":" + operation_id.encode() + b":" + str(index).encode() + b":" + policy_version.encode()
-        result.append(ExecutionPartition(index, operation_id, hashlib.sha256(seed).hexdigest(), workers[index % len(workers)]))
+        preferred_index = index % len(workers)
+        preferred = workers[preferred_index]
+        assigned = next(
+            workers[(preferred_index + offset) % len(workers)]
+            for offset in range(len(workers))
+            if workers[(preferred_index + offset) % len(workers)] in available
+        )
+        partition_payload = {
+            "execution_plan": request.execution_plan,
+            "operation_id": operation_id,
+            "partition_index": index,
+            "policy_version": policy_version,
+        }
+        partition_id = "sha256:" + hashlib.sha256(
+            _canonical_json(partition_payload)
+        ).hexdigest()
+        result.append(ExecutionPartition(
+            index,
+            operation_id,
+            partition_id,
+            assigned,
+            preferred,
+            assigned != preferred,
+        ))
     return result
+
+
+def _operation_ids(execution_plan: Mapping[str, Any]) -> tuple[str, ...]:
+    operations = execution_plan.get(
+        "operations", execution_plan.get("selected_steps", execution_plan.get("steps", ()))
+    )
+    result = []
+    for index, item in enumerate(operations):
+        if isinstance(item, Mapping):
+            operation_id = item.get("operation_id", item.get("transition_id", item.get("id")))
+            result.append(str(operation_id if operation_id is not None else index))
+        else:
+            result.append(str(item))
+    if not result and execution_plan.get("operation") is not None:
+        result.append(str(execution_plan["operation"]))
+    if not result:
+        result.append("execution-plan")
+    return tuple(result)
+
+
+def _cluster_plan_runner(
+    request: ExecutionRequest,
+    operation_ids: Iterable[str],
+    workers: Iterable[str],
+    available_workers: Iterable[str],
+    policy_version: str,
+) -> Mapping[str, Any]:
+    """Plan partitions through the existing Rust ClusterRuntime boundary."""
+    repository = Path(__file__).resolve().parents[1]
+    command = [
+        "cargo", "run", "--quiet", "--manifest-path",
+        str(repository / "ClusterRuntime" / "Cargo.toml"),
+        "--bin", "reason-cluster", "--", "uera-plan",
+    ]
+    payload = {
+        "execution_plan": dict(request.execution_plan),
+        "operation_ids": list(operation_ids),
+        "workers": list(workers),
+        "available_workers": list(available_workers),
+        "policy_version": policy_version,
+    }
+    try:
+        completed = subprocess.run(
+            command,
+            input=json.dumps(payload, sort_keys=True, separators=(",", ":")),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as error:
+        raise RuntimeError(
+            f"UER-OFF-004: failed to start ClusterRuntime: {error}"
+        ) from error
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip()
+        raise RuntimeError(f"UER-OFF-004: ClusterRuntime planning failed: {detail}")
+    try:
+        return json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            "UER-OFF-005: ClusterRuntime returned an invalid UERA plan"
+        ) from error
 
 
 class UnifiedExecutionOrchestrator:
@@ -601,7 +760,12 @@ class UnifiedExecutionOrchestrator:
             profiler.record("CLUSTER_EXECUTE", backend=decision.backend_id)
         value = self.backends[decision.backend_id].execute(request)
         if capability.parallel_execution:
-            if isinstance(value, (list, tuple)):
+            cluster_plan = getattr(
+                self.backends[decision.backend_id], "last_plan", {}
+            )
+            if cluster_plan:
+                profiler.worker_tasks += len(cluster_plan.get("partitions", ()))
+            elif isinstance(value, (list, tuple)):
                 profiler.worker_tasks += len(value)
             profiler.record("REDUCE", ordering="canonical")
         digest = _semantic_digest(value)
@@ -618,6 +782,17 @@ class UnifiedExecutionOrchestrator:
         profiler = profiler or RuntimeProfiler()
         pressure = pressure or RuntimePressure()
         profiler.observe_pressure(pressure)
+        cluster_backend = self.backends.get(decision.backend_id)
+        cluster_plan = dict(getattr(cluster_backend, "last_plan", {}))
+        if cluster_plan.get("source_plan_hash") != (
+            "sha256:" + hashlib.sha256(_canonical_json(request.execution_plan)).hexdigest()
+        ):
+            cluster_plan = {}
+        cluster_plan.update({
+            "used": decision.placement.startswith("CLUSTER"),
+            "placement": decision.placement,
+            "backend": decision.backend_id,
+        })
         return {
             "execution_plan.json": {
                 **dict(request.execution_plan),
@@ -628,7 +803,7 @@ class UnifiedExecutionOrchestrator:
             "runtime_pressure.json": {**asdict(pressure), "level": pressure.level(self.backends[decision.backend_id].capability).value},
             "runtime_profile.json": profiler.snapshot(),
             "execution_trace.json": list(profiler.trace),
-            "cluster_plan.json": {"used": decision.placement.startswith("CLUSTER"), "placement": decision.placement, "backend": decision.backend_id},
+            "cluster_plan.json": cluster_plan,
             "determinism_manifest.json": {"policy_version": decision.policy_version, "canonical_json": True, "observation_affects_result": False, "semantic_digest": result.semantic_digest if result is not None else None},
             "execution_result.json": {"request_id": result.request_id, "backend": result.backend_id, "value": result.value, "semantic_digest": result.semantic_digest} if result is not None else None,
             "performance_baseline.json": baseline.to_dict() if baseline is not None else None,

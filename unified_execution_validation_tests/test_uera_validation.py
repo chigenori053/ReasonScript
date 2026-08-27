@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pytest
 
 from frontend.language_surface import compile_program, parse
-from frontend.unified_execution_runtime import ExecutionRequest, RuntimeCapability, UnifiedExecutionOrchestrator, default_runtime_adapters
+from frontend.unified_execution_runtime import ClusterRuntimeAdapter, ExecutionRequest, RuntimeCapability, UnifiedExecutionOrchestrator, default_runtime_adapters
 
 
 @dataclass
@@ -134,3 +134,87 @@ def test_uera_t010_compiled_plan_selects_executor_and_records_reason():
     """))[0]
     small = runtime.plan(ExecutionRequest.from_reason_ir("compiled-scalar", scalar_ir))
     assert (small.placement, small.backend_id) == ("LOCAL", "RuntimeReal")
+
+
+def test_uera_t013_cluster_runtime_plan_is_byte_identical_three_times():
+    adapter = ClusterRuntimeAdapter(
+        ("worker-2", "worker-0", "worker-1"),
+        lambda partition, _: partition.operation_id,
+    )
+    request = ExecutionRequest("uera-t013", {"operations": ["op-a", "op-b", "op-c"]})
+    manifests = []
+    for _ in range(3):
+        adapter.partitions(request, ("op-a", "op-b", "op-c"))
+        manifests.append(json.dumps(adapter.last_plan, sort_keys=True, separators=(",", ":")))
+
+    assert manifests[0] == manifests[1] == manifests[2]
+    assert adapter.last_plan["schema_version"] == "reasonscript-cluster-uera-plan/0.1"
+    assert adapter.last_plan["reduction_order"] == [
+        partition["partition_id"] for partition in adapter.last_plan["partitions"]
+    ]
+    python_partitions = _runtime().canonical_partitions(
+        request, ("op-a", "op-b", "op-c"), ("worker-2", "worker-0", "worker-1")
+    )
+    assert [item.partition_id for item in python_partitions] == [
+        item["partition_id"] for item in adapter.last_plan["partitions"]
+    ]
+
+
+def test_uera_t014_worker_availability_uses_canonical_fallback():
+    adapter = ClusterRuntimeAdapter(
+        ("worker-2", "worker-0", "worker-1"),
+        lambda partition, _: partition.operation_id,
+        available_workers=("worker-2", "worker-0"),
+    )
+    request = ExecutionRequest("uera-t014", {"operations": ["op-a", "op-b", "op-c"]})
+    first, second, third = [
+        adapter.partitions(request, ("op-a", "op-b", "op-c"))
+        for _ in range(3)
+    ]
+
+    assert first == second == third
+    assert [(item.preferred_worker, item.worker_id, item.fallback_used) for item in first] == [
+        ("worker-0", "worker-0", False),
+        ("worker-1", "worker-2", True),
+        ("worker-2", "worker-2", False),
+    ]
+    unavailable = ClusterRuntimeAdapter(
+        ("worker-0",),
+        lambda partition, _: partition.operation_id,
+        available_workers=(),
+    )
+    with pytest.raises(RuntimeError, match="CRR-UER-002"):
+        unavailable.partitions(request, ("op-a",))
+
+
+def test_uera_t015_cluster_workers_reuse_local_backend_with_equivalent_result():
+    adapters = default_runtime_adapters()
+    local = next(item for item in adapters if item.capability.backend_id == "RuntimeReal")
+    cluster = next(item for item in adapters if item.capability.backend_id == "ClusterRuntime")
+    orchestrator = UnifiedExecutionOrchestrator(adapters)
+    request = ExecutionRequest(
+        "uera-t015",
+        {
+            "operation": "identity",
+            "arguments": [[1, 2, 3]],
+            "workload": {"parallelizable": True, "estimated_operations": 100_000},
+        },
+    )
+
+    local_value = local.execute(request)
+    cluster_results = [orchestrator.execute(request) for _ in range(3)]
+    assert [result.value for result in cluster_results] == [
+        local_value,
+        local_value,
+        local_value,
+    ]
+    assert {result.backend_id for result in cluster_results} == {"ClusterRuntime"}
+    assert len({result.semantic_digest for result in cluster_results}) == 1
+    assert all(result.profile["worker_tasks"] == 1 for result in cluster_results)
+    assert cluster.last_plan["partitions"][0]["operation_id"] == "identity"
+    artifacts = orchestrator.artifacts(
+        request, orchestrator.plan(request), result=cluster_results[-1]
+    )
+    assert artifacts["cluster_plan.json"]["schema_version"] == (
+        "reasonscript-cluster-uera-plan/0.1"
+    )
