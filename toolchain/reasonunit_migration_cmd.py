@@ -48,7 +48,7 @@ def run(args: list[str], root: Path) -> int:
         positional = _positionals(args[1:])
         source = _path(positional[0]) if positional else None
         if operation == "discover":
-            output = _option(args, "--output");
+            output = _option(args, "--output")
             if not source or not output: raise MigrationError("RUO-M1-021", "discover requires SOURCE --output INVENTORY.json")
             result = discover(source, _path(output))
         elif operation == "analyze":
