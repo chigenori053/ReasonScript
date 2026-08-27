@@ -107,6 +107,7 @@ class IntegratedComputationResult:
             ],
             "tensor_trace": [_stable_trace(item) for item in self.runtime.trace],
             "tensor_lifecycle_trace": list(self.runtime.lifecycle_trace),
+            "tensor_lifetime_metrics": self.runtime.lifetime_metrics(),
             "loop_trace": list(self.loop_trace),
             "vision_trace": list(self.vision_runtime.trace) if self.vision_runtime is not None else [],
             "calculations": {
