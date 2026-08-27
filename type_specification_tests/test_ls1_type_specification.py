@@ -106,11 +106,10 @@ class LayerDInvalidTypeTests(unittest.TestCase):
             return_type="String",
         )
 
-    def test_d_003_arithmetic_mismatch(self):
-        self.assert_type_error(
-            "let value = 1 + 2.0\nresult = value",
-            "TYPE-V004",
-        )
+    def test_d_003_mixed_numeric_arithmetic_promotes_to_float(self):
+        # RS-UERA-001: Int/Float arithmetic is a supported promotion, not a
+        # type error.  The inferred result must remain compatible with Float.
+        calculation("let value: Float = 1 + 2.0\nresult = value", "Float")
 
     def test_d_004_logical_mismatch(self):
         self.assert_type_error(

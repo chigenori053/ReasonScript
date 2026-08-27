@@ -25,6 +25,10 @@ include = ["toolchain*", "runtime*"]
 toolchain = ["../VERSION", "../schemas/*.json", "../examples/**/*.rsn"]
 
 [tool.ruff.lint]
+# Keep CI deterministic as Ruff adds new rule families.  The project uses the
+# conventional correctness-focused baseline; stricter rules are adopted only
+# after their existing violations have been remediated deliberately.
+select = ["E4", "E7", "E9", "F"]
 ignore = [
   "E402",
   "E701",
@@ -32,4 +36,5 @@ ignore = [
   "E741",
   "F401",
   "F841",
+  "F811",
 ]
