@@ -538,6 +538,14 @@ def _expression(
                 )
             return [*collection, copy.deepcopy(item)]
         if isinstance(value.callee, IdentifierNode):
+            if value.callee.name in {"float", "int"}:
+                if len(value.arguments) != 1:
+                    raise IntegratedRuntimeError("RT-CALL-002", f"{value.callee.name} expects one argument")
+                argument = _expression(
+                    value.arguments[0], env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                return float(argument) if value.callee.name == "float" else int(argument)
             function_node = functions.get(value.callee.name)
             if function_node is None:
                 raise IntegratedRuntimeError(
