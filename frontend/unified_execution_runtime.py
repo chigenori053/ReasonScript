@@ -162,6 +162,33 @@ class RuntimeAdapter:
         return self.runner(request)
 
 
+@dataclass(frozen=True)
+class ClusterRuntimeAdapter:
+    """Adapter boundary for the existing ClusterRuntime worker executor.
+
+    The adapter owns scheduling metadata only.  Computation stays in the
+    worker's selected execution backend.
+    """
+
+    workers: tuple[str, ...]
+    worker_execute: Callable[[ExecutionPartition, ExecutionRequest], Any]
+    capability: RuntimeCapability = field(default_factory=lambda: RuntimeCapability("ClusterRuntime", "rust", ("orchestration",), parallel_execution=True))
+
+    def execute(self, request: ExecutionRequest) -> Any:
+        operations = request.execution_plan.get("operations", request.execution_plan.get("steps", ()))
+        partitions = self.partitions(request, [str(item) for item in operations])
+        completed = [(partition, self.worker_execute(partition, request)) for partition in partitions]
+        return self.reduce(completed)
+
+    def partitions(self, request: ExecutionRequest, operation_ids: Iterable[str]) -> list[ExecutionPartition]:
+        return _canonical_partitions(request, operation_ids, self.workers, "UERA-0.1")
+
+    @staticmethod
+    def reduce(completed: Iterable[tuple[ExecutionPartition, Any]]) -> list[Any]:
+        """Never use completion order for a distributed reduction."""
+        return [value for _, value in sorted(completed, key=lambda item: item[0].partition_index)]
+
+
 def default_runtime_adapters() -> tuple[RuntimeAdapter, ...]:
     """Return the v0.1 catalog without importing or coupling backend code."""
     return (
@@ -204,6 +231,18 @@ class ExecutionPartition:
 
 def _canonical_json(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode()
+
+
+def _canonical_partitions(request: ExecutionRequest, operation_ids: Iterable[str], workers: Iterable[str], policy_version: str) -> list[ExecutionPartition]:
+    workers = sorted(workers)
+    if not workers:
+        raise ValueError("UER-OFF-001: no cluster workers available")
+    plan_bytes = _canonical_json(request.execution_plan)
+    result = []
+    for index, operation_id in enumerate(operation_ids):
+        seed = plan_bytes + b":" + operation_id.encode() + b":" + str(index).encode() + b":" + policy_version.encode()
+        result.append(ExecutionPartition(index, operation_id, hashlib.sha256(seed).hexdigest(), workers[index % len(workers)]))
+    return result
 
 
 class UnifiedExecutionOrchestrator:
@@ -252,15 +291,7 @@ class UnifiedExecutionOrchestrator:
         return decision
 
     def canonical_partitions(self, request: ExecutionRequest, operation_ids: Iterable[str], workers: Iterable[str]) -> list[ExecutionPartition]:
-        workers = sorted(workers)
-        if not workers:
-            raise ValueError("UER-OFF-001: no cluster workers available")
-        plan_bytes = _canonical_json(request.execution_plan)
-        result = []
-        for index, operation_id in enumerate(operation_ids):
-            seed = plan_bytes + b":" + operation_id.encode() + b":" + str(index).encode() + b":" + self.policy_version.encode()
-            result.append(ExecutionPartition(index, operation_id, hashlib.sha256(seed).hexdigest(), workers[index % len(workers)]))
-        return result
+        return _canonical_partitions(request, operation_ids, workers, self.policy_version)
 
     def execute(self, request: ExecutionRequest, *, preferred_backend: str | None = None, profiler: RuntimeProfiler | None = None) -> ExecutionResult:
         profiler = profiler or RuntimeProfiler()

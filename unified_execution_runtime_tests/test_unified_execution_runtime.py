@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from frontend.unified_execution_runtime import (
-    ExecutionRequest, RuntimeCapability, RuntimePressure, RuntimeProfiler, UnifiedExecutionOrchestrator,
+    ClusterRuntimeAdapter, ExecutionRequest, RuntimeCapability, RuntimePressure, RuntimeProfiler, UnifiedExecutionOrchestrator,
     WorkloadEstimate, WorkloadEstimator,
     default_runtime_adapters,
     runtime_info,
@@ -77,3 +77,11 @@ def test_orchestrator_uses_execution_plan_workload_for_placement():
     request = ExecutionRequest("large", {"workload": {"estimated_operations": 100_000, "parallelizable": True}})
     decision = runtime.plan(request)
     assert (decision.placement, decision.backend_id) == ("CLUSTER_PLANNED", "ClusterRuntime")
+
+
+def test_cluster_adapter_reduces_in_canonical_not_completion_order():
+    adapter = ClusterRuntimeAdapter(("worker-1", "worker-0"), lambda partition, _: f"result-{partition.partition_index}")
+    request = ExecutionRequest("cluster", {"operations": ["a", "b", "c"]})
+    partitions = adapter.partitions(request, ["a", "b", "c"])
+    completed = [(partitions[2], "result-2"), (partitions[0], "result-0"), (partitions[1], "result-1")]
+    assert adapter.reduce(completed) == ["result-0", "result-1", "result-2"]
