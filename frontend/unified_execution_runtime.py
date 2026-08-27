@@ -22,6 +22,13 @@ class PressureLevel(StrEnum):
     CRITICAL = "CRITICAL"
 
 
+class ClusterFailurePolicy(StrEnum):
+    RETRY = "retry"
+    FALLBACK_LOCAL = "fallback_local"
+    FALLBACK_SINGLE_NODE = "fallback_single_node"
+    ABORT = "abort"
+
+
 @dataclass(frozen=True)
 class RuntimeCapability:
     backend_id: str
@@ -289,6 +296,21 @@ class UnifiedExecutionOrchestrator:
             if cluster:
                 return ExecutionDecision("CLUSTER_ESCALATED", cluster, "runtime pressure at safe boundary", decision.workload, self.policy_version)
         return decision
+
+    def handle_cluster_failure(self, request: ExecutionRequest, decision: ExecutionDecision, policy: ClusterFailurePolicy, profiler: RuntimeProfiler) -> ExecutionDecision:
+        """Apply a declared policy; fallback is never implicit or untraced."""
+        profiler.record("CLUSTER_FAILURE", backend=decision.backend_id, policy=policy.value)
+        if policy == ClusterFailurePolicy.RETRY:
+            profiler.record("CLUSTER_RETRY", backend=decision.backend_id)
+            return decision
+        if policy == ClusterFailurePolicy.ABORT:
+            raise RuntimeError("UER-OFF-002: cluster execution failed and policy is abort")
+        local = next((key for key in sorted(self.backends) if not self.backends[key].capability.parallel_execution), None)
+        if local is None:
+            raise RuntimeError("UER-OFF-003: no explicit local fallback backend")
+        event = "FALLBACK_LOCAL" if policy == ClusterFailurePolicy.FALLBACK_LOCAL else "FALLBACK_SINGLE_NODE"
+        profiler.record(event, backend=local)
+        return ExecutionDecision(event, local, "declared cluster failure policy", self.estimate_workload(request), self.policy_version)
 
     def canonical_partitions(self, request: ExecutionRequest, operation_ids: Iterable[str], workers: Iterable[str]) -> list[ExecutionPartition]:
         return _canonical_partitions(request, operation_ids, workers, self.policy_version)

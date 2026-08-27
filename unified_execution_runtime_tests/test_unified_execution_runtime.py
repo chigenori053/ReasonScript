@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from frontend.unified_execution_runtime import (
-    ClusterRuntimeAdapter, ExecutionRequest, RuntimeCapability, RuntimePressure, RuntimeProfiler, UnifiedExecutionOrchestrator,
+    ClusterFailurePolicy, ClusterRuntimeAdapter, ExecutionRequest, RuntimeCapability, RuntimePressure, RuntimeProfiler, UnifiedExecutionOrchestrator,
     WorkloadEstimate, WorkloadEstimator,
     default_runtime_adapters,
     runtime_info,
@@ -85,3 +85,12 @@ def test_cluster_adapter_reduces_in_canonical_not_completion_order():
     partitions = adapter.partitions(request, ["a", "b", "c"])
     completed = [(partitions[2], "result-2"), (partitions[0], "result-0"), (partitions[1], "result-1")]
     assert adapter.reduce(completed) == ["result-0", "result-1", "result-2"]
+
+
+def test_cluster_failure_uses_declared_and_traced_fallback_policy():
+    runtime = _orchestrator()
+    request = ExecutionRequest("failure", {"id": 1})
+    profiler = RuntimeProfiler()
+    result = runtime.handle_cluster_failure(request, runtime.plan(request), ClusterFailurePolicy.FALLBACK_LOCAL, profiler)
+    assert result.placement == "FALLBACK_LOCAL"
+    assert [item["event"] for item in profiler.trace] == ["CLUSTER_FAILURE", "FALLBACK_LOCAL"]
