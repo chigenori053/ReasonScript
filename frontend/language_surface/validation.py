@@ -1870,11 +1870,19 @@ def _expression_type(
             PrimitiveTypeNode(PrimitiveKind.INT),
             PrimitiveTypeNode(PrimitiveKind.FLOAT),
         }
-        if left not in numeric or right not in numeric or left != right:
+        if left not in numeric or right not in numeric:
             raise SurfaceValidationError(
-                "TYPE-V004 TYPE-001 mixed or non-numeric arithmetic invalid"
+                "TYPE-V004 arithmetic operands must be Int or Float"
             )
-        return left
+        # Numeric promotion is semantic, rather than an implementation detail:
+        # the compiler may lower the Int operand to an explicit Float cast, but
+        # every consumer sees the same result type.  Division is deliberately
+        # real division even when both operands are integers.
+        int_type = PrimitiveTypeNode(PrimitiveKind.INT)
+        float_type = PrimitiveTypeNode(PrimitiveKind.FLOAT)
+        if value.operator == BinaryOperator.DIVIDE or left == float_type or right == float_type:
+            return float_type
+        return int_type
     if isinstance(value, ComparisonExpressionNode):
         left = _expression_type(value.left, symbols, bindings)
         right = _expression_type(value.right, symbols, bindings)
