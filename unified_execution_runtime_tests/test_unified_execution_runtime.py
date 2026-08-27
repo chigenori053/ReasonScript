@@ -35,9 +35,13 @@ def test_local_first_and_planned_offload():
 
 def test_escalation_requires_safe_boundary():
     runtime = _orchestrator()
-    decision = runtime.plan(ExecutionRequest("r", {"id": 1}))
+    decision = runtime.plan(ExecutionRequest(
+        "r", {"operations": ["a"], "workload": {"parallelizable": True}}
+    ))
     pressure = RuntimePressure(live_tensors=10)
-    assert runtime.escalate(decision, pressure, safe_boundary=False).placement == "LOCAL"
+    assert runtime.escalate(
+        decision, pressure, safe_boundary=False
+    ).placement == "LOCAL_MONITORED"
     assert runtime.escalate(decision, pressure, safe_boundary=True).placement == "CLUSTER_ESCALATED"
 
 
@@ -172,7 +176,10 @@ def test_observation_on_and_off_preserve_semantic_result_and_digest():
 
 def test_pressure_trace_records_safe_boundary_and_escalation():
     runtime = _orchestrator()
-    request = ExecutionRequest("pressure", {"id": 1})
+    request = ExecutionRequest(
+        "pressure",
+        {"operations": ["a"], "workload": {"parallelizable": True}},
+    )
     profiler = RuntimeProfiler()
     decision = runtime.escalate(
         runtime.plan(request),

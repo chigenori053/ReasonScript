@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pytest
 
 from frontend.language_surface import compile_program, parse
-from frontend.unified_execution_runtime import ClusterRuntimeAdapter, ExecutionRequest, RuntimeCapability, UnifiedExecutionOrchestrator, default_runtime_adapters
+from frontend.unified_execution_runtime import BoundaryKind, ClusterFailurePolicy, ClusterRuntimeAdapter, ExecutionPosition, ExecutionRequest, RuntimeCapability, RuntimePressure, RuntimeProfiler, UnifiedExecutionOrchestrator, default_runtime_adapters
 
 
 @dataclass
@@ -13,6 +13,34 @@ class Backend:
 
     def execute(self, request):
         return {"plan": dict(request.execution_plan), "backend": self.capability.backend_id}
+
+
+class CountingLocalBackend(Backend):
+    def __init__(self):
+        super().__init__(RuntimeCapability(
+            "RuntimeReal", "python", memory_limit=100, tensor_limit=10
+        ))
+        self.calls = 0
+
+    def execute(self, request):
+        self.calls += 1
+        return {"mode": "local", "request": request.request_id}
+
+
+def _cluster_with_worker_failure():
+    state = {"calls": 0}
+
+    def execute(partition, request):
+        state["calls"] += 1
+        if state["calls"] == 1:
+            raise RuntimeError("worker unavailable")
+        return {"mode": "cluster", "request": request.request_id}
+
+    return ClusterRuntimeAdapter(
+        ("worker-0", "worker-1"),
+        execute,
+        reduction="single_result",
+    ), state
 
 
 def _runtime():
@@ -218,3 +246,160 @@ def test_uera_t015_cluster_workers_reuse_local_backend_with_equivalent_result():
     assert artifacts["cluster_plan.json"]["schema_version"] == (
         "reasonscript-cluster-uera-plan/0.1"
     )
+
+
+def _dynamic_request(request_id="dynamic", *, estimated_operations=100):
+    return ExecutionRequest(
+        request_id,
+        {
+            "operations": ["layer-0", "layer-1"],
+            "workload": {
+                "parallelizable": True,
+                "estimated_operations": estimated_operations,
+            },
+        },
+    )
+
+
+def test_uera_t011_does_not_migrate_inside_an_operation():
+    local = CountingLocalBackend()
+    runtime = UnifiedExecutionOrchestrator((
+        local,
+        Backend(RuntimeCapability(
+            "ClusterRuntime", "rust", parallel_execution=True
+        )),
+    ))
+    profiler = RuntimeProfiler()
+    result = runtime.execute(
+        _dynamic_request("uera-t011"),
+        pressure=RuntimePressure(live_tensors=10),
+        position=ExecutionPosition(
+            operation_index=0,
+            instruction_index=3,
+            operation_id="layer-0",
+            boundary_kind=BoundaryKind.INSTRUCTION,
+        ),
+        profiler=profiler,
+    )
+
+    assert result.backend_id == "RuntimeReal"
+    assert local.calls == 1
+    safe_event = next(item for item in result.trace if item["event"] == "SAFE_BOUNDARY")
+    assert safe_event["available"] is False
+    assert safe_event["reason"] == "execution position is inside an operation"
+    assert "CLUSTER_ESCALATED" not in [item["event"] for item in result.trace]
+
+
+def test_uera_t012_escalates_only_at_automatic_safe_boundary():
+    runtime = UnifiedExecutionOrchestrator((
+        CountingLocalBackend(),
+        Backend(RuntimeCapability(
+            "ClusterRuntime", "rust", parallel_execution=True
+        )),
+    ))
+    base_request = _dynamic_request("uera-t012")
+    request = ExecutionRequest(
+        base_request.request_id,
+        base_request.execution_plan,
+        metadata={
+            "execution_position": {
+                "operation_index": 1,
+                "instruction_index": 0,
+                "operation_id": "layer-1",
+                "boundary_kind": "layer",
+            }
+        },
+    )
+    result = runtime.execute(
+        request,
+        pressure=RuntimePressure(live_tensors=10),
+    )
+
+    assert result.backend_id == "ClusterRuntime"
+    events = [item["event"] for item in result.trace]
+    assert events.count("CLUSTER_ESCALATED") == 1
+    assert "CLUSTER_PLANNED" not in events
+    safe_event = next(item for item in result.trace if item["event"] == "SAFE_BOUNDARY")
+    assert safe_event["available"] is True
+    assert safe_event["boundary_kind"] == "layer"
+
+
+def test_uera_t017_cluster_failure_policies_are_executed_and_traced():
+    request = _dynamic_request("uera-t017", estimated_operations=100_000)
+
+    local = CountingLocalBackend()
+    unavailable_cluster = ClusterRuntimeAdapter(
+        ("worker-0",),
+        lambda partition, request: request.request_id,
+        available_workers=(),
+    )
+    fallback_runtime = UnifiedExecutionOrchestrator((local, unavailable_cluster))
+    fallback_profiler = RuntimeProfiler()
+    local_result = fallback_runtime.execute(
+        request,
+        profiler=fallback_profiler,
+        cluster_failure_policy=ClusterFailurePolicy.FALLBACK_LOCAL,
+    )
+    assert local_result.backend_id == "RuntimeReal"
+    assert local.calls == 1
+    assert [item["event"] for item in local_result.trace][-2:] == [
+        "CLUSTER_FAILURE",
+        "FALLBACK_LOCAL",
+    ]
+    artifacts = fallback_runtime.artifacts(
+        request,
+        fallback_runtime.plan(request),
+        profiler=fallback_profiler,
+        result=local_result,
+    )
+    assert [
+        item["event"]
+        for item in artifacts["cluster_plan.json"]["orchestration_events"]
+    ][-2:] == ["CLUSTER_FAILURE", "FALLBACK_LOCAL"]
+
+    retry_cluster, retry_state = _cluster_with_worker_failure()
+    retry_result = UnifiedExecutionOrchestrator((
+        CountingLocalBackend(), retry_cluster
+    )).execute(request, cluster_failure_policy=ClusterFailurePolicy.RETRY)
+    assert retry_result.backend_id == "ClusterRuntime"
+    assert retry_state["calls"] == 3
+    assert "CLUSTER_RETRY" in [item["event"] for item in retry_result.trace]
+
+    single_cluster, single_state = _cluster_with_worker_failure()
+    single_result = UnifiedExecutionOrchestrator((
+        CountingLocalBackend(), single_cluster
+    )).execute(
+        request,
+        cluster_failure_policy=ClusterFailurePolicy.FALLBACK_SINGLE_NODE,
+    )
+    assert single_result.value == [
+        {"mode": "cluster", "request": request.request_id},
+        {"mode": "cluster", "request": request.request_id},
+    ]
+    assert single_state["calls"] == 3
+    assert "FALLBACK_SINGLE_NODE" in [
+        item["event"] for item in single_result.trace
+    ]
+
+
+def test_uera_t018_abort_never_performs_silent_fallback():
+    local = CountingLocalBackend()
+    cluster = ClusterRuntimeAdapter(
+        ("worker-0",),
+        lambda partition, request: request.request_id,
+        available_workers=(),
+    )
+    runtime = UnifiedExecutionOrchestrator((local, cluster))
+    profiler = RuntimeProfiler()
+    with pytest.raises(RuntimeError, match="UER-OFF-002"):
+        runtime.execute(
+            _dynamic_request("uera-t018", estimated_operations=100_000),
+            profiler=profiler,
+            cluster_failure_policy=ClusterFailurePolicy.ABORT,
+        )
+
+    assert local.calls == 0
+    failure = next(item for item in profiler.trace if item["event"] == "CLUSTER_FAILURE")
+    assert failure["policy"] == "abort"
+    assert failure["error_type"] == "RuntimeError"
+    assert "CRR-UER-002" in failure["reason"]

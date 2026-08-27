@@ -34,6 +34,29 @@ class ClusterFailurePolicy(StrEnum):
     ABORT = "abort"
 
 
+class BoundaryKind(StrEnum):
+    INSTRUCTION = "instruction"
+    OPERATION = "operation"
+    LAYER = "layer"
+    PARTITION = "partition"
+
+
+@dataclass(frozen=True)
+class ExecutionPosition:
+    operation_index: int = 0
+    instruction_index: int = 0
+    operation_id: str | None = None
+    boundary_kind: BoundaryKind = BoundaryKind.INSTRUCTION
+
+
+@dataclass(frozen=True)
+class ExecutionBoundary:
+    position: ExecutionPosition
+    partitionable: bool
+    safe: bool
+    reason: str
+
+
 @dataclass(frozen=True)
 class RuntimeCapability:
     backend_id: str
@@ -426,6 +449,32 @@ class ClusterRuntimeAdapter:
             return reduced[0]
         return reduced
 
+    def execute_single_node(self, request: ExecutionRequest) -> Any:
+        available = sorted(
+            self.workers if self.available_workers is None else self.available_workers
+        )
+        if not available:
+            raise RuntimeError("CRR-UER-002: no cluster workers available")
+        operation_ids = _operation_ids(request.execution_plan)
+        planner = self.planner or _cluster_plan_runner
+        plan = dict(planner(
+            request,
+            operation_ids,
+            (available[0],),
+            (available[0],),
+            self.policy_version,
+        ))
+        self.last_plan.clear()
+        self.last_plan.update(plan)
+        partitions = _execution_partitions_from_plan(plan)
+        reduced = self.reduce(
+            (partition, self.worker_execute(partition, request))
+            for partition in partitions
+        )
+        if self.reduction == "single_result" and len(reduced) == 1:
+            return reduced[0]
+        return reduced
+
     def partitions(self, request: ExecutionRequest, operation_ids: Iterable[str]) -> list[ExecutionPartition]:
         operation_ids = tuple(operation_ids)
         available = (
@@ -441,17 +490,7 @@ class ClusterRuntimeAdapter:
         ))
         self.last_plan.clear()
         self.last_plan.update(plan)
-        return [
-            ExecutionPartition(
-                int(item["partition_index"]),
-                str(item["operation_id"]),
-                str(item["partition_id"]),
-                str(item["assigned_worker"]),
-                str(item["preferred_worker"]),
-                bool(item["fallback_used"]),
-            )
-            for item in plan["partitions"]
-        ]
+        return _execution_partitions_from_plan(plan)
 
     @staticmethod
     def reduce(completed: Iterable[tuple[ExecutionPartition, Any]]) -> list[Any]:
@@ -592,6 +631,22 @@ def _operation_ids(execution_plan: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(result)
 
 
+def _execution_partitions_from_plan(
+    plan: Mapping[str, Any],
+) -> list[ExecutionPartition]:
+    return [
+        ExecutionPartition(
+            int(item["partition_index"]),
+            str(item["operation_id"]),
+            str(item["partition_id"]),
+            str(item["assigned_worker"]),
+            str(item["preferred_worker"]),
+            bool(item["fallback_used"]),
+        )
+        for item in plan["partitions"]
+    ]
+
+
 def _cluster_plan_runner(
     request: ExecutionRequest,
     operation_ids: Iterable[str],
@@ -654,6 +709,50 @@ class UnifiedExecutionOrchestrator:
             return request.workload
         return WorkloadEstimator.from_plan(request.execution_plan)
 
+    def execution_boundary(
+        self,
+        request: ExecutionRequest,
+        position: ExecutionPosition | None = None,
+    ) -> ExecutionBoundary:
+        if position is None:
+            raw = request.metadata.get("execution_position", {})
+            try:
+                kind = BoundaryKind(str(raw.get("boundary_kind", "instruction")))
+            except ValueError:
+                kind = BoundaryKind.INSTRUCTION
+            position = ExecutionPosition(
+                int(raw.get("operation_index", 0)),
+                int(raw.get("instruction_index", 0)),
+                str(raw["operation_id"]) if raw.get("operation_id") is not None else None,
+                kind,
+            )
+        operation_ids = _operation_ids(request.execution_plan)
+        partitionable = self.estimate_workload(request).parallelizable and bool(
+            operation_ids
+        )
+        at_operation_edge = (
+            position.instruction_index == 0
+            and 0 <= position.operation_index < len(operation_ids)
+            and position.boundary_kind
+            in {BoundaryKind.OPERATION, BoundaryKind.LAYER, BoundaryKind.PARTITION}
+        )
+        operation_matches = position.operation_id in {
+            None,
+            operation_ids[position.operation_index]
+            if 0 <= position.operation_index < len(operation_ids)
+            else None,
+        }
+        safe = partitionable and at_operation_edge and operation_matches
+        if not partitionable:
+            reason = "workload is not partitionable"
+        elif not at_operation_edge:
+            reason = "execution position is inside an operation"
+        elif not operation_matches:
+            reason = "execution position does not match the operation plan"
+        else:
+            reason = f"safe {position.boundary_kind.value} boundary"
+        return ExecutionBoundary(position, partitionable, safe, reason)
+
     def resolve_backend(
         self,
         request: ExecutionRequest,
@@ -707,7 +806,23 @@ class UnifiedExecutionOrchestrator:
         mode = "LOCAL_MONITORED" if workload.parallelizable else "LOCAL"
         return ExecutionDecision(mode, local, "local-first policy", workload, self.policy_version)
 
-    def escalate(self, decision: ExecutionDecision, pressure: RuntimePressure, *, safe_boundary: bool, profiler: RuntimeProfiler | None = None) -> ExecutionDecision:
+    def escalate(
+        self,
+        decision: ExecutionDecision,
+        pressure: RuntimePressure,
+        *,
+        safe_boundary: bool | None = None,
+        request: ExecutionRequest | None = None,
+        position: ExecutionPosition | None = None,
+        profiler: RuntimeProfiler | None = None,
+    ) -> ExecutionDecision:
+        boundary = self.execution_boundary(request, position) if request is not None else None
+        boundary_safe = boundary.safe if safe_boundary is None and boundary else bool(safe_boundary)
+        partitionable = (
+            boundary.partitionable
+            if boundary is not None
+            else decision.workload.parallelizable
+        )
         if profiler is not None:
             profiler.observe_pressure(pressure)
             profiler.record(
@@ -718,9 +833,21 @@ class UnifiedExecutionOrchestrator:
                 memory_usage=pressure.memory_usage,
                 autograd_nodes=pressure.autograd_nodes,
             )
-            profiler.record("SAFE_BOUNDARY", available=safe_boundary)
+            profiler.record(
+                "SAFE_BOUNDARY",
+                available=boundary_safe,
+                partitionable=partitionable,
+                boundary_kind=(
+                    boundary.position.boundary_kind.value if boundary else "declared"
+                ),
+                reason=boundary.reason if boundary else "caller-declared boundary",
+            )
         capability = self.backends[decision.backend_id].capability
-        if pressure.level(capability) in {PressureLevel.HIGH, PressureLevel.CRITICAL} and safe_boundary:
+        if (
+            pressure.level(capability) in {PressureLevel.HIGH, PressureLevel.CRITICAL}
+            and boundary_safe
+            and partitionable
+        ):
             cluster = next((key for key in sorted(self.backends) if self.backends[key].capability.parallel_execution), None)
             if cluster:
                 escalated = ExecutionDecision("CLUSTER_ESCALATED", cluster, "runtime pressure at safe boundary", decision.workload, self.policy_version)
@@ -731,34 +858,96 @@ class UnifiedExecutionOrchestrator:
             profiler.record("LOCAL_CONTINUE", backend=decision.backend_id)
         return decision
 
-    def handle_cluster_failure(self, request: ExecutionRequest, decision: ExecutionDecision, policy: ClusterFailurePolicy, profiler: RuntimeProfiler) -> ExecutionDecision:
+    def handle_cluster_failure(
+        self,
+        request: ExecutionRequest,
+        decision: ExecutionDecision,
+        policy: ClusterFailurePolicy,
+        profiler: RuntimeProfiler,
+        error: Exception | None = None,
+    ) -> ExecutionDecision:
         """Apply a declared policy; fallback is never implicit or untraced."""
-        profiler.record("CLUSTER_FAILURE", backend=decision.backend_id, policy=policy.value)
+        policy = ClusterFailurePolicy(policy)
+        profiler.record(
+            "CLUSTER_FAILURE",
+            backend=decision.backend_id,
+            policy=policy.value,
+            error_type=type(error).__name__ if error is not None else None,
+            reason=str(error) if error is not None else "cluster failure reported",
+        )
         if policy == ClusterFailurePolicy.RETRY:
             profiler.record("CLUSTER_RETRY", backend=decision.backend_id)
             return decision
         if policy == ClusterFailurePolicy.ABORT:
             raise RuntimeError("UER-OFF-002: cluster execution failed and policy is abort")
-        local = next((key for key in sorted(self.backends) if not self.backends[key].capability.parallel_execution), None)
-        if local is None:
-            raise RuntimeError("UER-OFF-003: no explicit local fallback backend")
-        event = "FALLBACK_LOCAL" if policy == ClusterFailurePolicy.FALLBACK_LOCAL else "FALLBACK_SINGLE_NODE"
-        profiler.record(event, backend=local)
-        return ExecutionDecision(event, local, "declared cluster failure policy", self.estimate_workload(request), self.policy_version)
+        if policy == ClusterFailurePolicy.FALLBACK_SINGLE_NODE:
+            backend = self.backends[decision.backend_id]
+            if not hasattr(backend, "execute_single_node"):
+                raise RuntimeError("UER-OFF-005: cluster backend has no single-node fallback")
+            profiler.record("FALLBACK_SINGLE_NODE", backend=decision.backend_id)
+            return ExecutionDecision("FALLBACK_SINGLE_NODE", decision.backend_id, "declared cluster failure policy", self.estimate_workload(request), self.policy_version)
+        try:
+            local = self.resolve_backend(request, parallel=False)
+        except ValueError as error:
+            raise RuntimeError("UER-OFF-003: no explicit local fallback backend") from error
+        profiler.record("FALLBACK_LOCAL", backend=local)
+        return ExecutionDecision("FALLBACK_LOCAL", local, "declared cluster failure policy", self.estimate_workload(request), self.policy_version)
 
     def canonical_partitions(self, request: ExecutionRequest, operation_ids: Iterable[str], workers: Iterable[str]) -> list[ExecutionPartition]:
         return _canonical_partitions(request, operation_ids, workers, self.policy_version)
 
-    def execute(self, request: ExecutionRequest, *, preferred_backend: str | None = None, profiler: RuntimeProfiler | None = None) -> ExecutionResult:
+    def execute(
+        self,
+        request: ExecutionRequest,
+        *,
+        preferred_backend: str | None = None,
+        profiler: RuntimeProfiler | None = None,
+        pressure: RuntimePressure | None = None,
+        position: ExecutionPosition | None = None,
+        cluster_failure_policy: ClusterFailurePolicy | str = ClusterFailurePolicy.ABORT,
+    ) -> ExecutionResult:
         profiler = profiler or RuntimeProfiler()
+        cluster_failure_policy = ClusterFailurePolicy(cluster_failure_policy)
         decision = self.plan(request, preferred_backend=preferred_backend)
-        profiler.record(decision.placement, backend=decision.backend_id, reason=decision.reason)
+        if pressure is not None and not decision.placement.startswith("CLUSTER"):
+            decision = self.escalate(
+                decision,
+                pressure,
+                request=request,
+                position=position,
+                profiler=profiler,
+            )
+        if not profiler.trace or profiler.trace[-1]["event"] != decision.placement:
+            profiler.record(decision.placement, backend=decision.backend_id, reason=decision.reason)
         if profiler.enabled:
             profiler.function_calls += 1
         capability = self.backends[decision.backend_id].capability
         if capability.parallel_execution:
             profiler.record("CLUSTER_EXECUTE", backend=decision.backend_id)
-        value = self.backends[decision.backend_id].execute(request)
+        try:
+            value = self.backends[decision.backend_id].execute(request)
+        except Exception as error:
+            if not capability.parallel_execution:
+                raise
+            fallback = self.handle_cluster_failure(
+                request, decision, cluster_failure_policy, profiler, error
+            )
+            try:
+                if fallback.placement == "FALLBACK_SINGLE_NODE":
+                    value = self.backends[fallback.backend_id].execute_single_node(request)
+                else:
+                    value = self.backends[fallback.backend_id].execute(request)
+            except Exception as fallback_error:
+                profiler.record(
+                    "CLUSTER_RECOVERY_FAILED",
+                    policy=cluster_failure_policy.value,
+                    error_type=type(fallback_error).__name__,
+                )
+                raise RuntimeError(
+                    f"UER-OFF-006: cluster {cluster_failure_policy.value} policy failed"
+                ) from fallback_error
+            decision = fallback
+            capability = self.backends[decision.backend_id].capability
         if capability.parallel_execution:
             cluster_plan = getattr(
                 self.backends[decision.backend_id], "last_plan", {}
@@ -792,6 +981,21 @@ class UnifiedExecutionOrchestrator:
             "used": decision.placement.startswith("CLUSTER"),
             "placement": decision.placement,
             "backend": decision.backend_id,
+            "orchestration_events": [
+                dict(item)
+                for item in profiler.trace
+                if item.get("event")
+                in {
+                    "SAFE_BOUNDARY",
+                    "CLUSTER_PLANNED",
+                    "CLUSTER_ESCALATED",
+                    "CLUSTER_FAILURE",
+                    "CLUSTER_RETRY",
+                    "FALLBACK_LOCAL",
+                    "FALLBACK_SINGLE_NODE",
+                    "CLUSTER_RECOVERY_FAILED",
+                }
+            ],
         })
         return {
             "execution_plan.json": {
