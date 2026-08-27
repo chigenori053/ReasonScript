@@ -95,6 +95,46 @@ class ExecutionBackend(Protocol):
 
 
 @dataclass(frozen=True)
+class RuntimeAdapter:
+    """A backend-neutral adapter used by the UEO runtime registry.
+
+    Backends retain their implementation language and process boundary; an
+    adapter only exposes the common contract and an explicitly supplied call.
+    """
+
+    capability: RuntimeCapability
+    runner: Callable[[ExecutionRequest], Any] | None = None
+
+    def execute(self, request: ExecutionRequest) -> Any:
+        if self.runner is None:
+            raise RuntimeError(f"UER-BKD-001: backend {self.capability.backend_id} has no execution adapter")
+        return self.runner(request)
+
+
+def default_runtime_adapters() -> tuple[RuntimeAdapter, ...]:
+    """Return the v0.1 catalog without importing or coupling backend code."""
+    return (
+        RuntimeAdapter(RuntimeCapability("RuntimeReal", "rust", ("scalar", "reasoning"), ("Int", "Float", "Bool"))),
+        RuntimeAdapter(RuntimeCapability("TensorRuntime", "python", ("tensor", "autograd"), ("Int", "Float"), tensor_support=True, autograd_support=True, memory_limit=256 * 1024 * 1024, tensor_limit=1_000)),
+        RuntimeAdapter(RuntimeCapability("RuntimeComplex", "rust", ("complex",), ("Int", "Float", "Complex"), complex_support=True)),
+        RuntimeAdapter(RuntimeCapability("ReasonUnitRuntime", "rust", ("reason_unit",), reason_unit_support=True)),
+        RuntimeAdapter(RuntimeCapability("ClusterRuntime", "rust", ("orchestration",), parallel_execution=True)),
+    )
+
+
+def runtime_info() -> dict[str, Any]:
+    """Stable, backend-transparent payload for ``reason runtime info``."""
+    capabilities = [asdict(adapter.capability) for adapter in default_runtime_adapters()]
+    return {
+        "schema_version": "reasonscript-unified-execution-runtime/0.1",
+        "orchestrator": {"enabled": True, "policy_version": "UERA-0.1"},
+        "local_backends": [item["backend_id"] for item in capabilities if item["backend_id"] != "ClusterRuntime"],
+        "cluster": {"enabled": True, "backend_id": "ClusterRuntime"},
+        "backends": capabilities,
+    }
+
+
+@dataclass(frozen=True)
 class ExecutionDecision:
     placement: str
     backend_id: str

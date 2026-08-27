@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from frontend.unified_execution_runtime import (
     ExecutionRequest, RuntimeCapability, RuntimePressure, UnifiedExecutionOrchestrator,
     WorkloadEstimate,
+    default_runtime_adapters,
+    runtime_info,
 )
 
 
@@ -44,3 +46,10 @@ def test_partitions_are_canonical_and_artifacts_are_explicit():
     assert first == second
     artifacts = runtime.artifacts(request, runtime.plan(request))
     assert artifacts["cluster_plan.json"]["used"] is False
+
+
+def test_default_runtime_catalog_is_backend_transparent():
+    catalog = {item.capability.backend_id: item.capability for item in default_runtime_adapters()}
+    assert catalog["TensorRuntime"].execution_engine == "python"
+    assert catalog["RuntimeReal"].execution_engine == "rust"
+    assert runtime_info()["orchestrator"]["enabled"] is True
