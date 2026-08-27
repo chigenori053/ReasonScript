@@ -338,6 +338,7 @@ class TensorRuntime:
         self.filesystem_read = filesystem_read
         self.filesystem_write = filesystem_write
         self.trace: list[dict[str, Any]] = []
+        self.lifecycle_trace: list[dict[str, Any]] = []
         self.contracts = _contracts()
 
     def function_ids(self) -> tuple[str, ...]:
@@ -494,7 +495,7 @@ class TensorRuntime:
         self._classifications.pop(tensor_id, None)
         self._requires_grad.discard(tensor_id)
         self._parameters.discard(tensor_id)
-        self.trace.append({"step_id": f"step_{len(self.trace)+1:04d}", "operation_type": "tensor_release", "tensor_id": tensor_id, "reason": reason, "status": "success"})
+        self.lifecycle_trace.append({"step_id": f"release_{len(self.lifecycle_trace)+1:04d}", "operation_type": "tensor_release", "tensor_id": tensor_id, "reason": reason, "status": "success"})
         return True
 
     @contextmanager

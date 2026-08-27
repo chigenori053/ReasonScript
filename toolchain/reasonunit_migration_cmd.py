@@ -41,7 +41,8 @@ def _positionals(args: list[str]) -> list[str]:
 
 
 def run(args: list[str], root: Path) -> int:
-    operation = args[0] if args else ""; allowed = {"discover", "analyze", "plan", "dry-run", "convert", "compare", "validate", "publish", "rollback", "status", "generate", "validate-phase"}
+    operation = args[0] if args else ""
+    allowed = {"discover", "analyze", "plan", "dry-run", "convert", "compare", "validate", "publish", "rollback", "status", "generate", "validate-phase"}
     try:
         if operation not in allowed: raise MigrationError("RUO-M1-021", "usage: reason object migrate <discover|analyze|plan|dry-run|convert|compare|validate|publish|rollback|status|validate-phase>")
         positional = _positionals(args[1:])

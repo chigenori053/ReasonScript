@@ -47,7 +47,7 @@ def _tensors(logical: dict[str, Any], tensor_id: str | None = None) -> list[tupl
     found = []
     for payload in logical.get("payloads", []):
         if payload.get("profile_id") == PAYLOAD_PROFILE and (tensor_id is None or payload.get("payload_id") == tensor_id):
-            body = payload.get("value", payload.get("body"));
+        body = payload.get("value", payload.get("body"))
             if isinstance(body, dict): found.append((payload, body))
     return found
 

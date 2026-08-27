@@ -106,6 +106,7 @@ class IntegratedComputationResult:
                 for ref in sorted(self.runtime._refs.values(), key=lambda item: item.tensor_id)
             ],
             "tensor_trace": [_stable_trace(item) for item in self.runtime.trace],
+            "tensor_lifecycle_trace": list(self.runtime.lifecycle_trace),
             "loop_trace": list(self.loop_trace),
             "vision_trace": list(self.vision_runtime.trace) if self.vision_runtime is not None else [],
             "calculations": {
