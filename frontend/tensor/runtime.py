@@ -330,6 +330,10 @@ class TensorRuntime:
         self._parameters: set[str] = set()
         self._grad_nodes: dict[str, _GradNode] = {}
         self._autograd_roots: set[str] = set()
+        # Lifecycle categories are explicit so an execution planner can retain
+        # Parameters/Persistent values while releasing intermediates at a
+        # known boundary.  The runtime never relies on Python GC for release.
+        self._classifications: dict[str, str] = {}
         self.resource_root = (resource_root or Path.cwd()).resolve()
         self.filesystem_read = filesystem_read
         self.filesystem_write = filesystem_write
@@ -463,14 +467,35 @@ class TensorRuntime:
             if tensor_id in self._refs:
                 reachable.add(tensor_id)
         released = 0
-        for tensor_id in tuple(self._refs):
-            if tensor_id not in reachable:
-                self.backend.release(tensor_id)
-                del self._refs[tensor_id]
-                self._requires_grad.discard(tensor_id)
-                self._parameters.discard(tensor_id)
+        for tensor_id in sorted(self._refs):
+            if tensor_id not in reachable and self._classifications.get(tensor_id) not in {"Parameter", "Persistent", "Artifact"}:
+                self.release(tensor_id, reason="unreachable")
                 released += 1
         return released
+
+    def classify(self, value: TensorValueRef, category: str) -> TensorValueRef:
+        """Assign a v0.1 lifecycle class to a live tensor."""
+        allowed = {"Parameter", "Persistent", "Intermediate", "Temporary", "Observation", "Artifact"}
+        if category not in allowed:
+            raise TensorError("UER-TNS-001", "invalid Tensor lifecycle category", category=category)
+        self._tensor(value)
+        self._classifications[value.tensor_id] = category
+        return value
+
+    def release(self, value: TensorValueRef | str, *, reason: str = "last_use") -> bool:
+        """Deterministically release one non-persistent tensor and trace it."""
+        tensor_id = value.tensor_id if isinstance(value, TensorValueRef) else value
+        if tensor_id not in self._refs:
+            return False
+        if self._classifications.get(tensor_id) in {"Parameter", "Persistent", "Artifact"}:
+            return False
+        self.backend.release(tensor_id)
+        del self._refs[tensor_id]
+        self._classifications.pop(tensor_id, None)
+        self._requires_grad.discard(tensor_id)
+        self._parameters.discard(tensor_id)
+        self.trace.append({"step_id": f"step_{len(self.trace)+1:04d}", "operation_type": "tensor_release", "tensor_id": tensor_id, "reason": reason, "status": "success"})
+        return True
 
     @contextmanager
     def protect(self, *roots: Any):
@@ -555,6 +580,7 @@ class TensorRuntime:
             f"runtime://tensor/{tensor_id}",
         )
         self._refs[tensor_id] = ref
+        self._classifications[tensor_id] = "Temporary"
         return ref
 
     def _validate_shape(self, shape: tuple[int, ...], dtype: str) -> None:
