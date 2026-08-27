@@ -176,6 +176,22 @@ class ExecutionRequest:
     workload: WorkloadEstimate = field(default_factory=WorkloadEstimate)
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
+    @classmethod
+    def from_reason_ir(
+        cls,
+        request_id: str,
+        reason_ir: Mapping[str, Any],
+        *,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ExecutionRequest:
+        from frontend.language_surface.integration import execution_plan_for
+
+        return cls(
+            request_id,
+            execution_plan_for(dict(reason_ir)),
+            metadata=dict(metadata or {}),
+        )
+
 
 @dataclass(frozen=True)
 class ExecutionResult:
@@ -479,14 +495,48 @@ class UnifiedExecutionOrchestrator:
             return request.workload
         return WorkloadEstimator.from_plan(request.execution_plan)
 
+    def resolve_backend(
+        self,
+        request: ExecutionRequest,
+        *,
+        preferred_backend: str | None = None,
+        parallel: bool = False,
+    ) -> str:
+        requirements = request.execution_plan.get("requirements", {})
+        if preferred_backend is not None:
+            if preferred_backend not in self.backends:
+                raise ValueError(f"UER-CAP-002: unknown backend {preferred_backend}")
+            capability = self.backends[preferred_backend].capability
+            if capability.parallel_execution != parallel or not _supports_requirements(
+                capability, requirements
+            ):
+                raise ValueError(
+                    f"UER-CAP-003: backend {preferred_backend} does not satisfy execution requirements"
+                )
+            return preferred_backend
+        candidates = [
+            key
+            for key, backend in self.backends.items()
+            if backend.capability.parallel_execution == parallel
+            and _supports_requirements(backend.capability, requirements)
+        ]
+        if not candidates:
+            kind = "parallel" if parallel else "local"
+            raise ValueError(f"UER-CAP-004: no compatible {kind} backend")
+        priority = {
+            "RuntimeReal": 0,
+            "TensorRuntime": 1,
+            "RuntimeComplex": 2,
+            "ReasonUnitRuntime": 3,
+            "ClusterRuntime": 4,
+        }
+        return min(candidates, key=lambda key: (priority.get(key, 100), key))
+
     def plan(self, request: ExecutionRequest, *, preferred_backend: str | None = None) -> ExecutionDecision:
         workload = self.estimate_workload(request)
-        local = preferred_backend or next(
-            (key for key in sorted(self.backends) if not self.backends[key].capability.parallel_execution),
-            next(iter(sorted(self.backends))),
+        local = self.resolve_backend(
+            request, preferred_backend=preferred_backend, parallel=False
         )
-        if local not in self.backends:
-            raise ValueError(f"UER-CAP-002: unknown backend {local}")
         cluster = next((key for key in sorted(self.backends) if self.backends[key].capability.parallel_execution), None)
         high = workload.parallelizable and (
             workload.estimated_operations >= 100_000
@@ -494,7 +544,7 @@ class UnifiedExecutionOrchestrator:
             or workload.estimated_peak_live_tensors >= 1_000
         )
         if high and cluster:
-            return ExecutionDecision("CLUSTER_PLANNED", cluster, "workload estimate exceeds local-first threshold", workload, self.policy_version)
+            return ExecutionDecision("CLUSTER_PLANNED", cluster, "parallel workload exceeds planned-offload threshold", workload, self.policy_version)
         mode = "LOCAL_MONITORED" if workload.parallelizable else "LOCAL"
         return ExecutionDecision(mode, local, "local-first policy", workload, self.policy_version)
 
@@ -569,7 +619,10 @@ class UnifiedExecutionOrchestrator:
         pressure = pressure or RuntimePressure()
         profiler.observe_pressure(pressure)
         return {
-            "execution_plan.json": dict(request.execution_plan),
+            "execution_plan.json": {
+                **dict(request.execution_plan),
+                "placement_decision": asdict(decision),
+            },
             "runtime_capabilities.json": [asdict(item) for item in self.capabilities()],
             "workload_estimate.json": asdict(self.estimate_workload(request)),
             "runtime_pressure.json": {**asdict(pressure), "level": pressure.level(self.backends[decision.backend_id].capability).value},
@@ -581,3 +634,20 @@ class UnifiedExecutionOrchestrator:
             "performance_baseline.json": baseline.to_dict() if baseline is not None else None,
             "baseline_comparison.json": dict(baseline_comparison) if baseline_comparison is not None else None,
         }
+
+
+def _supports_requirements(
+    capability: RuntimeCapability, requirements: Mapping[str, Any]
+) -> bool:
+    for field_name in (
+        "tensor_support",
+        "autograd_support",
+        "complex_support",
+        "reason_unit_support",
+    ):
+        if bool(requirements.get(field_name, False)) and not getattr(
+            capability, field_name
+        ):
+            return False
+    numeric_types = {str(item) for item in requirements.get("numeric_types", ())}
+    return numeric_types <= set(capability.numeric_types)

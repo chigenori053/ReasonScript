@@ -37,6 +37,15 @@
     "planner_version": {
       "type": "string",
       "minLength": 1
+    },
+    "workload": {
+      "$ref": "#/$defs/workload_estimate"
+    },
+    "requirements": {
+      "$ref": "#/$defs/execution_requirements"
+    },
+    "placement_policy": {
+      "$ref": "#/$defs/placement_policy"
     }
   },
   "$defs": {
@@ -72,6 +81,68 @@
           "type": "number",
           "minimum": 0
         }
+      }
+    },
+    "workload_estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "estimated_operations",
+        "estimated_memory",
+        "estimated_peak_live_tensors",
+        "estimated_autograd_nodes",
+        "parallelizable",
+        "dependency_depth",
+        "transfer_cost",
+        "estimator_version"
+      ],
+      "properties": {
+        "estimated_operations": { "type": "integer", "minimum": 0 },
+        "estimated_memory": { "type": "integer", "minimum": 0 },
+        "estimated_peak_live_tensors": { "type": "integer", "minimum": 0 },
+        "estimated_autograd_nodes": { "type": "integer", "minimum": 0 },
+        "parallelizable": { "type": "boolean" },
+        "dependency_depth": { "type": "integer", "minimum": 0 },
+        "transfer_cost": { "type": "integer", "minimum": 0 },
+        "estimator_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "execution_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tensor_support",
+        "autograd_support",
+        "complex_support",
+        "reason_unit_support",
+        "numeric_types",
+        "operations"
+      ],
+      "properties": {
+        "tensor_support": { "type": "boolean" },
+        "autograd_support": { "type": "boolean" },
+        "complex_support": { "type": "boolean" },
+        "reason_unit_support": { "type": "boolean" },
+        "numeric_types": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "operations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "placement_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_version", "mode", "selection_reason"],
+      "properties": {
+        "policy_version": { "type": "string", "minLength": 1 },
+        "mode": { "const": "capability_driven" },
+        "selection_reason": { "type": "string", "minLength": 1 }
       }
     }
   }
