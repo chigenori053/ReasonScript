@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Protocol
 
 
@@ -169,6 +171,74 @@ class RuntimeAdapter:
         return self.runner(request)
 
 
+def _identity_value(request: ExecutionRequest) -> Any:
+    """Read the backend-neutral identity probe from an execution plan."""
+    operation = request.execution_plan.get("operation")
+    if operation != "identity":
+        raise ValueError(f"UER-REQ-001: unsupported operation {operation!r}")
+    arguments = request.execution_plan.get("arguments")
+    if not isinstance(arguments, (list, tuple)) or len(arguments) != 1:
+        raise ValueError("UER-REQ-002: identity requires exactly one argument")
+    return arguments[0]
+
+
+def _tensor_runner(request: ExecutionRequest) -> Any:
+    """Execute the common probe through the existing TensorRuntime backend."""
+    from frontend.tensor.runtime import TensorRuntime
+
+    runtime = TensorRuntime()
+    tensor = runtime.call("tensor.create", _identity_value(request))
+    return runtime.to_array(tensor)
+
+
+def _rust_runner(crate: str, binary: str) -> Callable[[ExecutionRequest], Any]:
+    """Connect a RuntimeAdapter to a Rust runtime's JSON execution boundary."""
+    repository = Path(__file__).resolve().parents[1]
+    manifest = repository / crate / "Cargo.toml"
+
+    def execute(request: ExecutionRequest) -> Any:
+        # Cargo's incremental check prevents a checked-in or cached target from
+        # silently running an adapter older than the source contract.
+        command = [
+            "cargo", "run", "--quiet", "--manifest-path", str(manifest),
+            "--bin", binary, "--", "uera-execute",
+        ]
+        payload = {
+            "schema_version": "reasonscript-execution-request/0.1",
+            "request_id": request.request_id,
+            "execution_plan": dict(request.execution_plan),
+            "metadata": dict(request.metadata),
+        }
+        try:
+            completed = subprocess.run(
+                command,
+                input=json.dumps(payload, sort_keys=True, separators=(",", ":")),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        except OSError as error:
+            raise RuntimeError(
+                f"UER-BKD-002: failed to start backend {crate}: {error}"
+            ) from error
+        try:
+            response = json.loads(completed.stdout)
+        except json.JSONDecodeError as error:
+            detail = completed.stderr.strip() or completed.stdout.strip()
+            raise RuntimeError(
+                f"UER-BKD-003: backend {crate} returned invalid JSON: {detail}"
+            ) from error
+        if completed.returncode != 0 or response.get("ok") is not True:
+            raise RuntimeError(
+                f"UER-BKD-004: backend {crate} rejected request: {response.get('diagnostics', response)}"
+            )
+        if response.get("request_id") != request.request_id:
+            raise RuntimeError(f"UER-BKD-005: backend {crate} returned a mismatched request ID")
+        return response.get("value")
+
+    return execute
+
+
 @dataclass(frozen=True)
 class ClusterRuntimeAdapter:
     """Adapter boundary for the existing ClusterRuntime worker executor.
@@ -197,12 +267,12 @@ class ClusterRuntimeAdapter:
 
 
 def default_runtime_adapters() -> tuple[RuntimeAdapter, ...]:
-    """Return the v0.1 catalog without importing or coupling backend code."""
+    """Return the v0.1 catalog with executable adapters for every local Runtime."""
     return (
-        RuntimeAdapter(RuntimeCapability("RuntimeReal", "rust", ("scalar", "reasoning"), ("Int", "Float", "Bool"))),
-        RuntimeAdapter(RuntimeCapability("TensorRuntime", "python", ("tensor", "autograd"), ("Int", "Float"), tensor_support=True, autograd_support=True, memory_limit=256 * 1024 * 1024, tensor_limit=1_000)),
-        RuntimeAdapter(RuntimeCapability("RuntimeComplex", "rust", ("complex",), ("Int", "Float", "Complex"), complex_support=True)),
-        RuntimeAdapter(RuntimeCapability("ReasonUnitRuntime", "rust", ("reason_unit",), reason_unit_support=True)),
+        RuntimeAdapter(RuntimeCapability("RuntimeReal", "rust", ("identity", "scalar", "reasoning"), ("Int", "Float", "Bool")), _rust_runner("RuntimeReal", "uera_adapter")),
+        RuntimeAdapter(RuntimeCapability("TensorRuntime", "python", ("identity", "tensor", "autograd"), ("Int", "Float"), tensor_support=True, autograd_support=True, memory_limit=256 * 1024 * 1024, tensor_limit=1_000), _tensor_runner),
+        RuntimeAdapter(RuntimeCapability("RuntimeComplex", "rust", ("identity", "complex"), ("Int", "Float", "Complex"), complex_support=True), _rust_runner("RuntimeComplex", "uera_adapter")),
+        RuntimeAdapter(RuntimeCapability("ReasonUnitRuntime", "rust", ("identity", "reason_unit"), reason_unit_support=True), _rust_runner("NativeReasonUnitRuntime", "reasonunit-runtime-native")),
         RuntimeAdapter(RuntimeCapability("ClusterRuntime", "rust", ("orchestration",), parallel_execution=True)),
     )
 

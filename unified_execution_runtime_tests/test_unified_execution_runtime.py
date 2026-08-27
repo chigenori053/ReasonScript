@@ -55,6 +55,38 @@ def test_default_runtime_catalog_is_backend_transparent():
     assert runtime_info()["orchestrator"]["enabled"] is True
 
 
+def test_all_local_runtime_adapters_execute_the_same_request_consistently():
+    adapters = [
+        adapter for adapter in default_runtime_adapters()
+        if adapter.capability.backend_id != "ClusterRuntime"
+    ]
+    request = ExecutionRequest("adapter-parity", {
+        "operation": "identity",
+        "arguments": [[1, 2, 3]],
+    })
+    results = {
+        adapter.capability.backend_id: adapter.execute(request)
+        for adapter in adapters
+    }
+    assert results == {
+        "RuntimeReal": [1, 2, 3],
+        "TensorRuntime": [1, 2, 3],
+        "RuntimeComplex": [1, 2, 3],
+        "ReasonUnitRuntime": [1, 2, 3],
+    }
+
+
+def test_local_runtime_adapters_reject_an_invalid_common_request():
+    request = ExecutionRequest("invalid", {"operation": "identity", "arguments": []})
+    for adapter in default_runtime_adapters()[:-1]:
+        try:
+            adapter.execute(request)
+        except (RuntimeError, ValueError) as error:
+            assert "UER-REQ-002" in str(error)
+        else:
+            raise AssertionError(f"{adapter.capability.backend_id} accepted an invalid request")
+
+
 def test_profiler_and_artifacts_record_trace_and_pressure():
     runtime = _orchestrator()
     request = ExecutionRequest("profiled", {"id": 1})

@@ -1,10 +1,32 @@
 use reasonscript_native_reasonunit_runtime::{load_reason_graph, load_ruo, query_reason_graph, reason_graph_handoff, transact_reason_graph_file, NativeObjectStore, NativeQuery, NATIVE_REASON_GRAPH_PROFILE, NATIVE_REASON_GRAPH_QUERY_PROFILE, PROFILE};
 use serde_json::json;
+use serde_json::Value;
+use std::io::{self, Read};
 use std::path::Path;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let operation = args.get(1).map(String::as_str).unwrap_or("verify-native");
+    if operation == "uera-execute" {
+        let mut input = String::new();
+        if io::stdin().read_to_string(&mut input).is_err() {
+            print_uera_error("UER-REQ-003: unable to read execution request");
+        }
+        let request: Value = serde_json::from_str(&input)
+            .unwrap_or_else(|_| print_uera_error("UER-REQ-003: invalid execution request JSON"));
+        let request_id = request.get("request_id").and_then(Value::as_str)
+            .unwrap_or_else(|| print_uera_error("UER-REQ-003: request_id is required"));
+        let plan = request.get("execution_plan")
+            .unwrap_or_else(|| print_uera_error("UER-REQ-003: execution_plan is required"));
+        if plan.get("operation").and_then(Value::as_str) != Some("identity") {
+            print_uera_error("UER-REQ-001: unsupported operation");
+        }
+        let arguments = plan.get("arguments").and_then(Value::as_array)
+            .filter(|items| items.len() == 1)
+            .unwrap_or_else(|| print_uera_error("UER-REQ-002: identity requires exactly one argument"));
+        println!("{}", json!({"ok":true,"request_id":request_id,"value":arguments[0],"native_execution_provenance":PROFILE}));
+        return;
+    }
     if operation == "verify-native" {
         println!(
             "{}",
@@ -113,4 +135,9 @@ fn main() {
             std::process::exit(1);
         }
     }
+}
+
+fn print_uera_error(message: &str) -> ! {
+    println!("{}", json!({"ok":false,"diagnostics":[message],"native_execution_provenance":PROFILE}));
+    std::process::exit(1)
 }
