@@ -339,6 +339,9 @@ class TensorRuntime:
         self.tensor_allocations = 0
         self.tensor_releases = 0
         self.peak_live_tensors = 0
+        self.live_memory_bytes = 0
+        self.peak_memory_bytes = 0
+        self._tensor_bytes: dict[str, int] = {}
         self.resource_root = (resource_root or Path.cwd()).resolve()
         self.filesystem_read = filesystem_read
         self.filesystem_write = filesystem_write
@@ -556,6 +559,9 @@ class TensorRuntime:
             "tensor_releases": self.tensor_releases,
             "live_tensors": len(self._refs),
             "peak_live_tensors": self.peak_live_tensors,
+            "live_memory_bytes": self.live_memory_bytes,
+            "peak_memory_bytes": self.peak_memory_bytes,
+            "autograd_nodes": len(self._grad_nodes),
             "hard_limit": self.policy.max_live_tensors,
         }
 
@@ -581,6 +587,7 @@ class TensorRuntime:
         self._requires_grad.discard(tensor_id)
         self._parameters.discard(tensor_id)
         self._plan_ref_counts.pop(tensor_id, None)
+        self.live_memory_bytes -= self._tensor_bytes.pop(tensor_id, 0)
         self.tensor_releases += 1
         self.lifecycle_trace.append({"step_id": f"release_{len(self.lifecycle_trace)+1:04d}", "operation_type": "tensor_release", "tensor_id": tensor_id, "reason": reason, "status": "success"})
         return True
@@ -674,6 +681,10 @@ class TensorRuntime:
         )
         self._refs[tensor_id] = ref
         self._classifications[tensor_id] = "Temporary"
+        tensor_bytes = len(tensor.data) * DTYPE_BYTES[dtype]
+        self._tensor_bytes[tensor_id] = tensor_bytes
+        self.live_memory_bytes += tensor_bytes
+        self.peak_memory_bytes = max(self.peak_memory_bytes, self.live_memory_bytes)
         self.tensor_allocations += 1
         self.peak_live_tensors = max(self.peak_live_tensors, len(self._refs))
         return ref

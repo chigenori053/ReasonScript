@@ -16,6 +16,9 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Protocol
 
+RELATION_MATRIX_FIXTURE_ID = "Transformer_Test.RelationMatrix"
+RELATION_MATRIX_EXECUTION_TARGET_MS = 1_500.0
+
 
 class PressureLevel(StrEnum):
     NORMAL = "NORMAL"
@@ -84,6 +87,20 @@ class RuntimePressure:
     execution_latency_ms: float = 0.0
     allocation_rate: float = 0.0
 
+    @classmethod
+    def from_tensor_metrics(
+        cls, metrics: Mapping[str, Any], *, execution_latency_ms: float = 0.0
+    ) -> RuntimePressure:
+        latency_seconds = execution_latency_ms / 1_000
+        allocations = int(metrics.get("tensor_allocations", 0))
+        return cls(
+            live_tensors=int(metrics.get("live_tensors", 0)),
+            memory_usage=int(metrics.get("live_memory_bytes", 0)),
+            autograd_nodes=int(metrics.get("autograd_nodes", 0)),
+            execution_latency_ms=execution_latency_ms,
+            allocation_rate=allocations / latency_seconds if latency_seconds else 0.0,
+        )
+
     def level(self, capability: RuntimeCapability | None = None) -> PressureLevel:
         tensor_limit = capability.tensor_limit if capability else None
         memory_limit = capability.memory_limit if capability else None
@@ -103,6 +120,7 @@ class RuntimePressure:
 class RuntimeProfiler:
     """Deterministic metrics and trace recorder for one execution request."""
 
+    enabled: bool = True
     started_ns: int = field(default_factory=time.perf_counter_ns)
     function_calls: int = 0
     tensor_allocations: int = 0
@@ -118,17 +136,37 @@ class RuntimeProfiler:
 
     def record(self, event: str, **details: Any) -> dict[str, Any]:
         entry = {"step": len(self.trace) + 1, "event": event, **details}
+        if not self.enabled:
+            return entry
         self.trace.append(entry)
-        if event.startswith("CLUSTER"):
+        if event in {"CLUSTER_PLANNED", "CLUSTER_ESCALATED"}:
             self.cluster_offloads += 1
         return entry
 
     def observe_pressure(self, pressure: RuntimePressure) -> None:
+        if not self.enabled:
+            return
         self.peak_live_tensors = max(self.peak_live_tensors, pressure.live_tensors)
         self.autograd_nodes = max(self.autograd_nodes, pressure.autograd_nodes)
 
+    def observe_tensor_metrics(self, metrics: Mapping[str, Any]) -> None:
+        if not self.enabled:
+            return
+        self.tensor_allocations = max(
+            self.tensor_allocations, int(metrics.get("tensor_allocations", 0))
+        )
+        self.tensor_releases = max(
+            self.tensor_releases, int(metrics.get("tensor_releases", 0))
+        )
+        self.peak_live_tensors = max(
+            self.peak_live_tensors, int(metrics.get("peak_live_tensors", 0))
+        )
+        self.autograd_nodes = max(
+            self.autograd_nodes, int(metrics.get("autograd_nodes", 0))
+        )
+
     def snapshot(self) -> dict[str, Any]:
-        return {"execution_time_ns": time.perf_counter_ns() - self.started_ns, "function_calls": self.function_calls, "tensor_allocations": self.tensor_allocations, "tensor_releases": self.tensor_releases, "peak_live_tensors": self.peak_live_tensors, "autograd_nodes": self.autograd_nodes, "branch_evaluations": self.branch_evaluations, "cluster_offloads": self.cluster_offloads, "worker_tasks": self.worker_tasks, "transfer_bytes": self.transfer_bytes, "merge_time_ns": self.merge_time_ns}
+        return {"observation_enabled": self.enabled, "execution_time_ns": time.perf_counter_ns() - self.started_ns if self.enabled else 0, "function_calls": self.function_calls, "tensor_allocations": self.tensor_allocations, "tensor_releases": self.tensor_releases, "peak_live_tensors": self.peak_live_tensors, "autograd_nodes": self.autograd_nodes, "branch_evaluations": self.branch_evaluations, "cluster_offloads": self.cluster_offloads, "worker_tasks": self.worker_tasks, "transfer_bytes": self.transfer_bytes, "merge_time_ns": self.merge_time_ns}
 
 
 @dataclass(frozen=True)
@@ -146,6 +184,103 @@ class ExecutionResult:
     backend_id: str
     trace: tuple[Mapping[str, Any], ...] = ()
     profile: Mapping[str, Any] = field(default_factory=dict)
+    semantic_digest: str = ""
+
+
+@dataclass(frozen=True)
+class RuntimeBaseline:
+    fixture_id: str
+    semantic_digest: str
+    profile: Mapping[str, Any]
+    pressure: Mapping[str, Any]
+    targets: Mapping[str, Any]
+    schema_version: str = "reasonscript-runtime-baseline/0.1"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def capture_runtime_baseline(
+    fixture_id: str,
+    result: ExecutionResult,
+    pressure: RuntimePressure,
+    *,
+    max_execution_time_ms: float = 1_500.0,
+    max_peak_live_tensors: int | None = None,
+) -> RuntimeBaseline:
+    """Capture the fixed Transformer/Relation Matrix observation contract."""
+    profile = dict(result.profile)
+    peak_limit = (
+        int(max_peak_live_tensors)
+        if max_peak_live_tensors is not None
+        else int(profile.get("peak_live_tensors", 0))
+    )
+    return RuntimeBaseline(
+        fixture_id,
+        result.semantic_digest or _semantic_digest(result.value),
+        profile,
+        {**asdict(pressure), "level": pressure.level().value},
+        {
+            "max_execution_time_ms": float(max_execution_time_ms),
+            "max_peak_live_tensors": peak_limit,
+            "max_unreleased_tensors": max(
+                0,
+                int(profile.get("tensor_allocations", 0))
+                - int(profile.get("tensor_releases", 0)),
+            ),
+            "require_semantic_digest_match": True,
+        },
+    )
+
+
+def capture_relation_matrix_baseline(
+    result: ExecutionResult, pressure: RuntimePressure
+) -> RuntimeBaseline:
+    return capture_runtime_baseline(
+        RELATION_MATRIX_FIXTURE_ID,
+        result,
+        pressure,
+        max_execution_time_ms=RELATION_MATRIX_EXECUTION_TARGET_MS,
+        max_peak_live_tensors=int(result.profile.get("peak_live_tensors", 0)),
+    )
+
+
+def compare_runtime_baseline(
+    reference: RuntimeBaseline, candidate: RuntimeBaseline
+) -> dict[str, Any]:
+    """Return deterministic pass/fail decisions while excluding raw timing deltas."""
+    execution_time_ms = int(candidate.profile.get("execution_time_ns", 0)) / 1_000_000
+    unreleased = max(
+        0,
+        int(candidate.profile.get("tensor_allocations", 0))
+        - int(candidate.profile.get("tensor_releases", 0)),
+    )
+    checks = {
+        "fixture_match": candidate.fixture_id == reference.fixture_id,
+        "semantic_digest_match": candidate.semantic_digest == reference.semantic_digest,
+        "execution_time_target": execution_time_ms
+        <= float(reference.targets["max_execution_time_ms"]),
+        "peak_live_tensors_target": int(
+            candidate.profile.get("peak_live_tensors", 0)
+        )
+        <= int(reference.targets["max_peak_live_tensors"]),
+        "release_balance_target": unreleased
+        <= int(reference.targets["max_unreleased_tensors"]),
+    }
+    return {
+        "schema_version": "reasonscript-runtime-baseline-comparison/0.1",
+        "fixture_id": reference.fixture_id,
+        "status": "PASS" if all(checks.values()) else "FAIL",
+        "checks": checks,
+        "observed": {
+            "execution_time_ms": execution_time_ms,
+            "peak_live_tensors": int(
+                candidate.profile.get("peak_live_tensors", 0)
+            ),
+            "unreleased_tensors": unreleased,
+        },
+        "targets": dict(reference.targets),
+    }
 
 
 class ExecutionBackend(Protocol):
@@ -310,6 +445,10 @@ def _canonical_json(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode()
 
 
+def _semantic_digest(value: Any) -> str:
+    return "sha256:" + hashlib.sha256(_canonical_json(value)).hexdigest()
+
+
 def _canonical_partitions(request: ExecutionRequest, operation_ids: Iterable[str], workers: Iterable[str], policy_version: str) -> list[ExecutionPartition]:
     workers = sorted(workers)
     if not workers:
@@ -359,12 +498,28 @@ class UnifiedExecutionOrchestrator:
         mode = "LOCAL_MONITORED" if workload.parallelizable else "LOCAL"
         return ExecutionDecision(mode, local, "local-first policy", workload, self.policy_version)
 
-    def escalate(self, decision: ExecutionDecision, pressure: RuntimePressure, *, safe_boundary: bool) -> ExecutionDecision:
+    def escalate(self, decision: ExecutionDecision, pressure: RuntimePressure, *, safe_boundary: bool, profiler: RuntimeProfiler | None = None) -> ExecutionDecision:
+        if profiler is not None:
+            profiler.observe_pressure(pressure)
+            profiler.record(
+                "PRESSURE",
+                backend=decision.backend_id,
+                level=pressure.level(self.backends[decision.backend_id].capability).value,
+                live_tensors=pressure.live_tensors,
+                memory_usage=pressure.memory_usage,
+                autograd_nodes=pressure.autograd_nodes,
+            )
+            profiler.record("SAFE_BOUNDARY", available=safe_boundary)
         capability = self.backends[decision.backend_id].capability
         if pressure.level(capability) in {PressureLevel.HIGH, PressureLevel.CRITICAL} and safe_boundary:
             cluster = next((key for key in sorted(self.backends) if self.backends[key].capability.parallel_execution), None)
             if cluster:
-                return ExecutionDecision("CLUSTER_ESCALATED", cluster, "runtime pressure at safe boundary", decision.workload, self.policy_version)
+                escalated = ExecutionDecision("CLUSTER_ESCALATED", cluster, "runtime pressure at safe boundary", decision.workload, self.policy_version)
+                if profiler is not None:
+                    profiler.record("CLUSTER_ESCALATED", backend=cluster, reason=escalated.reason)
+                return escalated
+        if profiler is not None:
+            profiler.record("LOCAL_CONTINUE", backend=decision.backend_id)
         return decision
 
     def handle_cluster_failure(self, request: ExecutionRequest, decision: ExecutionDecision, policy: ClusterFailurePolicy, profiler: RuntimeProfiler) -> ExecutionDecision:
@@ -389,23 +544,40 @@ class UnifiedExecutionOrchestrator:
         profiler = profiler or RuntimeProfiler()
         decision = self.plan(request, preferred_backend=preferred_backend)
         profiler.record(decision.placement, backend=decision.backend_id, reason=decision.reason)
-        started = time.perf_counter()
+        if profiler.enabled:
+            profiler.function_calls += 1
+        capability = self.backends[decision.backend_id].capability
+        if capability.parallel_execution:
+            profiler.record("CLUSTER_EXECUTE", backend=decision.backend_id)
         value = self.backends[decision.backend_id].execute(request)
-        event = {"step": 1, "event": decision.placement, "backend": decision.backend_id, "reason": decision.reason, "elapsed_ms": round((time.perf_counter() - started) * 1000, 3)}
-        return ExecutionResult(request.request_id, value, decision.backend_id, (event,), profiler.snapshot())
+        if capability.parallel_execution:
+            if isinstance(value, (list, tuple)):
+                profiler.worker_tasks += len(value)
+            profiler.record("REDUCE", ordering="canonical")
+        digest = _semantic_digest(value)
+        return ExecutionResult(
+            request.request_id,
+            value,
+            decision.backend_id,
+            tuple(dict(item) for item in profiler.trace),
+            profiler.snapshot(),
+            digest,
+        )
 
-    def artifacts(self, request: ExecutionRequest, decision: ExecutionDecision, pressure: RuntimePressure | None = None, profiler: RuntimeProfiler | None = None, result: ExecutionResult | None = None) -> dict[str, Any]:
+    def artifacts(self, request: ExecutionRequest, decision: ExecutionDecision, pressure: RuntimePressure | None = None, profiler: RuntimeProfiler | None = None, result: ExecutionResult | None = None, baseline: RuntimeBaseline | None = None, baseline_comparison: Mapping[str, Any] | None = None) -> dict[str, Any]:
         profiler = profiler or RuntimeProfiler()
         pressure = pressure or RuntimePressure()
         profiler.observe_pressure(pressure)
         return {
             "execution_plan.json": dict(request.execution_plan),
             "runtime_capabilities.json": [asdict(item) for item in self.capabilities()],
-            "workload_estimate.json": asdict(request.workload),
+            "workload_estimate.json": asdict(self.estimate_workload(request)),
             "runtime_pressure.json": {**asdict(pressure), "level": pressure.level(self.backends[decision.backend_id].capability).value},
             "runtime_profile.json": profiler.snapshot(),
             "execution_trace.json": list(profiler.trace),
             "cluster_plan.json": {"used": decision.placement.startswith("CLUSTER"), "placement": decision.placement, "backend": decision.backend_id},
-            "determinism_manifest.json": {"policy_version": decision.policy_version, "canonical_json": True},
-            "execution_result.json": {"request_id": result.request_id, "backend": result.backend_id, "value": result.value} if result is not None else None,
+            "determinism_manifest.json": {"policy_version": decision.policy_version, "canonical_json": True, "observation_affects_result": False, "semantic_digest": result.semantic_digest if result is not None else None},
+            "execution_result.json": {"request_id": result.request_id, "backend": result.backend_id, "value": result.value, "semantic_digest": result.semantic_digest} if result is not None else None,
+            "performance_baseline.json": baseline.to_dict() if baseline is not None else None,
+            "baseline_comparison.json": dict(baseline_comparison) if baseline_comparison is not None else None,
         }

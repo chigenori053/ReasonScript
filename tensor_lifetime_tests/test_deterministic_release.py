@@ -76,6 +76,9 @@ def test_uera_t007_runtime_releases_a_dependency_only_after_its_last_use():
         "tensor_releases": 4,
         "live_tensors": 1,
         "peak_live_tensors": 3,
+        "live_memory_bytes": 8,
+        "peak_memory_bytes": 24,
+        "autograd_nodes": 0,
         "hard_limit": 1_000,
     }
     assert [event["reason"] for event in runtime.lifecycle_trace] == [
