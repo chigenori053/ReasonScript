@@ -70,3 +70,10 @@ def test_workload_estimator_reads_execution_plan_metadata():
     estimate = WorkloadEstimator.from_plan({"steps": [1, 2], "workload": {"parallelizable": True, "estimated_memory": 64}})
     assert estimate.estimated_operations == 2
     assert estimate.parallelizable is True
+
+
+def test_orchestrator_uses_execution_plan_workload_for_placement():
+    runtime = _orchestrator()
+    request = ExecutionRequest("large", {"workload": {"estimated_operations": 100_000, "parallelizable": True}})
+    decision = runtime.plan(request)
+    assert (decision.placement, decision.backend_id) == ("CLUSTER_PLANNED", "ClusterRuntime")

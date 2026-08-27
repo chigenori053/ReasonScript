@@ -218,8 +218,14 @@ class UnifiedExecutionOrchestrator:
     def capabilities(self) -> list[RuntimeCapability]:
         return [self.backends[key].capability for key in sorted(self.backends)]
 
+    def estimate_workload(self, request: ExecutionRequest) -> WorkloadEstimate:
+        """Use an explicit request estimate when supplied, else read the plan."""
+        if request.workload != WorkloadEstimate():
+            return request.workload
+        return WorkloadEstimator.from_plan(request.execution_plan)
+
     def plan(self, request: ExecutionRequest, *, preferred_backend: str | None = None) -> ExecutionDecision:
-        workload = request.workload
+        workload = self.estimate_workload(request)
         local = preferred_backend or next(
             (key for key in sorted(self.backends) if not self.backends[key].capability.parallel_execution),
             next(iter(sorted(self.backends))),
