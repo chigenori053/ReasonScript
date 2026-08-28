@@ -432,6 +432,8 @@ def _project_calculations(
         node.name: node for node in module.body if isinstance(node, FunctionDeclarationNode)
     }
     emitted_function_returns: set[str] = set()
+    emitted_transition_targets: set[str] = set()
+    duplicate_target_counts: dict[str, int] = {}
     for node in calculations:
         local_names: set[str] = set()
         current_sources = [current]
@@ -507,15 +509,23 @@ def _project_calculations(
                         }
                         if pattern_decisions:
                             effect["pattern_decisions"] = pattern_decisions
-                        # Ensure transition_id is unique across the IR by including the
-                        # monotonic transition_index. Using target alone can produce
-                        # duplicates when the same function return target is emitted
-                        # multiple times from different call sites or branching paths.
-                        unique_transition_id = f"{target}-{transition_index}"
+                        # Ensure transition_id is unique across the IR only when necessary.
+                        # Using target alone can produce duplicates when the same
+                        # function return target is emitted multiple times from
+                        # different call sites or branching paths. Append a minimal
+                        # deterministic suffix only for true duplicates so that
+                        # canonical labels are preserved when possible.
+                        if target not in emitted_transition_targets:
+                            transition_id = target
+                            emitted_transition_targets.add(target)
+                        else:
+                            count = duplicate_target_counts.get(target, 1)
+                            transition_id = f"{target}-{count}"
+                            duplicate_target_counts[target] = count + 1
                         declarations.append(
                             semantic.TransitionNode(
                                 f"{namespace}-function-{transition_index}",
-                                unique_transition_id,
+                                transition_id,
                                 source,
                                 "FunctionReturnTransition",
                                 target,
