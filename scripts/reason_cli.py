@@ -160,15 +160,20 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    # JSON selects an envelope only. Trace collection is opt-in.
-    result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace, allow_read=args.allow_read, allow_write=args.allow_write)
+    # JSON output includes the runtime trace contract used by machine clients;
+    # human-readable runs collect it only when --trace is requested.
+    result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace or args.json, allow_read=args.allow_read, allow_write=args.allow_write)
     if args.result_output and result.get("ok"):
         runtime_result = result.get("runtime_result")
         if not isinstance(runtime_result, dict) or "result" not in runtime_result:
             raise CliFileSystemError(
                 "--result-output requires an integrated numerical result"
             )
-        _write_result_file(Path(args.result_output), runtime_result)
+        # The accepted Integrated Runtime Completeness v0.2 contract exposes
+        # only the calculation value through --result-output.  The complete
+        # runtime envelope remains available on stdout with --json or through
+        # --out.
+        _write_result_file(Path(args.result_output), runtime_result["result"])
     if args.out:
         _write_out(Path(args.out), result)
     if args.json:

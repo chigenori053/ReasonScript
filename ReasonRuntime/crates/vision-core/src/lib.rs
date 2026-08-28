@@ -601,8 +601,14 @@ fn add_tensor(
             "generated tensor shape mismatch",
         ));
     }
-    let payload_id = format!("ruo:payload:tensor:vision:{role}:{}", stable_key(projection.owner_id));
-    let resource_id = format!("ruo:resource:vision:{role}:{}", stable_key(projection.owner_id));
+    let payload_id = format!(
+        "ruo:payload:tensor:vision:{role}:{}",
+        stable_key(projection.owner_id)
+    );
+    let resource_id = format!(
+        "ruo:resource:vision:{role}:{}",
+        stable_key(projection.owner_id)
+    );
     let locator = format!("resources/{role}.ruot");
     let bytes = encode_f32(&values)?;
     let mut axes: Vec<Value> = shape

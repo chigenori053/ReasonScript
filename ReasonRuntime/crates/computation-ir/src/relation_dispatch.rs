@@ -60,19 +60,29 @@ fn rows(value: Value) -> Result<Vec<Value>, RuntimeError> {
         }
         other => Err(RuntimeError::new(
             "REL-004",
-            format!("Relation function requires Array<Struct>, got Array of {}", other.type_name()),
+            format!(
+                "Relation function requires Array<Struct>, got Array of {}",
+                other.type_name()
+            ),
         )),
     }
 }
 
 fn field(row: &Value, name: &str) -> Result<Value, RuntimeError> {
     match row {
-        Value::Struct(struct_value) => struct_value.fields.borrow().get(name).cloned().ok_or_else(|| {
-            RuntimeError::new(
-                "REL-005",
-                format!("unknown field {name} on {}", struct_value.type_name),
-            )
-        }),
+        Value::Struct(struct_value) => {
+            struct_value
+                .fields
+                .borrow()
+                .get(name)
+                .cloned()
+                .ok_or_else(|| {
+                    RuntimeError::new(
+                        "REL-005",
+                        format!("unknown field {name} on {}", struct_value.type_name),
+                    )
+                })
+        }
         other => Err(RuntimeError::new(
             "REL-005",
             format!("expected a Struct row, got {}", other.type_name()),
@@ -85,7 +95,10 @@ fn as_string(value: &Value) -> Result<String, RuntimeError> {
         Value::String(value) => Ok(value.to_string()),
         other => Err(RuntimeError::new(
             "REL-003",
-            format!("Relation field name must be a String, got {}", other.type_name()),
+            format!(
+                "Relation field name must be a String, got {}",
+                other.type_name()
+            ),
         )),
     }
 }
@@ -125,7 +138,9 @@ fn filter_compare(comparison_name: &str, mut args: Vec<Value>) -> VResult {
             kept.push(row);
         }
     }
-    Ok(Value::Array(std::rc::Rc::new(std::cell::RefCell::new(kept))))
+    Ok(Value::Array(std::rc::Rc::new(std::cell::RefCell::new(
+        kept,
+    ))))
 }
 
 fn distinct_by(mut args: Vec<Value>) -> VResult {
@@ -140,7 +155,9 @@ fn distinct_by(mut args: Vec<Value>) -> VResult {
             kept.push(row);
         }
     }
-    Ok(Value::Array(std::rc::Rc::new(std::cell::RefCell::new(kept))))
+    Ok(Value::Array(std::rc::Rc::new(std::cell::RefCell::new(
+        kept,
+    ))))
 }
 
 fn sort_by(mut args: Vec<Value>) -> VResult {
@@ -149,7 +166,10 @@ fn sort_by(mut args: Vec<Value>) -> VResult {
         other => {
             return Err(RuntimeError::new(
                 "REL-007",
-                format!("Relation sort_by descending must be Bool, got {}", other.type_name()),
+                format!(
+                    "Relation sort_by descending must be Bool, got {}",
+                    other.type_name()
+                ),
             ))
         }
     };
@@ -204,5 +224,7 @@ fn sort_by(mut args: Vec<Value>) -> VResult {
     if descending {
         rows.reverse();
     }
-    Ok(Value::Array(std::rc::Rc::new(std::cell::RefCell::new(rows))))
+    Ok(Value::Array(std::rc::Rc::new(std::cell::RefCell::new(
+        rows,
+    ))))
 }

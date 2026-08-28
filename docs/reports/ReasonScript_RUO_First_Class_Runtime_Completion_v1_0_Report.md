@@ -2,9 +2,9 @@
 
 ## Completion Summary
 
-ReasonUnit Object bindings now behave as first-class opaque ReasonScript values
-through static typing, functions, ordinary local bindings, AST execution, and
-the Python Computation IR interpreter.
+ReasonUnit Object bindings behave as first-class opaque ReasonScript values
+through static typing, functions, ordinary local bindings, and strict native
+Rust product execution. Python evaluators remain reference-only.
 
 ## Implemented Features
 
@@ -16,9 +16,10 @@ the Python Computation IR interpreter.
   identity, snapshots, resolution, queries, transactions, selection,
   projection, saving, Tensor payload views, status, and diagnostics.
 - Computation IR carries Object binding declarations and `call_ruo` nodes.
-- The Rust VM loads verified Objects and executes identity, snapshot,
-  resolution, status, and diagnostic operations; other RUO operations retain
-  the Python fallback.
+- The Rust VM loads verified Objects and executes all 16 `ruo.*` operations
+  in-process with capability and resource-root enforcement.
+- Product execution reports structured native diagnostics and never falls back
+  to a Python evaluator.
 
 ## Validation Results
 
@@ -44,6 +45,5 @@ coerced at the runtime boundary for RUO-N2 compatibility.
 
 ## Remaining Work
 
-Native query, transaction, selection, projection, save, and Tensor-view
-dispatch remain on the Python fallback. RUO-W1 multi-project atomic world
-cutover remains a separate future phase.
+No first-class RUO runtime work remains in this scope. RUO-W1 multi-project
+atomic world cutover remains a separate future phase.

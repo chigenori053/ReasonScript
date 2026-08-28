@@ -16,19 +16,20 @@ consolidation, not a monolithic crate rewrite.
 ```text
 ReasonRuntime/
   crates/
-    runtime-types/
-    computation-ir/
-    computation-vm/
+    computation-ir/      # runtime types, IR decoder, and VM
     tensor-core/
     reason-object-core/
     reasoning-core/
     vision-core/
-    runtime-host/
+    runtime-cli/         # reason-runtime-host and compatibility binaries
 ```
 
 Cluster workers and the Install Foundation Updater retain justified process
 boundaries. Reason IR and Computation IR remain distinct schemas connected by
-an explicit adapter.
+an explicit adapter. The originally proposed `runtime-types`,
+`computation-vm`, and `runtime-host` crate boundaries were intentionally folded
+into `computation-ir` and `runtime-cli`; the runtime domains that benefit from
+independent ownership remain separate crates.
 
 ## Phases
 

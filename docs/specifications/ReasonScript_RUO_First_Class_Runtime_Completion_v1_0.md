@@ -11,13 +11,12 @@ legal in function signatures and local bindings. A `ReasonObjectBindingNode`
 has static type `ReasonObject`; each `ruo.*` call has a declared result type and
 checks statically knowable argument kinds.
 
-The AST computation evaluator and the Python Computation IR interpreter load
-declared Objects only with explicit filesystem-read capability. Paths remain
-confined to the execution resource root. Immutable inspection and snapshot
-operations execute through the shared `frontend.reason_object_runtime`
-dispatcher. Transactions preserve snapshot isolation and explicit
+Product execution loads declared Objects through the Rust runtime host only and
+requires explicit filesystem-read capability. Paths remain confined to the
+execution resource root. Transactions preserve snapshot isolation and explicit
 commit/rollback semantics; saving additionally requires filesystem-write
-capability.
+capability. The AST evaluator and Python Computation IR interpreter are retained
+only as independent reference implementations for differential tests.
 
 ## Compatibility
 
@@ -31,15 +30,15 @@ mutation surface.
 - A bound Object may be aliased and passed into and returned from a typed
   function.
 - `ruo.object_id(1)` is rejected statically with `RUO-N2-009`.
-- AST and Python Computation IR execution produce identical calculation
-  results for a first-class Object program.
+- Rust host execution matches the Python reference implementations for
+  first-class Object programs and all 16 `ruo.*` operations.
 - Execution without filesystem-read capability is rejected.
 
 ## Native boundary
 
 The Rust Computation VM decodes Object bindings, verifies canonical `.ruo`
-files through `NativeReasonUnitRuntime`, confines compiler-produced paths, and
-executes `object_id`, `snapshot`, `resolve`, `status`, and `diagnostics`.
-Operations not yet implemented natively return `RT-UNSUPPORTED-001`, causing
-the default runner to use the validated Python implementation. RUO-W1
-world-level multi-project atomic cutover remains a separate phase.
+files in `reason-object-core`, confines compiler-produced paths, and executes
+all 16 frozen `ruo.*` operations in-process. Product execution has no Python
+fallback; unsupported or failed native operations produce structured
+diagnostics. RUO-W1 world-level multi-project atomic cutover remains a separate
+phase.

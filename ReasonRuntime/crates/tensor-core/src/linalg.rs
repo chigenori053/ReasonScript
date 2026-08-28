@@ -183,7 +183,9 @@ mod tests {
             for j in 0..cols {
                 let mut sum = 0.0;
                 for t in 0..k {
-                    sum += result.u.data[i * k + t] * result.singular_values[t] * result.v.data[j * k + t];
+                    sum += result.u.data[i * k + t]
+                        * result.singular_values[t]
+                        * result.v.data[j * k + t];
                 }
                 out[i * cols + j] = sum;
             }
@@ -244,7 +246,13 @@ mod tests {
 
     #[test]
     fn u_and_v_columns_are_orthonormal() {
-        let a = matrix(4, 3, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.5]);
+        let a = matrix(
+            4,
+            3,
+            vec![
+                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.5,
+            ],
+        );
         let result = svd(&a, 100, 1e-14).unwrap();
         let k = result.singular_values.len();
         for p in 0..k {

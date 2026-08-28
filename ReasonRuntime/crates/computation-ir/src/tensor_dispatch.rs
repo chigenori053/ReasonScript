@@ -347,11 +347,7 @@ fn store_insert_grad(
 }
 
 pub(crate) fn fetch(store: &RefCell<TensorStore>, id: &str) -> Result<TensorData, RuntimeError> {
-    store
-        .borrow()
-        .get(id)
-        .cloned()
-        .map_err(core_err)
+    store.borrow().get(id).cloned().map_err(core_err)
 }
 
 // ---- creation --------------------------------------------------------

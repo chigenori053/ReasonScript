@@ -17,7 +17,7 @@ from toolchain.__main__ import main
 from toolchain.runtime_dispatch import execute_rust_ir
 
 
-def test_json_does_not_request_trace_and_result_output_is_full_envelope(
+def test_json_requests_trace_and_result_output_is_runtime_value(
     tmp_path: Path, monkeypatch
 ) -> None:
     observed: dict[str, object] = {}
@@ -32,10 +32,8 @@ def test_json_does_not_request_trace_and_result_output_is_full_envelope(
                      allow_read=False, allow_write=False, result_output=str(output), out=None)
 
     assert reason_cli.cmd_run(args) == 0
-    assert observed["include_trace"] is False
-    assert json.loads(output.read_text(encoding="utf-8")) == {
-        "calculations": {"Main": 3}, "result": 3
-    }
+    assert observed["include_trace"] is True
+    assert json.loads(output.read_text(encoding="utf-8")) == 3
 
 
 def test_trace_unsupported_operations_are_reported_without_blocking_execution(

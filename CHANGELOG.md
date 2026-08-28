@@ -4,6 +4,18 @@
 
 ### Fixed
 
+- Restored the accepted `reason run --result-output PATH` contract: the file
+  contains only the finite JSON-compatible calculation result, while the full
+  runtime envelope remains available through `--json` and `--out`. Removed the
+  conflicting v0.5.5.4 regression expectation that caused canonical CI to fail.
+- Restored runtime trace collection for `reason run --json`, preserving the
+  Vision and other machine-readable trace contracts while keeping `--trace` as
+  the explicit switch for human-readable runs.
+- Synchronized the RUO first-class runtime and Rust consolidation documents
+  with the completed strict-native implementation: all 16 `ruo.*` functions
+  execute in Rust without product fallback, and the documented workspace
+  layout now matches the consolidated Cargo workspace.
+
 - Completed first-class ReasonUnit Object bindings in the language and Python
   computation runtimes. `ReasonObject` and related opaque RUO types now resolve
   in function signatures, `reason_object` identifiers infer `ReasonObject`,

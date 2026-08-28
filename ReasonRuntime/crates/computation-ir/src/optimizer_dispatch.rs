@@ -46,8 +46,13 @@ const ARGUMENT_COUNTS: &[(&str, usize)] = &[
 ];
 
 pub fn call(function_id: &str, args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
-    let name = function_id.strip_prefix("optimizer.").unwrap_or(function_id);
-    let Some(&(_, expected)) = ARGUMENT_COUNTS.iter().find(|(candidate, _)| *candidate == name) else {
+    let name = function_id
+        .strip_prefix("optimizer.")
+        .unwrap_or(function_id);
+    let Some(&(_, expected)) = ARGUMENT_COUNTS
+        .iter()
+        .find(|(candidate, _)| *candidate == name)
+    else {
         return Err(RuntimeError::new(
             "OPT-001",
             format!("unknown Optimizer function: {function_id}"),
@@ -88,7 +93,11 @@ fn elementwise(
     Ok(TensorData { shape, dtype, data })
 }
 
-fn fetch_operand(args: &[Value], index: usize, store: &RefCell<TensorStore>) -> Result<TensorData, RuntimeError> {
+fn fetch_operand(
+    args: &[Value],
+    index: usize,
+    store: &RefCell<TensorStore>,
+) -> Result<TensorData, RuntimeError> {
     let id = operand_id(args, index, store)?;
     fetch(store, &id)
 }
@@ -106,7 +115,10 @@ fn required_step(args: &[Value], index: usize) -> Result<i64, RuntimeError> {
             "OPT-005",
             "Optimizer step count must be a positive Int",
         )),
-        None => Err(RuntimeError::new("OPT-002", "missing Optimizer step argument")),
+        None => Err(RuntimeError::new(
+            "OPT-002",
+            "missing Optimizer step argument",
+        )),
     }
 }
 
@@ -175,11 +187,17 @@ fn adam_moment1(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
     store_insert(store, result.shape, result.dtype, result.data)
 }
 
-fn adam_moment1_data(args: &[Value], store: &RefCell<TensorStore>) -> Result<TensorData, RuntimeError> {
+fn adam_moment1_data(
+    args: &[Value],
+    store: &RefCell<TensorStore>,
+) -> Result<TensorData, RuntimeError> {
     let grad = fetch_operand(args, 0, store)?;
     let m = fetch_operand(args, 1, store)?;
     let beta1 = required_scalar(args, 2)?;
-    add(&mul(&scalar(beta1), &m)?, &mul(&scalar(1.0 - beta1), &grad)?)
+    add(
+        &mul(&scalar(beta1), &m)?,
+        &mul(&scalar(1.0 - beta1), &grad)?,
+    )
 }
 
 // grad, v, beta2
@@ -188,12 +206,18 @@ fn adam_moment2(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
     store_insert(store, result.shape, result.dtype, result.data)
 }
 
-fn adam_moment2_data(args: &[Value], store: &RefCell<TensorStore>) -> Result<TensorData, RuntimeError> {
+fn adam_moment2_data(
+    args: &[Value],
+    store: &RefCell<TensorStore>,
+) -> Result<TensorData, RuntimeError> {
     let grad = fetch_operand(args, 0, store)?;
     let v = fetch_operand(args, 1, store)?;
     let beta2 = required_scalar(args, 2)?;
     let grad_sq = mul(&grad, &grad)?;
-    add(&mul(&scalar(beta2), &v)?, &mul(&scalar(1.0 - beta2), &grad_sq)?)
+    add(
+        &mul(&scalar(beta2), &v)?,
+        &mul(&scalar(1.0 - beta2), &grad_sq)?,
+    )
 }
 
 /// Returns `(update, scaled_update)` where `update = m_hat / (sqrt(v_hat) + eps)`
