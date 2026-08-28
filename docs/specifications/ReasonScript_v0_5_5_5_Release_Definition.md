@@ -1,11 +1,11 @@
-# ReasonScript v0.5.5.4 Release Definition
+# ReasonScript v0.5.5.5 Release Definition
 
-Specification ID: `reasonscript-release/0.5.5.4`
+Specification ID: `reasonscript-release/0.5.5.5`
 Status: VALIDATED
 Date: 2026-08-28
 
-ReasonScript 0.5.5.4 is a compatibility-preserving runtime and toolchain
-maintenance release. The canonical version is `0.5.5.4` across `VERSION`,
+ReasonScript 0.5.5.5 is a compatibility-preserving runtime and toolchain
+maintenance release. The canonical version is `0.5.5.5` across `VERSION`,
 Python package metadata, release metadata, runtime metadata, and the validation
 profile. Runtime compatibility remains `>=0.5.0,<0.6.0`.
 
