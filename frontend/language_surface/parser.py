@@ -439,6 +439,9 @@ def _validate_reason_object_path(value: str) -> None:
 
 
 def _collect_simple_statement(cursor: _Cursor) -> str:
+    # Collect potentially-multi-line simple statements by balancing
+    # expression delimiters (parens/brackets/braces).
+    start_index = cursor.index
     parts = [cursor.take()]
     first_location = _CURRENT_SOURCE_LINE.get()
     balance = _expression_delimiter_balance(parts[0])
@@ -448,7 +451,26 @@ def _collect_simple_statement(cursor: _Cursor) -> str:
         balance += _expression_delimiter_balance(next_line)
     if balance != 0:
         raise SurfaceSyntaxError("EX-201A-002 invalid struct literal syntax")
-    _CURRENT_SOURCE_LINE.set(first_location)
+    # Determine the best source location for the combined expression.
+    combined = " ".join(parts).strip()
+    # Find the first logical line that contains the first token of the expression
+    # so diagnostics/source locations point to the correct column.
+    import re as _re
+    m = _re.match(r"\S+", combined)
+    if m:
+        first_token = m.group(0)
+    else:
+        first_token = combined
+    assigned = False
+    for i in range(start_index, cursor.index):
+        line_loc = cursor.locations[i]
+        line_text = line_loc[2]
+        if first_token in line_text:
+            _CURRENT_SOURCE_LINE.set(line_loc)
+            assigned = True
+            break
+    if not assigned:
+        _CURRENT_SOURCE_LINE.set(first_location)
     return " ".join(parts)
 
 
