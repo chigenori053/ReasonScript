@@ -39,8 +39,16 @@ the canonical CI pipeline passes.
 ## Generated Artifacts
 
 - `agent_report.json` records the v0.5.5.5 consistency task as `VALIDATED`.
-- Clean release-package provenance and hashes are recorded after the package is
-  built from this committed source state.
+- A clean release package was generated from commit
+  `7fbfc8563edbc23eec3a94de0270378e9bd937c9` and self-validated:
+  `dist/reasonscript-0.5.5.5-macos-arm64.zip`.
+- Package validation passed with 532 files and no diagnostics.
+- Release-package SHA-256:
+  `48472b5ea5340f25294be1c744266e9717a0478d9737ac89dfbfc3cd3a6e86b8`.
+- Payload SHA-256:
+  `103210540d3e999411dd340ccb64caa5572e75cca5c3f5210d8bade4ab7ed9d0`.
+- Local Install Foundation update from 0.5.5.4 to 0.5.5.5 completed with
+  atomic activation and all post-install validations passing.
 
 ## Compatibility Notes
 
@@ -51,5 +59,6 @@ fallback.
 
 ## Remaining Work
 
-Build, validate, and locally install the clean v0.5.5.5 release package, then
-record its immutable provenance and hashes.
+No implementation or release-artifact work remains in this scope. The unrelated
+tracked deletions under `vscode-extension/node_modules` remain outside this
+change and were not committed.
