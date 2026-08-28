@@ -180,15 +180,20 @@ def _resolve_module_index(module_names: tuple[str, ...], requested: str | None) 
 
 def _transition_symbol_map(reason_ir: Mapping[str, Any]) -> dict[str, str]:
     result: dict[str, str] = {}
-    for transition in reason_ir.get("transitions", ()):
+    for transition in reason_ir.get("transitions", ()): 
         if not isinstance(transition, Mapping):
             continue
         transition_id = transition.get("transition_id")
+        stable = transition.get("stable_transition_id")
         effect = transition.get("effect")
-        if isinstance(transition_id, str) and isinstance(effect, Mapping):
+        if isinstance(effect, Mapping):
             calculation = effect.get("calculation")
             if isinstance(calculation, str):
-                result[transition_id] = calculation
+                if isinstance(transition_id, str):
+                    result[transition_id] = calculation
+                # For downstream compatibility, also register the stable id (if present)
+                if isinstance(stable, str) and stable != transition_id:
+                    result[stable] = calculation
     return result
 
 
