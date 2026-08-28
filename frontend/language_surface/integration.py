@@ -507,10 +507,15 @@ def _project_calculations(
                         }
                         if pattern_decisions:
                             effect["pattern_decisions"] = pattern_decisions
+                        # Ensure transition_id is unique across the IR by including the
+                        # monotonic transition_index. Using target alone can produce
+                        # duplicates when the same function return target is emitted
+                        # multiple times from different call sites or branching paths.
+                        unique_transition_id = f"{target}-{transition_index}"
                         declarations.append(
                             semantic.TransitionNode(
                                 f"{namespace}-function-{transition_index}",
-                                target,
+                                unique_transition_id,
                                 source,
                                 "FunctionReturnTransition",
                                 target,

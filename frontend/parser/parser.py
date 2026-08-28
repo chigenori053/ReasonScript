@@ -20,25 +20,40 @@ def parse(source: str) -> ModuleNode:
     tokens = tokenize(source)
     builder = AstBuilder()
     statement: list[Token] = []
+    paren_balance = 0
     for token in tokens:
-        if token.token_type in {TokenType.NEWLINE, TokenType.EOF}:
-            if statement:
-                _parse_statement(statement, builder)
-                statement = []
-            if token.token_type == TokenType.EOF:
-                module = builder.build(token.line, token.column)
-                try:
-                    validate(module)
-                except AstValidationError as error:
-                    raise ParserError(
-                        ParserErrorCode.AST_VALIDATION,
-                        token.line,
-                        token.column,
-                        str(error),
-                    ) from error
-                return module
-        else:
+        # Track parentheses balance by counting '(' and ')' inside token values.
+        if token.token_type not in {TokenType.NEWLINE, TokenType.EOF}:
+            paren_balance += token.value.count("(") - token.value.count(")")
             statement.append(token)
+            continue
+        # token is NEWLINE or EOF
+        if paren_balance > 0:
+            # inside a parenthesized construct; treat newline as whitespace
+            if token.token_type == TokenType.EOF:
+                # unterminated parenthesis across EOF
+                raise ParserError(
+                    ParserErrorCode.MALFORMED_STATEMENT,
+                    token.line,
+                    token.column,
+                    "unterminated parenthesis in statement",
+                )
+            continue
+        if statement:
+            _parse_statement(statement, builder)
+            statement = []
+        if token.token_type == TokenType.EOF:
+            module = builder.build(token.line, token.column)
+            try:
+                validate(module)
+            except AstValidationError as error:
+                raise ParserError(
+                    ParserErrorCode.AST_VALIDATION,
+                    token.line,
+                    token.column,
+                    str(error),
+                ) from error
+            return module
     raise AssertionError("lexer did not emit EOF")
 
 
