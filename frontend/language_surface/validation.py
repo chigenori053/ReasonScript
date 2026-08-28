@@ -95,7 +95,6 @@ from .nodes import (
     RangePatternNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
-    ReasonGraphBindingNode,
     ReasonGraphTransitionNode,
     ReasonObjectBindingNode,
     ReasonGraphBindingNode,
