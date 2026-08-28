@@ -95,7 +95,6 @@ from .nodes import (
     RangePatternNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
-    ReasonGraphBindingNode,
     ReasonGraphTransitionNode,
     ReasonObjectBindingNode,
     ReasonGraphBindingNode,
@@ -1870,11 +1869,19 @@ def _expression_type(
             PrimitiveTypeNode(PrimitiveKind.INT),
             PrimitiveTypeNode(PrimitiveKind.FLOAT),
         }
-        if left not in numeric or right not in numeric or left != right:
+        if left not in numeric or right not in numeric:
             raise SurfaceValidationError(
-                "TYPE-V004 TYPE-001 mixed or non-numeric arithmetic invalid"
+                "TYPE-V004 arithmetic operands must be Int or Float"
             )
-        return left
+        # Numeric promotion is semantic, rather than an implementation detail:
+        # the compiler may lower the Int operand to an explicit Float cast, but
+        # every consumer sees the same result type.  Division is deliberately
+        # real division even when both operands are integers.
+        int_type = PrimitiveTypeNode(PrimitiveKind.INT)
+        float_type = PrimitiveTypeNode(PrimitiveKind.FLOAT)
+        if value.operator == BinaryOperator.DIVIDE or left == float_type or right == float_type:
+            return float_type
+        return int_type
     if isinstance(value, ComparisonExpressionNode):
         left = _expression_type(value.left, symbols, bindings)
         right = _expression_type(value.right, symbols, bindings)
@@ -2004,6 +2011,10 @@ def _expression_type(
                 return PrimitiveTypeNode(PrimitiveKind.INT)
             if tensor_function == "tensor.dtype":
                 return PrimitiveTypeNode(PrimitiveKind.STRING)
+            if tensor_function == "tensor.scalar":
+                return PrimitiveTypeNode(PrimitiveKind.FLOAT)
+            if tensor_function == "tensor.to_array":
+                return ArrayTypeNode(PrimitiveTypeNode(PrimitiveKind.FLOAT))
             if tensor_function == "tensor.save":
                 return NamedTypeNode("TensorArtifactReceipt")
             return NamedTypeNode("Tensor")
@@ -2014,6 +2025,12 @@ def _expression_type(
                 raise SurfaceValidationError(str(error)) from error
             return NamedTypeNode("VisionObservation" if vision_call_name(value) == "vision.infer" else "VisionBuildResult")
         if isinstance(value.callee, IdentifierNode):
+            if value.callee.name in {"float", "int"}:
+                if len(value.arguments) != 1:
+                    raise SurfaceValidationError("TYPE-V009 scalar cast expects one argument")
+                return PrimitiveTypeNode(
+                    PrimitiveKind.FLOAT if value.callee.name == "float" else PrimitiveKind.INT
+                )
             if value.callee.name == _CURRENT_FUNCTION:
                 raise SurfaceValidationError("FN-007 recursive function calls are rejected")
             function = symbols.get(value.callee.name)
@@ -2174,6 +2191,13 @@ def _require_bool_condition(
     symbols: dict[str, Any],
     bindings: dict[str, Any],
 ) -> None:
+    # Unannotated parameters act as type variables.  A Bool-only use fixes
+    # the variable to Bool rather than leaving it as an untyped Unknown.
+    if isinstance(expression.expression, IdentifierNode):
+        name = expression.expression.name
+        binding = bindings.get(name)
+        if isinstance(binding, _Binding) and binding.type_node is _UNKNOWN_TYPE:
+            bindings[name] = _Binding(PrimitiveTypeNode(PrimitiveKind.BOOL), binding.mutable)
     expression_type = _expression_type(expression.expression, symbols, bindings)
     bool_type = PrimitiveTypeNode(PrimitiveKind.BOOL)
     if expression_type is _UNKNOWN_TYPE or expression_type != bool_type:

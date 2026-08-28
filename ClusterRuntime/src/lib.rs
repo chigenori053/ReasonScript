@@ -14,6 +14,7 @@ pub mod planner;
 pub mod runtime;
 pub mod state;
 pub mod test_model;
+pub mod uera;
 pub mod worker;
 
 pub use config::{ClusterConfig, ExecutionConfig, Limits, NodeConfig};

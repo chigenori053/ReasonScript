@@ -22,6 +22,9 @@ from frontend.language_surface.nodes import (
     IntegerLiteralNode,
     LetStatementNode,
     MemberAccessNode,
+    ParenthesizedExpressionNode,
+    ResultStatementNode,
+    ReturnStatementNode,
     StringLiteralNode,
     UnaryExpressionNode,
     UnaryOperator,
@@ -287,6 +290,14 @@ def tensor_operations(value: Any) -> list[dict[str, Any]]:
     """Lower calls in source order to deterministic Reason IR tensor nodes."""
     calls = list(_walk_tensor_calls(value))
     bindings = _shape_bindings(value)
+    call_bindings = _call_bindings(value)
+    escaping_bindings, escaping_calls = _escaping_values(value)
+    final_binding_calls: dict[str, int] = {}
+    for call in calls:
+        if binding := call_bindings.get(id(call)):
+            final_binding_calls[binding] = id(call)
+    output_by_call: dict[int, str] = {}
+    output_by_binding: dict[str, str] = {}
     result: list[dict[str, Any]] = []
     for index, call in enumerate(calls, 1):
         validate_tensor_call(call)
@@ -296,6 +307,17 @@ def tensor_operations(value: Any) -> list[dict[str, Any]]:
         shape = infer_tensor_shape(call, bindings)
         operation_id = f"tensor_call_{index:03d}"
         output_ref = f"tensor_value_{index:03d}"
+        dependencies = _call_dependencies(
+            call, output_by_call, output_by_binding
+        )
+        binding = call_bindings.get(id(call))
+        lifecycle = _lifecycle_for_call(
+            function,
+            binding,
+            escaping_bindings,
+            id(call) in escaping_calls,
+            binding is not None and final_binding_calls.get(binding) == id(call),
+        )
         result.append(
             {
                 "node_type": "tensor_call",
@@ -308,6 +330,9 @@ def tensor_operations(value: Any) -> list[dict[str, Any]]:
                     for position, argument in enumerate(call.arguments)
                 ],
                 "output_ref": output_ref,
+                "dependencies": dependencies,
+                "binding": binding,
+                "lifecycle": lifecycle,
                 "tensor_metadata": {
                     "shape": list(shape) if shape is not None else ["unknown"],
                     "rank": len(shape) if shape is not None else "unknown",
@@ -317,7 +342,146 @@ def tensor_operations(value: Any) -> list[dict[str, Any]]:
                 "source_ref": {"line": None, "column": None},
             }
         )
+        output_by_call[id(call)] = output_ref
+        if binding is not None:
+            output_by_binding[binding] = output_ref
+    _apply_last_use_analysis(result)
     return result
+
+
+def _call_bindings(value: Any) -> dict[int, str]:
+    result: dict[int, str] = {}
+
+    def visit(item: Any) -> None:
+        if isinstance(item, (LetStatementNode, ConstStatementNode, AssignmentStatementNode)):
+            call = _outer_tensor_call(item.expression)
+            if call is not None:
+                binding = getattr(item, "identifier", getattr(item, "target", None))
+                if isinstance(binding, str):
+                    result[id(call)] = binding
+        if is_dataclass(item) and not isinstance(item, type):
+            for part in fields(item):
+                visit(getattr(item, part.name))
+        elif isinstance(item, (tuple, list)):
+            for part in item:
+                visit(part)
+
+    visit(value)
+    return result
+
+
+def _outer_tensor_call(value: Any) -> CallExpressionNode | None:
+    value = value.expression if isinstance(value, ExpressionNode) else value
+    while isinstance(value, ParenthesizedExpressionNode):
+        value = value.expression
+        value = value.expression if isinstance(value, ExpressionNode) else value
+    return value if isinstance(value, CallExpressionNode) and tensor_call_name(value) else None
+
+
+def _escaping_values(value: Any) -> tuple[set[str], set[int]]:
+    bindings: set[str] = set()
+    calls: set[int] = set()
+
+    def collect(item: Any) -> None:
+        item = item.expression if isinstance(item, ExpressionNode) else item
+        while isinstance(item, ParenthesizedExpressionNode):
+            item = item.expression
+            item = item.expression if isinstance(item, ExpressionNode) else item
+        if isinstance(item, IdentifierNode):
+            bindings.add(item.name)
+            return
+        if isinstance(item, CallExpressionNode):
+            if tensor_call_name(item) is not None:
+                calls.add(id(item))
+            return
+        if is_dataclass(item) and not isinstance(item, type):
+            for part in fields(item):
+                collect(getattr(item, part.name))
+        elif isinstance(item, (tuple, list)):
+            for part in item:
+                collect(part)
+
+    def visit(item: Any) -> None:
+        if isinstance(item, (ResultStatementNode, ReturnStatementNode)):
+            collect(item.expression)
+            return
+        if is_dataclass(item) and not isinstance(item, type):
+            for part in fields(item):
+                visit(getattr(item, part.name))
+        elif isinstance(item, (tuple, list)):
+            for part in item:
+                visit(part)
+
+    visit(value)
+    return bindings, calls
+
+
+def _call_dependencies(
+    call: CallExpressionNode,
+    output_by_call: dict[int, str],
+    output_by_binding: dict[str, str],
+) -> list[str]:
+    dependencies: list[str] = []
+
+    def add(reference: str) -> None:
+        if reference not in dependencies:
+            dependencies.append(reference)
+
+    def visit(item: Any) -> None:
+        item = item.expression if isinstance(item, ExpressionNode) else item
+        if isinstance(item, CallExpressionNode) and tensor_call_name(item) is not None:
+            reference = output_by_call.get(id(item))
+            if reference is not None:
+                add(reference)
+                return
+        if isinstance(item, IdentifierNode):
+            reference = output_by_binding.get(item.name)
+            if reference is not None:
+                add(reference)
+            return
+        if is_dataclass(item) and not isinstance(item, type):
+            for part in fields(item):
+                visit(getattr(item, part.name))
+        elif isinstance(item, (tuple, list)):
+            for part in item:
+                visit(part)
+
+    for argument in call.arguments:
+        visit(argument)
+    return dependencies
+
+
+def _lifecycle_for_call(
+    function: str,
+    binding: str | None,
+    escaping_bindings: set[str],
+    escapes_directly: bool,
+    is_final_binding: bool,
+) -> str:
+    if function == "tensor.parameter":
+        return "Parameter"
+    if function == "tensor.load":
+        return "Artifact"
+    if escapes_directly or (
+        is_final_binding and binding is not None and binding in escaping_bindings
+    ):
+        return "Observation"
+    return "Intermediate" if binding is not None else "Temporary"
+
+
+def _apply_last_use_analysis(operations: list[dict[str, Any]]) -> None:
+    """Annotate Reason IR values with deterministic consumer and last-use data."""
+    consumers = {operation["output_ref"]: [] for operation in operations}
+    for operation in operations:
+        step = int(operation["operation_id"].rsplit("_", 1)[-1])
+        for dependency in operation["dependencies"]:
+            if dependency in consumers:
+                consumers[dependency].append(step)
+    for operation in operations:
+        creation_step = int(operation["operation_id"].rsplit("_", 1)[-1])
+        uses = consumers[operation["output_ref"]]
+        operation["ref_count"] = len(uses)
+        operation["last_use_step"] = max(uses, default=creation_step)
 
 
 def _validate_bound_shapes(
@@ -378,11 +542,25 @@ def _shape_bindings(value: Any) -> dict[str, tuple[int, ...]]:
 
 def tensor_execution_plan(operations: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """Project semantic Tensor nodes into a backend-neutral physical plan."""
+    operations = list(operations)
+    by_output = {operation["output_ref"]: operation for operation in operations}
     physical = []
-    previous_output: str | None = None
     for index, operation in enumerate(operations, 1):
-        dependencies = [previous_output] if previous_output is not None else []
+        dependencies = list(operation.get("dependencies", ()))
         metadata = operation["tensor_metadata"]
+        release_after = [
+            reference
+            for reference in dependencies
+            if by_output[reference]["last_use_step"] == index
+            and by_output[reference]["lifecycle"]
+            not in {"Parameter", "Persistent", "Artifact", "Observation"}
+        ]
+        if (
+            operation["ref_count"] == 0
+            and operation["last_use_step"] == index
+            and operation["lifecycle"] in {"Intermediate", "Temporary"}
+        ):
+            release_after.append(operation["output_ref"])
         physical.append(
             {
                 "operation_id": f"op_{operation['operation_id']}",
@@ -393,18 +571,27 @@ def tensor_execution_plan(operations: Iterable[dict[str, Any]]) -> dict[str, Any
                 "lowered_operations": list(operation["lowered_operations"]),
                 "dependencies": dependencies,
                 "output_ref": operation["output_ref"],
+                "binding": operation.get("binding"),
+                "lifecycle": operation["lifecycle"],
+                "ref_count": operation["ref_count"],
+                "last_use_step": operation["last_use_step"],
+                "release_after": release_after,
                 "shape": list(metadata["shape"]),
                 "dtype": metadata["dtype"],
                 "execution_order": index,
                 "source_ref": dict(operation["source_ref"]),
             }
         )
-        previous_output = operation["output_ref"]
     return {
         "schema_version": "reasonscript-tensor-execution-plan/0.1",
         "operations": physical,
         "deterministic": True,
         "backend": "abstract",
+        "lifetime_policy": {
+            "analysis": "reason_ir_last_use",
+            "release_condition": "ref_count_zero_and_non_persistent",
+            "protected_classes": ["Parameter", "Persistent", "Artifact"],
+        },
     }
 
 

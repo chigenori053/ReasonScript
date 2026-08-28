@@ -106,6 +106,8 @@ class IntegratedComputationResult:
                 for ref in sorted(self.runtime._refs.values(), key=lambda item: item.tensor_id)
             ],
             "tensor_trace": [_stable_trace(item) for item in self.runtime.trace],
+            "tensor_lifecycle_trace": list(self.runtime.lifecycle_trace),
+            "tensor_lifetime_metrics": self.runtime.lifetime_metrics(),
             "loop_trace": list(self.loop_trace),
             "vision_trace": list(self.vision_runtime.trace) if self.vision_runtime is not None else [],
             "calculations": {
@@ -537,6 +539,14 @@ def _expression(
                 )
             return [*collection, copy.deepcopy(item)]
         if isinstance(value.callee, IdentifierNode):
+            if value.callee.name in {"float", "int"}:
+                if len(value.arguments) != 1:
+                    raise IntegratedRuntimeError("RT-CALL-002", f"{value.callee.name} expects one argument")
+                argument = _expression(
+                    value.arguments[0], env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                return float(argument) if value.callee.name == "float" else int(argument)
             function_node = functions.get(value.callee.name)
             if function_node is None:
                 raise IntegratedRuntimeError(

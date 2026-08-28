@@ -41,22 +41,23 @@ class CoreLanguagePhase2BooleanTests(unittest.TestCase):
         self.assertIsInstance(function.body[1].body[0], MatchStatementNode)
         self.assertEqual(from_json_value(to_json_value(program)), program)
 
-    def test_condition_must_be_boolean(self):
-        with self.assertRaisesRegex(SurfaceSyntaxError, "CV-1"):
-            parse(
-                """
-                module invalid {
-                    fn bad(x) {
-                        if x {
-                            return 1
-                        }
-                        else {
-                            return 0
-                        }
+    def test_unannotated_parameter_is_inferred_as_boolean_in_condition(self):
+        # RS-UERA-001: condition use constrains an unannotated parameter to
+        # Bool instead of treating it as an unconstrained Unknown value.
+        parse(
+            """
+            module inferred {
+                fn bad(x) {
+                    if x {
+                        return 1
+                    }
+                    else {
+                        return 0
                     }
                 }
-                """
-            )
+            }
+            """
+        )
 
     def test_relational_comparison_requires_comparable_operands(self):
         with self.assertRaisesRegex(SurfaceSyntaxError, "CV-2"):

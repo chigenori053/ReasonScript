@@ -432,6 +432,8 @@ def _project_calculations(
         node.name: node for node in module.body if isinstance(node, FunctionDeclarationNode)
     }
     emitted_function_returns: set[str] = set()
+    emitted_transition_targets: set[str] = set()
+    duplicate_target_counts: dict[str, int] = {}
     for node in calculations:
         local_names: set[str] = set()
         current_sources = [current]
@@ -507,10 +509,23 @@ def _project_calculations(
                         }
                         if pattern_decisions:
                             effect["pattern_decisions"] = pattern_decisions
+                        # Ensure transition_id is unique across the IR only when necessary.
+                        # Using target alone can produce duplicates when the same
+                        # function return target is emitted multiple times from
+                        # different call sites or branching paths. Append a minimal
+                        # deterministic suffix only for true duplicates so that
+                        # canonical labels are preserved when possible.
+                        if target not in emitted_transition_targets:
+                            transition_id = target
+                            emitted_transition_targets.add(target)
+                        else:
+                            count = duplicate_target_counts.get(target, 1)
+                            transition_id = f"{target}-{count}"
+                            duplicate_target_counts[target] = count + 1
                         declarations.append(
                             semantic.TransitionNode(
                                 f"{namespace}-function-{transition_index}",
-                                target,
+                                transition_id,
                                 source,
                                 "FunctionReturnTransition",
                                 target,
@@ -2693,6 +2708,17 @@ def execution_plan_for(reason_ir: dict[str, Any]) -> dict[str, Any]:
         ),
         "evidence_refs": [],
         "planner_version": "language-surface-validation/0.1",
+        "workload": dict(
+            reason_ir.get("metadata", {}).get(
+                "workload_estimate", _workload_estimate(reason_ir)
+            )
+        ),
+        "requirements": _execution_requirements(reason_ir),
+        "placement_policy": {
+            "policy_version": "UERA-0.1",
+            "mode": "capability_driven",
+            "selection_reason": "resolved_at_runtime_from_workload_and_capabilities",
+        },
     }
     bindings = reason_ir.get("metadata", {}).get("reason_object_bindings", [])
     if bindings:
@@ -2710,6 +2736,98 @@ def execution_plan_for(reason_ir: dict[str, Any]) -> dict[str, Any]:
     if vision_plan:
         result["vision_plan"] = vision_plan
     return result
+
+
+def _workload_estimate(reason_ir: dict[str, Any]) -> dict[str, Any]:
+    tensor_plan = reason_ir.get("metadata", {}).get("tensor_execution_plan", {})
+    tensor_operations = list(tensor_plan.get("operations", ()))
+    dtype_bytes = {"bool": 1, "i32": 4, "i64": 8, "f32": 4, "f64": 8}
+    output_bytes: dict[str, int] = {}
+    operation_costs: list[int] = []
+    for operation in tensor_operations:
+        shape = operation.get("shape", ())
+        elements = 1
+        if not shape or any(not isinstance(item, int) or item < 0 for item in shape):
+            elements = 0
+        else:
+            for dimension in shape:
+                elements *= dimension
+        output_bytes[str(operation.get("output_ref"))] = (
+            elements * dtype_bytes.get(str(operation.get("dtype")), 8)
+        )
+        operation_costs.append(
+            max(1, elements)
+            * max(1, len(operation.get("lowered_operations", ())))
+        )
+    peak_tensors = 0
+    peak_memory = 0
+    for step in range(1, len(tensor_operations) + 1):
+        live = [
+            operation
+            for operation in tensor_operations
+            if int(operation.get("execution_order", 0)) <= step
+            <= int(operation.get("last_use_step", step))
+        ]
+        peak_tensors = max(peak_tensors, len(live))
+        peak_memory = max(
+            peak_memory,
+            sum(output_bytes.get(str(operation.get("output_ref")), 0) for operation in live),
+        )
+    depths: dict[str, int] = {}
+    for operation in tensor_operations:
+        dependencies = operation.get("dependencies", ())
+        depths[str(operation.get("output_ref"))] = 1 + max(
+            (depths.get(str(reference), 0) for reference in dependencies),
+            default=0,
+        )
+    functions = {str(operation.get("function")) for operation in tensor_operations}
+    autograd_enabled = bool(
+        functions & {"tensor.parameter", "tensor.requires_grad", "tensor.grad"}
+    )
+    estimated_operations = sum(operation_costs) + len(reason_ir.get("transitions", ()))
+    total_tensor_bytes = sum(output_bytes.values())
+    parallelizable = bool(
+        any(
+            operation.get("function") in {"tensor.matmul", "tensor.linear", "tensor.conv2d"}
+            or output_bytes.get(str(operation.get("output_ref")), 0) >= 16 * 1024
+            for operation in tensor_operations
+        )
+        or len(reason_ir.get("metadata", {}).get("calculation_dependencies", ())) >= 2
+    )
+    return {
+        "estimated_operations": estimated_operations,
+        "estimated_memory": peak_memory,
+        "estimated_peak_live_tensors": peak_tensors,
+        "estimated_autograd_nodes": len(tensor_operations) if autograd_enabled else 0,
+        "parallelizable": parallelizable,
+        "dependency_depth": max(depths.values(), default=len(reason_ir.get("transitions", ()))),
+        "transfer_cost": total_tensor_bytes if parallelizable else 0,
+        "estimator_version": "reason-ir-workload/0.1",
+    }
+
+
+def _execution_requirements(reason_ir: dict[str, Any]) -> dict[str, Any]:
+    metadata = reason_ir.get("metadata", {})
+    tensor_operations = metadata.get("tensor_execution_plan", {}).get("operations", ())
+    functions = {str(operation.get("function")) for operation in tensor_operations}
+    numeric_types = sorted(
+        {
+            {"bool": "Bool", "i32": "Int", "i64": "Int", "f32": "Float", "f64": "Float"}.get(
+                str(operation.get("dtype")), "Float"
+            )
+            for operation in tensor_operations
+        }
+    )
+    return {
+        "tensor_support": bool(tensor_operations),
+        "autograd_support": bool(
+            functions & {"tensor.parameter", "tensor.requires_grad", "tensor.grad"}
+        ),
+        "complex_support": False,
+        "reason_unit_support": bool(metadata.get("reason_object_bindings")),
+        "numeric_types": numeric_types,
+        "operations": sorted(functions),
+    }
 
 
 def _calculation_transition_id(

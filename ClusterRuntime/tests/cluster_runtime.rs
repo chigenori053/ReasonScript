@@ -8,6 +8,7 @@ use reasonscript_cluster_runtime::{
     runtime::{run_cluster, RunOptions},
     state::merge,
     test_model,
+    uera::build_uera_plan,
 };
 use serde_json::json;
 
@@ -125,4 +126,36 @@ fn fallback_is_recorded_and_semantically_equivalent() {
     .unwrap();
     assert_eq!(result.summary["fallback_used"], true);
     assert_eq!(result.summary["status"], "completed");
+}
+
+#[test]
+fn uera_plan_is_byte_identical_and_uses_canonical_fallback() {
+    let execution_plan = json!({"operations":["a","b","c"]});
+    let workers = vec!["worker-2".into(), "worker-0".into(), "worker-1".into()];
+    let available = vec!["worker-2".into(), "worker-0".into()];
+    let plans: Vec<_> = (0..3)
+        .map(|_| {
+            build_uera_plan(
+                &execution_plan,
+                &["a".into(), "b".into(), "c".into()],
+                &workers,
+                &available,
+                "UERA-0.1",
+            )
+            .unwrap()
+        })
+        .collect();
+    assert_eq!(plans[0], plans[1]);
+    assert_eq!(plans[1], plans[2]);
+    assert_eq!(plans[0].partitions[1].preferred_worker, "worker-1");
+    assert_eq!(plans[0].partitions[1].assigned_worker, "worker-2");
+    assert!(plans[0].partitions[1].fallback_used);
+    assert_eq!(
+        plans[0].reduction_order,
+        plans[0]
+            .partitions
+            .iter()
+            .map(|partition| partition.partition_id.clone())
+            .collect::<Vec<_>>()
+    );
 }

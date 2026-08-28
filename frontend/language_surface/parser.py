@@ -254,6 +254,9 @@ def _logical_lines(
 ) -> tuple[list[str], list[tuple[int, int, str]]]:
     lines: list[str] = []
     locations: list[tuple[int, int, str]] = []
+    pending: list[str] = []
+    pending_location: tuple[int, int, str] | None = None
+    depth = 0
     for line_number, raw in enumerate(source.splitlines(), start=1):
         uncommented = _strip_line_comment(raw)
         line = uncommented.strip()
@@ -263,9 +266,41 @@ def _logical_lines(
         line = re.sub(r"}\s*(else\b)", r"}\n\1", line)
         base_column = len(uncommented) - len(uncommented.lstrip()) + 1
         for part in (part.strip() for part in line.splitlines() if part.strip()):
-            lines.append(part)
-            locations.append((line_number, base_column + line.find(part), part))
+            if pending_location is None:
+                pending_location = (line_number, base_column + line.find(part), part)
+            pending.append(part)
+            depth += _parenthesis_delta(part)
+            if depth < 0:
+                raise SurfaceSyntaxError("EX-001 unmatched closing parenthesis")
+            if depth == 0:
+                combined = " ".join(pending)
+                lines.append(combined)
+                locations.append((pending_location[0], pending_location[1], combined))
+                pending, pending_location = [], None
+    if pending:
+        raise SurfaceSyntaxError("EX-001 unclosed parenthesized expression")
     return lines, locations
+
+
+def _parenthesis_delta(value: str) -> int:
+    quote: str | None = None
+    escaped = False
+    delta = 0
+    for char in value:
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+        elif char in {'"', "'"}:
+            quote = char
+        elif char == "(":
+            delta += 1
+        elif char == ")":
+            delta -= 1
+    return delta
 
 
 def _strip_line_comment(raw: str) -> str:
@@ -439,6 +474,9 @@ def _validate_reason_object_path(value: str) -> None:
 
 
 def _collect_simple_statement(cursor: _Cursor) -> str:
+    # Collect potentially-multi-line simple statements by balancing
+    # expression delimiters (parens/brackets/braces).
+    start_index = cursor.index
     parts = [cursor.take()]
     first_location = _CURRENT_SOURCE_LINE.get()
     balance = _expression_delimiter_balance(parts[0])
@@ -448,7 +486,26 @@ def _collect_simple_statement(cursor: _Cursor) -> str:
         balance += _expression_delimiter_balance(next_line)
     if balance != 0:
         raise SurfaceSyntaxError("EX-201A-002 invalid struct literal syntax")
-    _CURRENT_SOURCE_LINE.set(first_location)
+    # Determine the best source location for the combined expression.
+    combined = " ".join(parts).strip()
+    # Find the first logical line that contains the first token of the expression
+    # so diagnostics/source locations point to the correct column.
+    import re as _re
+    m = _re.match(r"\S+", combined)
+    if m:
+        first_token = m.group(0)
+    else:
+        first_token = combined
+    assigned = False
+    for i in range(start_index, cursor.index):
+        line_loc = cursor.locations[i]
+        line_text = line_loc[2]
+        if first_token in line_text:
+            _CURRENT_SOURCE_LINE.set(line_loc)
+            assigned = True
+            break
+    if not assigned:
+        _CURRENT_SOURCE_LINE.set(first_location)
     return " ".join(parts)
 
 
