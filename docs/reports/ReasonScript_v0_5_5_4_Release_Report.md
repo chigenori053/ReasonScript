@@ -35,12 +35,14 @@ the canonical CI pipeline passes.
 
 ## Generated Artifacts
 
-- A dirty-source development package was generated outside the repository and
-  self-validated successfully:
-  `reasonscript-0.5.5.4-macos-arm64.zip`.
+- A clean release package was generated from commit
+  `d67e3de66ab53f095199359d66b7761321ca117a` and self-validated:
+  `dist/reasonscript-0.5.5.4-macos-arm64.zip`.
 - Package validation passed with 532 files and no diagnostics.
-- Development-package SHA-256:
-  `ba7f022617efa907cefce4023cf76432e13168daf8be6e8262abbc6a1a72ba48`.
+- Release-package SHA-256:
+  `abe84b0d0ee9489ec07802c7ab6d291bef1611f6e356995e7f92a8178836c5c6`.
+- Payload SHA-256:
+  `3e8106eca537823168503142419799f013ce2d02da800819469883640e03645a`.
 - `agent_report.json` records this task after validation.
 
 ## Compatibility Notes
@@ -52,7 +54,6 @@ fallback.
 
 ## Remaining Work
 
-A formal clean release package must be rebuilt after the current unrelated
-tracked deletions under `vscode-extension/node_modules` are resolved and these
-changes are committed. The validated development package must not be promoted
-as a release artifact.
+No implementation or release-artifact work remains in this scope. The unrelated
+tracked deletions under `vscode-extension/node_modules` remain outside this
+change and were not committed.
