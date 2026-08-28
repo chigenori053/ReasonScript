@@ -15,7 +15,6 @@
     "target": {"type": "string", "minLength": 1},
     "expected_cost": {"type": "number", "minimum": 0, "default": 1.0},
     "guard": {"type": ["string", "null"]},
-    "stable_transition_id": {"type": ["string", "null"], "minLength": 1},
     "effect": true
   }
 }

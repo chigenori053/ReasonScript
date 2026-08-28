@@ -189,40 +189,38 @@ def project_module(module: ModuleNode, *, package: str | None = None) -> semanti
                     node.source,
                     node.relation.value,
                     node.target,
-            stable_transition_id=f"{namespace}-relation-{transition_index}",
-        )
+                )
             )
         elif isinstance(node, TransitionNode):
             transition_index += 1
             requirements = [
-        statement.constraint
-        for statement in node.body
-        if isinstance(statement, RequireStatementNode)
+                statement.constraint
+                for statement in node.body
+                if isinstance(statement, RequireStatementNode)
             ]
             goal_refs = [
-        statement.goal
-        for statement in node.body
-        if isinstance(statement, GoalStatementNode)
+                statement.goal
+                for statement in node.body
+                if isinstance(statement, GoalStatementNode)
             ]
             reaches = [
-        statement.goal
-        for statement in node.body
-        if isinstance(statement, ReachStatementNode)
+                statement.goal
+                for statement in node.body
+                if isinstance(statement, ReachStatementNode)
             ]
             declarations.append(
-        semantic.TransitionNode(
-            f"{namespace}-transition-{transition_index}",
-            node.name,
-            node.from_state,
-            "Transition",
-            reaches[-1] if reaches else node.to_state,
-            stable_transition_id=node.name,
-            guard=" && ".join(requirements) or None,
-            effect={
-                "goals": goal_refs,
-                "body": [to_json_value(item) for item in node.body],
-            },
-        )
+                semantic.TransitionNode(
+                    f"{namespace}-transition-{transition_index}",
+                    node.name,
+                    node.from_state,
+                    "Transition",
+                    reaches[-1] if reaches else node.to_state,
+                    guard=" && ".join(requirements) or None,
+                    effect={
+                        "goals": goal_refs,
+                        "body": [to_json_value(item) for item in node.body],
+                    },
+                )
             )
         elif isinstance(node, CalculationNode):
             if not calculations_projected:
@@ -531,7 +529,6 @@ def _project_calculations(
                                 source,
                                 "FunctionReturnTransition",
                                 target,
-                                stable_transition_id=target,
                                 effect=effect,
                             )
                         )
@@ -556,57 +553,54 @@ def _project_calculations(
                     transition_index,
                     current_sources,
                 )
-            # Provide a stable canonical id (without any uniqueness suffix)
-            calculation_base = f"{node.name}-{index}-{identifier}"
-            declarations.append(
-                semantic.TransitionNode(
-                    f"{namespace}-calculation-{transition_index}",
-                    transition_id,
-                    source,
-                    relation,
-                    target,
-                    stable_transition_id=calculation_base,
-                    effect={
-                        "calculation": node.name,
-                        "visibility": node.visibility.value,
-                        "goal_annotation": node.goal_annotation,
-                        "return_type": (
-                            to_json_value(node.return_type)
-                            if node.return_type is not None
-                            else None
-                        ),
-                        "target": identifier,
-                        "statement": statement_data,
-                        "inputs": _resolved_expression_inputs(
-                            expression,
-                            calculation=node.name,
-                            calculation_names=calculation_names,
-                            local_names=local_names,
-                        ),
-                        "function_calls": [
-                            {
-                                "node_type": "FunctionCallIRNode",
-                                "function": f"{namespace}.{function_name}",
-                                "arguments": [
-                                    to_json_value(argument)
-                                    for argument in _function_call_arguments(expression, function_name)
-                                ],
-                                "return_type": _type_label(
-                                    functions[function_name].return_type
-                                    if function_name in functions
-                                    else None
-                                ),
-                            }
-                            for function_name in _expression_function_calls(expression)
-                        ],
-                        **(
-                            {"expression": statement_data["expression"]}
-                            if "expression" in statement_data
-                            else {}
-                        ),
-                    },
+                declarations.append(
+                    semantic.TransitionNode(
+                        f"{namespace}-calculation-{transition_index}",
+                        transition_id,
+                        source,
+                        relation,
+                        target,
+                        effect={
+                            "calculation": node.name,
+                            "visibility": node.visibility.value,
+                            "goal_annotation": node.goal_annotation,
+                            "return_type": (
+                                to_json_value(node.return_type)
+                                if node.return_type is not None
+                                else None
+                            ),
+                            "target": identifier,
+                            "statement": statement_data,
+                            "inputs": _resolved_expression_inputs(
+                                expression,
+                                calculation=node.name,
+                                calculation_names=calculation_names,
+                                local_names=local_names,
+                            ),
+                            "function_calls": [
+                                {
+                                    "node_type": "FunctionCallIRNode",
+                                    "function": f"{namespace}.{function_name}",
+                                    "arguments": [
+                                        to_json_value(argument)
+                                        for argument in _function_call_arguments(expression, function_name)
+                                    ],
+                                    "return_type": _type_label(
+                                        functions[function_name].return_type
+                                        if function_name in functions
+                                        else None
+                                    ),
+                                }
+                                for function_name in _expression_function_calls(expression)
+                            ],
+                            **(
+                                {"expression": statement_data["expression"]}
+                                if "expression" in statement_data
+                                else {}
+                            ),
+                        },
+                    )
                 )
-            )
             current = target
             current_sources = [target]
             if isinstance(statement, AssignmentStatementNode):

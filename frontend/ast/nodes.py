@@ -32,7 +32,6 @@ class TransitionNode:
     source: str
     relation: str
     target: str
-    stable_transition_id: str | None = None
     expected_cost: float = 1.0
     guard: str | None = None
     effect: JsonValue = None
@@ -127,7 +126,6 @@ def _declaration(value: Mapping[str, Any]) -> Declaration:
             value["source"],
             value["relation"],
             value["target"],
-            value.get("stable_transition_id"),
             value.get("expected_cost", 1.0),
             value.get("guard"),
             value.get("effect"),

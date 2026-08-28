@@ -95,8 +95,6 @@ def _transition(node: TransitionNode) -> dict[str, Any]:
         "target": node.target,
         "expected_cost": node.expected_cost,
     }
-    if node.stable_transition_id is not None:
-        result["stable_transition_id"] = node.stable_transition_id
     if node.guard is not None:
         result["guard"] = node.guard
     if node.effect is not None:
