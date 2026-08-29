@@ -67,6 +67,47 @@ pub struct Vm<'a> {
     filesystem_read: bool,
     filesystem_write: bool,
     backend: String,
+    active_frames: RefCell<Vec<Rc<RefCell<HashMap<String, Value>>>>>,
+    active_calculations: RefCell<Vec<Value>>,
+    temporary_roots: RefCell<Vec<Value>>,
+}
+
+struct FrameGuard<'a, 'v> {
+    vm: &'a Vm<'v>,
+}
+
+impl<'a, 'v> FrameGuard<'a, 'v> {
+    fn new(vm: &'a Vm<'v>, env: &Rc<RefCell<HashMap<String, Value>>>) -> Self {
+        vm.active_frames.borrow_mut().push(env.clone());
+        FrameGuard { vm }
+    }
+}
+
+impl<'a, 'v> Drop for FrameGuard<'a, 'v> {
+    fn drop(&mut self) {
+        self.vm.active_frames.borrow_mut().pop();
+    }
+}
+
+struct TempRootGuard<'a, 'v> {
+    vm: &'a Vm<'v>,
+    initial_len: usize,
+}
+
+impl<'a, 'v> TempRootGuard<'a, 'v> {
+    fn new(vm: &'a Vm<'v>) -> Self {
+        let initial_len = vm.temporary_roots.borrow().len();
+        TempRootGuard { vm, initial_len }
+    }
+}
+
+impl<'a, 'v> Drop for TempRootGuard<'a, 'v> {
+    fn drop(&mut self) {
+        self.vm
+            .temporary_roots
+            .borrow_mut()
+            .truncate(self.initial_len);
+    }
 }
 
 impl<'a> Vm<'a> {
@@ -141,6 +182,9 @@ impl<'a> Vm<'a> {
             filesystem_read,
             filesystem_write,
             backend,
+            active_frames: RefCell::new(Vec::new()),
+            active_calculations: RefCell::new(Vec::new()),
+            temporary_roots: RefCell::new(Vec::new()),
         }
     }
 
@@ -230,6 +274,7 @@ impl<'a> Vm<'a> {
         }
         *self.reason_objects.borrow_mut() = object_bindings;
         let mut calculations: Vec<(String, Value)> = Vec::new();
+        self.active_calculations.borrow_mut().clear();
         for calculation_id in &program.calculations {
             let function = *self.functions.get(calculation_id.as_str()).ok_or_else(|| {
                 RuntimeError::new(
@@ -237,19 +282,23 @@ impl<'a> Vm<'a> {
                     format!("unknown calculation: {calculation_id}"),
                 )
             })?;
-            let mut env: HashMap<String, Value> = calculations
+            let mut env_map: HashMap<String, Value> = calculations
                 .iter()
                 .map(|(name, value)| (name.clone(), value.clone()))
                 .collect();
-            env.extend(self.reasoning_bindings.clone());
-            env.extend(
+            env_map.extend(self.reasoning_bindings.clone());
+            env_map.extend(
                 self.reason_objects
                     .borrow()
                     .iter()
                     .map(|(name, value)| (name.clone(), value.clone())),
             );
-            match self.run_function(function, &mut env, 0)? {
-                Outcome::Result(value) => calculations.push((calculation_id.clone(), value)),
+            let env = Rc::new(RefCell::new(env_map));
+            match self.run_function(function, &env, 0)? {
+                Outcome::Result(value) => {
+                    self.active_calculations.borrow_mut().push(value.clone());
+                    calculations.push((calculation_id.clone(), value));
+                }
                 Outcome::NoValue => {}
                 Outcome::Return(_) => {
                     return Err(RuntimeError::new(
@@ -266,12 +315,17 @@ impl<'a> Vm<'a> {
         Ok(calculations)
     }
 
+    fn push_temporary_root(&self, value: Value) {
+        self.temporary_roots.borrow_mut().push(value);
+    }
+
     fn run_function(
         &self,
         function: &Function,
-        env: &mut HashMap<String, Value>,
+        env: &Rc<RefCell<HashMap<String, Value>>>,
         call_depth: u32,
     ) -> Result<Outcome, RuntimeError> {
+        let _frame_guard = FrameGuard::new(self, env);
         let blocks: HashMap<&str, &Block> = function
             .blocks
             .iter()
@@ -296,7 +350,7 @@ impl<'a> Vm<'a> {
             })?;
             for instruction in &block.instructions {
                 self.execute_instruction(instruction, env, call_depth)?;
-                self.collect_tensors(env.values());
+                self.collect_tensors();
             }
             match &block.terminator {
                 Terminator::Jump { target } => {
@@ -336,11 +390,37 @@ impl<'a> Vm<'a> {
         }
     }
 
-    fn collect_tensors<'v>(&self, values: impl Iterator<Item = &'v Value>) {
+    fn collect_tensors(&self) {
         let mut roots = std::collections::HashSet::new();
-        for value in values {
-            collect_tensor_ids(value, &mut roots);
+        let mut visited_arrays = std::collections::HashSet::new();
+        let mut visited_structs = std::collections::HashSet::new();
+
+        // 1. All bindings in all active frames (including suspended callers)
+        for frame in self.active_frames.borrow().iter() {
+            let env = frame.borrow();
+            for value in env.values() {
+                collect_tensor_ids(value, &mut roots, &mut visited_arrays, &mut visited_structs);
+            }
         }
+
+        // 2. Retained prior calculation results
+        for value in self.active_calculations.borrow().iter() {
+            collect_tensor_ids(value, &mut roots, &mut visited_arrays, &mut visited_structs);
+        }
+
+        // 3. Temporary roots (in-progress arguments, return handoffs, intermediates)
+        for value in self.temporary_roots.borrow().iter() {
+            collect_tensor_ids(value, &mut roots, &mut visited_arrays, &mut visited_structs);
+        }
+
+        // 4. Bound reason objects and reasoning bindings
+        for value in self.reason_objects.borrow().values() {
+            collect_tensor_ids(value, &mut roots, &mut visited_arrays, &mut visited_structs);
+        }
+        for value in self.reasoning_bindings.values() {
+            collect_tensor_ids(value, &mut roots, &mut visited_arrays, &mut visited_structs);
+        }
+
         self.tensors.borrow_mut().collect(&roots);
     }
 
@@ -362,12 +442,12 @@ impl<'a> Vm<'a> {
     fn execute_instruction(
         &self,
         instruction: &Instruction,
-        env: &mut HashMap<String, Value>,
+        env: &Rc<RefCell<HashMap<String, Value>>>,
         call_depth: u32,
     ) -> Result<(), RuntimeError> {
         match instruction {
             Instruction::TraceLoopStart { loop_id, counter } => {
-                let iteration = match env.get(counter) {
+                let iteration = match env.borrow().get(counter) {
                     Some(Value::Int(value)) => *value + 1,
                     _ => {
                         return Err(RuntimeError::new(
@@ -376,10 +456,10 @@ impl<'a> Vm<'a> {
                         ))
                     }
                 };
-                env.insert(counter.clone(), Value::Int(iteration));
+                env.borrow_mut().insert(counter.clone(), Value::Int(iteration));
                 self.loop_frames
                     .borrow_mut()
-                    .insert(loop_id.clone(), (iteration, trace_env(env)));
+                    .insert(loop_id.clone(), (iteration, trace_env(&env.borrow())));
                 Ok(())
             }
             Instruction::TraceLoopEnd {
@@ -400,7 +480,7 @@ impl<'a> Vm<'a> {
                     "iteration": iteration,
                     "condition": true,
                     "previous_state": previous_state,
-                    "updated_state": trace_env(env),
+                    "updated_state": trace_env(&env.borrow()),
                     "break_triggered": break_triggered,
                     "continue_triggered": continue_triggered,
                 }));
@@ -408,7 +488,7 @@ impl<'a> Vm<'a> {
             }
             Instruction::Assign { target, expr } => {
                 let value = self.eval_expr(expr, env, call_depth)?;
-                env.insert(target.clone(), value);
+                env.borrow_mut().insert(target.clone(), value);
                 Ok(())
             }
             Instruction::Expr { expr } => {
@@ -420,8 +500,11 @@ impl<'a> Vm<'a> {
                 index,
                 expr,
             } => {
+                let _guard = TempRootGuard::new(self);
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
+                self.push_temporary_root(collection_value.clone());
                 let index_value = self.eval_expr(index, env, call_depth)?;
+                self.push_temporary_root(index_value.clone());
                 let new_value = self.eval_expr(expr, env, call_depth)?;
                 match collection_value {
                     Value::Array(items) => {
@@ -455,7 +538,9 @@ impl<'a> Vm<'a> {
                 member,
                 expr,
             } => {
+                let _guard = TempRootGuard::new(self);
                 let owner = self.eval_expr(object, env, call_depth)?;
+                self.push_temporary_root(owner.clone());
                 let new_value = self.eval_expr(expr, env, call_depth)?;
                 match owner {
                     Value::Struct(struct_value) => {
@@ -481,7 +566,7 @@ impl<'a> Vm<'a> {
     fn eval_expr(
         &self,
         expr: &Expr,
-        env: &mut HashMap<String, Value>,
+        env: &Rc<RefCell<HashMap<String, Value>>>,
         call_depth: u32,
     ) -> Result<Value, RuntimeError> {
         self.eval_expr_inner(expr, env, call_depth)
@@ -491,27 +576,33 @@ impl<'a> Vm<'a> {
     fn eval_expr_inner(
         &self,
         expr: &Expr,
-        env: &mut HashMap<String, Value>,
+        env: &Rc<RefCell<HashMap<String, Value>>>,
         call_depth: u32,
     ) -> Result<Value, RuntimeError> {
         match expr {
             Expr::Const { kind, value, .. } => const_value(kind, value),
-            Expr::Local { name, .. } => env.get(name).cloned().ok_or_else(|| {
+            Expr::Local { name, .. } => env.borrow().get(name).cloned().ok_or_else(|| {
                 RuntimeError::new("RT-NAME-001", format!("unknown runtime name: {name}"))
             }),
             Expr::Array { elements, .. } => {
+                let _guard = TempRootGuard::new(self);
                 let mut items = Vec::with_capacity(elements.len());
                 for element in elements {
-                    items.push(self.eval_expr(element, env, call_depth)?);
+                    let val = self.eval_expr(element, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    items.push(val);
                 }
                 Ok(Value::Array(Rc::new(RefCell::new(items))))
             }
             Expr::Struct {
                 type_name, fields, ..
             } => {
+                let _guard = TempRootGuard::new(self);
                 let mut evaluated = HashMap::new();
                 for (name, field_expr) in fields {
-                    evaluated.insert(name.clone(), self.eval_expr(field_expr, env, call_depth)?);
+                    let val = self.eval_expr(field_expr, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    evaluated.insert(name.clone(), val);
                 }
                 Ok(Value::Struct(Rc::new(StructValue {
                     type_name: type_name.clone(),
@@ -538,7 +629,9 @@ impl<'a> Vm<'a> {
                 right,
                 ..
             } => {
+                let _guard = TempRootGuard::new(self);
                 let left_value = self.eval_expr(left, env, call_depth)?;
+                self.push_temporary_root(left_value.clone());
                 let right_value = self.eval_expr(right, env, call_depth)?;
                 eval_binary(operator, left_value, right_value)
             }
@@ -548,7 +641,9 @@ impl<'a> Vm<'a> {
                 right,
                 ..
             } => {
+                let _guard = TempRootGuard::new(self);
                 let left_value = self.eval_expr(left, env, call_depth)?;
+                self.push_temporary_root(left_value.clone());
                 let right_value = self.eval_expr(right, env, call_depth)?;
                 eval_comparison(operator, left_value, right_value)
             }
@@ -572,7 +667,9 @@ impl<'a> Vm<'a> {
             Expr::Index {
                 collection, index, ..
             } => {
+                let _guard = TempRootGuard::new(self);
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
+                self.push_temporary_root(collection_value.clone());
                 let index_value = self.eval_expr(index, env, call_depth)?;
                 index_value_lookup(collection_value, index_value)
             }
@@ -585,9 +682,12 @@ impl<'a> Vm<'a> {
                 arguments,
                 source_span,
             } => {
+                let _guard = TempRootGuard::new(self);
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
-                    values.push(self.eval_expr(argument, env, call_depth)?);
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
                 }
                 let result =
                     crate::tensor_dispatch::call(function_id, values.clone(), &self.tensors)
@@ -620,9 +720,12 @@ impl<'a> Vm<'a> {
                 arguments,
                 ..
             } => {
+                let _guard = TempRootGuard::new(self);
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
-                    values.push(self.eval_expr(argument, env, call_depth)?);
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
                 }
                 let (result, trace) = crate::vision_dispatch::call(
                     function_id,
@@ -641,9 +744,12 @@ impl<'a> Vm<'a> {
                 arguments,
                 ..
             } => {
+                let _guard = TempRootGuard::new(self);
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
-                    values.push(self.eval_expr(argument, env, call_depth)?);
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
                 }
                 crate::ruo_dispatch::call(function_id, values)
             }
@@ -652,9 +758,12 @@ impl<'a> Vm<'a> {
                 arguments,
                 source_span,
             } => {
+                let _guard = TempRootGuard::new(self);
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
-                    values.push(self.eval_expr(argument, env, call_depth)?);
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
                 }
                 crate::optimizer_dispatch::call(function_id, values, &self.tensors)
                     // Optimizer dispatch previously discarded the expression
@@ -692,16 +801,21 @@ impl<'a> Vm<'a> {
                 arguments,
                 ..
             } => {
+                let _guard = TempRootGuard::new(self);
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
-                    values.push(self.eval_expr(argument, env, call_depth)?);
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
                 }
                 crate::relation_dispatch::call(function_id, values)
             }
             Expr::CallArrayAppend {
                 collection, item, ..
             } => {
+                let _guard = TempRootGuard::new(self);
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
+                self.push_temporary_root(collection_value.clone());
                 let item_value = self.eval_expr(item, env, call_depth)?;
                 match collection_value {
                     Value::Array(items) => {
@@ -749,7 +863,7 @@ impl<'a> Vm<'a> {
         &self,
         name: &str,
         argument_exprs: &[Expr],
-        env: &mut HashMap<String, Value>,
+        env: &Rc<RefCell<HashMap<String, Value>>>,
         call_depth: u32,
     ) -> Result<Value, RuntimeError> {
         let function_id = format!("fn.{name}");
@@ -768,15 +882,23 @@ impl<'a> Vm<'a> {
                 format!("function call depth exceeded: {}", self.max_call_depth),
             ));
         }
+        let _args_guard = TempRootGuard::new(self);
         let mut arguments = Vec::with_capacity(argument_exprs.len());
         for argument_expr in argument_exprs {
-            arguments.push(self.eval_expr(argument_expr, env, call_depth)?);
+            let val = self.eval_expr(argument_expr, env, call_depth)?;
+            self.push_temporary_root(val.clone());
+            arguments.push(val);
         }
         let mut local_env: HashMap<String, Value> = self.reason_objects.borrow().clone();
         local_env.extend(self.reasoning_bindings.clone());
         local_env.extend(function.parameters.iter().cloned().zip(arguments));
-        match self.run_function(function, &mut local_env, call_depth + 1)? {
-            Outcome::Return(value) => Ok(value),
+        let local_env = Rc::new(RefCell::new(local_env));
+        let outcome = self.run_function(function, &local_env, call_depth + 1)?;
+        match outcome {
+            Outcome::Return(value) => {
+                self.push_temporary_root(value.clone());
+                Ok(value)
+            }
             Outcome::NoValue => Err(RuntimeError::new(
                 "RT-CALL-004",
                 format!("function returned no value: {name}"),
@@ -819,19 +941,30 @@ fn tensor_trace_value(
     }
 }
 
-fn collect_tensor_ids(value: &Value, roots: &mut std::collections::HashSet<String>) {
+fn collect_tensor_ids(
+    value: &Value,
+    roots: &mut std::collections::HashSet<String>,
+    visited_arrays: &mut std::collections::HashSet<usize>,
+    visited_structs: &mut std::collections::HashSet<usize>,
+) {
     match value {
         Value::Tensor(id) => {
             roots.insert(id.to_string());
         }
         Value::Array(items) => {
-            for item in items.borrow().iter() {
-                collect_tensor_ids(item, roots);
+            let ptr = Rc::as_ptr(items) as usize;
+            if visited_arrays.insert(ptr) {
+                for item in items.borrow().iter() {
+                    collect_tensor_ids(item, roots, visited_arrays, visited_structs);
+                }
             }
         }
         Value::Struct(value) => {
-            for item in value.fields.borrow().values() {
-                collect_tensor_ids(item, roots);
+            let ptr = Rc::as_ptr(value) as usize;
+            if visited_structs.insert(ptr) {
+                for item in value.fields.borrow().values() {
+                    collect_tensor_ids(item, roots, visited_arrays, visited_structs);
+                }
             }
         }
         _ => {}
@@ -1243,5 +1376,101 @@ mod tests {
         }"#;
         let error = run(ir).expect_err("must fail");
         assert_eq!(error.code, "RT-INDEX-002");
+    }
+
+    #[test]
+    fn caller_frame_tensor_survives_callee_collection() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.1",
+            "calculations": ["Answer"],
+            "functions": [
+                {
+                    "id": "fn.Callee",
+                    "parameters": ["x"],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [{
+                            "op": "assign", "target": "c",
+                            "expr": {
+                                "op": "call_tensor", "function_id": "tensor.add",
+                                "arguments": [
+                                    {"op": "local", "name": "x"},
+                                    {"op": "const", "kind": "float", "value": 10.0}
+                                ]
+                            }
+                        }],
+                        "terminator": {
+                            "kind": "return",
+                            "value": {"op": "local", "name": "c"}
+                        }
+                    }]
+                },
+                {
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [
+                            {
+                                "op": "assign", "target": "caller_tensor",
+                                "expr": {
+                                    "op": "call_tensor", "function_id": "tensor.create",
+                                    "arguments": [
+                                        {"op": "array", "elements": [
+                                            {"op": "const", "kind": "float", "value": 5.0}
+                                        ]},
+                                        {"op": "const", "kind": "string", "value": "f64"}
+                                    ]
+                                }
+                            },
+                            {
+                                "op": "assign", "target": "callee_res",
+                                "expr": {
+                                    "op": "call_function", "name": "Callee",
+                                    "arguments": [
+                                        {"op": "call_tensor", "function_id": "tensor.create",
+                                         "arguments": [
+                                             {"op": "array", "elements": [
+                                                 {"op": "const", "kind": "float", "value": 1.0}
+                                             ]},
+                                             {"op": "const", "kind": "string", "value": "f64"}
+                                         ]}
+                                    ]
+                                }
+                            },
+                            {
+                                "op": "assign", "target": "final_tensor",
+                                "expr": {
+                                    "op": "call_tensor", "function_id": "tensor.add",
+                                    "arguments": [
+                                        {"op": "local", "name": "caller_tensor"},
+                                        {"op": "local", "name": "callee_res"}
+                                    ]
+                                }
+                            }
+                        ],
+                        "terminator": {
+                            "kind": "result",
+                            "value": {
+                                "op": "call_tensor", "function_id": "tensor.to_array",
+                                "arguments": [{"op": "local", "name": "final_tensor"}]
+                            }
+                        }
+                    }]
+                }
+            ]
+        }"#;
+        let results = run(ir).expect("caller tensor must remain live");
+        assert_eq!(results.len(), 1);
+        match &results[0].1 {
+            Value::Array(items) => {
+                let items = items.borrow();
+                assert_eq!(items.len(), 1);
+                assert_eq!(items[0], Value::Float(16.0));
+            }
+            other => panic!("expected an array, got {other:?}"),
+        }
     }
 }
