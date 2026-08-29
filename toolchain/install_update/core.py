@@ -582,6 +582,13 @@ class UpdateEngine:
                 "profile",
                 "reasonscript-runtime-host/1.0",
             ))
+        if "cluster-runtime-v0.2" in components:
+            probes.append((
+                "cluster-runtime-v0.2",
+                staging / "bin" / f"reason-cluster{suffix}",
+                "profile",
+                "reasonscript-cluster-runtime/0.2",
+            ))
         for component, binary, provenance_field, expected_provenance in probes:
             if not binary.is_file() or (self.adapter.name != "windows" and not os.access(binary, os.X_OK)):
                 raise UpdateError(

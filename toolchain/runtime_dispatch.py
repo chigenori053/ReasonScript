@@ -39,9 +39,10 @@ def execute_rust_program(
     include_trace: bool = False,
 ) -> dict[str, Any]:
     from frontend.computation_ir import LoweringError, lower_program
+    from frontend.computation_ir.optimizer import optimize_program
 
     try:
-        ir_document = lower_program(program)
+        ir_document = optimize_program(lower_program(program))
     except LoweringError as error:
         raise RustDispatchError(
             "computation_ir_lowering_unsupported",

@@ -31,6 +31,8 @@ jobs:
           for manifest in */Cargo.toml; do
             cargo fetch --manifest-path "$manifest"
           done
+      - name: Build native runtime host
+        run: cargo build --manifest-path ReasonRuntime/Cargo.toml --bin reason-runtime-host
       - run: ./reason ci --json --out .
       - if: always()
         uses: actions/upload-artifact@v4

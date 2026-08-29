@@ -95,6 +95,23 @@ def install(prefix: Path, json_output: bool) -> int:
                 host_binary,
             )
         host_binary.chmod(0o755)
+        cluster_name = "reason-cluster.exe" if os.name == "nt" else "reason-cluster"
+        cluster_binary = temp / "bin" / cluster_name
+        packaged_cluster = ROOT / "bin" / cluster_name
+        if packaged_cluster.is_file():
+            shutil.copy2(packaged_cluster, cluster_binary)
+        else:
+            cargo = shutil.which("cargo")
+            if not cargo:
+                raise RuntimeError("cargo is required to build the Rust Cluster Runtime from source")
+            cluster_build = subprocess.run(
+                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ClusterRuntime/Cargo.toml")],
+                text=True, capture_output=True,
+            )
+            if cluster_build.returncode:
+                raise RuntimeError(f"Rust Cluster Runtime build failed: {cluster_build.stderr.strip()}")
+            shutil.copy2(ROOT / "ClusterRuntime" / "target" / "release" / cluster_name, cluster_binary)
+        cluster_binary.chmod(0o755)
         vision_name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
         vision_binary = temp / "bin" / vision_name
         packaged_vision = ROOT / "bin" / vision_name

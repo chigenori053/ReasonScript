@@ -128,7 +128,10 @@ class MultilineParenthesizedExpressionTests(unittest.TestCase):
 """
         with self.assertRaises(SurfaceSyntaxError) as context:
             parse(source)
-        self.assertIn("EX-V003", str(context.exception))
+        self.assertEqual(
+            str(context.exception),
+            "EX-V003 unbalanced parentheses: unclosed '(' starting at 3:13",
+        )
 
     def test_07_unexpected_closing_parenthesis(self):
         """Unexpected closing parenthesis raises syntax error."""
@@ -139,8 +142,12 @@ class MultilineParenthesizedExpressionTests(unittest.TestCase):
   }
 }
 """
-        with self.assertRaises(SurfaceSyntaxError):
+        with self.assertRaises(SurfaceSyntaxError) as context:
             parse(source)
+        self.assertEqual(
+            str(context.exception),
+            "EX-V003 unbalanced parentheses: unexpected ')' at 3:20",
+        )
 
     def test_08_incomplete_operator_expression(self):
         """Incomplete operator expression inside parenthesized region raises syntax error."""
@@ -157,20 +164,25 @@ class MultilineParenthesizedExpressionTests(unittest.TestCase):
             parse(source)
 
     def test_09_source_location_accuracy(self):
-        """Accurate line location for parenthesized expression definitions."""
+        """Call nodes retain the physical start line and column after joining."""
         source = """module M {
+  fn Add(a, b) {
+    return a + b
+  }
   calculation Answer {
-    let a = (
-      1 + 2
+    let a = Add(
+      1,
+      2
     )
     result = a
   }
 }
 """
         program = parse(source)
-        calc = program.modules[0].body[0]
+        calc = program.modules[0].body[1]
         assign = calc.body[0]
-        self.assertIsNotNone(assign)
+        call = assign.expression.expression
+        self.assertEqual(getattr(call, "_source_location", None), {"line": 6, "column": 13})
 
 
 if __name__ == "__main__":

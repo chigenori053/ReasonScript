@@ -1,8 +1,8 @@
 {
   "schema_version": "reasonscript-validation-profile-declaration/1.0",
-  "reason_version": "0.5.5.5",
+  "reason_version": "0.5.5.6",
   "install_foundation_version": "1.1",
-  "runtime_version": "0.5.5.5",
+  "runtime_version": "0.5.5.6",
   "commands": [
     "--version",
     "doctor",
@@ -198,6 +198,10 @@
     },
     "runtime-host-v1.0": {
       "path": "ReasonRuntime",
+      "required": true
+    },
+    "cluster-runtime-v0.2": {
+      "path": "ClusterRuntime",
       "required": true
     }
   },

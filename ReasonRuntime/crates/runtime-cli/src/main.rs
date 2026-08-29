@@ -204,6 +204,10 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         .pointer("/context/trace/enabled")
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false);
+    let transport_tensors = request
+        .pointer("/context/transport_tensors")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
     let resource_root = std::path::PathBuf::from(
         context
             .get("resource_root")
@@ -238,7 +242,14 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             combined_trace.extend(reasoning_trace.clone());
             let mut results = serde_json::Map::new();
             for (name, value) in calculations {
-                results.insert(name, to_json(&value));
+                results.insert(
+                    name,
+                    if transport_tensors {
+                        vm.transport_value(&value)
+                    } else {
+                        to_json(&value)
+                    },
+                );
             }
             println!(
                 "{}",

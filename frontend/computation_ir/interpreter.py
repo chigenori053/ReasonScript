@@ -221,7 +221,7 @@ def _execute_instruction(instruction: dict[str, Any], env: dict[str, Any], ctx: 
 def _visible_trace_env(env: dict[str, Any]) -> dict[str, Any]:
     return _trace_env({
         name: value for name, value in env.items()
-        if not name.startswith(("__for_", "__trace_"))
+        if not name.startswith(("__for_", "__trace_", "__opt_"))
     })
 
 

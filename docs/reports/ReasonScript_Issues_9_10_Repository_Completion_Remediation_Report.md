@@ -1,10 +1,11 @@
 # ReasonScript Issues #9 & #10 Repository Completion Remediation Report
 # ReasonScript Issue #9 / #10 リポジトリ完了修正レポート
 
-**Specification / 仕様書:** [`docs/specifications/ReasonScript_Issues_9_10_Repository_Completion_Remediation_v0_1.md`](file:///Users/chigenori/development/ReasonScript/docs/specifications/ReasonScript_Issues_9_10_Repository_Completion_Remediation_v0_1.md)  
+**Specification / 仕様書:** `docs/specifications/ReasonScript_Issues_9_10_Repository_Completion_Remediation_v0_1.md`
 **Status / 状態:** `VALIDATED`  
 **Issues:** [#9](https://github.com/chigenori053/ReasonScript/issues/9), [#10](https://github.com/chigenori053/ReasonScript/issues/10), [#18](https://github.com/chigenori053/ReasonScript/issues/18), [#19](https://github.com/chigenori053/ReasonScript/issues/19), [#20](https://github.com/chigenori053/ReasonScript/issues/20)  
 **Distribution Status / 配布状況:** DEFERRED by scope decision (Repository fixed & validated; release packaging deferred)
+**GitHub Status / GitHub状況:** PENDING PUSH/MERGE (local validation is complete; remote checks must rerun after these changes are pushed)
 
 ---
 
@@ -19,9 +20,10 @@ This report documents the completion and verification of the repository remediat
   - Fully implemented and passed all 13 required lifetime acceptance test scenarios in `computation_ir_tests/test_computation_ir_tensor_liveness.py`.
 
 - **Track B (Epic #10 & Sub-issues #18, #19, #20):**
-  - **Issue #19 (Parenthesized Multiline Expressions):** Fully implemented support for newlines, blank lines, and line comments inside explicitly parenthesized expressions in `frontend/language_surface/parser.py` (`_logical_lines`), with 9 comprehensive tests in `tests/test_multiline_parenthesized_expressions.py`.
-  - **Issue #18 (Pure Function Fast Path & IR Optimization):** Verified constant folding, pure function classification, branch simplification, unreachable block removal, dead code elimination, and local CSE with 24 tests in `computation_ir_tests/test_computation_ir_optimizer.py`.
-  - **Issue #20 & UERA Revalidation:** Revalidated full test suite (2,243 Python tests across all suites, 33 Rust workspace unit tests, manifest checks, golden validation, and `./reason ci` across all 9 phases).
+  - **Issue #19 (Parenthesized Multiline Expressions):** Fully implemented newlines, nesting, blank lines, and comments inside explicitly parenthesized expressions. Unclosed and unexpected parentheses now report their exact physical line and column, and tests assert preserved call-node source locations.
+  - **Issue #18 (Pure Function Fast Path & IR Optimization):** Added conservative transitive purity classification (unknown purity is rejected), non-recursive single-block function inlining at `instruction_count <= 32`, trace-preserving LICM for proven-total expressions, and production integration in both standalone and built-project Rust execution.
+  - **Issue #18 performance gate:** Added `benchmarks/relation_matrix.rsn` and `scripts/benchmark_relation_matrix.py`. The committed 15-sample result records exact parity, 0.01131 s optimized median, 1.336x speedup, and satisfaction of the `<= 1.5 sec` target.
+  - **CI remediation:** GitHub Test and CI jobs now build `reason-runtime-host` before execution. Ruff uses an explicit stable rule selection so tool-version expansion cannot introduce unrelated repository-wide lint failures.
 
 ### 日本語
 本レポートは、仕様書 `ReasonScript_Issues_9_10_Repository_Completion_Remediation_v0_1.md` に基づくリポジトリ修正および検証の完了を報告するものです。
@@ -32,9 +34,10 @@ This report documents the completion and verification of the repository remediat
   - 仕様書で定められた 13 項目の網羅的生存性テスト（`test_computation_ir_tensor_liveness.py`）をすべて実装し、通過を確認しました。
 
 - **Track B（Epic #10 および Issue #18, #19, #20）:**
-  - **Issue #19（括弧付き複数行式）:** `parser.py` の `_logical_lines` において、括弧内の改行・空行・コメントを安全に処理する複数行式の正式サポートを実装し、9 項目の包括的テスト（`test_multiline_parenthesized_expressions.py`）を通過しました。
-  - **Issue #18（Pure Function 高速パスおよび IR 最適化）:** 定数畳み込み、純粋関数判定、デッドブランチ削除、ローカル CSE などの最適化と等価性を 24 項目のテスト（`test_computation_ir_optimizer.py`）で確認しました。
-  - **Issue #20 および UERA 再検証:** 全テスト（Python テスト 2,243 件、Rust ユニットテスト 33 件、マニフェスト整合性、ゴールデン検証、および `./reason ci` 全 9 フェーズ）の完全合格を確認しました。
+  - **Issue #19（括弧付き複数行式）:** 改行・入れ子・空行・コメントを正式対応し、未閉鎖括弧と予期しない閉じ括弧の物理行・列を診断に含めました。関数呼び出しの source location 保存もテストで実値を検証しています。
+  - **Issue #18（Pure Function 高速パスおよび IR 最適化）:** 不明な purity を適用外とする保守的な推移判定、32 instruction 以下の非再帰単一ブロック関数の inlining、トレース互換の LICM、および本番 Rust 実行経路への統合を実装しました。
+  - **Issue #18 性能ゲート:** Relation Matrix fixture の 15 サンプルで結果一致、最適化後中央値 0.01131 秒、1.336 倍の高速化、`<= 1.5 sec` 達成を記録しました。
+  - **CI 修正:** Test/CI job で native host を事前ビルドし、Ruff のルールを明示的に固定しました。
 
 ---
 
@@ -89,7 +92,8 @@ This report documents the completion and verification of the repository remediat
 ### 3.2 Track B (Issues #18 & #19) Test Matrix
 | Issue | Test Module / テストモジュール | Tests | Result |
 | :--- | :--- | :--- | :--- |
-| **#18** | `computation_ir_tests/test_computation_ir_optimizer.py` | 24 tests (constant folding, dead code elimination, CSE, relation/optimizer preservation) | **PASSED** |
+| **#18** | `computation_ir_tests/test_computation_ir_optimizer.py` | 30 tests (purity, inlining, LICM, trace parity, folding, DCE, CSE) | **PASSED** |
+| **#18** | `computation_ir_tests/test_relation_matrix_benchmark.py` | 2 tests (result parity, target/report evidence) | **PASSED** |
 | **#19** | `tests/test_multiline_parenthesized_expressions.py` | 9 tests (arithmetic, nested parens, arguments, arrays/indexing, comments, errors) | **PASSED** |
 
 ---
@@ -101,13 +105,15 @@ This report documents the completion and verification of the repository remediat
 | `cargo test --manifest-path ReasonRuntime/Cargo.toml` | Rust Workspace (all crates: computation-ir, tensor-core, reasoning-core, vision-runtime, native-runtime) | **PASSED** (33/33 tests) |
 | `python3 -m pytest computation_ir_tests/test_computation_ir_tensor_liveness.py -v` | Issue #9 Liveness Acceptance Suite | **PASSED** (13/13 tests) |
 | `python3 -m pytest tests/test_multiline_parenthesized_expressions.py -v` | Issue #19 Parenthesized Multiline Expressions Suite | **PASSED** (9/9 tests) |
-| `python3 -m pytest computation_ir_tests/test_computation_ir_optimizer.py -v` | Issue #18 Optimizer & Pure Functions Suite | **PASSED** (24/24 tests) |
+| `python3 -m pytest computation_ir_tests/test_computation_ir_optimizer.py -q` | Issue #18 Optimizer & Pure Functions Suite | **PASSED** (30/30 tests) |
+| `python3 scripts/benchmark_relation_matrix.py --samples 15 --check` | Relation Matrix performance gate | **PASSED** (0.01131 s, 1.336x, parity true) |
 | `./reason run canonical_fixtures/issue_9_layernorm_attention/src/main.rsn --json` | Canonical Issue #9 Fixture Execution | **PASSED** (Result: `true`) |
 | `./reason project-validate canonical_fixtures/issue_9_layernorm_attention` | Project Validation on Canonical Fixture | **PASSED** |
 | `./reason workspace canonical_fixtures/issue_9_layernorm_attention` | Workspace Diagnostics & Symbol Resolution | **PASSED** (0 diagnostics) |
 | `./reason tensor-manifest --check` | Tensor Standard Functions Contract Baseline | **PASSED** (0 drift) |
 | `./reason runtime-manifest --check` | Runtime Consolidation Manifest Baseline | **PASSED** (0 drift) |
 | `python3 scripts/test_platform.py test` | Platform Test Runner (all Python and Rust test targets) | **PASSED** (All targets) |
+| `python3 scripts/test_platform.py regression` | Full regression groups | **PASSED** |
 | `./reason ci` | Full CI Pipeline (9 phases) | **PASS** |
 
 ---
@@ -123,4 +129,4 @@ Per Section 8 of the specification, this increment completes and validates the f
 1. **Track A (Issue #9):** `COMPLETED` & `VALIDATED` in repository (deferred distribution noted).
 2. **Issue #18:** `COMPLETED` & `VALIDATED` in repository.
 3. **Issue #19:** `COMPLETED` & `VALIDATED` in repository.
-4. **Issue #20 & Epic #10:** `COMPLETED` & `VALIDATED` in repository.
+4. **Issue #20 & Epic #10:** `COMPLETED` & `VALIDATED` in the local repository. GitHub closure remains pending until the changes are pushed, remote checks pass, and the integration PR is merged.

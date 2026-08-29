@@ -65,10 +65,12 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     assert "semantic-visualization-runtime-v0.1" in ids
     assert "reasonunit-runtime-v1.0" in ids
     assert "runtime-host-v1.0" in ids
+    assert "cluster-runtime-v0.2" in ids
     assert (home / "current/ReasonRuntime/crates/vision-core/Cargo.toml").is_file()
     assert (home / "current/ReasonRuntime/crates/reason-object-core/Cargo.toml").is_file()
     assert (home / "current/VisualizationRuntime/Cargo.toml").is_file()
     assert (home / "current/ReasonRuntime/Cargo.toml").is_file()
+    assert (home / "current/ClusterRuntime/Cargo.toml").is_file()
     assert (home / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
     assert (home / "current/bin" / ("reason-visualization.exe" if os.name == "nt" else "reason-visualization")).is_file()
     reasonunit_binary = home / "current/bin" / (
@@ -94,6 +96,10 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     )
     assert host_result.returncode == 0
     assert json.loads(host_result.stdout)["profile"] == "reasonscript-runtime-host/1.0"
+    cluster_binary = home / "current/bin" / ("reason-cluster.exe" if os.name == "nt" else "reason-cluster")
+    cluster_result = subprocess.run([str(cluster_binary), "verify-native"], cwd=tmp_path, text=True, capture_output=True)
+    assert cluster_result.returncode == 0
+    assert json.loads(cluster_result.stdout)["profile"] == "reasonscript-cluster-runtime/0.2"
     for item in manifest["files"]:
         path = home / item["path"]
         assert hashlib.sha256(path.read_bytes()).hexdigest() == item["sha256"]

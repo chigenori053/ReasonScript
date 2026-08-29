@@ -16,14 +16,15 @@ use crate::{
     diagnostics::{sort, Diagnostic},
     evaluator::{evaluate, semantic_projection},
     messages::{validate_stream, ClusterMessage},
-    planner::{build_cluster_plan, ClusterPlan, ReasonTask},
+    planner::{attach_runtime_workloads, build_cluster_plan, ClusterPlan, ReasonTask},
     state::StateSnapshot,
-    worker,
+    worker::{self, RuntimeContext},
 };
 
 #[derive(Clone, Debug, Default)]
 pub struct RunOptions {
     pub artifacts_dir: Option<PathBuf>,
+    pub runtime: RuntimeContext,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -92,12 +93,13 @@ pub fn run_cluster(
     } else {
         configured_workers.clone()
     };
-    let plan = build_cluster_plan(
+    let mut plan = build_cluster_plan(
         &execution_plan,
         &reason_ir,
         &planning_workers,
         &config.execution.sync_policy,
     );
+    attach_runtime_workloads(&mut plan, &reason_ir, payload.get("computation_ir"));
     let run_id = format!(
         "cluster_run_{}",
         plan.plan_id.trim_start_matches("cluster_plan_")
@@ -166,6 +168,7 @@ pub fn run_cluster(
     let mut completed = Vec::new();
     let mut committed = HashSet::new();
     let mut trace = Vec::new();
+    let mut runtime_outputs = Vec::new();
     let mut snapshots = Vec::new();
     let mut retries = 0usize;
     let mut state_version = 0usize;
@@ -265,12 +268,17 @@ pub fn run_cluster(
             executable.push((*task).clone());
         }
         let results = if config.mode == "local_process" && !fallback {
-            execute_local_processes(&executable, state_version, config.limits.task_timeout_ms)?
+            execute_local_processes(
+                &executable,
+                state_version,
+                config.limits.task_timeout_ms,
+                &options.runtime,
+            )?
         } else {
             executable
                 .iter()
-                .map(|task| worker::execute(task, state_version))
-                .collect()
+                .map(|task| worker::execute(task, state_version, &options.runtime))
+                .collect::<Result<Vec<_>, _>>()?
         };
         for ((task, result), worker_id) in executable.iter().zip(results).zip(assigned.iter()) {
             if !committed.insert(task.task_id.clone()) {
@@ -312,6 +320,17 @@ pub fn run_cluster(
                 json!({"status":"ready","completed_tasks":tasks}),
             );
             trace.push(json!({"event":"task_complete","logical_step":logical_step,"task_id":task.task_id,"worker_id":worker_id,"attempt":attempt}));
+            if let Some(runtime) = result.get("runtime") {
+                runtime_outputs.push(runtime.clone());
+                for event in runtime
+                    .pointer("/metadata/tensor_trace")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                {
+                    trace.push(json!({"event":"tensor_execute","logical_step":logical_step,"task_id":task.task_id,"worker_id":worker_id,"runtime_event":event}));
+                }
+            }
         }
         if config.execution.sync_policy == "barrier" {
             let unique: BTreeSet<_> = assigned.iter().collect();
@@ -399,7 +418,27 @@ pub fn run_cluster(
     } else {
         "failed"
     };
-    let summary = json!({"schema_version":"reasonscript-cluster-run-summary/0.1","run_id":run_id,"status":status,"mode":if fallback{"single_node"}else{&config.mode},"fallback_used":fallback,"task_counts":{"total":plan.tasks.len(),"completed":completed.len(),"failed":plan.tasks.len()-completed.len()},"semantic_result":semantics,"evaluation_status":evaluation.status,"diagnostic_count":diagnostics.len()});
+    let runtime_results: Vec<Value> = trace
+        .iter()
+        .filter(|event| event.get("event").and_then(Value::as_str) == Some("tensor_execute"))
+        .cloned()
+        .collect();
+    let calculation_results: Vec<Value> = runtime_outputs
+        .iter()
+        .filter_map(|output| output.get("calculation_results").cloned())
+        .collect();
+    let tensor_metadata: Vec<Value> = runtime_outputs
+        .iter()
+        .flat_map(|output| {
+            output
+                .pointer("/metadata/tensor_metadata")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .cloned()
+        })
+        .collect();
+    let summary = json!({"schema_version":"reasonscript-cluster-run-summary/0.1","run_id":run_id,"status":status,"mode":if fallback{"single_node"}else{&config.mode},"fallback_used":fallback,"task_counts":{"total":plan.tasks.len(),"completed":completed.len(),"failed":plan.tasks.len()-completed.len()},"semantic_result":semantics,"runtime":{"workloads":plan.tasks.iter().filter(|task| task.runtime_workload.is_some()).count(),"calculation_results":calculation_results,"tensor_metadata":tensor_metadata,"tensor_trace_events":runtime_results.len()},"evaluation_status":evaluation.status,"diagnostic_count":diagnostics.len()});
     finish(
         config,
         &plan,
@@ -419,6 +458,7 @@ fn execute_local_processes(
     tasks: &[ReasonTask],
     state_version: usize,
     timeout_ms: u64,
+    runtime: &RuntimeContext,
 ) -> Result<Vec<Value>, String> {
     let executable = std::env::current_exe().map_err(|e| format!("CRR-RUN-004: {e}"))?;
     let mut children = Vec::new();
@@ -430,7 +470,7 @@ fn execute_local_processes(
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("CRR-RUN-004: {e}"))?;
-        let request = json!({"task":task,"state_version":state_version});
+        let request = json!({"task":task,"state_version":state_version,"runtime":runtime});
         let mut worker_stdin = child
             .stdin
             .take()

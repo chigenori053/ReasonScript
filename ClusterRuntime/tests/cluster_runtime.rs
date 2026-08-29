@@ -102,6 +102,7 @@ fn writes_and_validates_all_nine_artifacts() {
         &ClusterConfig::local(2, "simulation"),
         &RunOptions {
             artifacts_dir: Some(root.clone()),
+            ..RunOptions::default()
         },
     )
     .unwrap();

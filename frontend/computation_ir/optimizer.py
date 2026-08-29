@@ -46,9 +46,14 @@ applies to this IR's actual shape:
   would risk skipping a side effect or an error a second occurrence
   should still raise.
 
-NOT implemented (documented, not silent): cross-block CSE, loop-invariant
-code motion/hoisting, a Relation Matrix-style cache (no relation engine
-exists to cache against), gradient pruning as a *compile-time* IR pass
+The UERA-8 fast path additionally performs conservative scalar-function
+inlining and loop-invariant code motion.  Unknown purity is never eligible.
+LICM keeps the original assignment in the loop and hoists only its proven-total
+computation into an optimizer-private temporary; runtime trace renderers hide
+that temporary, preserving observable loop traces.
+
+NOT implemented (documented, not silent): cross-block CSE, a Relation
+Matrix-specific cache, gradient pruning as a *compile-time* IR pass
 (the interpreter and Rust VM already only walk tape nodes reachable from
 the requested loss at `grad()`-call time -- see
 `ReasonRuntime/crates/tensor-core/src/autograd.rs` -- which is
@@ -61,6 +66,7 @@ at all, per Phase 4's scope, and `matmul` is rank-2 / unbatched only).
 from __future__ import annotations
 
 import copy
+from dataclasses import dataclass
 from typing import Any
 
 _BINARY_FOLD = {
@@ -81,6 +87,76 @@ _COMPARISON_FOLD = {
 }
 
 
+@dataclass(frozen=True)
+class PureReasonFunction:
+    """Conservative fast-path classification for one Computation IR function."""
+
+    name: str
+    instruction_count: int
+    pure: bool
+    recursive: bool
+    inlineable_shape: bool
+
+    @property
+    def eligible_for_fast_path(self) -> bool:
+        return (
+            self.pure
+            and not self.recursive
+            and self.inlineable_shape
+            and self.instruction_count <= 32
+        )
+
+
+def classify_pure_functions(document: dict[str, Any]) -> dict[str, PureReasonFunction]:
+    """Classify functions without guessing when purity cannot be proven."""
+
+    functions = {
+        _call_name(function["id"]): function
+        for function in document.get("functions", [])
+        if str(function.get("id", "")).startswith("fn.")
+    }
+    calls = {name: _function_calls(function) for name, function in functions.items()}
+
+    def recursive(name: str, path: tuple[str, ...] = ()) -> bool:
+        if name in path:
+            return True
+        return any(
+            callee in functions and recursive(callee, (*path, name))
+            for callee in calls[name]
+        )
+
+    recursive_names = {name for name in functions if recursive(name)}
+    memo: dict[str, bool] = {}
+
+    def pure(name: str, active: frozenset[str] = frozenset()) -> bool:
+        if name in memo:
+            return memo[name]
+        if name in active or name in recursive_names:
+            return False
+        function = functions[name]
+        result = all(
+            _instruction_is_pure(instruction, functions, pure, active | {name})
+            for block in function["blocks"]
+            for instruction in block["instructions"]
+        ) and all(
+            _terminator_is_pure(block["terminator"], functions, pure, active | {name})
+            for block in function["blocks"]
+        )
+        memo[name] = result
+        return result
+
+    return {
+        name: PureReasonFunction(
+            name=name,
+            instruction_count=sum(len(block["instructions"]) for block in function["blocks"]),
+            pure=pure(name),
+            recursive=name in recursive_names,
+            inlineable_shape=_inlineable_shape(function),
+        )
+        for name, function in functions.items()
+    }
+
+
 def optimize_program(document: dict[str, Any]) -> dict[str, Any]:
     """Returns a new, optimized `reason-computation-ir/0.1` document.
 
@@ -89,7 +165,12 @@ def optimize_program(document: dict[str, Any]) -> dict[str, Any]:
     introduces new ids).
     """
     optimized = copy.deepcopy(document)
-    optimized["functions"] = [_optimize_function(function) for function in optimized["functions"]]
+    classifications = classify_pure_functions(optimized)
+    templates = _inline_templates(optimized, classifications)
+    optimized["functions"] = [
+        _optimize_function(_inline_function(function, templates))
+        for function in optimized["functions"]
+    ]
     return optimized
 
 
@@ -99,9 +180,230 @@ def _optimize_function(function: dict[str, Any]) -> dict[str, Any]:
     order = [block["id"] for block in function["blocks"]]
     reachable = _reachable_block_ids(blocks_by_id, function["entry_block"])
     order = [block_id for block_id in order if block_id in reachable]
+    blocks_by_id = _hoist_loop_invariants(blocks_by_id, order)
     blocks_by_id = _eliminate_dead_locals(blocks_by_id, order, function["parameters"])
     function = dict(function)
     function["blocks"] = [blocks_by_id[block_id] for block_id in order]
+    return function
+
+
+def _call_name(function_id: str) -> str:
+    return function_id.removeprefix("fn.")
+
+
+def _inlineable_shape(function: dict[str, Any]) -> bool:
+    if len(function["blocks"]) != 1:
+        return False
+    block = function["blocks"][0]
+    return (
+        block["terminator"].get("kind") == "return"
+        and all(instruction.get("op") == "assign" for instruction in block["instructions"])
+    )
+
+
+def _function_calls(function: dict[str, Any]) -> set[str]:
+    calls: set[str] = set()
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            if value.get("op") == "call_function" and isinstance(value.get("name"), str):
+                calls.add(value["name"])
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(function)
+    return calls
+
+
+def _instruction_is_pure(
+    instruction: dict[str, Any],
+    functions: dict[str, dict[str, Any]],
+    pure,
+    active: frozenset[str],
+) -> bool:
+    if instruction.get("op") != "assign":
+        return False
+    return _expr_is_pure_function_body(instruction["expr"], functions, pure, active)
+
+
+def _terminator_is_pure(
+    terminator: dict[str, Any],
+    functions: dict[str, dict[str, Any]],
+    pure,
+    active: frozenset[str],
+) -> bool:
+    return all(
+        _expr_is_pure_function_body(terminator[key], functions, pure, active)
+        for key in ("condition", "value")
+        if key in terminator
+    )
+
+
+def _expr_is_pure_function_body(
+    expr: dict[str, Any],
+    functions: dict[str, dict[str, Any]],
+    pure,
+    active: frozenset[str],
+) -> bool:
+    op = expr.get("op")
+    if op == "call_function":
+        name = expr.get("name")
+        return (
+            isinstance(name, str)
+            and name in functions
+            and pure(name, active)
+            and all(
+                _expr_is_pure_function_body(argument, functions, pure, active)
+                for argument in expr["arguments"]
+            )
+        )
+    if op in {
+        "call_tensor",
+        "call_vision",
+        "call_ruo",
+        "call_optimizer",
+        "call_relation",
+        "call_reasoning",
+        "call_array_append",
+    }:
+        return False
+    return all(
+        _expr_is_pure_function_body(child, functions, pure, active)
+        for child in _expr_children(expr)
+    )
+
+
+def _expr_children(expr: dict[str, Any]) -> list[dict[str, Any]]:
+    children: list[dict[str, Any]] = []
+    for key, value in expr.items():
+        if key in {"source_span", "value"}:
+            continue
+        if isinstance(value, dict) and "op" in value:
+            children.append(value)
+        elif isinstance(value, list):
+            children.extend(item for item in value if isinstance(item, dict) and "op" in item)
+        elif isinstance(value, dict):
+            children.extend(item for item in value.values() if isinstance(item, dict) and "op" in item)
+    return children
+
+
+def _inline_templates(
+    document: dict[str, Any], classifications: dict[str, PureReasonFunction]
+) -> dict[str, tuple[list[str], dict[str, Any]]]:
+    functions = {
+        _call_name(function["id"]): function
+        for function in document["functions"]
+        if str(function.get("id", "")).startswith("fn.")
+    }
+    templates: dict[str, tuple[list[str], dict[str, Any]]] = {}
+
+    def build(name: str, active: frozenset[str] = frozenset()):
+        if name in templates:
+            return templates[name]
+        classification = classifications.get(name)
+        if classification is None or not classification.eligible_for_fast_path or name in active:
+            return None
+        function = functions[name]
+        bindings: dict[str, dict[str, Any]] = {
+            parameter: {"op": "local", "name": parameter}
+            for parameter in function["parameters"]
+        }
+        for instruction in function["blocks"][0]["instructions"]:
+            value = _substitute_expr(instruction["expr"], bindings)
+            value = _inline_expr(value, templates, lambda callee: build(callee, active | {name}))
+            bindings[instruction["target"]] = value
+        result = _substitute_expr(function["blocks"][0]["terminator"]["value"], bindings)
+        result = _inline_expr(result, templates, lambda callee: build(callee, active | {name}))
+        templates[name] = (list(function["parameters"]), result)
+        return templates[name]
+
+    for name in functions:
+        build(name)
+    return templates
+
+
+def _substitute_expr(expr: dict[str, Any], bindings: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    if expr.get("op") == "local" and expr.get("name") in bindings:
+        return copy.deepcopy(bindings[expr["name"]])
+    result: dict[str, Any] = {}
+    for key, value in expr.items():
+        if isinstance(value, dict) and "op" in value:
+            result[key] = _substitute_expr(value, bindings)
+        elif isinstance(value, list):
+            result[key] = [
+                _substitute_expr(item, bindings) if isinstance(item, dict) and "op" in item else item
+                for item in value
+            ]
+        elif isinstance(value, dict):
+            result[key] = {
+                name: _substitute_expr(item, bindings)
+                if isinstance(item, dict) and "op" in item
+                else item
+                for name, item in value.items()
+            }
+        else:
+            result[key] = value
+    return result
+
+
+def _safe_inline_argument(expr: dict[str, Any]) -> bool:
+    op = expr.get("op")
+    if op in {"const", "local"}:
+        return True
+    if op in {"unary", "binary", "comparison", "logical", "call_cast"}:
+        return all(_safe_inline_argument(child) for child in _expr_children(expr))
+    return False
+
+
+def _inline_expr(expr: dict[str, Any], templates, resolver=lambda _name: None) -> dict[str, Any]:
+    expr = {
+        key: (
+            _inline_expr(value, templates, resolver)
+            if isinstance(value, dict) and "op" in value
+            else [
+                _inline_expr(item, templates, resolver)
+                if isinstance(item, dict) and "op" in item
+                else item
+                for item in value
+            ]
+            if isinstance(value, list)
+            else {
+                name: _inline_expr(item, templates, resolver)
+                if isinstance(item, dict) and "op" in item
+                else item
+                for name, item in value.items()
+            }
+            if isinstance(value, dict)
+            else value
+        )
+        for key, value in expr.items()
+    }
+    if expr.get("op") != "call_function":
+        return expr
+    name = expr.get("name")
+    template = templates.get(name) or resolver(name)
+    arguments = expr.get("arguments", [])
+    if template is None or not all(_safe_inline_argument(argument) for argument in arguments):
+        return expr
+    parameters, result = template
+    if len(parameters) != len(arguments):
+        return expr
+    return _substitute_expr(result, dict(zip(parameters, arguments)))
+
+
+def _inline_function(function: dict[str, Any], templates) -> dict[str, Any]:
+    function = copy.deepcopy(function)
+    for block in function["blocks"]:
+        for instruction in block["instructions"]:
+            for key in ("expr", "collection", "index", "object"):
+                if key in instruction:
+                    instruction[key] = _inline_expr(instruction[key], templates)
+        for key in ("condition", "value"):
+            if key in block["terminator"]:
+                block["terminator"][key] = _inline_expr(block["terminator"][key], templates)
     return function
 
 
@@ -258,6 +560,168 @@ def _reachable_block_ids(blocks_by_id: dict[str, dict[str, Any]], entry: str) ->
             stack.append(terminator["then"])
             stack.append(terminator["else"])
     return seen
+
+
+def _hoist_loop_invariants(
+    blocks_by_id: dict[str, dict[str, Any]], order: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Hoist proven-total loop computations while preserving assignment timing.
+
+    Lowered ``while`` loops have a branch header, a body path that jumps back to
+    that header, and one outside predecessor (the preheader).  The expensive
+    expression moves to an optimizer-private temporary in the preheader; the
+    original assignment remains in the body as ``target = temporary``.  Trace
+    renderers omit optimizer-private names, so observable state is unchanged.
+    """
+
+    result = copy.deepcopy(blocks_by_id)
+    predecessors = _predecessors(result)
+    temp_index = 0
+    for header_id in order:
+        header = result[header_id]
+        terminator = header["terminator"]
+        if terminator.get("kind") != "branch":
+            continue
+        then_id = terminator["then"]
+        else_id = terminator["else"]
+        loop_ids = _loop_region(result, then_id, header_id, else_id)
+        if not loop_ids or not _region_reaches(result, loop_ids, header_id):
+            continue
+        outside_predecessors = [
+            predecessor
+            for predecessor in predecessors.get(header_id, set())
+            if predecessor not in loop_ids
+        ]
+        if len(outside_predecessors) != 1:
+            continue
+        preheader_id = outside_predecessors[0]
+        mutated = {
+            instruction["target"]
+            for block_id in loop_ids
+            for instruction in result[block_id]["instructions"]
+            if instruction.get("op") == "assign"
+        }
+        assignment_counts = {
+            name: sum(
+                1
+                for block_id in loop_ids
+                for instruction in result[block_id]["instructions"]
+                if instruction.get("op") == "assign" and instruction["target"] == name
+            )
+            for name in mutated
+        }
+        outside_reads = _reads_in_blocks(result, set(result) - loop_ids)
+        hoisted: list[dict[str, Any]] = []
+        for block_id in order:
+            if block_id not in loop_ids:
+                continue
+            instructions = []
+            for instruction in result[block_id]["instructions"]:
+                if instruction.get("op") != "assign":
+                    instructions.append(instruction)
+                    continue
+                target = instruction["target"]
+                expr = instruction["expr"]
+                reads: set[str] = set()
+                _collect_reads(expr, reads)
+                eligible = (
+                    assignment_counts.get(target) == 1
+                    and target not in outside_reads
+                    and not reads.intersection(mutated)
+                    and _is_speculatively_total(expr)
+                    and expr.get("op") not in {"const", "local"}
+                )
+                if not eligible:
+                    instructions.append(instruction)
+                    continue
+                temp_index += 1
+                temporary = f"__opt_licm_{temp_index}__"
+                hoisted.append({"op": "assign", "target": temporary, "expr": expr})
+                instructions.append(
+                    {**instruction, "expr": {"op": "local", "name": temporary}}
+                )
+            result[block_id]["instructions"] = instructions
+        if hoisted:
+            result[preheader_id]["instructions"].extend(hoisted)
+    return result
+
+
+def _predecessors(blocks_by_id: dict[str, dict[str, Any]]) -> dict[str, set[str]]:
+    result: dict[str, set[str]] = {block_id: set() for block_id in blocks_by_id}
+    for block_id, block in blocks_by_id.items():
+        terminator = block["terminator"]
+        targets = (
+            [terminator["target"]]
+            if terminator.get("kind") == "jump"
+            else [terminator["then"], terminator["else"]]
+            if terminator.get("kind") == "branch"
+            else []
+        )
+        for target in targets:
+            result.setdefault(target, set()).add(block_id)
+    return result
+
+
+def _loop_region(
+    blocks_by_id: dict[str, dict[str, Any]], start: str, header: str, exit_id: str
+) -> set[str]:
+    region: set[str] = set()
+    stack = [start]
+    while stack:
+        block_id = stack.pop()
+        if block_id in region or block_id in {header, exit_id} or block_id not in blocks_by_id:
+            continue
+        region.add(block_id)
+        terminator = blocks_by_id[block_id]["terminator"]
+        if terminator.get("kind") == "jump":
+            stack.append(terminator["target"])
+        elif terminator.get("kind") == "branch":
+            stack.extend((terminator["then"], terminator["else"]))
+    return region
+
+
+def _region_reaches(
+    blocks_by_id: dict[str, dict[str, Any]], region: set[str], target: str
+) -> bool:
+    return any(
+        block["terminator"].get("kind") == "jump"
+        and block["terminator"].get("target") == target
+        for block_id, block in blocks_by_id.items()
+        if block_id in region
+    )
+
+
+def _reads_in_blocks(
+    blocks_by_id: dict[str, dict[str, Any]], block_ids: set[str]
+) -> set[str]:
+    reads: set[str] = set()
+    for block_id in block_ids:
+        block = blocks_by_id[block_id]
+        for instruction in block["instructions"]:
+            for key in ("expr", "collection", "index", "object"):
+                if key in instruction:
+                    _collect_reads(instruction[key], reads)
+        for key in ("condition", "value"):
+            if key in block["terminator"]:
+                _collect_reads(block["terminator"][key], reads)
+    return reads
+
+
+def _is_speculatively_total(expr: dict[str, Any]) -> bool:
+    op = expr.get("op")
+    if op in {"const", "local"}:
+        return True
+    if op == "unary":
+        return _is_speculatively_total(expr["operand"])
+    if op in {"comparison", "logical"}:
+        return _is_speculatively_total(expr["left"]) and _is_speculatively_total(expr["right"])
+    if op == "binary":
+        return (
+            expr.get("operator") not in {"Divide", "Modulo"}
+            and _is_speculatively_total(expr["left"])
+            and _is_speculatively_total(expr["right"])
+        )
+    return False
 
 
 def _eliminate_dead_locals(

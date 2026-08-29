@@ -1,0 +1,54 @@
+module RelationMatrixBenchmark {
+  struct RelationRow {
+    source: int
+    target: int
+    weight: float
+  }
+
+  fn Threshold(base) {
+    let offset = 0.5
+    return base + offset
+  }
+
+  fn Adjust(weight) {
+    let scaled = weight * 1.25
+    return scaled + 0.1
+  }
+
+  calculation RelationMatrix {
+    let rows = [
+      RelationRow { source: 1, target: 2, weight: 0.2 },
+      RelationRow { source: 1, target: 3, weight: 0.8 },
+      RelationRow { source: 2, target: 3, weight: 0.7 },
+      RelationRow { source: 2, target: 4, weight: 0.1 },
+      RelationRow { source: 3, target: 4, weight: 0.9 },
+      RelationRow { source: 3, target: 5, weight: 0.6 },
+      RelationRow { source: 4, target: 5, weight: 0.3 },
+      RelationRow { source: 4, target: 6, weight: 0.95 },
+      RelationRow { source: 5, target: 6, weight: 0.55 },
+      RelationRow { source: 5, target: 7, weight: 0.45 },
+      RelationRow { source: 6, target: 7, weight: 0.75 },
+      RelationRow { source: 6, target: 8, weight: 0.15 }
+    ]
+    let selected = relation.filter_gt(rows, "weight", Threshold(0.0))
+    let unique = relation.distinct_by(selected, "target")
+    let ordered = relation.sort_by(unique, "weight", false)
+    let iteration = 0
+    let total = 0.0
+    let baseline = 0.8
+    while iteration < 200 {
+      total = total + Adjust(baseline)
+      total = total + Adjust(baseline)
+      total = total + Adjust(baseline)
+      total = total + Adjust(baseline)
+      total = total + Adjust(baseline)
+      total = total + Adjust(baseline)
+      total = total + Adjust(baseline)
+      total = total + Adjust(baseline)
+      total = total + Adjust(baseline)
+      total = total + Adjust(baseline)
+      iteration = iteration + 1
+    }
+    result = relation.count(ordered) == 5 && total > 0.0
+  }
+}

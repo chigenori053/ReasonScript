@@ -259,11 +259,11 @@ def _reject_reserved_top_level_construct(line: str) -> None:
         raise SurfaceReservedConstructError(match.group(1))
 
 
-def _paren_delta(line: str) -> int:
-    delta = 0
+def _paren_events(line: str) -> list[tuple[str, int]]:
+    events: list[tuple[str, int]] = []
     quote: str | None = None
     escaped = False
-    for char in line:
+    for column, char in enumerate(line, start=1):
         if quote is not None:
             if escaped:
                 escaped = False
@@ -275,10 +275,10 @@ def _paren_delta(line: str) -> int:
         if char in {'"', "'"}:
             quote = char
         elif char == "(":
-            delta += 1
+            events.append((char, column))
         elif char == ")":
-            delta -= 1
-    return delta
+            events.append((char, column))
+    return events
 
 
 def _logical_lines(
@@ -290,6 +290,7 @@ def _logical_lines(
     pending_line = 0
     pending_column = 1
     paren_depth = 0
+    paren_openings: list[tuple[int, int]] = []
     for line_number, raw in enumerate(source.splitlines(), start=1):
         uncommented = _strip_line_comment(raw)
         line = uncommented.strip()
@@ -304,8 +305,17 @@ def _logical_lines(
         else:
             pending_line, pending_column = line_number, base_column
 
-        delta = _paren_delta(uncommented)
-        paren_depth += delta
+        for event, column in _paren_events(uncommented):
+            if event == "(":
+                paren_openings.append((line_number, column))
+            elif not paren_openings:
+                raise SurfaceSyntaxError(
+                    f"EX-V003 unbalanced parentheses: unexpected ')' at "
+                    f"{line_number}:{column}"
+                )
+            else:
+                paren_openings.pop()
+        paren_depth = len(paren_openings)
 
         if line.endswith("\\") or paren_depth > 0:
             if line.endswith("\\"):
@@ -324,8 +334,10 @@ def _logical_lines(
             locations.append((effective_line_number, effective_base_column + max(line.find(part), 0), part))
     if pending is not None:
         if paren_depth > 0:
+            opening_line, opening_column = paren_openings[0]
             raise SurfaceSyntaxError(
-                f"EX-V003 unbalanced parentheses: unclosed '(' starting at {pending_line}:{pending_column}"
+                f"EX-V003 unbalanced parentheses: unclosed '(' starting at "
+                f"{opening_line}:{opening_column}"
             )
         raise SurfaceSyntaxError(
             f"line continuation at {pending_line}:{pending_column} is missing a following line"

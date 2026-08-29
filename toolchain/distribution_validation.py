@@ -18,7 +18,7 @@ VISION_DISTRIBUTION_PROFILE = "reasonscript-vision-install-distribution/0.1"
 DISTRIBUTION_TARGETS = (
     "toolchain", "scripts", "schemas", "frontend", "runtime", "examples",
     "standard_library", "metadata", "playground", "conformance", "canonical_fixtures",
-    "VisualizationRuntime", "ReasonRuntime",
+    "VisualizationRuntime", "ReasonRuntime", "ClusterRuntime",
 )
 
 COMPONENTS = (
@@ -39,6 +39,7 @@ COMPONENTS = (
     ("semantic-visualization-runtime-v0.1", "VisualizationRuntime"),
     ("reasonunit-runtime-v1.0", "ReasonRuntime/crates/reason-object-core"),
     ("runtime-host-v1.0", "ReasonRuntime"),
+    ("cluster-runtime-v0.2", "ClusterRuntime"),
 )
 
 EVALUATION_IMPORTS = (
@@ -71,6 +72,7 @@ INTEGRITY_ENTRY_POINTS = (
     "VisualizationRuntime/Cargo.toml",
     "ReasonRuntime/crates/reason-object-core/Cargo.toml",
     "ReasonRuntime/Cargo.toml",
+    "ClusterRuntime/Cargo.toml",
     "schemas/vision_observation.schema.json",
 )
 
@@ -228,6 +230,17 @@ def validate_staged_distribution(root: Path, repository_root: Path | None = None
         "profile": host_native.get("profile"),
         "unsafe_blocks": 0,
     }
+    cluster_binary = _cluster_binary(root)
+    if cluster_binary is None:
+        raise DistributionError("IF-DC-001", "Required Rust Cluster Runtime executable is missing.", "cluster-runtime", "bin/reason-cluster")
+    proc = subprocess.run([str(cluster_binary), "verify-native"], cwd=tempfile.gettempdir(), text=True, capture_output=True)
+    try:
+        cluster_native = json.loads(proc.stdout)
+    except json.JSONDecodeError as error:
+        raise DistributionError("IF-DC-003", "Rust Cluster Runtime native smoke output is invalid.", "cluster-runtime", str(cluster_binary)) from error
+    if proc.returncode or cluster_native.get("ok") is not True or cluster_native.get("unsafe_blocks") != 0 or cluster_native.get("profile") != "reasonscript-cluster-runtime/0.2":
+        raise DistributionError("IF-DC-003", "Rust Cluster Runtime native smoke validation failed.", "cluster-runtime", str(cluster_binary))
+    payload["cluster_runtime"] = {"path": str(cluster_binary), "profile": cluster_native.get("profile"), "unsafe_blocks": 0}
     return payload
 
 
@@ -268,6 +281,12 @@ def _runtime_host_binary(root: Path) -> Path | None:
         root / "ReasonRuntime" / "target" / "release" / name,
         root / "ReasonRuntime" / "target" / "debug" / name,
     )
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def _cluster_binary(root: Path) -> Path | None:
+    name = "reason-cluster.exe" if os.name == "nt" else "reason-cluster"
+    candidates = (root / "bin" / name, root / "ClusterRuntime" / "target" / "release" / name, root / "ClusterRuntime" / "target" / "debug" / name)
     return next((path for path in candidates if path.is_file()), None)
 
 

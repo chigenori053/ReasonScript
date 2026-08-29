@@ -108,7 +108,6 @@ from .nodes import (
     ReasonGraphBindingNode,
     ReasonGraphTransitionNode,
     ReasonObjectBindingNode,
-    ReasonGraphBindingNode,
     ReasonObjectClauseSpanNode,
     RelationNode,
     RelationType,

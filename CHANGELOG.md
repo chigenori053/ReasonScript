@@ -4,6 +4,19 @@
 
 ### Fixed
 
+- Completed UERA-8 optimizer integration: Computation IR now classifies pure
+  functions conservatively, inlines eligible non-recursive functions with at
+  most 32 instructions, and performs trace-preserving loop-invariant code
+  motion for proven-total expressions. Built-project and standalone native
+  execution both consume optimized IR. Added a reproducible Relation Matrix
+  benchmark recording result parity, a 0.01131-second optimized median, and a
+  1.336x speedup against the unoptimized interpreter.
+- Completed UERA-9 diagnostics for parenthesized multiline expressions:
+  unexpected and unclosed parentheses report exact physical line/column
+  locations, and regression tests now assert call-node source locations.
+- Stabilized GitHub CI by building `reason-runtime-host` inside Test and CI
+  jobs before runtime tests and by freezing Ruff to the repository's intended
+  error rule families.
 - Restored the accepted `reason run --result-output PATH` contract: the file
   contains only the finite JSON-compatible calculation result, while the full
   runtime envelope remains available through `--json` and `--out`. Removed the

@@ -23,6 +23,10 @@ pub struct ReasonTask {
     pub dependency_depth: usize,
     pub assigned_worker: String,
     pub source_step: Value,
+    /// Computation IR assigned to this logical ReasonUnit.  It is optional
+    /// so the cluster remains compatible with pre-runtime artifact bundles.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_workload: Option<Value>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -172,6 +176,7 @@ pub fn build_cluster_plan(
             dependency_ids: dependencies.into_iter().collect(), execution_policy: json!({"deterministic": deterministic, "retriable": policy.get("retriable").and_then(Value::as_bool).unwrap_or(true), "atomic": policy.get("atomic").and_then(Value::as_bool).unwrap_or(false)}),
             retry_policy: json!({"max_retries": 1}), resource_hint: policy.get("resource_hint").cloned().unwrap_or_else(|| json!({"cpu_weight": 1, "memory_bytes": 0})),
             partition_id, logical_step: 0, dependency_depth: 0, assigned_worker: workers[index % workers.len()].clone(), source_step: step.clone(),
+            runtime_workload: None,
         });
         if !target.is_empty() {
             producers.insert(target, task_id);
@@ -244,6 +249,82 @@ pub fn build_cluster_plan(
         barriers,
         valid: !diagnostics.iter().any(|d| d.severity == "error"),
         diagnostics,
+    }
+}
+
+/// Assign a prefix of the computation program to each calculation-backed
+/// transition.  A prefix preserves calculation dependencies (`B` can refer to
+/// the result of `A`) while ensuring the actual target calculation executes in
+/// the worker which owns that ReasonUnit.
+pub fn attach_runtime_workloads(
+    plan: &mut ClusterPlan,
+    reason_ir: &Value,
+    computation_ir: Option<&Value>,
+) {
+    let Some(program) = computation_ir else {
+        return;
+    };
+    let Some(calculations) = program.get("calculations").and_then(Value::as_array) else {
+        return;
+    };
+    let Some(functions) = program.get("functions").and_then(Value::as_array) else {
+        return;
+    };
+    for task in &mut plan.tasks {
+        let transition_id = task
+            .source_step
+            .get("transition_id")
+            .and_then(Value::as_str);
+        let calculation = reason_ir
+            .get("transitions")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .find(|transition| {
+                transition.get("transition_id").and_then(Value::as_str) == transition_id
+            })
+            .and_then(|transition| transition.pointer("/effect/calculation"))
+            .and_then(Value::as_str);
+        let is_result_transition = reason_ir
+            .get("transitions")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .find(|transition| {
+                transition.get("transition_id").and_then(Value::as_str) == transition_id
+            })
+            .and_then(|transition| transition.pointer("/effect/target"))
+            .and_then(Value::as_str)
+            == Some("result");
+        if !is_result_transition {
+            continue;
+        }
+        let Some(calculation) = calculation else {
+            continue;
+        };
+        let Some(position) = calculations
+            .iter()
+            .position(|item| item.as_str() == Some(calculation))
+        else {
+            continue;
+        };
+        let selected: Vec<Value> = calculations[..=position].to_vec();
+        let selected_functions: Vec<Value> = functions
+            .iter()
+            .filter(|function| {
+                function
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .is_some_and(|id| selected.iter().any(|name| name.as_str() == Some(id)))
+            })
+            .cloned()
+            .collect();
+        if selected_functions.len() == selected.len() {
+            let mut workload = program.clone();
+            workload["calculations"] = Value::Array(selected);
+            workload["functions"] = Value::Array(selected_functions);
+            task.runtime_workload = Some(workload);
+        }
     }
 }
 

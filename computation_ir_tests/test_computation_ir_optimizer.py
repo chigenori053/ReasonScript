@@ -14,7 +14,7 @@ from __future__ import annotations
 import unittest
 
 from frontend.computation_ir import interpret_program, lower_program, validate_program
-from frontend.computation_ir.optimizer import optimize_program
+from frontend.computation_ir.optimizer import classify_pure_functions, optimize_program
 from frontend.computation_ir.rust_bridge import find_binary, run_ir
 from frontend.integrated_computation_runtime import IntegratedRuntimeError, LoopLimitError
 from frontend.language_surface import parse
@@ -156,6 +156,111 @@ class ConstantFoldingTests(OptimizerParityMixin, unittest.TestCase):
             outcome = run_ir(optimized, binary=_BINARY)
             self.assertFalse(outcome.ok)
             self.assertEqual(outcome.error_code, "RT-ARITH-001")
+
+
+class PureFunctionFastPathTests(OptimizerParityMixin, unittest.TestCase):
+    def test_small_pure_function_is_classified_and_inlined(self):
+        source = """
+            module M {
+                fn Score(value, scale) {
+                    let shifted = value + 1
+                    return shifted * scale
+                }
+                calculation Answer {
+                    let input = 4
+                    result = Score(input, 3)
+                }
+            }
+        """
+        ir = _lower(source)
+        classification = classify_pure_functions(ir)["M::Score"]
+        self.assertTrue(classification.eligible_for_fast_path)
+        optimized, results = self.assert_parity(source)
+        self.assertEqual(results, {"Answer": 15})
+        calculation = next(function for function in optimized["functions"] if function["id"] == "Answer")
+        self.assertNotIn("call_function", repr(calculation))
+
+    def test_unknown_effect_and_recursive_functions_are_not_eligible(self):
+        impure = _lower(
+            """
+            module M {
+                fn LoadValue(path) {
+                    return tensor.load(path)
+                }
+                calculation Answer {
+                    result = 1
+                }
+            }
+            """
+        )
+        self.assertFalse(classify_pure_functions(impure)["M::LoadValue"].eligible_for_fast_path)
+
+    def test_more_than_32_instructions_is_not_inlined(self):
+        statements = "\n".join(f"let v{index} = value + {index}" for index in range(33))
+        source = f"""
+            module M {{
+                fn Large(value) {{
+                    {statements}
+                    return v32
+                }}
+                calculation Answer {{
+                    result = Large(1)
+                }}
+            }}
+        """
+        ir = _lower(source)
+        self.assertFalse(classify_pure_functions(ir)["M::Large"].eligible_for_fast_path)
+        optimized = optimize_program(ir)
+        calculation = next(function for function in optimized["functions"] if function["id"] == "Answer")
+        self.assertIn("call_function", repr(calculation))
+
+
+class LoopInvariantCodeMotionTests(OptimizerParityMixin, unittest.TestCase):
+    SOURCE = """
+        module M {
+            calculation Answer {
+                let base = 4
+                let i = 0
+                let total = 0
+                while i < 3 {
+                    let factor = base * 2
+                    total = total + factor
+                    i = i + 1
+                }
+                result = total
+            }
+        }
+    """
+
+    def test_total_invariant_computation_is_hoisted(self):
+        optimized, results = self.assert_parity(self.SOURCE)
+        self.assertEqual(results, {"Answer": 24})
+        entry = next(block for block in optimized["functions"][0]["blocks"] if ".entry_" in block["id"])
+        self.assertTrue(any(str(item.get("target", "")).startswith("__opt_licm_") for item in entry["instructions"]))
+
+    def test_optimized_loop_trace_is_identical(self):
+        ir = _lower(self.SOURCE)
+        before = interpret_program(ir).to_dict()["loop_trace"]
+        after = interpret_program(optimize_program(ir)).to_dict()["loop_trace"]
+        self.assertEqual(before, after)
+
+    def test_potentially_trapping_division_is_not_hoisted(self):
+        source = """
+            module M {
+                calculation Answer {
+                    let divisor = 0
+                    let i = 0
+                    while i < 0 {
+                        let unsafe = 10 / divisor
+                        i = i + 1
+                    }
+                    result = 1
+                }
+            }
+        """
+        optimized, results = self.assert_parity(source)
+        self.assertEqual(results, {"Answer": 1})
+        self.assertNotIn("__opt_licm_", repr(optimized))
 
     def test_modulo_by_zero_is_left_unfolded_and_still_raises(self):
         ir = _lower(

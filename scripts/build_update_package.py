@@ -116,6 +116,16 @@ def _write_payload(package: Path, target_platform: str) -> Path:
         payload / "bin" / host_name,
     )
     (payload / "bin" / host_name).chmod(0o755)
+    cluster_build = subprocess.run(
+        [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ClusterRuntime/Cargo.toml")],
+        text=True,
+        capture_output=True,
+    )
+    if cluster_build.returncode:
+        raise BuildRejected(f"Rust Cluster Runtime build failed: {cluster_build.stderr.strip()}")
+    cluster_name = "reason-cluster.exe" if target_platform == "windows" else "reason-cluster"
+    shutil.copy2(ROOT / "ClusterRuntime" / "target" / "release" / cluster_name, payload / "bin" / cluster_name)
+    (payload / "bin" / cluster_name).chmod(0o755)
     vision_name = "reason-vision.exe" if target_platform == "windows" else "reason-vision"
     shutil.copy2(ROOT / "ReasonRuntime" / "target" / "release" / vision_name, payload / "bin" / vision_name)
     (payload / "bin" / vision_name).chmod(0o755)

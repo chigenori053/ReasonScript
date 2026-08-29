@@ -200,6 +200,43 @@ impl<'a> Vm<'a> {
         self.tensors.borrow().metadata()
     }
 
+    /// Serialize a calculation result for an explicit process boundary.
+    /// Normal host results retain lightweight tensor handles; cluster workers
+    /// opt into this representation so a coordinator can consume the actual
+    /// Tensor value after the worker process exits.
+    pub fn transport_value(&self, value: &Value) -> serde_json::Value {
+        match value {
+            Value::Tensor(id) => self.tensors.borrow().get(id).map_or_else(
+                |_| serde_json::json!({"tensor_id": id.as_ref()}),
+                |tensor| {
+                    serde_json::json!({
+                        "tensor_id": id.as_ref(),
+                        "shape": tensor.shape,
+                        "dtype": tensor.dtype.name(),
+                        "data": tensor.data,
+                    })
+                },
+            ),
+            Value::Array(items) => serde_json::Value::Array(
+                items
+                    .borrow()
+                    .iter()
+                    .map(|item| self.transport_value(item))
+                    .collect(),
+            ),
+            Value::Struct(value) => {
+                let fields = value
+                    .fields
+                    .borrow()
+                    .iter()
+                    .map(|(name, item)| (name.clone(), self.transport_value(item)))
+                    .collect::<serde_json::Map<_, _>>();
+                serde_json::json!({"type": value.type_name, "fields": fields})
+            }
+            _ => to_json(value),
+        }
+    }
+
     pub fn vision_trace(&self) -> Vec<serde_json::Value> {
         self.vision_trace.borrow().clone()
     }
@@ -456,7 +493,8 @@ impl<'a> Vm<'a> {
                         ))
                     }
                 };
-                env.borrow_mut().insert(counter.clone(), Value::Int(iteration));
+                env.borrow_mut()
+                    .insert(counter.clone(), Value::Int(iteration));
                 self.loop_frames
                     .borrow_mut()
                     .insert(loop_id.clone(), (iteration, trace_env(&env.borrow())));
@@ -914,7 +952,8 @@ impl<'a> Vm<'a> {
 fn trace_env(env: &HashMap<String, Value>) -> serde_json::Value {
     let mut visible = std::collections::BTreeMap::new();
     for (name, value) in env {
-        if name.starts_with("__for_") || name.starts_with("__trace_") {
+        if name.starts_with("__for_") || name.starts_with("__trace_") || name.starts_with("__opt_")
+        {
             continue;
         }
         visible.insert(name.clone(), to_json(value));

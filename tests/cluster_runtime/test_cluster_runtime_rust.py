@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CRATE = ROOT / "ClusterRuntime"
 REASON = ROOT / "reason"
 SOURCE = ROOT / "examples" / "v0_8" / "reasoning_runtime" / "calculation_chain.rsn"
+TENSOR_SOURCE = ROOT / "canonical_fixtures" / "phase1r" / "tensor_integration_probe.rsn"
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -28,6 +29,19 @@ def test_cluster_cli_simulation_and_single_node_comparison() -> None:
     comparison = _run("compare", str(SOURCE), "--workers", "3")
     assert comparison.returncode == 0, comparison.stderr
     assert json.loads(comparison.stdout)["equivalent"] is True
+
+
+def test_cluster_worker_executes_tensor_computation_through_rust_host() -> None:
+    result = _run("simulate", str(TENSOR_SOURCE), "--workers", "2")
+    assert result.returncode == 0, result.stderr
+    runtime = json.loads(result.stdout)["runtime"]
+    assert runtime["workloads"] == 1
+    assert runtime["tensor_trace_events"] == 6
+    answer = runtime["calculation_results"][0]["Answer"]
+    assert answer["shape"] == [1, 2]
+    assert answer["dtype"] == "f64"
+    assert answer["data"] == [0.5, 0.5]
+    assert runtime["tensor_metadata"]
 
 
 def test_local_process_workers_and_all_artifacts(tmp_path: Path) -> None:

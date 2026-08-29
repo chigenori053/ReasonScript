@@ -214,7 +214,7 @@ def _validate_relation_ids(relations: list[Any], error: Any) -> set[str]:
 
 
 def _validate_reason_object(value: dict[str, Any], identifier: str, name: str, error: Any) -> None:
-    if not _string(value.get("lifecycle")) in _LIFECYCLES:
+    if _string(value.get("lifecycle")) not in _LIFECYCLES:
         error("RRG-007", "lifecycle", f"{name} lifecycle is invalid.", identifier)
     provenance = value.get("provenance")
     if not isinstance(provenance, dict):

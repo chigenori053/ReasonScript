@@ -14,7 +14,7 @@ from .workspace import (
 )
 
 _CACHE_KEY_FILE = ".reason_build_cache"
-_BUILD_FORMAT_VERSION = "runtime-consolidation-phase2"
+_BUILD_FORMAT_VERSION = "runtime-consolidation-phase2-uera8-optimizer"
 
 
 def _cache_key(project_root: Path, dependency_roots: tuple[Path, ...] = ()) -> str:
@@ -152,11 +152,12 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
     )
 
     from frontend.computation_ir import LoweringError, lower_program, validate_program
+    from frontend.computation_ir.optimizer import optimize_program
 
     computation_path = computation_ir_dir / "package.json"
     support_path = target / "runtime" / "runtime_support.json"
     try:
-        computation_ir = lower_program(result.surface_ast)
+        computation_ir = optimize_program(lower_program(result.surface_ast))
         validation_errors = validate_program(computation_ir)
         if validation_errors:
             raise LoweringError("IR-LOWER-010", "; ".join(validation_errors))
