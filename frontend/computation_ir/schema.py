@@ -54,6 +54,8 @@ EXPRESSION_OPS = (
     "call_relation",
     "call_reasoning",
     "call_array_append",
+    "call_array_concat",
+    "call_string",
     "call_function",
     "call_cast",
     "enum_value",

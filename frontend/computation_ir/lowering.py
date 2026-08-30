@@ -78,6 +78,7 @@ from frontend.language_surface.nodes import (
     WildcardPatternNode,
 )
 from frontend.relation.integration import relation_call_name
+from frontend.string.integration import string_call_name
 from frontend.tensor.integration import tensor_call_name
 from frontend.tensor.optimizers import optimizer_call_name
 from frontend.vision.integration import vision_call_name
@@ -821,6 +822,13 @@ def _lower_call(value: CallExpressionNode, declared_functions: _Scope) -> dict[s
             "function_id": relation_function,
             "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
         }
+    string_function = string_call_name(value)
+    if string_function is not None:
+        return {
+            "op": "call_string",
+            "function_id": string_function,
+            "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
+        }
     if (
         isinstance(value.callee, MemberAccessNode)
         and isinstance(value.callee.object, IdentifierNode)
@@ -833,6 +841,19 @@ def _lower_call(value: CallExpressionNode, declared_functions: _Scope) -> dict[s
             "op": "call_array_append",
             "collection": _lower_expression(value.arguments[0], declared_functions),
             "item": _lower_expression(value.arguments[1], declared_functions),
+        }
+    if (
+        isinstance(value.callee, MemberAccessNode)
+        and isinstance(value.callee.object, IdentifierNode)
+        and value.callee.object.name == "array"
+        and value.callee.member == "concat"
+    ):
+        if len(value.arguments) != 2:
+            raise LoweringError("IR-LOWER-014", "array.concat expects two arguments")
+        return {
+            "op": "call_array_concat",
+            "left": _lower_expression(value.arguments[0], declared_functions),
+            "right": _lower_expression(value.arguments[1], declared_functions),
         }
     if (
         isinstance(value.callee, IdentifierNode)

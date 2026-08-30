@@ -22,6 +22,11 @@ from frontend.relation.integration import (
     relation_call_name,
     validate_relation_call,
 )
+from frontend.string.integration import (
+    StringSemanticError,
+    string_call_name,
+    validate_string_call,
+)
 from frontend.vision.integration import (
     VisionSemanticError,
     validate_vision_call,
@@ -1643,6 +1648,14 @@ def _validate_calculation_expression(
                 for argument in value.arguments:
                     visit(argument)
                 return
+            if string_call_name(value) is not None:
+                try:
+                    validate_string_call(value)
+                except StringSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
             if _ruo_call_name(value) is not None:
                 _validate_ruo_call(value)
                 for argument in value.arguments:
@@ -1763,10 +1776,49 @@ def _array_call_name(value: CallExpressionNode) -> str | None:
 
 def _validate_array_call(value: CallExpressionNode) -> None:
     method = _array_call_name(value)
-    if method != "append":
+    if method not in ("append", "concat"):
         raise SurfaceValidationError("COLL-001 unknown array standard function")
     if len(value.arguments) != 2:
-        raise SurfaceValidationError("COLL-001 array.append argument count mismatch")
+        raise SurfaceValidationError(f"COLL-001 array.{method} argument count mismatch")
+
+
+def _string_call_type(
+    name: str, value: CallExpressionNode, symbols: dict[str, Any], bindings: dict[str, Any]
+) -> Any:
+    def argument_type(index: int) -> Any:
+        argument = value.arguments[index]
+        expr = argument.expression if isinstance(argument, ExpressionNode) else argument
+        return _expression_type(expr, symbols, bindings)
+
+    string_type = PrimitiveTypeNode(PrimitiveKind.STRING)
+    int_type = PrimitiveTypeNode(PrimitiveKind.INT)
+    if name == "string.concat":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.concat expects String")
+        _require_type_equal(string_type, argument_type(1), "STR-003 string.concat expects String")
+        return string_type
+    if name == "string.join":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.join separator must be String")
+        _require_type_equal(
+            ArrayTypeNode(string_type), argument_type(1), "STR-003 string.join values must be Array<String>"
+        )
+        return string_type
+    if name == "string.length":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.length expects String")
+        return int_type
+    if name == "string.from_int":
+        _require_type_equal(int_type, argument_type(0), "STR-003 string.from_int expects Int")
+        return string_type
+    if name == "string.from_float":
+        _require_type_equal(
+            PrimitiveTypeNode(PrimitiveKind.FLOAT), argument_type(0), "STR-003 string.from_float expects Float"
+        )
+        return string_type
+    if name == "string.slice":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.slice expects String")
+        _require_type_equal(int_type, argument_type(1), "STR-003 string.slice start must be Int")
+        _require_type_equal(int_type, argument_type(2), "STR-003 string.slice end must be Int")
+        return string_type
+    raise SurfaceValidationError(f"STR-001 unknown String function: {name}")
 
 
 def _validate_ruo_call(value: CallExpressionNode) -> None:
@@ -2108,6 +2160,35 @@ def _expression_type(
                 "COLL-003 array.append element type mismatch",
             )
             return collection_type
+        if _array_call_name(value) == "concat":
+            if len(value.arguments) != 2:
+                raise SurfaceValidationError(
+                    "COLL-001 array.concat argument count mismatch"
+                )
+            left_type = _expression_type(
+                value.arguments[0].expression
+                if isinstance(value.arguments[0], ExpressionNode)
+                else value.arguments[0],
+                symbols,
+                bindings,
+            )
+            right_type = _expression_type(
+                value.arguments[1].expression
+                if isinstance(value.arguments[1], ExpressionNode)
+                else value.arguments[1],
+                symbols,
+                bindings,
+            )
+            if not isinstance(left_type, ArrayTypeNode):
+                raise SurfaceValidationError(
+                    "COLL-002 array.concat first argument must be an array"
+                )
+            _require_type_equal(
+                left_type,
+                right_type,
+                "COLL-003 array.concat argument type mismatch",
+            )
+            return left_type
         if tensor_call_name(value) is not None:
             try:
                 validate_tensor_call(value)
@@ -2166,6 +2247,13 @@ def _expression_type(
             if not isinstance(rows_type, ArrayTypeNode):
                 raise SurfaceValidationError("REL-004 Relation function requires Array<Struct>")
             return rows_type
+        string_function = string_call_name(value)
+        if string_function is not None:
+            try:
+                validate_string_call(value)
+            except StringSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            return _string_call_type(string_function, value, symbols, bindings)
         if vision_call_name(value) is not None:
             try:
                 validate_vision_call(value)

@@ -620,6 +620,91 @@ class RelationFunctionsInteractionTests(OptimizerParityMixin, unittest.TestCase)
         self.assertEqual(len(filter_calls), 2)
 
 
+class StringFunctionsInteractionTests(OptimizerParityMixin, unittest.TestCase):
+    """Phase 2: the `string.*` namespace and `array.concat`'s interaction
+    with the optimizer -- an unused call is dead-code-eliminated (and,
+    for `string.*`, a local read only inside its `arguments` must still
+    count as "used" -- `_collect_reads` needed an explicit `call_string`
+    branch or a local read only there would look dead), a used pipeline
+    survives optimization with an identical result, and repeated calls
+    are never CSE-merged (matching every other namespaced call)."""
+
+    def test_unused_string_call_is_eliminated(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    let unused = string.concat("a", "b")
+                    result = 1
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        for block in optimized["functions"][0]["blocks"]:
+            for instruction in block["instructions"]:
+                self.assertNotEqual(instruction.get("target"), "unused")
+
+    def test_local_read_only_inside_string_call_arguments_is_not_eliminated(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    let piece = "hello"
+                    result = string.length(piece)
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        assigns = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "assign" and instruction.get("target") == "piece"
+        ]
+        self.assertEqual(len(assigns), 1)
+
+    def test_string_and_array_concat_pipeline_survives_optimization(self):
+        optimized, results = self.assert_parity(
+            """
+            module M {
+                calculation Answer {
+                    let unused = string.from_int(999)
+                    let combined = string.concat("foo", "bar")
+                    let letters = array.concat(["f", "o", "o"], ["b", "a", "r"])
+                    result = string.length(combined) * 100 + letters.length
+                }
+            }
+            """
+        )
+        self.assertEqual(results["Answer"], 606)
+        del optimized
+
+    def test_string_calls_are_never_deduplicated(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    let a = string.concat("x", "y")
+                    let b = string.concat("x", "y")
+                    result = string.length(a) + string.length(b)
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        concat_calls = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "assign"
+            and instruction["expr"].get("op") == "call_string"
+            and instruction["expr"].get("function_id") == "string.concat"
+        ]
+        self.assertEqual(len(concat_calls), 2)
+
+
 class MatchOptimizationTests(OptimizerParityMixin, unittest.TestCase):
     """Phase 1: the `match` terminator and `enum_value`/`optional_some`/
     `optional_none` expressions must survive every optimizer pass intact.
