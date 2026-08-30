@@ -1,8 +1,18 @@
 # Changelog
 
-## Unreleased
+## [0.5.5.8] - 2026-08-30
+
+### Added
+- Completed ReasonScript Modernization Phases 0 through 5:
+  - Phase 0: Enforced executable check contract across CLI and toolchain.
+  - Phase 1: Implemented unified enum, optional, and pattern matching runtime.
+  - Phase 2: Added `string.*` and collection standard library functions.
+  - Phase 3: Implemented execution-based test framework with `assert` and `assert_eq`.
+  - Phase 4: Enabled controlled recursion with call graph analysis and recursion limits.
+  - Phase 5: Reconciled module, manifest, and ReasonGraph native transaction parity.
 
 ### Fixed
+
 
 - Completed UERA-8 optimizer integration: Computation IR now classifies pure
   functions conservatively, inlines eligible non-recursive functions with at
