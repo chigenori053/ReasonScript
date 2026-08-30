@@ -52,6 +52,19 @@ pub enum Value {
     String(Rc<str>),
     Array(Rc<RefCell<Vec<Value>>>),
     Struct(Rc<StructValue>),
+    /// A resolved `EnumName.VariantName` reference (Phase 1 enum
+    /// unification). Distinct from `String` so `Color.Red == "Red"` is a
+    /// type mismatch (falls to `PartialEq`'s catch-all `_ => false`)
+    /// rather than an accidental true.
+    Enum {
+        enum_name: Rc<str>,
+        variant_name: Rc<str>,
+    },
+    /// `some(x)` / `none` (Phase 1 optional unification). Deliberately not
+    /// the same value as `Value::Null`: a `none` is a tagged "absent"
+    /// Optional, so `none == null` is false and a match arm for one can't
+    /// accidentally catch the other.
+    Optional(Option<Box<Value>>),
     Tensor(Rc<str>),
     ReasonObject(Rc<RuntimeReasonObject>),
     ReasonObjectSnapshot(Rc<RuntimeReasonObjectSnapshot>),
@@ -88,6 +101,9 @@ impl Value {
                 ),
             })),
             Value::Json(value) => Value::Json(Rc::new((**value).clone())),
+            Value::Optional(inner) => {
+                Value::Optional(inner.as_deref().map(|value| Box::new(value.deep_clone())))
+            }
             other => other.clone(),
         }
     }
@@ -101,6 +117,8 @@ impl Value {
             Value::String(_) => "String",
             Value::Array(_) => "Array",
             Value::Struct(_) => "Struct",
+            Value::Enum { .. } => "Enum",
+            Value::Optional(_) => "Optional",
             Value::Tensor(_) => "Tensor",
             Value::ReasonObject(_) => "ReasonObject",
             Value::ReasonObjectSnapshot(_) => "ReasonObjectSnapshot",
@@ -122,6 +140,17 @@ impl PartialEq for Value {
             (Value::Struct(a), Value::Struct(b)) => {
                 a.type_name == b.type_name && *a.fields.borrow() == *b.fields.borrow()
             }
+            (
+                Value::Enum {
+                    enum_name: a_enum,
+                    variant_name: a_variant,
+                },
+                Value::Enum {
+                    enum_name: b_enum,
+                    variant_name: b_variant,
+                },
+            ) => a_enum == b_enum && a_variant == b_variant,
+            (Value::Optional(a), Value::Optional(b)) => a == b,
             (Value::Tensor(a), Value::Tensor(b)) => a == b,
             (Value::ReasonObject(a), Value::ReasonObject(b)) => {
                 let a = a.object.borrow();
@@ -155,6 +184,12 @@ impl fmt::Display for Value {
             Value::String(value) => write!(f, "{value}"),
             Value::Array(_) => write!(f, "<array>"),
             Value::Struct(value) => write!(f, "<struct {}>", value.type_name),
+            Value::Enum {
+                enum_name,
+                variant_name,
+            } => write!(f, "{enum_name}.{variant_name}"),
+            Value::Optional(Some(inner)) => write!(f, "Some({inner})"),
+            Value::Optional(None) => write!(f, "None"),
             Value::Tensor(id) => write!(f, "<tensor {id}>"),
             Value::ReasonObject(value) => write!(
                 f,
@@ -201,6 +236,18 @@ pub fn to_json(value: &Value) -> serde_json::Value {
             map.insert("fields".to_string(), serde_json::Value::Object(fields));
             serde_json::Value::Object(map)
         }
+        Value::Enum {
+            enum_name,
+            variant_name,
+        } => serde_json::json!({
+            "enum_name": enum_name.to_string(),
+            "variant_name": variant_name.to_string(),
+        }),
+        Value::Optional(Some(inner)) => serde_json::json!({
+            "optional": "some",
+            "value": to_json(inner),
+        }),
+        Value::Optional(None) => serde_json::json!({ "optional": "none" }),
         Value::Tensor(id) => {
             // A raw Tensor handle has no plain-JSON representation (it's
             // only meaningful against this run's TensorStore); tests that

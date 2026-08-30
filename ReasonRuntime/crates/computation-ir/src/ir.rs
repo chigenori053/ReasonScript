@@ -1,16 +1,23 @@
-//! Decoder for `reason-computation-ir/0.1` JSON documents, as produced by
+//! Decoder for `reason-computation-ir/0.2` JSON documents, as produced by
 //! `frontend.computation_ir.lowering.lower_program` on the Python side.
 //!
 //! Field names and shapes here must stay in lockstep with
 //! `frontend/computation_ir/schema.py` and `lowering.py` -- this is the
 //! Rust side of the "Python frontend generates canonical JSON, Rust reads
 //! it" transfer rule from the modernization plan (section 6).
+//!
+//! 0.2 adds `enum`, `optional` (`some(...)`/`none`), and `match` as tagged
+//! values with real pattern matching (Phase 1 of the enum/optional/match
+//! unification plan): the `EnumValue`/`OptionalSome`/`OptionalNone` `Expr`
+//! variants, and the `Match` `Terminator` variant together with the
+//! `Pattern` vocabulary consumed by its `arms` -- see `schema.py`'s
+//! `PATTERN_KINDS` for the shared shape.
 
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-pub const SCHEMA: &str = "reason-computation-ir/0.1";
+pub const SCHEMA: &str = "reason-computation-ir/0.2";
 
 #[derive(Debug, Deserialize)]
 pub struct Program {
@@ -95,6 +102,62 @@ pub enum Terminator {
     Return { value: Expr },
     #[serde(rename = "trap")]
     Trap { code: String, message: String },
+    #[serde(rename = "match")]
+    Match { subject: Expr, arms: Vec<MatchArm> },
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MatchArm {
+    pub pattern: Pattern,
+    #[serde(default)]
+    pub guard: Option<Expr>,
+    pub target: String,
+}
+
+/// Pattern vocabulary for a `match` terminator's `arms`, mirroring
+/// `schema.py`'s `PATTERN_KINDS` and `lowering.py`'s `_lower_pattern`.
+///
+/// `Wildcard` covers both `_` and `default` (both match unconditionally,
+/// no binding); `Binding` covers both a bare identifier pattern and a
+/// struct shorthand/rename binding (both match unconditionally and bind
+/// `name`). `OptionalSome` always carries a nested `pattern`, unifying
+/// the simple `Some(x)`/`Some(_)` forms and `Some(<nested pattern>)` into
+/// one shape.
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind")]
+pub enum Pattern {
+    #[serde(rename = "wildcard")]
+    Wildcard,
+    #[serde(rename = "binding")]
+    Binding { name: String },
+    #[serde(rename = "literal")]
+    Literal {
+        value_kind: String,
+        value: serde_json::Value,
+    },
+    #[serde(rename = "range")]
+    Range {
+        lower: serde_json::Value,
+        upper: serde_json::Value,
+        lower_inclusive: bool,
+        upper_inclusive: bool,
+    },
+    #[serde(rename = "enum_value")]
+    EnumValue {
+        enum_name: String,
+        variant_name: String,
+    },
+    #[serde(rename = "optional_some")]
+    OptionalSome { pattern: Box<Pattern> },
+    #[serde(rename = "optional_none")]
+    OptionalNone,
+    #[serde(rename = "struct")]
+    Struct {
+        type_name: String,
+        fields: BTreeMap<String, Pattern>,
+    },
+    #[serde(rename = "or")]
+    Or { alternatives: Vec<Pattern> },
 }
 
 #[derive(Debug, Deserialize)]
@@ -234,6 +297,24 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
+    #[serde(rename = "enum_value")]
+    EnumValue {
+        enum_name: String,
+        variant_name: String,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
+    #[serde(rename = "optional_some")]
+    OptionalSome {
+        value: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
+    #[serde(rename = "optional_none")]
+    OptionalNone {
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
 }
 
 impl Expr {
@@ -257,7 +338,10 @@ impl Expr {
             | Expr::CallReasoning { source_span, .. }
             | Expr::CallArrayAppend { source_span, .. }
             | Expr::CallFunction { source_span, .. }
-            | Expr::CallCast { source_span, .. } => source_span.as_ref(),
+            | Expr::CallCast { source_span, .. }
+            | Expr::EnumValue { source_span, .. }
+            | Expr::OptionalSome { source_span, .. }
+            | Expr::OptionalNone { source_span, .. } => source_span.as_ref(),
         }
     }
 }

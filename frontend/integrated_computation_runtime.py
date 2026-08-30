@@ -20,6 +20,10 @@ from frontend.language_surface.nodes import (
     ComparisonOperator,
     ConstStatementNode,
     ContinueStatementNode,
+    DefaultPatternNode,
+    EnumDeclarationNode,
+    EnumValuePatternNode,
+    EnumVariantReferenceNode,
     ExpressionNode,
     ExpressionStatementNode,
     FieldAssignmentStatementNode,
@@ -28,34 +32,46 @@ from frontend.language_surface.nodes import (
     FunctionDeclarationNode,
     GoalNode,
     IdentifierNode,
+    IdentifierPatternNode,
     IfStatementNode,
     ImportNode,
     IndexAccessNode,
     IndexAssignmentStatementNode,
     IntegerLiteralNode,
     LetStatementNode,
+    LiteralPatternNode,
     LogicalExpressionNode,
     LogicalOperator,
     LoopStatementNode,
+    MatchStatementNode,
     MemberAccessNode,
     NoneLiteralNode,
     NullLiteralNode,
+    OptionalPatternNode,
+    OptionalValuePatternNode,
+    OrPatternNode,
     ParenthesizedExpressionNode,
     ProgramNode,
     QualifiedIdentifierNode,
+    QualifiedPatternNode,
+    RangePatternNode,
     ReasonGraphDeclarationNode,
     ReasonObjectBindingNode,
     ResultStatementNode,
     ReturnStatementNode,
     RuntimeCallExpressionNode,
+    SomeExpressionNode,
     StateDeclarationNode,
     ConstraintNode,
     ExecutionPlanDeclarationNode,
     StringLiteralNode,
+    StructBindingPatternNode,
     StructLiteralNode,
+    StructPatternNode,
     UnaryExpressionNode,
     UnaryOperator,
     WhileStatementNode,
+    WildcardPatternNode,
 )
 from frontend.relation.integration import relation_call_name
 from frontend.reason_object_runtime import (
@@ -105,6 +121,34 @@ class RuntimeStruct:
     fields: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class RuntimeEnumValue:
+    """A resolved `EnumName.VariantName` reference (Phase 1 enum unification).
+
+    Distinct from a plain string so `Color.Red == "Red"` is a type error
+    the way `TYPE-V004`-style arithmetic mixing is, not an accidental true
+    -- equality/pattern matching only ever compares two `RuntimeEnumValue`s.
+    """
+
+    enum_name: str
+    variant_name: str
+
+
+@dataclass(frozen=True)
+class RuntimeOptionalValue:
+    """`some(x)` / `none` (Phase 1 optional unification).
+
+    Deliberately not the same value as ReasonScript `null`
+    (`NullLiteralNode`, which still evaluates to plain Python `None`): a
+    `none` is a tagged "absent" `RuntimeOptionalValue`, so
+    `none == null` is false and a `None`/`Some` match arm can't
+    accidentally catch an unrelated `null`.
+    """
+
+    has_value: bool
+    value: Any = None
+
+
 @dataclass
 class RuntimeFunction:
     node: FunctionDeclarationNode
@@ -144,6 +188,83 @@ def _relation_field(row: RuntimeStruct, field: str) -> Any:
     if field not in row.fields:
         raise IntegratedRuntimeError("REL-005", f"unknown field {field} on {row.type_name}")
     return row.fields[field]
+
+
+def _match_pattern(pattern: Any, value: Any) -> dict[str, Any] | None:
+    """Structurally matches `value` against a `Pattern` AST node.
+
+    Returns the bindings a successful match would introduce (possibly
+    empty), or `None` if `pattern` does not match `value`. Language-surface
+    validation (`_validate_*_match_exhaustiveness` in
+    `frontend.language_surface.validation`) already guarantees a `match`
+    statement is exhaustive before this ever runs, so callers only need to
+    handle "no arm matched" as a defensive fallback, not an expected case.
+    """
+    if isinstance(pattern, (WildcardPatternNode, DefaultPatternNode)):
+        return {}
+    if isinstance(pattern, IdentifierPatternNode):
+        return {pattern.name: value}
+    if isinstance(pattern, StructBindingPatternNode):
+        return {pattern.binding: value}
+    if isinstance(pattern, LiteralPatternNode):
+        literal = pattern.value
+        literal_value = None if isinstance(literal, NullLiteralNode) else literal.value
+        return {} if value == literal_value else None
+    if isinstance(pattern, RangePatternNode):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        lower = pattern.lower.value
+        upper = pattern.upper.value
+        lower_ok = value >= lower if pattern.lower_inclusive else value > lower
+        upper_ok = value <= upper if pattern.upper_inclusive else value < upper
+        return {} if lower_ok and upper_ok else None
+    if isinstance(pattern, EnumValuePatternNode):
+        matches = (
+            isinstance(value, RuntimeEnumValue)
+            and value.enum_name == pattern.enum_name
+            and value.variant_name == pattern.value_name
+        )
+        return {} if matches else None
+    if isinstance(pattern, QualifiedPatternNode):
+        matches = (
+            isinstance(value, RuntimeEnumValue)
+            and value.enum_name == pattern.namespace
+            and value.variant_name == pattern.identifier
+        )
+        return {} if matches else None
+    if isinstance(pattern, OptionalPatternNode):
+        if not isinstance(value, RuntimeOptionalValue):
+            return None
+        if pattern.kind == "Some":
+            if not value.has_value:
+                return None
+            return {pattern.binding: value.value} if pattern.binding is not None else {}
+        return {} if not value.has_value else None
+    if isinstance(pattern, OptionalValuePatternNode):
+        if not isinstance(value, RuntimeOptionalValue):
+            return None
+        if pattern.kind == "Some":
+            return _match_pattern(pattern.pattern, value.value) if value.has_value else None
+        return {} if not value.has_value else None
+    if isinstance(pattern, StructPatternNode):
+        if not isinstance(value, RuntimeStruct) or value.type_name != pattern.type_name:
+            return None
+        bindings: dict[str, Any] = {}
+        for field in pattern.fields:
+            if field.field_name not in value.fields:
+                return None
+            sub_bindings = _match_pattern(field.pattern, value.fields[field.field_name])
+            if sub_bindings is None:
+                return None
+            bindings.update(sub_bindings)
+        return bindings
+    if isinstance(pattern, OrPatternNode):
+        for alternative in pattern.alternatives:
+            bindings = _match_pattern(alternative, value)
+            if bindings is not None:
+                return bindings
+        return None
+    raise IntegratedRuntimeError("RT-MATCH-002", f"unsupported pattern: {type(pattern).__name__}")
 
 
 def call_relation(function_id: str, *args: Any) -> Any:
@@ -253,8 +374,22 @@ def execute_program(
     calculations: dict[str, Any] = {}
     object_root = (resource_root or Path.cwd()).resolve()
     module_objects: dict[str, dict[str, Any]] = {}
+    # Flat and program-wide, like `RuntimeStruct.type_name`: every module
+    # sees every declared enum's namespace object below, so `Color.Red`
+    # resolves via the ordinary `MemberAccessNode` handling in
+    # `_expression` (env lookup of "Color" finds this dict, then plain
+    # dict-member lookup) without needing a dedicated AST node or a
+    # separate scope parameter threaded through every evaluator call.
+    enum_namespaces: dict[str, dict[str, RuntimeEnumValue]] = {
+        item.name: {
+            value.name: RuntimeEnumValue(item.name, value.name) for value in item.values
+        }
+        for module in program.modules
+        for item in module.body
+        if isinstance(item, EnumDeclarationNode)
+    }
     for module in program.modules:
-        loaded: dict[str, Any] = {}
+        loaded: dict[str, Any] = dict(enum_namespaces)
         for item in module.body:
             if isinstance(item, (
                 GoalNode,
@@ -449,7 +584,54 @@ def _statements(
                     selected, env, runtime, trace, limit, scope, vision_runtime,
                     functions, max_call_depth, call_depth,
                 )
+        elif isinstance(statement, MatchStatementNode):
+            _match_statement(
+                statement, env, runtime, trace, limit, scope, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
         runtime.collect(env)
+
+
+def _match_statement(
+    statement: MatchStatementNode,
+    env: dict[str, Any],
+    runtime: TensorRuntime,
+    trace: list[dict[str, Any]],
+    limit: int,
+    scope: str,
+    vision_runtime: VisionRuntimeBridge,
+    functions: dict[str, FunctionDeclarationNode],
+    max_call_depth: int,
+    call_depth: int,
+) -> None:
+    subject = _expression(
+        statement.expression, env, runtime, vision_runtime,
+        functions, max_call_depth, call_depth,
+    )
+    for arm in statement.arms:
+        bindings = _match_pattern(arm.pattern.pattern, subject)
+        if bindings is None:
+            continue
+        previous: list[tuple[str, Any, bool]] = [
+            (name, env.get(name), name in env) for name in bindings
+        ]
+        env.update(bindings)
+        guard_ok = arm.guard is None or bool(_expression(
+            arm.guard, env, runtime, vision_runtime,
+            functions, max_call_depth, call_depth,
+        ))
+        if guard_ok:
+            _statements(
+                arm.body, env, runtime, trace, limit, scope, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            return
+        for name, old_value, existed in previous:
+            if existed:
+                env[name] = old_value
+            else:
+                del env[name]
+    raise IntegratedRuntimeError("RT-MATCH-001", "no match arm satisfied the value")
 
 
 def _while_loop(
@@ -540,8 +722,17 @@ def _expression(
     value = value.expression if isinstance(value, ExpressionNode) else value
     if isinstance(value, (IntegerLiteralNode, FloatLiteralNode, BooleanLiteralNode, StringLiteralNode)):
         return value.value
-    if isinstance(value, (NoneLiteralNode, NullLiteralNode)):
+    if isinstance(value, NullLiteralNode):
         return None
+    if isinstance(value, NoneLiteralNode):
+        return RuntimeOptionalValue(False)
+    if isinstance(value, SomeExpressionNode):
+        return RuntimeOptionalValue(True, _expression(
+            value.value, env, runtime, vision_runtime,
+            functions, max_call_depth, call_depth,
+        ))
+    if isinstance(value, EnumVariantReferenceNode):
+        return RuntimeEnumValue(value.enum_name, value.variant_name)
     if isinstance(value, IdentifierNode):
         if value.name not in env:
             raise IntegratedRuntimeError("RT-NAME-001", f"unknown runtime name: {value.name}")
@@ -964,6 +1155,14 @@ def _plain(value: Any, runtime: TensorRuntime) -> Any:
             name: _plain(item, runtime)
             for name, item in sorted(value.fields.items())
         }
+    if isinstance(value, RuntimeEnumValue):
+        return {"enum_name": value.enum_name, "variant_name": value.variant_name}
+    if isinstance(value, RuntimeOptionalValue):
+        return (
+            {"optional": "some", "value": _plain(value.value, runtime)}
+            if value.has_value
+            else {"optional": "none"}
+        )
     if hasattr(value, "to_runtime_value"):
         return _plain(value.to_runtime_value(), runtime)
     if isinstance(value, dict):
@@ -984,6 +1183,14 @@ def _trace_plain(value: Any) -> Any:
             name: _trace_plain(item)
             for name, item in sorted(value.fields.items())
         }
+    if isinstance(value, RuntimeEnumValue):
+        return {"enum_name": value.enum_name, "variant_name": value.variant_name}
+    if isinstance(value, RuntimeOptionalValue):
+        return (
+            {"optional": "some", "value": _trace_plain(value.value)}
+            if value.has_value
+            else {"optional": "none"}
+        )
     if hasattr(value, "to_runtime_value"):
         return _trace_plain(value.to_runtime_value())
     if isinstance(value, dict):
