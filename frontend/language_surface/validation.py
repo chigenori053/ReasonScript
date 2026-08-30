@@ -1763,6 +1763,26 @@ def _scalar_cast_name(value: CallExpressionNode, symbols: dict[str, Any]) -> str
     return None
 
 
+_ASSERT_NAMES = {"assert", "assert_eq"}
+
+
+def _assert_call_name(value: CallExpressionNode, symbols: dict[str, Any]) -> str | None:
+    """Resolve a bare `assert(...)`/`assert_eq(...)` call, mirroring `_scalar_cast_name`.
+
+    Phase 3 ("実行型テスト機構"): both are reserved global builtins, not a
+    namespace, exactly like `float`/`int` -- and, like those, a same-named
+    user `fn` declaration shadows the builtin rather than being rejected.
+    """
+    callee = value.callee
+    if (
+        isinstance(callee, IdentifierNode)
+        and callee.name in _ASSERT_NAMES
+        and not isinstance(symbols.get(callee.name), FunctionDeclarationNode)
+    ):
+        return callee.name
+    return None
+
+
 def _array_call_name(value: CallExpressionNode) -> str | None:
     callee = value.callee
     if (
@@ -2282,6 +2302,53 @@ def _expression_type(
             return PrimitiveTypeNode(
                 PrimitiveKind.FLOAT if cast_name == "float" else PrimitiveKind.INT
             )
+        assert_name = _assert_call_name(value, symbols)
+        if assert_name is not None:
+            null_type = PrimitiveTypeNode(PrimitiveKind.NULL)
+            if assert_name == "assert":
+                if len(value.arguments) != 1:
+                    raise SurfaceValidationError(
+                        "TEST-ASSERT-002 assert() expects exactly one argument"
+                    )
+                condition_argument = value.arguments[0]
+                condition_expression = (
+                    condition_argument.expression
+                    if isinstance(condition_argument, ExpressionNode)
+                    else condition_argument
+                )
+                condition_type = _expression_type(condition_expression, symbols, bindings)
+                if condition_type is not _UNKNOWN_TYPE and condition_type != PrimitiveTypeNode(
+                    PrimitiveKind.BOOL
+                ):
+                    raise SurfaceValidationError(
+                        "TEST-ASSERT-003 assert() argument must be Bool"
+                    )
+                return null_type
+            if len(value.arguments) != 2:
+                raise SurfaceValidationError(
+                    "TEST-ASSERT-002 assert_eq() expects exactly two arguments"
+                )
+            actual_argument, expected_argument = value.arguments
+            actual_type = _expression_type(
+                actual_argument.expression
+                if isinstance(actual_argument, ExpressionNode)
+                else actual_argument,
+                symbols,
+                bindings,
+            )
+            expected_type = _expression_type(
+                expected_argument.expression
+                if isinstance(expected_argument, ExpressionNode)
+                else expected_argument,
+                symbols,
+                bindings,
+            )
+            _require_type_equal(
+                actual_type,
+                expected_type,
+                "TEST-ASSERT-003 assert_eq() arguments must have the same type",
+            )
+            return null_type
         if isinstance(value.callee, IdentifierNode):
             if value.callee.name == _CURRENT_FUNCTION:
                 raise SurfaceValidationError("FN-007 recursive function calls are rejected")

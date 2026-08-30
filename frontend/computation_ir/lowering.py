@@ -86,6 +86,7 @@ from frontend.vision.integration import vision_call_name
 from .schema import SCHEMA
 
 _SCALAR_CAST_NAMES = {"float", "int"}
+_ASSERT_NAMES = {"assert", "assert_eq"}
 
 
 class LoweringError(ValueError):
@@ -866,6 +867,25 @@ def _lower_call(value: CallExpressionNode, declared_functions: _Scope) -> dict[s
             "op": "call_cast",
             "name": value.callee.name,
             "argument": _lower_expression(value.arguments[0], declared_functions),
+        }
+    if (
+        isinstance(value.callee, IdentifierNode)
+        and value.callee.name in _ASSERT_NAMES
+        and value.callee.name not in declared_functions.functions
+    ):
+        if value.callee.name == "assert":
+            if len(value.arguments) != 1:
+                raise LoweringError("IR-LOWER-015", "assert() expects exactly one argument")
+            return {
+                "op": "assert",
+                "condition": _lower_expression(value.arguments[0], declared_functions),
+            }
+        if len(value.arguments) != 2:
+            raise LoweringError("IR-LOWER-015", "assert_eq() expects exactly two arguments")
+        return {
+            "op": "assert_eq",
+            "actual": _lower_expression(value.arguments[0], declared_functions),
+            "expected": _lower_expression(value.arguments[1], declared_functions),
         }
     if isinstance(value.callee, IdentifierNode):
         return {

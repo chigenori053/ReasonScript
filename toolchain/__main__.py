@@ -109,7 +109,14 @@ def main() -> int:
 
     if command == "test":
         from toolchain.runner_cmd import run
-        return run(project_root, package=package)
+        return run(
+            project_root,
+            package=package,
+            compile_only="--compile-only" in args[1:],
+            output_format=_option_arg(args[1:], "--format") or "text",
+            filesystem_read="--allow-read" in args[1:],
+            filesystem_write="--allow-write" in args[1:],
+        )
 
     if command == "check":
         from toolchain.check_cmd import run

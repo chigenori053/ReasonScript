@@ -438,6 +438,19 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
         return RuntimeOptionalValue(True, _eval_expr(node["value"], env, ctx, call_depth))
     if op == "optional_none":
         return RuntimeOptionalValue(False)
+    if op == "assert":
+        condition = _eval_expr(node["condition"], env, ctx, call_depth)
+        if condition is not True:
+            raise IntegratedRuntimeError("TEST-ASSERT-001", "assertion failed")
+        return None
+    if op == "assert_eq":
+        actual = _eval_expr(node["actual"], env, ctx, call_depth)
+        expected = _eval_expr(node["expected"], env, ctx, call_depth)
+        if actual != expected:
+            raise IntegratedRuntimeError(
+                "TEST-ASSERT-001", f"assertion failed: expected {expected!r}, got {actual!r}"
+            )
+        return None
     raise IRExecutionError("IR-EXEC-003", f"unknown expression op: {op}")
 
 

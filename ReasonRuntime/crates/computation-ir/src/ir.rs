@@ -329,6 +329,19 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
+    #[serde(rename = "assert")]
+    Assert {
+        condition: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
+    #[serde(rename = "assert_eq")]
+    AssertEq {
+        actual: Box<Expr>,
+        expected: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
 }
 
 impl Expr {
@@ -357,7 +370,9 @@ impl Expr {
             | Expr::CallCast { source_span, .. }
             | Expr::EnumValue { source_span, .. }
             | Expr::OptionalSome { source_span, .. }
-            | Expr::OptionalNone { source_span, .. } => source_span.as_ref(),
+            | Expr::OptionalNone { source_span, .. }
+            | Expr::Assert { source_span, .. }
+            | Expr::AssertEq { source_span, .. } => source_span.as_ref(),
         }
     }
 }
