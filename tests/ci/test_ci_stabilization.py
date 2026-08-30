@@ -9,12 +9,12 @@ def _workflow(name: str) -> str:
 
 
 def test_required_workflows_exist():
-    for name in ("lint.yml", "build.yml", "test.yml", "release.yml"):
+    for name in ("lint.yml", "build.yml", "test.yml", "release.yml", "ci.yml"):
         assert (WORKFLOWS / name).exists(), name
 
 
 def test_workflows_install_shared_dev_requirements():
-    for name in ("lint.yml", "build.yml", "test.yml", "release.yml"):
+    for name in ("lint.yml", "build.yml", "test.yml", "release.yml", "ci.yml"):
         content = _workflow(name)
         assert "python3 -m pip install --upgrade pip" in content
         assert "python3 -m pip install -r requirements-dev.txt" in content
@@ -26,6 +26,7 @@ def test_workflows_use_test_platform_entrypoint():
     assert "scripts/test_platform.py test" in _workflow("test.yml")
     assert "scripts/test_platform.py regression" in _workflow("test.yml")
     assert "scripts/test_platform.py release-check --quick" in _workflow("release.yml")
+    assert "./reason ci" in _workflow("ci.yml")
 
 
 def test_v0_6_language_layer_validation_scope_is_in_standard_test_platform():
@@ -46,3 +47,25 @@ def test_v0_6_language_layer_validation_scope_is_in_standard_test_platform():
     assert (ROOT / "tests/compatibility/test_top_level_construct_policy_v0_6.py").exists()
     assert (ROOT / "tests/playground/test_top_level_construct_projection_v0_6.py").exists()
     assert (ROOT / "tests/playground/test_reserved_construct_diagnostics_v0_6.py").exists()
+
+
+def test_modern_language_computation_ir_validation_scope_is_in_test_platform():
+    test_platform = (ROOT / "scripts" / "test_platform.py").read_text()
+
+    for required_suite in [
+        "computation_ir_tests",
+        "tensor_standard_functions_tests",
+        "language_spec_validation_tests",
+        "frontend/parser_conformance",
+        "frontend/compiler_conformance",
+        "ast_validation_tests",
+        "type_specification_tests",
+    ]:
+        assert required_suite in test_platform
+
+    assert (ROOT / "computation_ir_tests/test_computation_ir_rust_parity.py").exists()
+    assert (ROOT / "computation_ir_tests/test_controlled_recursion.py").exists()
+    assert (ROOT / "tensor_standard_functions_tests/test_tensor_standard_functions.py").exists()
+    assert (ROOT / "language_spec_validation_tests/test_core_language_spec.py").exists()
+    assert (ROOT / "frontend/parser_conformance/end_to_end_tests/test_end_to_end.py").exists()
+    assert (ROOT / "frontend/compiler_conformance/end_to_end_tests/test_end_to_end.py").exists()

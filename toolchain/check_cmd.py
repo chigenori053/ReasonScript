@@ -13,7 +13,12 @@ from .workspace import (
 )
 
 
-def run(project_root: Path, package: str | None = None) -> int:
+def run(
+    project_root: Path,
+    package: str | None = None,
+    *,
+    surface_only: bool = False,
+) -> int:
     try:
         workspace = PackageGraphService().discover(project_root)
     except WorkspaceError as error:
@@ -32,20 +37,21 @@ def run(project_root: Path, package: str | None = None) -> int:
             except WorkspaceError as error:
                 _print_workspace_error(error)
                 return 1
-            rc = _run_package(node.path)
+            rc = _run_package(node.path, surface_only=surface_only)
             if rc != 0:
                 return rc
             checked += 1
-        print(f"Workspace check passed. {checked} package(s) validated.")
+        mode = "surface-only " if surface_only else ""
+        print(f"Workspace {mode}check passed. {checked} package(s) validated.")
         return 0
 
     if package is not None and package != workspace.default_package.name:
         _print_workspace_error(WorkspaceError(f"unknown package: {package}"))
         return 1
-    return _run_package(workspace.default_package.path)
+    return _run_package(workspace.default_package.path, surface_only=surface_only)
 
 
-def _run_package(project_root: Path) -> int:
+def _run_package(project_root: Path, *, surface_only: bool = False) -> int:
     try:
         Manifest.load(project_root)
     except ManifestError as e:
@@ -64,13 +70,15 @@ def _run_package(project_root: Path) -> int:
 
     try:
         validate_package_sources(
-            [(src_path.read_text(encoding="utf-8"), src_path) for src_path in sources]
+            [(src_path.read_text(encoding="utf-8"), src_path) for src_path in sources],
+            require_executable=not surface_only,
         )
     except PipelineError as e:
         print(f"Error:\n\n{e.code}: {e.message}")
         return 1
 
-    print(f"Check passed. {len(sources)} file(s) validated.")
+    mode = "Surface-only check" if surface_only else "Check"
+    print(f"{mode} passed. {len(sources)} file(s) validated.")
     return 0
 
 

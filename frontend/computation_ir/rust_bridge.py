@@ -34,8 +34,8 @@ def binary_candidates() -> tuple[Path, ...]:
         Path(configured) if configured else None,
         Path(home) / "current" / "bin" / name if home else None,
         _DISTRIBUTION_ROOT / "bin" / name,
-        _CRATE_ROOT / "target" / "release" / name,
         _CRATE_ROOT / "target" / "debug" / name,
+        _CRATE_ROOT / "target" / "release" / name,
         Path(path_candidate) if path_candidate else None,
     ]
     return tuple(candidate for candidate in candidates if candidate is not None)

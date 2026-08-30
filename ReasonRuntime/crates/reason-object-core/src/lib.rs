@@ -1399,31 +1399,172 @@ pub fn transact_reason_graph_file(
         return Ok(rejected("invalid_transaction_id", "RRG-019"));
     }
     let proposal_object = match proposal.as_object() {
-        Some(value) if value.len() == 1 && value.contains_key("graph_updates") => value,
-        _ => return Ok(rejected("unknown_proposal_operation", "RRG-020")),
+        Some(map) => map,
+        None => return Ok(rejected("invalid_proposal", "RRG-020")),
     };
-    let updates = match proposal_object
-        .get("graph_updates")
-        .and_then(Value::as_object)
-    {
-        Some(value) if value.len() == 1 => value,
-        _ => return Ok(rejected("invalid_graph_update", "RRG-020")),
-    };
-    let metadata = match updates.get("metadata").and_then(Value::as_object) {
-        Some(value) => Value::Object(value.clone()),
-        None => return Ok(rejected("native_phase16_metadata_only", "RRG-020")),
-    };
+
+    let allowed_ops = ["unit_additions", "relation_additions", "unit_updates", "relation_updates", "graph_updates"];
+    for k in proposal_object.keys() {
+        if !allowed_ops.contains(&k.as_str()) {
+            return Ok(rejected("unknown_proposal_operation", "RRG-020"));
+        }
+    }
+
     let mut candidate = graph.logical.clone();
-    candidate
-        .as_object_mut()
-        .ok_or_else(|| {
-            NativeError::new(
-                "RGO-N1-004",
-                FailureClass::Semantic,
-                "ReasonGraph must be an object",
-            )
-        })?
-        .insert("metadata".to_owned(), metadata);
+    let cand_obj = match candidate.as_object_mut() {
+        Some(obj) => obj,
+        None => return Err(NativeError::new("RGO-N1-004", FailureClass::Semantic, "ReasonGraph must be an object")),
+    };
+
+    let mut changed_units: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let mut changed_relations: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+
+    // 1. unit_updates
+    if let Some(unit_updates_val) = proposal_object.get("unit_updates") {
+        let unit_updates = match unit_updates_val.as_object() {
+            Some(obj) => obj,
+            None => return Ok(rejected("invalid_unit_updates", "RRG-020")),
+        };
+        let units = cand_obj.entry("units").or_insert_with(|| Value::Array(Vec::new()));
+        let units_arr = match units.as_array_mut() {
+            Some(arr) => arr,
+            None => return Ok(rejected("invalid_graph_registry", "RRG-020")),
+        };
+        for (identity, patch_val) in unit_updates {
+            let patch = match patch_val.as_object() {
+                Some(obj) => obj,
+                None => return Ok(rejected("invalid_unit_updates", "RRG-020")),
+            };
+            let mut found = false;
+            for unit in units_arr.iter_mut() {
+                if let Some(u_obj) = unit.as_object_mut() {
+                    if u_obj.get("unit_id").and_then(Value::as_str) == Some(identity.as_str()) {
+                        if let Some(id_in_patch) = patch.get("unit_id").and_then(Value::as_str) {
+                            if id_in_patch != identity {
+                                return Ok(rejected("identity_mutation", "RRG-021"));
+                            }
+                        }
+                        for (pk, pv) in patch {
+                            u_obj.insert(pk.clone(), pv.clone());
+                        }
+                        changed_units.insert(identity.clone());
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if !found {
+                return Ok(rejected("unknown_entity", "RRG-021"));
+            }
+        }
+    }
+
+    // 2. relation_updates
+    if let Some(rel_updates_val) = proposal_object.get("relation_updates") {
+        let rel_updates = match rel_updates_val.as_object() {
+            Some(obj) => obj,
+            None => return Ok(rejected("invalid_relation_updates", "RRG-020")),
+        };
+        let relations = cand_obj.entry("relations").or_insert_with(|| Value::Array(Vec::new()));
+        let relations_arr = match relations.as_array_mut() {
+            Some(arr) => arr,
+            None => return Ok(rejected("invalid_graph_registry", "RRG-020")),
+        };
+        for (identity, patch_val) in rel_updates {
+            let patch = match patch_val.as_object() {
+                Some(obj) => obj,
+                None => return Ok(rejected("invalid_relation_updates", "RRG-020")),
+            };
+            let mut found = false;
+            for rel in relations_arr.iter_mut() {
+                if let Some(r_obj) = rel.as_object_mut() {
+                    if r_obj.get("relation_id").and_then(Value::as_str) == Some(identity.as_str()) {
+                        if let Some(id_in_patch) = patch.get("relation_id").and_then(Value::as_str) {
+                            if id_in_patch != identity {
+                                return Ok(rejected("identity_mutation", "RRG-021"));
+                            }
+                        }
+                        for (pk, pv) in patch {
+                            r_obj.insert(pk.clone(), pv.clone());
+                        }
+                        changed_relations.insert(identity.clone());
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if !found {
+                return Ok(rejected("unknown_entity", "RRG-021"));
+            }
+        }
+    }
+
+    // 3. unit_additions
+    if let Some(unit_adds_val) = proposal_object.get("unit_additions") {
+        let unit_adds = match unit_adds_val.as_array() {
+            Some(arr) => arr,
+            None => return Ok(rejected("invalid_unit_additions", "RRG-020")),
+        };
+        let units = cand_obj.entry("units").or_insert_with(|| Value::Array(Vec::new()));
+        let units_arr = match units.as_array_mut() {
+            Some(arr) => arr,
+            None => return Ok(rejected("invalid_graph_registry", "RRG-020")),
+        };
+        for item in unit_adds {
+            let item_obj = match item.as_object() {
+                Some(obj) => obj,
+                None => return Ok(rejected("invalid_unit_addition", "RRG-020")),
+            };
+            let uid = match item_obj.get("unit_id").and_then(Value::as_str) {
+                Some(id) => id,
+                None => return Ok(rejected("invalid_unit_addition", "RRG-020")),
+            };
+            units_arr.push(item.clone());
+            changed_units.insert(uid.to_string());
+        }
+    }
+
+    // 4. relation_additions
+    if let Some(rel_adds_val) = proposal_object.get("relation_additions") {
+        let rel_adds = match rel_adds_val.as_array() {
+            Some(arr) => arr,
+            None => return Ok(rejected("invalid_relation_additions", "RRG-020")),
+        };
+        let relations = cand_obj.entry("relations").or_insert_with(|| Value::Array(Vec::new()));
+        let relations_arr = match relations.as_array_mut() {
+            Some(arr) => arr,
+            None => return Ok(rejected("invalid_graph_registry", "RRG-020")),
+        };
+        for item in rel_adds {
+            let item_obj = match item.as_object() {
+                Some(obj) => obj,
+                None => return Ok(rejected("invalid_relation_addition", "RRG-020")),
+            };
+            let rid = match item_obj.get("relation_id").and_then(Value::as_str) {
+                Some(id) => id,
+                None => return Ok(rejected("invalid_relation_addition", "RRG-020")),
+            };
+            relations_arr.push(item.clone());
+            changed_relations.insert(rid.to_string());
+        }
+    }
+
+    // 5. graph_updates
+    if let Some(graph_updates_val) = proposal_object.get("graph_updates") {
+        let graph_updates = match graph_updates_val.as_object() {
+            Some(obj) => obj,
+            None => return Ok(rejected("invalid_graph_updates", "RRG-020")),
+        };
+        let allowed_gu = ["root_refs", "lifecycle", "provenance", "metadata"];
+        for k in graph_updates.keys() {
+            if !allowed_gu.contains(&k.as_str()) {
+                return Ok(rejected("invalid_graph_update", "RRG-020"));
+            }
+        }
+        for (gk, gv) in graph_updates {
+            cand_obj.insert(gk.clone(), gv.clone());
+        }
+    }
     let payload = encode_reason_graph_bytes(&candidate)?;
     let candidate_hash = sha256(
         serde_json::to_string(&candidate)
@@ -1465,12 +1606,14 @@ pub fn transact_reason_graph_file(
         let _ = fs::remove_file(&temporary);
     }
     write_result?;
+    let changed_unit_ids: Vec<String> = changed_units.into_iter().collect();
+    let changed_relation_ids: Vec<String> = changed_relations.into_iter().collect();
     Ok(serde_json::json!({
         "transaction_id": transaction_id, "committed": true, "partial_commit_count": 0,
         "before_graph_hash": graph.graph_hash, "graph_hash": candidate_hash,
-        "changed_unit_ids": [], "changed_relation_ids": [], "source_bytes_unchanged": false,
+        "changed_unit_ids": changed_unit_ids, "changed_relation_ids": changed_relation_ids, "source_bytes_unchanged": false,
         "publication": {"bytes": payload.len(), "sha256": sha256(&payload), "graph_hash": candidate_hash},
-        "profile": "reasonscript-reason-object-graph-native-persistence/0.1",
+        "profile": "reasonscript-reason-object-graph-native-persistence/0.2",
     }))
 }
 
@@ -1480,43 +1623,23 @@ fn encode_reason_graph_bytes(graph: &Value) -> Result<Vec<u8>, NativeError> {
     let header_record = envelope("file_header", &header, 0)?;
     let graph_record = envelope("graph", graph, 1)?;
     let mut content = Vec::new();
-    content.extend(serde_json::to_vec(&header_record).map_err(|_| {
-        NativeError::new(
-            "RGO-N1-007",
-            FailureClass::Persistence,
-            "cannot encode RGO-F1 header",
-        )
-    })?);
+    let header_bytes = canonical_logical_bytes(&header_record)?;
+    content.extend(header_bytes);
     content.push(b'\n');
-    content.extend(serde_json::to_vec(&graph_record).map_err(|_| {
-        NativeError::new(
-            "RGO-N1-007",
-            FailureClass::Persistence,
-            "cannot encode RGO-F1 graph",
-        )
-    })?);
+    let graph_bytes = canonical_logical_bytes(&graph_record)?;
+    content.extend(graph_bytes);
     content.push(b'\n');
-    let seal = serde_json::json!({"format_version":"1.0", "graph_id":graph_id, "graph_hash":sha256(serde_json::to_string(graph).map_err(|_| NativeError::new("RGO-N1-007", FailureClass::Persistence, "cannot hash RGO-F1 graph"))?.as_bytes()), "content_stream_sha256":sha256(&content), "content_record_count":2, "total_record_count":3});
+    let graph_hash_str = sha256(&canonical_logical_bytes(graph)?);
+    let seal = serde_json::json!({"format_version":"1.0", "graph_id":graph_id, "graph_hash":graph_hash_str, "content_stream_sha256":sha256(&content), "content_record_count":2, "total_record_count":3});
     let seal_record = envelope("file_seal", &seal, 2)?;
-    content.extend(serde_json::to_vec(&seal_record).map_err(|_| {
-        NativeError::new(
-            "RGO-N1-007",
-            FailureClass::Persistence,
-            "cannot encode RGO-F1 seal",
-        )
-    })?);
+    let seal_bytes = canonical_logical_bytes(&seal_record)?;
+    content.extend(seal_bytes);
     content.push(b'\n');
     Ok(content)
 }
 
 fn envelope(record_type: &str, body: &Value, ordinal: u64) -> Result<Value, NativeError> {
-    let body_bytes = serde_json::to_vec(body).map_err(|_| {
-        NativeError::new(
-            "RGO-N1-007",
-            FailureClass::Persistence,
-            "cannot encode RGO-F1 record",
-        )
-    })?;
+    let body_bytes = canonical_logical_bytes(body)?;
     Ok(
         serde_json::json!({"record_type":record_type, "record_version":"1.0", "ordinal":ordinal, "body":body, "body_sha256":sha256(&body_bytes)}),
     )

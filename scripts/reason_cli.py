@@ -28,6 +28,10 @@ from toolchain.workspace_cmd import run as run_workspace_command
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VALID_EXAMPLES_DIR = REPO_ROOT / "examples" / "v0_5"
 INVALID_EXAMPLES_DIR = VALID_EXAMPLES_DIR / "invalid"
+SURFACE_ONLY_EXAMPLES = {
+    "006_runtime_input_print.rsn",
+    "007_runtime_operation.rsn",
+}
 IGNORED_DIRS = {".git", "node_modules", "target", "dist", "build", ".venv", "__pycache__", "artifacts"}
 
 
@@ -68,6 +72,12 @@ def _build_parser() -> argparse.ArgumentParser:
         sub.add_argument("--compiler-mode", choices=["normal", "strict", "default"], default="normal")
         if name in {"check", "analyze", "run"}:
             sub.add_argument("--json", action="store_true")
+        if name == "check":
+            sub.add_argument(
+                "--surface-only",
+                action="store_true",
+                help="validate Surface syntax and semantics without claiming Rust executability",
+            )
         if name in {"analyze", "run", "artifacts", "export"}:
             sub.add_argument("--out")
         if name == "run":
@@ -134,13 +144,18 @@ def _build_parser() -> argparse.ArgumentParser:
     agent_report_parser.set_defaults(handler=cmd_agent_report)
 
     test = subparsers.add_parser("test")
+    test.add_argument("target", nargs="?", default=".")
+    test.add_argument("--compile-only", action="store_true")
     test.add_argument("--json", action="store_true")
-    test.set_defaults(handler=cmd_examples)
+    test.add_argument("--junit")
+    test.set_defaults(handler=cmd_test_suite)
     return parser
 
 
 def cmd_check(args: argparse.Namespace) -> int:
-    result = _check_result(Path(args.file), args.compiler_mode)
+    result = _check_result(
+        Path(args.file), args.compiler_mode, surface_only=args.surface_only
+    )
     if args.json:
         print(stable_json(result), end="")
     else:
@@ -365,14 +380,43 @@ def cmd_agent_report(args: argparse.Namespace) -> int:
     return 0
 
 
-def _check_result(path: Path, compiler_mode: str) -> dict[str, Any]:
+def _check_result(
+    path: Path, compiler_mode: str, *, surface_only: bool = False
+) -> dict[str, Any]:
     response = _analyze_endpoint_response(path, compiler_mode)
+    diagnostics = _cli_diagnostics(response.get("diagnostics", []), path)
+    ok = bool(response["ok"])
+    if ok and not surface_only:
+        from frontend.computation_ir import LoweringError
+        from frontend.language_surface.parser import parse
+        from toolchain.pipeline import lower_executable_program
+
+        try:
+            lower_executable_program(parse(_read_source(path)))
+        except LoweringError as error:
+            message = str(error)
+            prefix = f"{error.code}: "
+            if message.startswith(prefix):
+                message = message[len(prefix):]
+            diagnostics.append({
+                "severity": "error",
+                "code": error.code,
+                "message": message,
+                "stage": "computation_ir",
+                "source_file": _display_path(path),
+                "line": None,
+                "column": None,
+                "evidence": None,
+            })
+            ok = False
     return {
         "schema_version": "reasonscript-cli-check/0.1",
-        "ok": response["ok"],
+        "ok": ok,
         "source_file": _display_path(path),
         "compiler_mode": compiler_mode,
-        "diagnostics": _cli_diagnostics(response.get("diagnostics", []), path),
+        "check_mode": "surface_only" if surface_only else "executable",
+        "execution_checked": not surface_only,
+        "diagnostics": diagnostics,
     }
 
 
@@ -631,7 +675,14 @@ def _print_diagnostics(diagnostics: list[dict[str, Any]]) -> None:
 def _examples_result() -> dict[str, Any]:
     valid_files = sorted(path for path in VALID_EXAMPLES_DIR.glob("*.rsn") if path.is_file())
     invalid_files = sorted(path for path in INVALID_EXAMPLES_DIR.glob("*.rsn") if path.is_file())
-    valid = [_example_check(path, expect_ok=True) for path in valid_files]
+    valid = [
+        _example_check(
+            path,
+            expect_ok=True,
+            surface_only=path.name in SURFACE_ONLY_EXAMPLES,
+        )
+        for path in valid_files
+    ]
     invalid = [_example_check(path, expect_ok=False) for path in invalid_files]
     failed = [item for item in valid + invalid if not item["passed"]]
     return {
@@ -639,6 +690,8 @@ def _examples_result() -> dict[str, Any]:
         "ok": not failed,
         "valid_total": len(valid),
         "valid_passed": sum(1 for item in valid if item["passed"]),
+        "executable_total": sum(1 for item in valid if item["check_mode"] == "executable"),
+        "surface_only_total": sum(1 for item in valid if item["check_mode"] == "surface_only"),
         "invalid_total": len(invalid),
         "invalid_passed": sum(1 for item in invalid if item["passed"]),
         "failed": len(failed),
@@ -646,13 +699,26 @@ def _examples_result() -> dict[str, Any]:
     }
 
 
-def _example_check(path: Path, *, expect_ok: bool) -> dict[str, Any]:
-    result = _check_result(path, "normal")
+def _example_check(
+    path: Path, *, expect_ok: bool, surface_only: bool = False
+) -> dict[str, Any]:
+    result = _check_result(path, "normal", surface_only=surface_only)
     codes = [item.get("code") for item in result["diagnostics"]]
     return {
         "file": _display_path(path),
         "expected_ok": expect_ok,
         "actual_ok": result["ok"],
+        "check_mode": result["check_mode"],
         "passed": result["ok"] is expect_ok,
         "diagnostic_codes": codes,
     }
+
+def cmd_test_suite(args: argparse.Namespace) -> int:
+    from toolchain.runner_cmd import run
+    target_path = Path(args.target).resolve()
+    return run(
+        target_path,
+        compile_only=args.compile_only,
+        json_output=args.json,
+        junit_path=Path(args.junit) if args.junit else None,
+    )

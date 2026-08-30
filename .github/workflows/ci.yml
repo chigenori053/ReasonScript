@@ -28,8 +28,10 @@ jobs:
       - run: python3 -m pip install -r requirements-dev.txt
       - name: Fetch Rust dependencies
         run: |
-          for manifest in */Cargo.toml; do
-            cargo fetch --manifest-path "$manifest"
+          for manifest in ReasonRuntime/Cargo.toml apps/reasonscript-ide/src-tauri/Cargo.toml; do
+            if [ -f "$manifest" ]; then
+              cargo fetch --manifest-path "$manifest"
+            fi
           done
       - name: Build native runtime host
         run: cargo build --manifest-path ReasonRuntime/Cargo.toml --bin reason-runtime-host

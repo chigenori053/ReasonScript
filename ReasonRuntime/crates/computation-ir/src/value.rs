@@ -52,6 +52,9 @@ pub enum Value {
     String(Rc<str>),
     Array(Rc<RefCell<Vec<Value>>>),
     Struct(Rc<StructValue>),
+    Enum(Rc<EnumValue>),
+    OptionalSome(Rc<Value>),
+    OptionalNone,
     Tensor(Rc<str>),
     ReasonObject(Rc<RuntimeReasonObject>),
     ReasonObjectSnapshot(Rc<RuntimeReasonObjectSnapshot>),
@@ -63,6 +66,12 @@ pub enum Value {
 pub struct StructValue {
     pub type_name: String,
     pub fields: RefCell<HashMap<String, Value>>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct EnumValue {
+    pub enum_name: String,
+    pub variant_name: String,
 }
 
 impl Value {
@@ -87,6 +96,7 @@ impl Value {
                         .collect(),
                 ),
             })),
+            Value::OptionalSome(value) => Value::OptionalSome(Rc::new(value.deep_clone())),
             Value::Json(value) => Value::Json(Rc::new((**value).clone())),
             other => other.clone(),
         }
@@ -101,6 +111,8 @@ impl Value {
             Value::String(_) => "String",
             Value::Array(_) => "Array",
             Value::Struct(_) => "Struct",
+            Value::Enum(_) => "Enum",
+            Value::OptionalSome(_) | Value::OptionalNone => "Optional",
             Value::Tensor(_) => "Tensor",
             Value::ReasonObject(_) => "ReasonObject",
             Value::ReasonObjectSnapshot(_) => "ReasonObjectSnapshot",
@@ -122,6 +134,9 @@ impl PartialEq for Value {
             (Value::Struct(a), Value::Struct(b)) => {
                 a.type_name == b.type_name && *a.fields.borrow() == *b.fields.borrow()
             }
+            (Value::Enum(a), Value::Enum(b)) => a == b,
+            (Value::OptionalSome(a), Value::OptionalSome(b)) => a == b,
+            (Value::OptionalNone, Value::OptionalNone) => true,
             (Value::Tensor(a), Value::Tensor(b)) => a == b,
             (Value::ReasonObject(a), Value::ReasonObject(b)) => {
                 let a = a.object.borrow();
@@ -155,6 +170,9 @@ impl fmt::Display for Value {
             Value::String(value) => write!(f, "{value}"),
             Value::Array(_) => write!(f, "<array>"),
             Value::Struct(value) => write!(f, "<struct {}>", value.type_name),
+            Value::Enum(value) => write!(f, "{}.{}", value.enum_name, value.variant_name),
+            Value::OptionalSome(_) => write!(f, "some(...)"),
+            Value::OptionalNone => write!(f, "none"),
             Value::Tensor(id) => write!(f, "<tensor {id}>"),
             Value::ReasonObject(value) => write!(
                 f,
@@ -201,6 +219,15 @@ pub fn to_json(value: &Value) -> serde_json::Value {
             map.insert("fields".to_string(), serde_json::Value::Object(fields));
             serde_json::Value::Object(map)
         }
+        Value::Enum(value) => serde_json::json!({
+            "enum": value.enum_name,
+            "variant": value.variant_name,
+        }),
+        Value::OptionalSome(value) => serde_json::json!({
+            "optional": "some",
+            "value": to_json(value),
+        }),
+        Value::OptionalNone => serde_json::json!({"optional": "none"}),
         Value::Tensor(id) => {
             // A raw Tensor handle has no plain-JSON representation (it's
             // only meaningful against this run's TensorStore); tests that

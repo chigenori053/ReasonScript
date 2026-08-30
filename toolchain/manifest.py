@@ -45,6 +45,11 @@ class Manifest:
                 f"Unknown runtime backend '{backend}'. "
                 f"Supported: {', '.join(sorted(SUPPORTED_BACKENDS))}"
             )
+        known_sections = {"package", "compiler", "runtime", "dependencies", "capabilities"}
+        unknown = set(data.keys()) - known_sections
+        if unknown:
+            import warnings
+            warnings.warn(f"Unknown sections in reason.toml: {', '.join(sorted(unknown))}", UserWarning)
         return Manifest(
             name=package["name"],
             version=package["version"],
