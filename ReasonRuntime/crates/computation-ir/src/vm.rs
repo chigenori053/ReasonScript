@@ -47,8 +47,11 @@ pub enum Outcome {
     NoValue,
 }
 
-const DEFAULT_MAX_LOOP_ITERATIONS: u64 = 10_000;
-const DEFAULT_MAX_CALL_DEPTH: u32 = 128;
+/// Compiler/runtime contract defaults (Phase 4, "制御された再帰"):
+/// overridable per request via `context.limits.max_call_depth` /
+/// `max_loop_iterations`, same mechanism as the Tensor policy limits.
+pub const DEFAULT_MAX_LOOP_ITERATIONS: u64 = 10_000;
+pub const DEFAULT_MAX_CALL_DEPTH: u32 = 128;
 
 pub struct Vm<'a> {
     functions: HashMap<&'a str, &'a Function>,
@@ -135,9 +138,17 @@ impl<'a> Vm<'a> {
             true,
             false,
             "RuntimeReal".to_owned(),
+            DEFAULT_MAX_CALL_DEPTH,
+            DEFAULT_MAX_LOOP_ITERATIONS,
         )
     }
 
+    /// `max_call_depth`/`max_loop_iterations`: Phase 4 ("制御された再帰")
+    /// exposes both as part of the compiler/runtime contract (the
+    /// `reasonscript-runtime-request/1.0` protocol's `context.limits`,
+    /// same mechanism the Tensor policy limits already use), rather than
+    /// only ever being the hardcoded `DEFAULT_MAX_CALL_DEPTH`/
+    /// `DEFAULT_MAX_LOOP_ITERATIONS` every caller silently got before.
     #[allow(clippy::too_many_arguments)]
     pub fn with_runtime_context(
         program: &'a Program,
@@ -148,6 +159,8 @@ impl<'a> Vm<'a> {
         filesystem_write: bool,
         trace_enabled: bool,
         backend: String,
+        max_call_depth: u32,
+        max_loop_iterations: u64,
     ) -> Self {
         let functions = program
             .functions
@@ -163,8 +176,8 @@ impl<'a> Vm<'a> {
         );
         Vm {
             functions,
-            max_loop_iterations: DEFAULT_MAX_LOOP_ITERATIONS,
-            max_call_depth: DEFAULT_MAX_CALL_DEPTH,
+            max_loop_iterations,
+            max_call_depth,
             tensors: RefCell::new(tensors),
             reason_objects: RefCell::new(HashMap::new()),
             reasoning_bindings: program
@@ -1445,6 +1458,43 @@ mod tests {
         vm.run_calculations(&program)
     }
 
+    /// Like `run`, but executes on a thread with an explicit, large
+    /// stack, and returns JSON instead of `Value` -- needed only for the
+    /// deep-recursion tests below. `Value` holds `Rc`, which isn't
+    /// `Send`, so results can't cross a `thread::spawn`/`.join()`
+    /// boundary directly; converting to `serde_json::Value` (fully
+    /// owned, no `Rc`) inside the worker thread before it returns
+    /// sidesteps that.
+    ///
+    /// This exists because `cargo test`'s own per-test thread stack is
+    /// markedly smaller than a real process's main thread (how
+    /// `reason-runtime-host` is actually invoked, where the OS default
+    /// already comfortably covers `max_call_depth`'s 128-level default)
+    /// -- without it, `unbounded_recursion_stops_at_max_call_depth_with_rt_call_003`
+    /// below stack-overflows and aborts the whole test binary before the
+    /// depth check ever fires, instead of exercising it. `runtime-cli`'s
+    /// `main` defends against the same underlying risk in production the
+    /// same way (see its `run_main` wrapper) -- the depth check is only
+    /// the *actual*, deterministic limit if the executing thread has
+    /// enough native stack to reach it without overflowing first.
+    fn run_json_on_large_stack(source: &str) -> Result<serde_json::Value, String> {
+        const STACK_SIZE: usize = 64 * 1024 * 1024;
+        let source = source.to_string();
+        std::thread::Builder::new()
+            .stack_size(STACK_SIZE)
+            .spawn(move || -> Result<serde_json::Value, String> {
+                let results = run(&source).map_err(|error| error.code)?;
+                let mut map = serde_json::Map::new();
+                for (name, value) in results {
+                    map.insert(name, to_json(&value));
+                }
+                Ok(serde_json::Value::Object(map))
+            })
+            .expect("failed to spawn test worker thread")
+            .join()
+            .expect("test worker thread panicked")
+    }
+
     #[test]
     fn integer_division_by_int_is_float() {
         let ir = r#"{
@@ -1970,5 +2020,132 @@ mod tests {
         }"#;
         let results = run(ir).expect("no runtime error");
         assert_eq!(results, vec![("Answer".to_string(), Value::Int(5))]);
+    }
+
+    #[test]
+    fn direct_self_recursion_computes_correctly() {
+        // Phase 4 ("制御された再帰"): a function calling itself is no
+        // longer rejected at the language-surface level (FN-007 removed)
+        // -- this proves the VM's own call-depth machinery (already
+        // present for ordinary nested calls) handles a self-referential
+        // `call_function` correctly, independent of the Python lowering
+        // pipeline.
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [
+                {
+                    "id": "fn.Factorial",
+                    "parameters": ["n"],
+                    "entry_block": "b1",
+                    "blocks": [
+                        {
+                            "id": "b1",
+                            "instructions": [],
+                            "terminator": {
+                                "kind": "branch",
+                                "condition": {
+                                    "op": "comparison", "operator": "LessThanOrEqual",
+                                    "left": {"op": "local", "name": "n"},
+                                    "right": {"op": "const", "kind": "int", "value": 1}
+                                },
+                                "then": "b_base",
+                                "else": "b_recurse"
+                            }
+                        },
+                        {
+                            "id": "b_base",
+                            "instructions": [],
+                            "terminator": {"kind": "return", "value": {"op": "const", "kind": "int", "value": 1}}
+                        },
+                        {
+                            "id": "b_recurse",
+                            "instructions": [],
+                            "terminator": {
+                                "kind": "return",
+                                "value": {
+                                    "op": "binary", "operator": "Multiply",
+                                    "left": {"op": "local", "name": "n"},
+                                    "right": {
+                                        "op": "call_function", "name": "Factorial",
+                                        "arguments": [{
+                                            "op": "binary", "operator": "Subtract",
+                                            "left": {"op": "local", "name": "n"},
+                                            "right": {"op": "const", "kind": "int", "value": 1}
+                                        }]
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "result",
+                            "value": {
+                                "op": "call_function", "name": "Factorial",
+                                "arguments": [{"op": "const", "kind": "int", "value": 5}]
+                            }
+                        }
+                    }]
+                }
+            ]
+        }"#;
+        let result = run_json_on_large_stack(ir).expect("no runtime error");
+        assert_eq!(result["Answer"], serde_json::json!(120));
+    }
+
+    #[test]
+    fn unbounded_recursion_stops_at_max_call_depth_with_rt_call_003() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [
+                {
+                    "id": "fn.Loop",
+                    "parameters": ["n"],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "return",
+                            "value": {
+                                "op": "call_function", "name": "Loop",
+                                "arguments": [{
+                                    "op": "binary", "operator": "Add",
+                                    "left": {"op": "local", "name": "n"},
+                                    "right": {"op": "const", "kind": "int", "value": 1}
+                                }]
+                            }
+                        }
+                    }]
+                },
+                {
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "result",
+                            "value": {
+                                "op": "call_function", "name": "Loop",
+                                "arguments": [{"op": "const", "kind": "int", "value": 0}]
+                            }
+                        }
+                    }]
+                }
+            ]
+        }"#;
+        let error_code = run_json_on_large_stack(ir).expect_err("must fail");
+        assert_eq!(error_code, "RT-CALL-003");
     }
 }

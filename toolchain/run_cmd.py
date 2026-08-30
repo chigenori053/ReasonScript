@@ -134,6 +134,7 @@ def _run_package(
             filesystem_write,
             backend=manifest.backend,
             include_trace=include_trace,
+            max_call_depth=manifest.max_call_depth,
         )
     except RustDispatchError as error:
         print(json.dumps({"status": "failure", "diagnostics": [error.to_diagnostic()]}, indent=2))

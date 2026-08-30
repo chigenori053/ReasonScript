@@ -24,6 +24,12 @@ class Manifest:
     language_core: str
     platform: str
     backend: str
+    # `None` means "use the Rust VM's own built-in default"
+    # (`DEFAULT_MAX_CALL_DEPTH`) -- the default value itself is not
+    # duplicated here, only whether the project overrides it (Phase 4,
+    # "制御された再帰": max_call_depth as part of the compiler/runtime
+    # contract, the same way `backend` already is).
+    max_call_depth: int | None = None
     dependencies: dict[str, object] = field(default_factory=dict)
 
     @staticmethod
@@ -38,6 +44,7 @@ class Manifest:
             compiler = data.get("compiler", {})
             runtime = data.get("runtime", {})
             backend = runtime.get("backend", "RuntimeReal")
+            max_call_depth = runtime.get("max_call_depth")
         except KeyError as e:
             raise ManifestError(f"reason.toml missing field: {e}") from e
         if backend not in SUPPORTED_BACKENDS:
@@ -45,11 +52,18 @@ class Manifest:
                 f"Unknown runtime backend '{backend}'. "
                 f"Supported: {', '.join(sorted(SUPPORTED_BACKENDS))}"
             )
+        if max_call_depth is not None and (
+            isinstance(max_call_depth, bool)
+            or not isinstance(max_call_depth, int)
+            or max_call_depth < 1
+        ):
+            raise ManifestError("runtime.max_call_depth must be a positive integer")
         return Manifest(
             name=package["name"],
             version=package["version"],
             language_core=compiler.get("language_core", "0.7"),
             platform=compiler.get("platform", "0.2"),
             backend=backend,
+            max_call_depth=max_call_depth,
             dependencies=dict(data.get("dependencies", {})),
         )
