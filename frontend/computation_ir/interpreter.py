@@ -25,6 +25,8 @@ from frontend.integrated_computation_runtime import (
     IntegratedComputationResult,
     IntegratedRuntimeError,
     LoopLimitError,
+    RuntimeEnumValue,
+    RuntimeOptionalValue,
     RuntimeStruct,
     _index_value,
     _trace_env,
@@ -161,6 +163,9 @@ def _run_function(function_ir: dict[str, Any], env: dict[str, Any], ctx: _Contex
             if terminator["code"] == "IR-NO-VALUE":
                 raise _IRNoValue()
             raise IRExecutionError(terminator["code"], terminator["message"])
+        if kind == "match":
+            current = _match_dispatch(terminator, env, ctx, call_depth)
+            continue
         raise IRExecutionError("IR-EXEC-001", f"unknown terminator kind: {kind}")
 
 
@@ -216,6 +221,84 @@ def _execute_instruction(instruction: dict[str, Any], env: dict[str, Any], ctx: 
         owner.fields[member] = new_value
         return
     raise IRExecutionError("IR-EXEC-002", f"unknown instruction op: {op}")
+
+
+def _match_dispatch(terminator: dict[str, Any], env: dict[str, Any], ctx: _Context, call_depth: int) -> str:
+    """Executes a `match` terminator: returns the block id execution continues at.
+
+    Mirrors `_match_statement` in `frontend.integrated_computation_runtime`
+    (the AST oracle), but matches against the JSON `Pattern` shape
+    `lowering.py._lower_pattern` produces rather than AST `Pattern` nodes.
+    """
+    subject = _eval_expr(terminator["subject"], env, ctx, call_depth)
+    for arm in terminator["arms"]:
+        bindings = _match_pattern_json(arm["pattern"], subject)
+        if bindings is None:
+            continue
+        previous: list[tuple[str, Any, bool]] = [
+            (name, env.get(name), name in env) for name in bindings
+        ]
+        env.update(bindings)
+        guard = arm.get("guard")
+        guard_ok = guard is None or bool(_eval_expr(guard, env, ctx, call_depth))
+        if guard_ok:
+            return arm["target"]
+        for name, old_value, existed in previous:
+            if existed:
+                env[name] = old_value
+            else:
+                del env[name]
+    raise IntegratedRuntimeError("RT-MATCH-001", "no match arm satisfied the value")
+
+
+def _match_pattern_json(pattern: dict[str, Any], value: Any) -> dict[str, Any] | None:
+    kind = pattern["kind"]
+    if kind == "wildcard":
+        return {}
+    if kind == "binding":
+        return {pattern["name"]: value}
+    if kind == "literal":
+        literal_value = pattern["value"] if pattern["value_kind"] != "null" else None
+        return {} if value == literal_value else None
+    if kind == "range":
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        lower, upper = pattern["lower"], pattern["upper"]
+        lower_ok = value >= lower if pattern["lower_inclusive"] else value > lower
+        upper_ok = value <= upper if pattern["upper_inclusive"] else value < upper
+        return {} if lower_ok and upper_ok else None
+    if kind == "enum_value":
+        matches = (
+            isinstance(value, RuntimeEnumValue)
+            and value.enum_name == pattern["enum_name"]
+            and value.variant_name == pattern["variant_name"]
+        )
+        return {} if matches else None
+    if kind == "optional_some":
+        if not isinstance(value, RuntimeOptionalValue) or not value.has_value:
+            return None
+        return _match_pattern_json(pattern["pattern"], value.value)
+    if kind == "optional_none":
+        return {} if isinstance(value, RuntimeOptionalValue) and not value.has_value else None
+    if kind == "struct":
+        if not isinstance(value, RuntimeStruct) or value.type_name != pattern["type_name"]:
+            return None
+        bindings: dict[str, Any] = {}
+        for field_name, field_pattern in pattern["fields"].items():
+            if field_name not in value.fields:
+                return None
+            sub_bindings = _match_pattern_json(field_pattern, value.fields[field_name])
+            if sub_bindings is None:
+                return None
+            bindings.update(sub_bindings)
+        return bindings
+    if kind == "or":
+        for alternative in pattern["alternatives"]:
+            alternative_bindings = _match_pattern_json(alternative, value)
+            if alternative_bindings is not None:
+                return alternative_bindings
+        return None
+    raise IRExecutionError("IR-EXEC-010", f"unknown pattern kind: {kind}")
 
 
 def _visible_trace_env(env: dict[str, Any]) -> dict[str, Any]:
@@ -339,6 +422,12 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
         return float(argument) if node["name"] == "float" else int(argument)
     if op == "call_function":
         return _call_function(node["name"], node["arguments"], env, ctx, call_depth)
+    if op == "enum_value":
+        return RuntimeEnumValue(node["enum_name"], node["variant_name"])
+    if op == "optional_some":
+        return RuntimeOptionalValue(True, _eval_expr(node["value"], env, ctx, call_depth))
+    if op == "optional_none":
+        return RuntimeOptionalValue(False)
     raise IRExecutionError("IR-EXEC-003", f"unknown expression op: {op}")
 
 

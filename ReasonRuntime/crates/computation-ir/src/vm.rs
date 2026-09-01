@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
-use crate::ir::{Block, Expr, Function, Instruction, Program, Terminator};
+use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
 use crate::value::{from_json, to_json, RuntimeReasonObject, StructValue, Value};
 
 #[derive(Debug)]
@@ -422,6 +422,64 @@ impl<'a> Vm<'a> {
                         return Ok(Outcome::NoValue);
                     }
                     return Err(RuntimeError::new(code, message.clone()));
+                }
+                Terminator::Match { subject, arms } => {
+                    let subject_value = self.eval_expr(subject, env, call_depth)?;
+                    let mut matched_target: Option<&str> = None;
+                    for arm in arms {
+                        let Some(bindings) = match_pattern(&arm.pattern, &subject_value) else {
+                            continue;
+                        };
+                        let previous: Vec<(String, Option<Value>)> = {
+                            let mut env_mut = env.borrow_mut();
+                            bindings
+                                .into_iter()
+                                .map(|(name, value)| {
+                                    let old = env_mut.insert(name.clone(), value);
+                                    (name, old)
+                                })
+                                .collect()
+                        };
+                        let guard_ok = match &arm.guard {
+                            None => true,
+                            Some(guard_expr) => {
+                                match self.eval_expr(guard_expr, env, call_depth)? {
+                                    Value::Bool(value) => value,
+                                    other => {
+                                        return Err(RuntimeError::new(
+                                            "IR-EXEC-007",
+                                            format!(
+                                                "match guard must be Bool, got {}",
+                                                other.type_name()
+                                            ),
+                                        ))
+                                    }
+                                }
+                            }
+                        };
+                        if guard_ok {
+                            matched_target = Some(arm.target.as_str());
+                            break;
+                        }
+                        let mut env_mut = env.borrow_mut();
+                        for (name, old_value) in previous {
+                            match old_value {
+                                Some(value) => {
+                                    env_mut.insert(name, value);
+                                }
+                                None => {
+                                    env_mut.remove(&name);
+                                }
+                            }
+                        }
+                    }
+                    let Some(target) = matched_target else {
+                        return Err(RuntimeError::new(
+                            "RT-MATCH-001",
+                            "no match arm satisfied the value",
+                        ));
+                    };
+                    current = self.resolve_block_id(&blocks, target)?;
                 }
             }
         }
@@ -894,6 +952,19 @@ impl<'a> Vm<'a> {
             Expr::CallFunction {
                 name, arguments, ..
             } => self.call_function(name, arguments, env, call_depth),
+            Expr::EnumValue {
+                enum_name,
+                variant_name,
+                ..
+            } => Ok(Value::Enum {
+                enum_name: Rc::from(enum_name.as_str()),
+                variant_name: Rc::from(variant_name.as_str()),
+            }),
+            Expr::OptionalSome { value, .. } => {
+                let inner = self.eval_expr(value, env, call_depth)?;
+                Ok(Value::Optional(Some(Box::new(inner))))
+            }
+            Expr::OptionalNone { .. } => Ok(Value::Optional(None)),
         }
     }
 
@@ -1033,6 +1104,97 @@ fn const_value(kind: &str, value: &serde_json::Value) -> Result<Value, RuntimeEr
             "IR-EXEC-008",
             format!("unknown const kind: {other}"),
         )),
+    }
+}
+
+/// Structurally matches `value` against a `match` terminator arm's
+/// `Pattern`. Returns the bindings a successful match would introduce
+/// (possibly empty), or `None` if `pattern` does not match `value`.
+/// Mirrors `_match_pattern_json` in `frontend/computation_ir/interpreter.py`
+/// -- the two must agree on every pattern kind for the Python-vs-Rust
+/// parity gate (`test_computation_ir_rust_parity.py`) to hold. Language
+/// surface validation already guarantees a `match` statement is
+/// exhaustive before this IR is ever produced, so a fully-exhausted arm
+/// list (the `RT-MATCH-001` case in the caller) is a defensive fallback,
+/// not an expected outcome.
+fn match_pattern(pattern: &Pattern, value: &Value) -> Option<Vec<(String, Value)>> {
+    match pattern {
+        Pattern::Wildcard => Some(Vec::new()),
+        Pattern::Binding { name } => Some(vec![(name.clone(), value.clone())]),
+        Pattern::Literal { value_kind, value: literal } => {
+            let literal_value = const_value(value_kind, literal).ok()?;
+            if &literal_value == value {
+                Some(Vec::new())
+            } else {
+                None
+            }
+        }
+        Pattern::Range {
+            lower,
+            upper,
+            lower_inclusive,
+            upper_inclusive,
+        } => {
+            let subject = match value {
+                Value::Int(v) => *v as f64,
+                Value::Float(v) => *v,
+                _ => return None,
+            };
+            let lower = lower.as_f64()?;
+            let upper = upper.as_f64()?;
+            let lower_ok = if *lower_inclusive {
+                subject >= lower
+            } else {
+                subject > lower
+            };
+            let upper_ok = if *upper_inclusive {
+                subject <= upper
+            } else {
+                subject < upper
+            };
+            if lower_ok && upper_ok {
+                Some(Vec::new())
+            } else {
+                None
+            }
+        }
+        Pattern::EnumValue {
+            enum_name,
+            variant_name,
+        } => match value {
+            Value::Enum {
+                enum_name: value_enum,
+                variant_name: value_variant,
+            } if value_enum.as_ref() == enum_name.as_str()
+                && value_variant.as_ref() == variant_name.as_str() =>
+            {
+                Some(Vec::new())
+            }
+            _ => None,
+        },
+        Pattern::OptionalSome { pattern } => match value {
+            Value::Optional(Some(inner)) => match_pattern(pattern, inner),
+            _ => None,
+        },
+        Pattern::OptionalNone => match value {
+            Value::Optional(None) => Some(Vec::new()),
+            _ => None,
+        },
+        Pattern::Struct { type_name, fields } => match value {
+            Value::Struct(struct_value) if &struct_value.type_name == type_name => {
+                let mut bindings = Vec::new();
+                let struct_fields = struct_value.fields.borrow();
+                for (field_name, field_pattern) in fields {
+                    let field_value = struct_fields.get(field_name)?;
+                    bindings.extend(match_pattern(field_pattern, field_value)?);
+                }
+                Some(bindings)
+            }
+            _ => None,
+        },
+        Pattern::Or { alternatives } => {
+            alternatives.iter().find_map(|alternative| match_pattern(alternative, value))
+        }
     }
 }
 
@@ -1511,5 +1673,239 @@ mod tests {
             }
             other => panic!("expected an array, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn enum_values_compare_by_name_not_by_string() {
+        assert_eq!(
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            },
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            }
+        );
+        assert_ne!(
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            },
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Blue")
+            }
+        );
+        assert_ne!(
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            },
+            Value::String(Rc::from("Red"))
+        );
+    }
+
+    #[test]
+    fn match_dispatches_on_enum_value_falling_through_to_wildcard() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [
+                    {
+                        "id": "b1",
+                        "instructions": [{
+                            "op": "assign", "target": "color",
+                            "expr": {"op": "enum_value", "enum_name": "Color", "variant_name": "Green"}
+                        }],
+                        "terminator": {
+                            "kind": "match",
+                            "subject": {"op": "local", "name": "color"},
+                            "arms": [
+                                {
+                                    "pattern": {"kind": "enum_value", "enum_name": "Color", "variant_name": "Red"},
+                                    "guard": null,
+                                    "target": "b_red"
+                                },
+                                {
+                                    "pattern": {"kind": "wildcard"},
+                                    "guard": null,
+                                    "target": "b_default"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "id": "b_red",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": 1}}
+                    },
+                    {
+                        "id": "b_default",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": 0}}
+                    }
+                ]
+            }]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(results, vec![("Answer".to_string(), Value::Int(0))]);
+    }
+
+    #[test]
+    fn match_binds_optional_some_and_distinguishes_none_from_null() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Some", "None"],
+            "functions": [
+                {
+                    "id": "Some",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [
+                        {
+                            "id": "b1",
+                            "instructions": [{
+                                "op": "assign", "target": "value",
+                                "expr": {"op": "optional_some", "value": {"op": "const", "kind": "int", "value": 42}}
+                            }],
+                            "terminator": {
+                                "kind": "match",
+                                "subject": {"op": "local", "name": "value"},
+                                "arms": [
+                                    {
+                                        "pattern": {"kind": "optional_some", "pattern": {"kind": "binding", "name": "x"}},
+                                        "guard": null,
+                                        "target": "b_some"
+                                    },
+                                    {
+                                        "pattern": {"kind": "optional_none"},
+                                        "guard": null,
+                                        "target": "b_none"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "id": "b_some",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "local", "name": "x"}}
+                        },
+                        {
+                            "id": "b_none",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": -1}}
+                        }
+                    ]
+                },
+                {
+                    "id": "None",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [
+                        {
+                            "id": "b1",
+                            "instructions": [{
+                                "op": "assign", "target": "value",
+                                "expr": {"op": "optional_none"}
+                            }],
+                            "terminator": {
+                                "kind": "match",
+                                "subject": {"op": "local", "name": "value"},
+                                "arms": [
+                                    {
+                                        "pattern": {"kind": "optional_some", "pattern": {"kind": "binding", "name": "x"}},
+                                        "guard": null,
+                                        "target": "b_some"
+                                    },
+                                    {
+                                        "pattern": {"kind": "optional_none"},
+                                        "guard": null,
+                                        "target": "b_none"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "id": "b_some",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "local", "name": "x"}}
+                        },
+                        {
+                            "id": "b_none",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": -1}}
+                        }
+                    ]
+                }
+            ]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(
+            results,
+            vec![
+                ("Some".to_string(), Value::Int(42)),
+                ("None".to_string(), Value::Int(-1)),
+            ]
+        );
+    }
+
+    #[test]
+    fn match_guard_failure_rolls_back_pattern_bindings_before_trying_next_arm() {
+        // Both arms bind the subject to `x`; the first arm's guard is
+        // false, so its binding must be undone before the second arm's
+        // guard runs -- otherwise a stale `x` from the failed first arm
+        // could leak into the second arm's guard evaluation.
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [
+                    {
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "match",
+                            "subject": {"op": "const", "kind": "int", "value": 5},
+                            "arms": [
+                                {
+                                    "pattern": {"kind": "binding", "name": "x"},
+                                    "guard": {
+                                        "op": "comparison", "operator": "GreaterThan",
+                                        "left": {"op": "local", "name": "x"},
+                                        "right": {"op": "const", "kind": "int", "value": 10}
+                                    },
+                                    "target": "b_big"
+                                },
+                                {
+                                    "pattern": {"kind": "binding", "name": "x"},
+                                    "guard": null,
+                                    "target": "b_default"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "id": "b_big",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": 1}}
+                    },
+                    {
+                        "id": "b_default",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "local", "name": "x"}}
+                    }
+                ]
+            }]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(results, vec![("Answer".to_string(), Value::Int(5))]);
     }
 }

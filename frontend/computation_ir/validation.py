@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .schema import EXPRESSION_OPS, INSTRUCTION_OPS, SCHEMA, TERMINATOR_KINDS
+from .schema import EXPRESSION_OPS, INSTRUCTION_OPS, PATTERN_KINDS, SCHEMA, TERMINATOR_KINDS
 
 
 def validate_program(document: dict[str, Any]) -> list[str]:
@@ -90,6 +90,21 @@ def _validate_terminator(function_id: str, block_id: str, terminator: Any, block
         errors.extend(_validate_expression(where, terminator.get("condition")))
     if kind in ("result", "return"):
         errors.extend(_validate_expression(where, terminator.get("value")))
+    if kind == "match":
+        errors.extend(_validate_expression(where, terminator.get("subject")))
+        arms = terminator.get("arms")
+        if not isinstance(arms, list) or not arms:
+            errors.append(f"{where}: match 'arms' must be a non-empty list")
+        else:
+            for index, arm in enumerate(arms):
+                if not isinstance(arm, dict):
+                    errors.append(f"{where}: match arm {index} is not an object")
+                    continue
+                errors.extend(_validate_pattern(where, arm.get("pattern")))
+                if arm.get("guard") is not None:
+                    errors.extend(_validate_expression(where, arm["guard"]))
+                if arm.get("target") not in block_ids:
+                    errors.append(f"{where}: match arm {index} target {arm.get('target')!r} unknown")
     return errors
 
 
@@ -100,6 +115,8 @@ def _validate_expression(where: str, node: Any) -> list[str]:
     for key in ("left", "right", "operand", "collection", "index", "object", "argument"):
         if key in node:
             errors.extend(_validate_expression(where, node[key]))
+    if node["op"] == "optional_some" and "value" in node:
+        errors.extend(_validate_expression(where, node["value"]))
     for key in ("elements", "arguments"):
         if key in node:
             for item in node[key]:
@@ -107,6 +124,30 @@ def _validate_expression(where: str, node: Any) -> list[str]:
     if "fields" in node:
         for value in node["fields"].values():
             errors.extend(_validate_expression(where, value))
+    return errors
+
+
+def _validate_pattern(where: str, pattern: Any) -> list[str]:
+    if not isinstance(pattern, dict) or pattern.get("kind") not in PATTERN_KINDS:
+        return [f"{where}: invalid pattern node: {pattern!r}"]
+    kind = pattern["kind"]
+    errors: list[str] = []
+    if kind == "optional_some":
+        errors.extend(_validate_pattern(where, pattern.get("pattern")))
+    if kind == "struct":
+        fields = pattern.get("fields")
+        if not isinstance(fields, dict):
+            errors.append(f"{where}: struct pattern 'fields' must be an object")
+        else:
+            for field_pattern in fields.values():
+                errors.extend(_validate_pattern(where, field_pattern))
+    if kind == "or":
+        alternatives = pattern.get("alternatives")
+        if not isinstance(alternatives, list) or not alternatives:
+            errors.append(f"{where}: or-pattern 'alternatives' must be a non-empty list")
+        else:
+            for alternative in alternatives:
+                errors.extend(_validate_pattern(where, alternative))
     return errors
 
 
@@ -124,4 +165,8 @@ def _reachable_blocks(entry: str, blocks_by_id: dict[str, dict[str, Any]]) -> se
         elif terminator.get("kind") == "branch":
             stack.append(terminator.get("then"))
             stack.append(terminator.get("else"))
+        elif terminator.get("kind") == "match":
+            for arm in terminator.get("arms") or []:
+                if isinstance(arm, dict):
+                    stack.append(arm.get("target"))
     return seen

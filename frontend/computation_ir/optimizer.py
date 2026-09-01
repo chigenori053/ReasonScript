@@ -235,11 +235,21 @@ def _terminator_is_pure(
     pure,
     active: frozenset[str],
 ) -> bool:
-    return all(
+    if not all(
         _expr_is_pure_function_body(terminator[key], functions, pure, active)
         for key in ("condition", "value")
         if key in terminator
-    )
+    ):
+        return False
+    if terminator.get("kind") == "match":
+        if not _expr_is_pure_function_body(terminator["subject"], functions, pure, active):
+            return False
+        return all(
+            arm["guard"] is None
+            or _expr_is_pure_function_body(arm["guard"], functions, pure, active)
+            for arm in terminator["arms"]
+        )
+    return True
 
 
 def _expr_is_pure_function_body(
@@ -431,6 +441,12 @@ def _fold_terminator(terminator: dict[str, Any]) -> dict[str, Any]:
         terminator["condition"] = _fold_expr(terminator["condition"])
     if "value" in terminator:
         terminator["value"] = _fold_expr(terminator["value"])
+    if terminator.get("kind") == "match":
+        terminator["subject"] = _fold_expr(terminator["subject"])
+        terminator["arms"] = [
+            {**arm, "guard": _fold_expr(arm["guard"]) if arm["guard"] is not None else None}
+            for arm in terminator["arms"]
+        ]
     return terminator
 
 
@@ -526,6 +542,8 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
             value = float(argument["value"]) if expr["name"] == "float" else int(argument["value"])
             return _const("float" if expr["name"] == "float" else "int", value)
         return {**expr, "argument": argument}
+    if op == "optional_some":
+        return {**expr, "value": _fold_expr(expr["value"])}
     return expr
 
 
@@ -559,6 +577,8 @@ def _reachable_block_ids(blocks_by_id: dict[str, dict[str, Any]], entry: str) ->
         elif terminator["kind"] == "branch":
             stack.append(terminator["then"])
             stack.append(terminator["else"])
+        elif terminator["kind"] == "match":
+            stack.extend(arm["target"] for arm in terminator["arms"])
     return seen
 
 
@@ -646,18 +666,21 @@ def _hoist_loop_invariants(
     return result
 
 
+def _terminator_targets(terminator: dict[str, Any]) -> list[str]:
+    kind = terminator.get("kind")
+    if kind == "jump":
+        return [terminator["target"]]
+    if kind == "branch":
+        return [terminator["then"], terminator["else"]]
+    if kind == "match":
+        return [arm["target"] for arm in terminator["arms"]]
+    return []
+
+
 def _predecessors(blocks_by_id: dict[str, dict[str, Any]]) -> dict[str, set[str]]:
     result: dict[str, set[str]] = {block_id: set() for block_id in blocks_by_id}
     for block_id, block in blocks_by_id.items():
-        terminator = block["terminator"]
-        targets = (
-            [terminator["target"]]
-            if terminator.get("kind") == "jump"
-            else [terminator["then"], terminator["else"]]
-            if terminator.get("kind") == "branch"
-            else []
-        )
-        for target in targets:
+        for target in _terminator_targets(block["terminator"]):
             result.setdefault(target, set()).add(block_id)
     return result
 
@@ -673,10 +696,7 @@ def _loop_region(
             continue
         region.add(block_id)
         terminator = blocks_by_id[block_id]["terminator"]
-        if terminator.get("kind") == "jump":
-            stack.append(terminator["target"])
-        elif terminator.get("kind") == "branch":
-            stack.extend((terminator["then"], terminator["else"]))
+        stack.extend(_terminator_targets(terminator))
     return region
 
 
@@ -742,6 +762,11 @@ def _eliminate_dead_locals(
             _collect_reads(terminator["condition"], read_names)
         if "value" in terminator:
             _collect_reads(terminator["value"], read_names)
+        if terminator.get("kind") == "match":
+            _collect_reads(terminator["subject"], read_names)
+            for arm in terminator["arms"]:
+                if arm["guard"] is not None:
+                    _collect_reads(arm["guard"], read_names)
 
     result = {}
     for block_id, block in blocks_by_id.items():
@@ -798,6 +823,9 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
     if op == "call_cast":
         _collect_reads(expr["argument"], out)
         return
+    if op == "optional_some":
+        _collect_reads(expr["value"], out)
+        return
 
 
 _IMPURE_FUNCTION_IDS = {"tensor.load", "tensor.save"}
@@ -829,6 +857,8 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         return _is_side_effect_free(expr["collection"]) and _is_side_effect_free(expr["item"])
     if op == "call_cast":
         return _is_side_effect_free(expr["argument"])
+    if op == "optional_some":
+        return _is_side_effect_free(expr["value"])
     if op == "array":
         return all(_is_side_effect_free(item) for item in expr["elements"])
     if op == "struct":
@@ -921,4 +951,8 @@ def _is_cse_eligible(expr: dict[str, Any]) -> bool:
         return _is_cse_eligible(expr["object"])
     if op == "call_cast":
         return _is_cse_eligible(expr["argument"])
+    if op in ("enum_value", "optional_none"):
+        return True
+    if op == "optional_some":
+        return _is_cse_eligible(expr["value"])
     return False

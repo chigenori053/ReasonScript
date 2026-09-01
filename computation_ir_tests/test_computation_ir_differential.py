@@ -249,6 +249,219 @@ class TensorInteropTests(unittest.TestCase):
         self.assertEqual(outcome.calculations["Answer"], [4.0])
 
 
+class EnumOptionalMatchTests(unittest.TestCase):
+    """Phase 1: enum/optional/match as tagged values with real pattern matching.
+
+    Each case lowers to a `match` terminator plus (where relevant)
+    `enum_value`/`optional_some`/`optional_none` expression ops (schema
+    0.2) and is executed by both the AST oracle and the IR interpreter,
+    the same differential-testing contract as every other class in this
+    module.
+    """
+
+    def test_enum_match_falls_through_to_default(self):
+        outcome = assert_same_outcome(
+            """module M {
+  enum Color {
+    Red
+    Blue
+    Green
+  }
+
+  fn Score(color: Color) -> int {
+    match color {
+      Color.Red => return 1
+      Color.Blue => return 2
+      default => return 0
+    }
+  }
+
+  calculation Answer {
+    result = Score(Color.Green)
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], 0)
+
+    def test_enum_match_selects_matching_variant(self):
+        outcome = assert_same_outcome(
+            """module M {
+  enum Color {
+    Red
+    Blue
+    Green
+  }
+
+  fn Score(color: Color) -> int {
+    match color {
+      Color.Red => return 1
+      Color.Blue => return 2
+      default => return 0
+    }
+  }
+
+  calculation Answer {
+    result = Score(Color.Blue)
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], 2)
+
+    def test_optional_some_and_none_are_distinguished_from_null(self):
+        outcome = assert_same_outcome(
+            """module M {
+  fn Describe(value: optional<int>) -> int {
+    match value {
+      some(x) => return x
+      none => return -1
+    }
+  }
+
+  calculation Answer {
+    let a = Describe(some(42))
+    let b = Describe(none)
+    result = a + b
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], 41)
+
+    def test_none_pattern_does_not_match_a_none_value_through_null(self):
+        # `none` (an absent Optional) must stay distinct from `null`
+        # internally -- if the IR interpreter ever collapsed the two the
+        # way the pre-0.2 schema did, `some(x)`/`none` matching would
+        # misbehave the moment a `null` leaked into an Optional slot.
+        outcome = assert_same_outcome(
+            """module M {
+  fn Describe(value: optional<int>) -> int {
+    match value {
+      some(x) => return x
+      none => return -1
+    }
+  }
+
+  calculation Answer {
+    let a: optional<int> = none
+    result = Describe(a)
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], -1)
+
+    def test_guard_with_struct_pattern_binding(self):
+        outcome = assert_same_outcome(
+            """module M {
+  struct Point {
+    x: int
+    y: int
+  }
+
+  fn Classify(p: Point) -> int {
+    match p {
+      Point { x, y } when x > y => return 1
+      Point { x, y } when x == y => return 0
+      default => return -1
+    }
+  }
+
+  calculation Answer {
+    let p = Point { x: 5, y: 2 }
+    result = Classify(p)
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], 1)
+
+    def test_struct_pattern_binds_fields(self):
+        outcome = assert_same_outcome(
+            """module M {
+  struct Point {
+    x: int
+    y: int
+  }
+
+  fn Sum(p: Point) -> int {
+    match p {
+      Point { x, y } => return x + y
+    }
+  }
+
+  calculation Answer {
+    let p = Point { x: 3, y: 4 }
+    result = Sum(p)
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], 7)
+
+    def test_or_pattern_matches_any_alternative(self):
+        outcome = assert_same_outcome(
+            """module M {
+  fn IsWeekend(n: int) -> bool {
+    match n {
+      0 | 6 => return true
+      default => return false
+    }
+  }
+
+  calculation Answer {
+    result = IsWeekend(6)
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], True)
+
+    def test_range_pattern_matches_inclusive_bounds(self):
+        outcome = assert_same_outcome(
+            """module M {
+  fn Grade(score: int) -> int {
+    match score {
+      90..100 => return 1
+      0..89 => return 0
+      default => return -1
+    }
+  }
+
+  calculation Answer {
+    result = Grade(95)
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], 1)
+
+    def test_nested_optional_enum_pattern(self):
+        outcome = assert_same_outcome(
+            """module M {
+  enum Color {
+    Red
+    Blue
+  }
+
+  fn Describe(value: optional<Color>) -> int {
+    match value {
+      some(Color.Red) => return 1
+      some(Color.Blue) => return 2
+      none => return 0
+    }
+  }
+
+  calculation Answer {
+    result = Describe(some(Color.Blue))
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], 2)
+
+
 class LoweringScopeErrorTests(unittest.TestCase):
     def test_break_outside_loop_is_rejected_at_lowering(self):
         program = parse(
@@ -264,7 +477,7 @@ class LoweringScopeErrorTests(unittest.TestCase):
         # parser (language-level validation already forbids it), so this
         # asserts lowering doesn't regress on the common path instead.
         ir = lower_program(program)
-        self.assertEqual(ir["schema"], "reason-computation-ir/0.1")
+        self.assertEqual(ir["schema"], "reason-computation-ir/0.2")
         self.assertEqual(ir["calculations"], ["Answer"])
 
 

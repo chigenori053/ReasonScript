@@ -620,6 +620,135 @@ class RelationFunctionsInteractionTests(OptimizerParityMixin, unittest.TestCase)
         self.assertEqual(len(filter_calls), 2)
 
 
+class MatchOptimizationTests(OptimizerParityMixin, unittest.TestCase):
+    """Phase 1: the `match` terminator and `enum_value`/`optional_some`/
+    `optional_none` expressions must survive every optimizer pass intact.
+
+    `match` arm blocks are only reachable via a terminator's `arms[].target`
+    list, not `jump`/`branch`'s `target`/`then`/`else` -- unreachable-block
+    removal, predecessor computation, and loop-region detection all needed
+    dedicated `match` handling (`_terminator_targets`) or they would treat
+    every arm block as unreachable and delete it out from under the
+    `match` terminator that still references it.
+    """
+
+    def test_enum_match_survives_unreachable_block_removal(self):
+        # Each arm assigns and falls through to the match's merge block
+        # (rather than every arm unconditionally `return`ing) so the merge
+        # block itself stays reachable -- an all-`return` match/if's merge
+        # block is *already*, pre-existing-ly, reported unreachable by
+        # `validate_program` (the same is true of `_lower_if`, unrelated
+        # to Phase 1); that's a separate, narrower lowering quirk this
+        # test isn't about, so it's avoided here rather than masked.
+        optimized, results = self.assert_parity(
+            """
+            module M {
+                enum Color {
+                    Red
+                    Blue
+                    Green
+                }
+
+                calculation Answer {
+                    let color = Color.Blue
+                    let score = 0
+                    match color {
+                        Color.Red => {
+                            score = 1
+                        }
+                        Color.Blue => {
+                            score = 2
+                        }
+                        default => {
+                            score = 0
+                        }
+                    }
+                    result = score
+                }
+            }
+            """
+        )
+        self.assertEqual(results["Answer"], 2)
+        answer_fn = next(f for f in optimized["functions"] if f["id"] == "Answer")
+        block_ids = {block["id"] for block in answer_fn["blocks"]}
+        match_terminators = [
+            block["terminator"]
+            for block in answer_fn["blocks"]
+            if block["terminator"]["kind"] == "match"
+        ]
+        self.assertEqual(len(match_terminators), 1)
+        for arm in match_terminators[0]["arms"]:
+            self.assertIn(arm["target"], block_ids)
+
+    def test_optional_some_binding_is_not_treated_as_dead_by_local_elimination(self):
+        # `y` is read only inside the match `subject` -- `_eliminate_dead_locals`
+        # must see that read (via the match terminator's `subject`, not
+        # `condition`/`value`) or it would drop `let y = some(5)` and the
+        # match dispatch would fail against an undefined local.
+        optimized, results = self.assert_parity(
+            """
+            module M {
+                calculation Answer {
+                    let y = some(5)
+                    let outcome = -1
+                    match y {
+                        some(x) => {
+                            outcome = x
+                        }
+                        none => {
+                            outcome = -1
+                        }
+                    }
+                    result = outcome
+                }
+            }
+            """
+        )
+        self.assertEqual(results["Answer"], 5)
+        answer_fn = next(f for f in optimized["functions"] if f["id"] == "Answer")
+        assigns = [
+            instruction
+            for block in answer_fn["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "assign" and instruction.get("target") == "y"
+        ]
+        self.assertEqual(len(assigns), 1)
+
+    def test_match_inside_while_loop_does_not_corrupt_licm(self):
+        # A mutation that happens only inside a match arm (`total` here)
+        # must still count as "mutated within the loop" for LICM's
+        # hoisting-eligibility check -- otherwise `_loop_region`'s
+        # traversal silently stopping at the `match` terminator could let
+        # LICM hoist something that reads a value the loop actually
+        # changes underneath it.
+        optimized, results = self.assert_parity(
+            """
+            module M {
+                calculation Answer {
+                    let total = 0
+                    let i = 0
+                    while i < 5 {
+                        match i {
+                            0 | 2 | 4 => {
+                                let step = total + i
+                                total = step
+                            }
+                            default => {
+                                let step = total
+                                total = step
+                            }
+                        }
+                        i = i + 1
+                    }
+                    result = total
+                }
+            }
+            """
+        )
+        self.assertEqual(results["Answer"], 6)
+        del optimized
+
+
 class TensorDifferentialTests(OptimizerParityMixin, unittest.TestCase):
     def test_matmul_program_survives_optimization(self):
         self.assert_parity(

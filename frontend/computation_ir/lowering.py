@@ -1,13 +1,13 @@
-"""AST -> reason-computation-ir/0.1 basic-block lowering.
+"""AST -> reason-computation-ir/0.2 basic-block lowering.
 
 Implements the Phase 2 "AST→basic block lowering" item from the
-ReasonScript modernization plan. Scope is bounded to exactly what
+ReasonScript modernization plan, plus the Phase 1 enum/optional/match
+unification (schema 0.2). Scope is bounded to exactly what
 `frontend.integrated_computation_runtime` (the existing AST evaluator)
 supports, since that is the oracle this IR is differentially tested
 against (`frontend.computation_ir.differential`); constructs it doesn't
-handle (pattern matching, Optional/Some, map/set literals and reason_object
-graph queries)
-raise `LoweringError` rather than being silently mishandled.
+handle (map/set literals and reason_object graph queries) raise
+`LoweringError` rather than being silently mishandled.
 """
 
 from __future__ import annotations
@@ -26,6 +26,10 @@ from frontend.language_surface.nodes import (
     ComparisonExpressionNode,
     ConstStatementNode,
     ContinueStatementNode,
+    DefaultPatternNode,
+    EnumDeclarationNode,
+    EnumValuePatternNode,
+    EnumVariantReferenceNode,
     ExpressionNode,
     ExpressionStatementNode,
     FieldAssignmentStatementNode,
@@ -34,32 +38,44 @@ from frontend.language_surface.nodes import (
     FunctionDeclarationNode,
     GoalNode,
     IdentifierNode,
+    IdentifierPatternNode,
     IfStatementNode,
     IndexAccessNode,
     IndexAssignmentStatementNode,
     IntegerLiteralNode,
     LetStatementNode,
+    LiteralPatternNode,
     LogicalExpressionNode,
     LoopStatementNode,
+    MatchStatementNode,
     MemberAccessNode,
     NoneLiteralNode,
     NullLiteralNode,
+    OptionalPatternNode,
+    OptionalValuePatternNode,
+    OrPatternNode,
     ParenthesizedExpressionNode,
     ProgramNode,
     QualifiedIdentifierNode,
+    QualifiedPatternNode,
+    RangePatternNode,
     ReasonGraphDeclarationNode,
     ResultStatementNode,
     ReasonObjectBindingNode,
     ReturnStatementNode,
     RuntimeCallExpressionNode,
     RuntimeCallKind,
+    SomeExpressionNode,
     StateDeclarationNode,
     ConstraintNode,
     ExecutionPlanDeclarationNode,
     StringLiteralNode,
+    StructBindingPatternNode,
     StructLiteralNode,
+    StructPatternNode,
     UnaryExpressionNode,
     WhileStatementNode,
+    WildcardPatternNode,
 )
 from frontend.relation.integration import relation_call_name
 from frontend.tensor.integration import tensor_call_name
@@ -77,6 +93,24 @@ class LoweringError(ValueError):
         super().__init__(f"{code}: {message}")
 
 
+@dataclass(frozen=True)
+class _Scope:
+    """Compile-time name resolution passed down to every `_lower_expression` call.
+
+    `functions` mirrors `integrated_computation_runtime.py`'s per-module
+    `functions` dict (unqualified name -> canonical id, rebuilt per
+    module so a local `fn float`/`fn int` can shadow the builtin cast).
+    `enums` is flat and program-wide (enum names aren't module-qualified
+    anywhere else in this runtime either, e.g. `StructLiteralNode.type_name`)
+    -- it's how `_lower_expression` tells `Color.Red` (an enum variant
+    reference) apart from `point.x` (a struct field access), both of which
+    parse to the same `MemberAccessNode` shape.
+    """
+
+    functions: dict[str, str]
+    enums: dict[str, frozenset[str]]
+
+
 def lower_program(program: ProgramNode) -> dict[str, Any]:
     """Lower every function and calculation in every module to IR Functions.
 
@@ -90,6 +124,17 @@ def lower_program(program: ProgramNode) -> dict[str, Any]:
     reason_object_bindings: list[dict[str, Any]] = []
     reasoning_bindings: dict[str, str] = {}
     package_name = program.package.name if program.package is not None else None
+    # Flat and program-wide (not per-module, unlike `declared_function_names`
+    # below): mirrors how `RuntimeStruct.type_name`/`StructLiteralNode.type_name`
+    # already treat declared type names as a single global namespace, so
+    # `Color.Red` resolves the same way regardless of which module
+    # references it.
+    declared_enums: dict[str, frozenset[str]] = {
+        item.name: frozenset(value.name for value in item.values)
+        for module in program.modules
+        for item in module.body
+        if isinstance(item, EnumDeclarationNode)
+    }
     for module in program.modules:
         reason_object_bindings.extend({
             "name": item.name,
@@ -119,19 +164,20 @@ def lower_program(program: ProgramNode) -> dict[str, Any]:
             item.name: f"{module_namespace}::{item.name}"
             for item in declared_function_nodes
         }
+        scope = _Scope(declared_function_names, declared_enums)
         for item in declared_function_nodes:
             functions.append(
                 _lower_function(
                     f"fn.{declared_function_names[item.name]}",
                     item.parameters,
                     item.body,
-                    declared_function_names,
+                    scope,
                 )
             )
         for item in module.body:
             if isinstance(item, CalculationNode):
                 functions.append(
-                    _lower_function(item.name, (), item.body, declared_function_names)
+                    _lower_function(item.name, (), item.body, scope)
                 )
                 calculation_ids.append(item.name)
     return {
@@ -149,7 +195,7 @@ def _lower_function(
     function_id: str,
     parameters: tuple[Any, ...],
     body: tuple[Any, ...],
-    declared_functions: dict[str, str],
+    scope: _Scope,
 ) -> dict[str, Any]:
     trace_scope = (
         f"fn.{function_id.rsplit('::', 1)[-1]}"
@@ -158,7 +204,7 @@ def _lower_function(
     )
     builder = _BlockBuilder(
         function_id,
-        declared_functions=declared_functions,
+        declared_functions=scope,
         trace_scope=trace_scope,
     )
     entry = builder.new_block("entry")
@@ -204,7 +250,7 @@ class _BlockBuilder:
     order: list[str] = field(default_factory=list)
     counter: int = 0
     current_id: str | None = None
-    declared_functions: dict[str, str] = field(default_factory=dict)
+    declared_functions: _Scope = field(default_factory=lambda: _Scope({}, {}))
     trace_scope: str = ""
 
     def new_block(self, hint: str) -> str:
@@ -330,7 +376,121 @@ def _lower_statement(statement: Any, builder: _BlockBuilder, *, loop: _LoopTarge
     if isinstance(statement, ForStatementNode):
         _lower_for(statement, builder)
         return
+    if isinstance(statement, MatchStatementNode):
+        _lower_match(statement, builder, loop=loop)
+        return
     raise LoweringError("IR-LOWER-005", f"unsupported statement: {type(statement).__name__}")
+
+
+def _lower_match(statement: MatchStatementNode, builder: _BlockBuilder, *, loop: _LoopTargets | None) -> None:
+    declared_functions = builder.declared_functions
+    if builder.current_terminator() is not None:
+        return
+    entry_block = builder.current_id
+    assert entry_block is not None
+    merge = builder.new_block("match_merge")
+    subject = _lower_expression(statement.expression, declared_functions)
+    arms: list[dict[str, Any]] = []
+    for arm in statement.arms:
+        arm_block = builder.new_block("match_arm")
+        builder.enter(arm_block)
+        _lower_statements(arm.body, builder, loop=loop)
+        if builder.current_terminator() is None:
+            builder.jump_to(merge)
+        arms.append({
+            "pattern": _lower_pattern(arm.pattern.pattern),
+            "guard": (
+                _lower_expression(arm.guard, declared_functions)
+                if arm.guard is not None
+                else None
+            ),
+            "target": arm_block,
+        })
+    # Every arm body above was lowered into its own fresh block while
+    # `builder`'s current block kept moving forward; only now, with every
+    # arm block built (and their bodies' own control flow -- including
+    # nested match/if -- already resolved), do we come back and terminate
+    # the block the match statement actually started in with the `match`
+    # dispatch itself (mirroring `_lower_if`'s deferred `branch`
+    # terminator, but for an N-way dispatch instead of 2-way).
+    builder.enter(entry_block)
+    builder.terminate({"kind": "match", "subject": subject, "arms": arms})
+    builder.enter(merge)
+
+
+def _lower_pattern(pattern: Any) -> dict[str, Any]:
+    if isinstance(pattern, (WildcardPatternNode, DefaultPatternNode)):
+        return {"kind": "wildcard"}
+    if isinstance(pattern, IdentifierPatternNode):
+        return {"kind": "binding", "name": pattern.name}
+    if isinstance(pattern, StructBindingPatternNode):
+        return {"kind": "binding", "name": pattern.binding}
+    if isinstance(pattern, LiteralPatternNode):
+        return {"kind": "literal", **_lower_pattern_literal(pattern.value)}
+    if isinstance(pattern, RangePatternNode):
+        return {
+            "kind": "range",
+            "lower": pattern.lower.value,
+            "upper": pattern.upper.value,
+            "lower_inclusive": pattern.lower_inclusive,
+            "upper_inclusive": pattern.upper_inclusive,
+        }
+    if isinstance(pattern, EnumValuePatternNode):
+        return {
+            "kind": "enum_value",
+            "enum_name": pattern.enum_name,
+            "variant_name": pattern.value_name,
+        }
+    if isinstance(pattern, QualifiedPatternNode):
+        return {
+            "kind": "enum_value",
+            "enum_name": pattern.namespace,
+            "variant_name": pattern.identifier,
+        }
+    if isinstance(pattern, OptionalPatternNode):
+        if pattern.kind == "Some":
+            inner = (
+                {"kind": "binding", "name": pattern.binding}
+                if pattern.binding is not None
+                else {"kind": "wildcard"}
+            )
+            return {"kind": "optional_some", "pattern": inner}
+        return {"kind": "optional_none"}
+    if isinstance(pattern, OptionalValuePatternNode):
+        if pattern.kind == "Some":
+            return {"kind": "optional_some", "pattern": _lower_pattern(pattern.pattern)}
+        return {"kind": "optional_none"}
+    if isinstance(pattern, StructPatternNode):
+        return {
+            "kind": "struct",
+            "type_name": pattern.type_name,
+            "fields": {
+                field.field_name: _lower_pattern(field.pattern)
+                for field in pattern.fields
+            },
+        }
+    if isinstance(pattern, OrPatternNode):
+        return {
+            "kind": "or",
+            "alternatives": [_lower_pattern(alternative) for alternative in pattern.alternatives],
+        }
+    raise LoweringError("IR-LOWER-012", f"unsupported pattern: {type(pattern).__name__}")
+
+
+def _lower_pattern_literal(value: Any) -> dict[str, Any]:
+    if isinstance(value, IntegerLiteralNode):
+        return {"value_kind": "int", "value": value.value}
+    if isinstance(value, FloatLiteralNode):
+        return {"value_kind": "float", "value": value.value}
+    if isinstance(value, BooleanLiteralNode):
+        return {"value_kind": "bool", "value": value.value}
+    if isinstance(value, StringLiteralNode):
+        return {"value_kind": "string", "value": value.value}
+    if isinstance(value, NullLiteralNode):
+        return {"value_kind": "null", "value": None}
+    raise LoweringError(
+        "IR-LOWER-012", f"unsupported literal pattern value: {type(value).__name__}"
+    )
 
 
 def _lower_if(statement: IfStatementNode, builder: _BlockBuilder, *, loop: _LoopTargets | None) -> None:
@@ -501,7 +661,7 @@ def _unwrap(value: Any) -> Any:
     return value.expression if isinstance(value, ExpressionNode) else value
 
 
-def _lower_expression(value: Any, declared_functions: dict[str, str]) -> dict[str, Any]:
+def _lower_expression(value: Any, declared_functions: _Scope) -> dict[str, Any]:
     value = _unwrap(value)
     source_span = getattr(value, "_source_location", None)
 
@@ -518,8 +678,21 @@ def _lower_expression(value: Any, declared_functions: dict[str, str]) -> dict[st
         return spanned({"op": "const", "kind": "bool", "value": value.value})
     if isinstance(value, StringLiteralNode):
         return spanned({"op": "const", "kind": "string", "value": value.value})
-    if isinstance(value, (NoneLiteralNode, NullLiteralNode)):
+    if isinstance(value, NullLiteralNode):
         return spanned({"op": "const", "kind": "null", "value": None})
+    if isinstance(value, NoneLiteralNode):
+        return spanned({"op": "optional_none"})
+    if isinstance(value, SomeExpressionNode):
+        return spanned({
+            "op": "optional_some",
+            "value": _lower_expression(value.value, declared_functions),
+        })
+    if isinstance(value, EnumVariantReferenceNode):
+        return spanned({
+            "op": "enum_value",
+            "enum_name": value.enum_name,
+            "variant_name": value.variant_name,
+        })
     if isinstance(value, IdentifierNode):
         return spanned({"op": "local", "name": value.name})
     if isinstance(value, ArrayLiteralNode):
@@ -566,6 +739,20 @@ def _lower_expression(value: Any, declared_functions: dict[str, str]) -> dict[st
             "index": _lower_expression(value.index, declared_functions),
         })
     if isinstance(value, MemberAccessNode):
+        if (
+            isinstance(value.object, IdentifierNode)
+            and value.object.name in declared_functions.enums
+        ):
+            enum_name = value.object.name
+            if value.member not in declared_functions.enums[enum_name]:
+                raise LoweringError(
+                    "IR-LOWER-013", f"unknown enum variant: {enum_name}.{value.member}"
+                )
+            return spanned({
+                "op": "enum_value",
+                "enum_name": enum_name,
+                "variant_name": value.member,
+            })
         return spanned({
             "op": "member",
             "object": _lower_expression(value.object, declared_functions),
@@ -595,7 +782,7 @@ def _lower_expression(value: Any, declared_functions: dict[str, str]) -> dict[st
     raise LoweringError("IR-LOWER-006", f"unsupported expression: {type(value).__name__}")
 
 
-def _lower_call(value: CallExpressionNode, declared_functions: dict[str, str]) -> dict[str, Any]:
+def _lower_call(value: CallExpressionNode, declared_functions: _Scope) -> dict[str, Any]:
     if (
         isinstance(value.callee, MemberAccessNode)
         and isinstance(value.callee.object, IdentifierNode)
@@ -650,7 +837,7 @@ def _lower_call(value: CallExpressionNode, declared_functions: dict[str, str]) -
     if (
         isinstance(value.callee, IdentifierNode)
         and value.callee.name in _SCALAR_CAST_NAMES
-        and value.callee.name not in declared_functions
+        and value.callee.name not in declared_functions.functions
     ):
         if len(value.arguments) != 1:
             raise LoweringError("IR-LOWER-008", f"{value.callee.name}() expects exactly one argument")
@@ -662,7 +849,7 @@ def _lower_call(value: CallExpressionNode, declared_functions: dict[str, str]) -
     if isinstance(value.callee, IdentifierNode):
         return {
             "op": "call_function",
-            "name": declared_functions.get(value.callee.name, value.callee.name),
+            "name": declared_functions.functions.get(value.callee.name, value.callee.name),
             "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
         }
     if isinstance(value.callee, QualifiedIdentifierNode):
