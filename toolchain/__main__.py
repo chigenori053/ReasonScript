@@ -57,7 +57,7 @@ def main() -> int:
         return version_validate_command(args[1:], Path.cwd())
 
     if command == "lsp":
-        if len(args) != 1:
+        if args[1:] not in ([], ["--stdio"]):
             print("Usage: reason lsp")
             return 1
         from frontend.lsp.server import run_stdio

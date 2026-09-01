@@ -3,8 +3,7 @@ import * as vscode from "vscode";
 import {
   LanguageClient,
   LanguageClientOptions,
-  ServerOptions,
-  TransportKind
+  ServerOptions
 } from "vscode-languageclient/node";
 
 import { detectWorkspaceRoot, reasonExecutable } from "../workspace/workspace";
@@ -17,7 +16,6 @@ export function createLanguageClient(context: vscode.ExtensionContext): Language
     // distribution, where the extension cannot rely on PYTHONPATH.
     command: reasonExecutable(),
     args: ["lsp"],
-    transport: TransportKind.stdio,
     options: {
       cwd: workspaceRoot?.fsPath ?? context.extensionPath
     }

@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV = REPO_ROOT / "scripts" / "dev.py"
 VALID = REPO_ROOT / "examples" / "v0_5" / "002_single_calculation.rsn"
@@ -28,7 +30,8 @@ def test_dev_py_exposes_reason_command_group() -> None:
     assert 'if cmd == "reason"' in source
 
 
-def test_reason_lsp_starts_the_stdio_server() -> None:
+@pytest.mark.parametrize("args", [[], ["--stdio"]])
+def test_reason_lsp_starts_the_stdio_server(args: list[str]) -> None:
     request = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
     encoded = json.dumps(request).encode("utf-8")
     exit_request = json.dumps({"jsonrpc": "2.0", "method": "exit"}).encode("utf-8")
@@ -39,7 +42,7 @@ def test_reason_lsp_starts_the_stdio_server() -> None:
         + exit_request
     )
     result = subprocess.run(
-        [sys.executable, "-m", "toolchain", "lsp"],
+        [sys.executable, "-m", "toolchain", "lsp", *args],
         cwd=REPO_ROOT,
         input=payload,
         capture_output=True,

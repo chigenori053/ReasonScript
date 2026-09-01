@@ -46,7 +46,6 @@ function createLanguageClient(context) {
         // distribution, where the extension cannot rely on PYTHONPATH.
         command: (0, workspace_1.reasonExecutable)(),
         args: ["lsp"],
-        transport: node_1.TransportKind.stdio,
         options: {
             cwd: workspaceRoot?.fsPath ?? context.extensionPath
         }
