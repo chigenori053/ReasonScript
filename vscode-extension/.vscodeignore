@@ -1,17 +1,11 @@
-# .vscodeignore
-# Phase 1.4: ランタイム依存関係を確実にパッケージに含めるための設定
-# vscode-languageclient, vscode-jsonrpc, vscode-languageserver-protocol,
-# vscode-languageserver-types は除外しない（activation-critical dependencies）
-
-# ソースファイル（ビルド成果物のみ梱包）
-src/
-tsconfig.json
-
-# 開発用ファイル
-.vscode/
+# Development-only inputs. The published extension contains the compiled
+# `out/` tree and runtime dependencies selected by vsce.
 .gitignore
-*.vsix
-
-# テスト
-**/*.test.ts
-**/*.test.js
+.vscodeignore
+src/**
+tsconfig.json
+**/*.map
+**/*.vsix
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/.github/**
