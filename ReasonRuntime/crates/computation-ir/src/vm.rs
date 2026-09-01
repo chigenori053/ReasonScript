@@ -928,6 +928,41 @@ impl<'a> Vm<'a> {
                     )),
                 }
             }
+            Expr::CallArrayConcat { left, right, .. } => {
+                let _guard = TempRootGuard::new(self);
+                let left_value = self.eval_expr(left, env, call_depth)?;
+                self.push_temporary_root(left_value.clone());
+                let right_value = self.eval_expr(right, env, call_depth)?;
+                match (left_value, right_value) {
+                    (Value::Array(left_items), Value::Array(right_items)) => {
+                        let mut new_items = left_items.borrow().clone();
+                        new_items.extend(right_items.borrow().iter().cloned());
+                        Ok(Value::Array(Rc::new(RefCell::new(new_items))))
+                    }
+                    (left, right) => Err(RuntimeError::new(
+                        "RT-CALL-006",
+                        format!(
+                            "array.concat arguments must be arrays, got {} and {}",
+                            left.type_name(),
+                            right.type_name()
+                        ),
+                    )),
+                }
+            }
+            Expr::CallString {
+                function_id,
+                arguments,
+                ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
+                }
+                crate::string_dispatch::call(function_id, values)
+            }
             Expr::CallCast { name, argument, .. } => {
                 let value = self.eval_expr(argument, env, call_depth)?;
                 let numeric = match value {

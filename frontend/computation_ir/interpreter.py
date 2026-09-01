@@ -31,6 +31,7 @@ from frontend.integrated_computation_runtime import (
     _index_value,
     _trace_env,
     call_relation,
+    call_string,
 )
 from frontend.reason_object_runtime import ReasonObjectRuntimeError, call_ruo, load_reason_object
 from frontend.reasoning_reference import ReasoningReferenceError, call_reasoning
@@ -396,6 +397,9 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
     if op == "call_relation":
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         return call_relation(node["function_id"], *arguments)
+    if op == "call_string":
+        arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
+        return call_string(node["function_id"], *arguments)
     if op == "call_vision":
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         return ctx.vision_runtime.call(node["function_id"], *arguments)
@@ -415,6 +419,12 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
         import copy
 
         return [*collection, copy.deepcopy(item)]
+    if op == "call_array_concat":
+        left = _eval_expr(node["left"], env, ctx, call_depth)
+        right = _eval_expr(node["right"], env, ctx, call_depth)
+        if not isinstance(left, list) or not isinstance(right, list):
+            raise IntegratedRuntimeError("RT-CALL-006", "array.concat arguments must be arrays")
+        return [*left, *right]
     if op == "call_cast":
         argument = _eval_expr(node["argument"], env, ctx, call_depth)
         if isinstance(argument, bool) or not isinstance(argument, (int, float)):

@@ -278,6 +278,8 @@ def _expr_is_pure_function_body(
         "call_relation",
         "call_reasoning",
         "call_array_append",
+        "call_array_concat",
+        "call_string",
     }:
         return False
     return all(
@@ -534,6 +536,10 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_array_append":
         return {**expr, "collection": _fold_expr(expr["collection"]), "item": _fold_expr(expr["item"])}
+    if op == "call_array_concat":
+        return {**expr, "left": _fold_expr(expr["left"]), "right": _fold_expr(expr["right"])}
+    if op == "call_string":
+        return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_function":
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_cast":
@@ -812,13 +818,17 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
     if op == "member":
         _collect_reads(expr["object"], out)
         return
-    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_reasoning", "call_function"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function"):
         for argument in expr["arguments"]:
             _collect_reads(argument, out)
         return
     if op == "call_array_append":
         _collect_reads(expr["collection"], out)
         _collect_reads(expr["item"], out)
+        return
+    if op == "call_array_concat":
+        _collect_reads(expr["left"], out)
+        _collect_reads(expr["right"], out)
         return
     if op == "call_cast":
         _collect_reads(expr["argument"], out)
@@ -851,10 +861,20 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         # Array<Struct> value (see frontend/relation/integration.py) --
         # no I/O or mutation.
         return all(_is_side_effect_free(argument) for argument in expr["arguments"])
+    if op == "call_string":
+        # Every `string.*` function is a pure transformation over its
+        # String/Int/Float/Array<String> arguments (see
+        # frontend/string/integration.py) -- no I/O or mutation, though
+        # `string.slice` can still raise STR-004 out of range, so a call
+        # is only side-effect-*free* (safe to drop if unused), not
+        # necessarily exception-free.
+        return all(_is_side_effect_free(argument) for argument in expr["arguments"])
     if op == "call_function":
         return False  # a user function's body may call tensor.save; conservative
     if op == "call_array_append":
         return _is_side_effect_free(expr["collection"]) and _is_side_effect_free(expr["item"])
+    if op == "call_array_concat":
+        return _is_side_effect_free(expr["left"]) and _is_side_effect_free(expr["right"])
     if op == "call_cast":
         return _is_side_effect_free(expr["argument"])
     if op == "optional_some":
@@ -933,7 +953,7 @@ def _reads_name(expr: dict[str, Any], name: str) -> bool:
 
 def _is_cse_eligible(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
-    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_reasoning", "call_function", "call_array_append"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function", "call_array_append", "call_array_concat"):
         return False  # never dedupe calls: see module docstring
     if op == "const" or op == "local":
         return True

@@ -74,6 +74,7 @@ from frontend.language_surface.nodes import (
     WildcardPatternNode,
 )
 from frontend.relation.integration import relation_call_name
+from frontend.string.integration import string_call_name
 from frontend.reason_object_runtime import (
     ReasonObjectRuntimeError,
     call_ruo,
@@ -326,6 +327,90 @@ def call_relation(function_id: str, *args: Any) -> Any:
         except TypeError as error:
             raise IntegratedRuntimeError("REL-006", f"Relation field is not orderable: {error}") from error
     raise IntegratedRuntimeError("REL-001", f"unknown Relation function: {function_id}")
+
+
+_STRING_ARGUMENT_COUNTS: dict[str, int] = {
+    "string.concat": 2,
+    "string.join": 2,
+    "string.length": 1,
+    "string.from_int": 1,
+    "string.from_float": 1,
+    "string.slice": 3,
+}
+
+
+def _as_string(value: Any, function_id: str) -> str:
+    if isinstance(value, str):
+        return value
+    raise IntegratedRuntimeError("STR-003", f"{function_id} argument must be String")
+
+
+def _as_int(value: Any, function_id: str) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    raise IntegratedRuntimeError("STR-003", f"{function_id} argument must be Int")
+
+
+def format_float(value: float) -> str:
+    """Canonical `Float -> String` text, shared with the IR interpreter and
+    matched byte-for-byte by the Rust VM's `string_dispatch::from_float`.
+
+    Always includes a decimal point (`2.0`, not `2`) so a formatted Float
+    never looks like an Int. Deliberately scoped to the normal range: both
+    `repr()` here and Rust's `{}` Display use a shortest-round-trip digit
+    algorithm that agrees digit-for-digit for ordinary values, but Python
+    switches to scientific notation and Rust never does, so extreme
+    magnitudes (roughly outside 1e-4..1e16) are not guaranteed to format
+    identically between the two backends -- not a concern for this
+    minimal standard library, which has no other floating-point formatting
+    controls (precision, scientific notation, locale) to begin with.
+    """
+    text = repr(value)
+    return text if "." in text or "e" in text or "n" in text else f"{text}.0"
+
+
+def call_string(function_id: str, *args: Any) -> Any:
+    """Dispatch a `string.*` function (Phase 2 "String標準ライブラリ").
+
+    A plain module-level function, mirroring `call_relation`: every
+    `string.*` function is pure, with no Tensor backend or persistent
+    state involved.
+    """
+    if function_id not in _STRING_ARGUMENT_COUNTS:
+        raise IntegratedRuntimeError("STR-001", f"unknown String function: {function_id}")
+    expected = _STRING_ARGUMENT_COUNTS[function_id]
+    if len(args) != expected:
+        raise IntegratedRuntimeError(
+            "STR-002",
+            f"String function argument count mismatch: {function_id} expects {expected}",
+        )
+    if function_id == "string.concat":
+        a, b = args
+        return _as_string(a, function_id) + _as_string(b, function_id)
+    if function_id == "string.join":
+        separator, values = args
+        separator = _as_string(separator, function_id)
+        if not isinstance(values, list):
+            raise IntegratedRuntimeError("STR-003", "string.join second argument must be Array<String>")
+        return separator.join(_as_string(item, function_id) for item in values)
+    if function_id == "string.length":
+        return len(_as_string(args[0], function_id))
+    if function_id == "string.from_int":
+        return str(_as_int(args[0], function_id))
+    if function_id == "string.from_float":
+        value = args[0]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise IntegratedRuntimeError("STR-003", "string.from_float argument must be Float")
+        return format_float(float(value))
+    if function_id == "string.slice":
+        value, start, end = args
+        value = _as_string(value, function_id)
+        start = _as_int(start, function_id)
+        end = _as_int(end, function_id)
+        if start < 0 or end < start or end > len(value):
+            raise IntegratedRuntimeError("STR-004", f"string.slice bounds out of range: {start}..{end}")
+        return value[start:end]
+    raise IntegratedRuntimeError("STR-001", f"unknown String function: {function_id}")
 
 
 @dataclass
@@ -932,6 +1017,16 @@ def _expression(
                 for argument in value.arguments
             ]
             return call_relation(relation_function, *arguments)
+        string_function = string_call_name(value)
+        if string_function is not None:
+            arguments = [
+                _expression(
+                    argument, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for argument in value.arguments
+            ]
+            return call_string(string_function, *arguments)
         if (
             isinstance(value.callee, MemberAccessNode)
             and isinstance(value.callee.object, IdentifierNode)
@@ -955,6 +1050,34 @@ def _expression(
                     "RT-CALL-002", "array.append first argument must be an array"
                 )
             return [*collection, copy.deepcopy(item)]
+        if (
+            isinstance(value.callee, MemberAccessNode)
+            and isinstance(value.callee.object, IdentifierNode)
+            and value.callee.object.name == "array"
+            and value.callee.member == "concat"
+        ):
+            if len(value.arguments) != 2:
+                raise IntegratedRuntimeError(
+                    "RT-CALL-006", "array.concat expects two arguments"
+                )
+            left = _expression(
+                value.arguments[0], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            right = _expression(
+                value.arguments[1], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            if not isinstance(left, list) or not isinstance(right, list):
+                raise IntegratedRuntimeError(
+                    "RT-CALL-006", "array.concat arguments must be arrays"
+                )
+            # Both sides are elements already living inside an array (unlike
+            # array.append's bare `item`, which needs a deep copy so the new
+            # array doesn't alias a plain local's value) -- a new list
+            # container with the same element identities, matching Rust's
+            # `Vec::clone()` (an `Rc`-bump per element, not a deep clone).
+            return [*left, *right]
         if (
             isinstance(value.callee, IdentifierNode)
             and value.callee.name in {"float", "int"}

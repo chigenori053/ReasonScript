@@ -283,6 +283,20 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
+    #[serde(rename = "call_array_concat")]
+    CallArrayConcat {
+        left: Box<Expr>,
+        right: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
+    #[serde(rename = "call_string")]
+    CallString {
+        function_id: String,
+        arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "call_function")]
     CallFunction {
         name: String,
@@ -337,6 +351,8 @@ impl Expr {
             | Expr::CallRelation { source_span, .. }
             | Expr::CallReasoning { source_span, .. }
             | Expr::CallArrayAppend { source_span, .. }
+            | Expr::CallArrayConcat { source_span, .. }
+            | Expr::CallString { source_span, .. }
             | Expr::CallFunction { source_span, .. }
             | Expr::CallCast { source_span, .. }
             | Expr::EnumValue { source_span, .. }
