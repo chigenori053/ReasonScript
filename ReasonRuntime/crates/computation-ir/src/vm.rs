@@ -1000,6 +1000,34 @@ impl<'a> Vm<'a> {
                 Ok(Value::Optional(Some(Box::new(inner))))
             }
             Expr::OptionalNone { .. } => Ok(Value::Optional(None)),
+            Expr::Assert { condition, .. } => {
+                match self.eval_expr(condition, env, call_depth)? {
+                    Value::Bool(true) => Ok(Value::Null),
+                    Value::Bool(false) => {
+                        Err(RuntimeError::new("TEST-ASSERT-001", "assertion failed"))
+                    }
+                    other => Err(RuntimeError::new(
+                        "RT-TYPE-001",
+                        format!("assert() argument must be Bool, got {}", other.type_name()),
+                    )),
+                }
+            }
+            Expr::AssertEq { actual, expected, .. } => {
+                let _guard = TempRootGuard::new(self);
+                let actual_value = self.eval_expr(actual, env, call_depth)?;
+                self.push_temporary_root(actual_value.clone());
+                let expected_value = self.eval_expr(expected, env, call_depth)?;
+                if actual_value == expected_value {
+                    Ok(Value::Null)
+                } else {
+                    Err(RuntimeError::new(
+                        "TEST-ASSERT-001",
+                        format!(
+                            "assertion failed: expected {expected_value}, got {actual_value}"
+                        ),
+                    ))
+                }
+            }
         }
     }
 

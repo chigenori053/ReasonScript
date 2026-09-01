@@ -1,12 +1,15 @@
 """Toolchain Phase 1 Conformance Tests — TC1-001 through TC1-010."""
 
+import io
 import json
 import os
 import shutil
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -17,6 +20,8 @@ from toolchain.check_cmd import run as check_run
 from toolchain.init_cmd import run as init_run
 from toolchain.manifest import SUPPORTED_BACKENDS, Manifest, ManifestError
 from toolchain.run_cmd import run as run_run
+from toolchain.runner_cmd import TestOutcome as _RunnerTestOutcome
+from toolchain.runner_cmd import _collect_package
 from toolchain.runner_cmd import run as suite_run
 
 _SIMPLE_RSN = """\
@@ -37,6 +42,37 @@ module sample_test {
 }
 """
 
+_ASSERTION_FAIL_RSN = """\
+package hello_world
+module assertion_test {
+    calculation Answer {
+        assert(1 == 2)
+        result = 1
+    }
+}
+"""
+
+_ASSERTION_OK_RSN = """\
+package hello_world
+module assertion_ok_test {
+    calculation Answer {
+        assert_eq(2 + 2, 4)
+        result = 1
+    }
+}
+"""
+
+_RUNTIME_ERROR_RSN = """\
+package hello_world
+module runtime_error_test {
+    calculation Answer {
+        let a = 1
+        let b = 0
+        result = a / b
+    }
+}
+"""
+
 _REASON_TOML = """\
 [package]
 name = "hello_world"
@@ -49,6 +85,26 @@ platform = "0.2"
 [runtime]
 backend = "RuntimeReal"
 """
+
+
+def _collect_only(
+    project_root: Path, *, compile_only: bool = False
+) -> tuple[list[_RunnerTestOutcome], int]:
+    manifest = Manifest.load(project_root)
+    outcomes, rc = _collect_package(
+        project_root,
+        manifest.name,
+        compile_only=compile_only,
+        filesystem_read=False,
+        filesystem_write=False,
+    )
+    if rc != 0:
+        return outcomes, rc
+    # `_collect_package`'s own return code only ever signals an
+    # infrastructure-level failure (bad manifest, missing Rust binary),
+    # not "some test failed" -- that's `_report`'s job, replicated here so
+    # this direct-collection helper matches `suite_run`'s real exit code.
+    return outcomes, (3 if any(not outcome.passed for outcome in outcomes) else 0)
 
 
 class TC1001Init(unittest.TestCase):
@@ -183,6 +239,68 @@ class TC1004Test(unittest.TestCase):
         )
         rc = suite_run(self.tmp)
         self.assertEqual(rc, 3)
+
+    def test_failing_assertion_reports_test_assert_001_and_exit_3(self):
+        # Phase 3 ("実行型テスト機構"): a test file that compiles but
+        # whose assertion fails at runtime must fail the suite -- the
+        # pre-Phase-3 behavior reported this as PASS since only
+        # compilation was checked.
+        (self.tmp / "tests" / "assertion_test.rsn").write_text(_ASSERTION_FAIL_RSN, encoding="utf-8")
+        outcomes, rc = _collect_only(self.tmp)
+        self.assertEqual(rc, 3)
+        failing = next(o for o in outcomes if o.name == "assertion_test")
+        self.assertEqual(failing.status, "assertion_failure")
+        self.assertEqual(failing.code, "TEST-ASSERT-001")
+
+    def test_runtime_error_is_a_distinct_category_from_assertion_failure(self):
+        (self.tmp / "tests" / "runtime_error_test.rsn").write_text(_RUNTIME_ERROR_RSN, encoding="utf-8")
+        outcomes, rc = _collect_only(self.tmp)
+        self.assertEqual(rc, 3)
+        failing = next(o for o in outcomes if o.name == "runtime_error_test")
+        self.assertEqual(failing.status, "runtime_error")
+        self.assertNotEqual(failing.code, "TEST-ASSERT-001")
+
+    def test_passing_assertion_test_still_passes(self):
+        (self.tmp / "tests" / "assertion_ok_test.rsn").write_text(_ASSERTION_OK_RSN, encoding="utf-8")
+        outcomes, rc = _collect_only(self.tmp)
+        self.assertEqual(rc, 0)
+        passing = next(o for o in outcomes if o.name == "assertion_ok_test")
+        self.assertEqual(passing.status, "pass")
+
+    def test_compile_only_flag_does_not_execute(self):
+        # A failing assertion must NOT fail the suite under --compile-only
+        # (the pre-Phase-3 behavior, preserved as an explicit opt-out).
+        (self.tmp / "tests" / "assertion_test.rsn").write_text(_ASSERTION_FAIL_RSN, encoding="utf-8")
+        outcomes, rc = _collect_only(self.tmp, compile_only=True)
+        self.assertEqual(rc, 0)
+        outcome = next(o for o in outcomes if o.name == "assertion_test")
+        self.assertEqual(outcome.status, "pass")
+
+    def test_json_report_contains_every_test_with_its_status(self):
+        (self.tmp / "tests" / "assertion_test.rsn").write_text(_ASSERTION_FAIL_RSN, encoding="utf-8")
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            rc = suite_run(self.tmp, output_format="json")
+        self.assertEqual(rc, 3)
+        report = json.loads(stdout.getvalue())
+        self.assertEqual(report["schema"], "reasonscript-test-report/1.0")
+        names = {test["name"]: test["status"] for test in report["tests"]}
+        self.assertEqual(names["sample_test"], "pass")
+        self.assertEqual(names["assertion_test"], "assertion_failure")
+        self.assertEqual(report["summary"], {"passed": 1, "failed": 1, "total": 2})
+
+    def test_junit_report_is_well_formed_xml(self):
+        (self.tmp / "tests" / "assertion_test.rsn").write_text(_ASSERTION_FAIL_RSN, encoding="utf-8")
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            rc = suite_run(self.tmp, output_format="junit")
+        self.assertEqual(rc, 3)
+        root = ElementTree.fromstring(stdout.getvalue())
+        self.assertEqual(root.tag, "testsuite")
+        self.assertEqual(root.attrib["tests"], "2")
+        self.assertEqual(root.attrib["failures"], "1")
+        failures = root.findall("./testcase/failure")
+        self.assertEqual(len(failures), 1)
 
 
 class TC1005Check(unittest.TestCase):

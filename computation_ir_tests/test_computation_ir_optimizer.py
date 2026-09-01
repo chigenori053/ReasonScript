@@ -705,6 +705,90 @@ class StringFunctionsInteractionTests(OptimizerParityMixin, unittest.TestCase):
         self.assertEqual(len(concat_calls), 2)
 
 
+class AssertionOptimizationTests(OptimizerParityMixin, unittest.TestCase):
+    """Phase 3: `assert`/`assert_eq` must never be eliminated as dead code,
+    even though their result is always unused (their entire purpose is
+    the "may raise" side effect, unlike every other namespaced call this
+    optimizer treats as safe-to-drop-if-unused)."""
+
+    def test_unused_assert_survives_dead_code_elimination(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    assert(1 == 1)
+                    result = 1
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        asserts = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "expr" and instruction["expr"].get("op") == "assert"
+        ]
+        self.assertEqual(len(asserts), 1)
+
+    def test_unused_assert_eq_survives_dead_code_elimination(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    assert_eq(2 + 2, 4)
+                    result = 1
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        asserts = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "expr" and instruction["expr"].get("op") == "assert_eq"
+        ]
+        self.assertEqual(len(asserts), 1)
+
+    def test_local_read_only_inside_assert_condition_is_not_eliminated(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    let flag = true
+                    assert(flag)
+                    result = 1
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        assigns = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "assign" and instruction.get("target") == "flag"
+        ]
+        self.assertEqual(len(assigns), 1)
+
+    def test_assertion_pipeline_survives_optimization(self):
+        optimized, results = self.assert_parity(
+            """
+            module M {
+                calculation Answer {
+                    let a = 2 + 2
+                    assert_eq(a, 4)
+                    assert(a > 0)
+                    result = a
+                }
+            }
+            """
+        )
+        self.assertEqual(results["Answer"], 4)
+        del optimized
+
+
 class MatchOptimizationTests(OptimizerParityMixin, unittest.TestCase):
     """Phase 1: the `match` terminator and `enum_value`/`optional_some`/
     `optional_none` expressions must survive every optimizer pass intact.

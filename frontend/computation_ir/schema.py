@@ -61,6 +61,8 @@ EXPRESSION_OPS = (
     "enum_value",
     "optional_some",
     "optional_none",
+    "assert",
+    "assert_eq",
 )
 
 INSTRUCTION_OPS = (

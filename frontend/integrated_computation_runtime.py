@@ -1096,6 +1096,41 @@ def _expression(
                     "RT-CALL-005", f"{value.callee.name}() argument must be Int or Float"
                 )
             return float(argument) if value.callee.name == "float" else int(argument)
+        if (
+            isinstance(value.callee, IdentifierNode)
+            and value.callee.name in {"assert", "assert_eq"}
+            and value.callee.name not in functions
+        ):
+            if value.callee.name == "assert":
+                if len(value.arguments) != 1:
+                    raise IntegratedRuntimeError(
+                        "RT-CALL-002", "assert() expects exactly one argument"
+                    )
+                condition = _expression(
+                    value.arguments[0], env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                if condition is not True:
+                    raise IntegratedRuntimeError("TEST-ASSERT-001", "assertion failed")
+                return None
+            if len(value.arguments) != 2:
+                raise IntegratedRuntimeError(
+                    "RT-CALL-002", "assert_eq() expects exactly two arguments"
+                )
+            actual = _expression(
+                value.arguments[0], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            expected = _expression(
+                value.arguments[1], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            if actual != expected:
+                raise IntegratedRuntimeError(
+                    "TEST-ASSERT-001",
+                    f"assertion failed: expected {expected!r}, got {actual!r}",
+                )
+            return None
         if isinstance(value.callee, (IdentifierNode, QualifiedIdentifierNode)):
             function_ref = (
                 functions.get(value.callee.name)

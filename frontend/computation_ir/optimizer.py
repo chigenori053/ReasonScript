@@ -280,6 +280,8 @@ def _expr_is_pure_function_body(
         "call_array_append",
         "call_array_concat",
         "call_string",
+        "assert",
+        "assert_eq",
     }:
         return False
     return all(
@@ -550,6 +552,10 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
         return {**expr, "argument": argument}
     if op == "optional_some":
         return {**expr, "value": _fold_expr(expr["value"])}
+    if op == "assert":
+        return {**expr, "condition": _fold_expr(expr["condition"])}
+    if op == "assert_eq":
+        return {**expr, "actual": _fold_expr(expr["actual"]), "expected": _fold_expr(expr["expected"])}
     return expr
 
 
@@ -836,6 +842,13 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
     if op == "optional_some":
         _collect_reads(expr["value"], out)
         return
+    if op == "assert":
+        _collect_reads(expr["condition"], out)
+        return
+    if op == "assert_eq":
+        _collect_reads(expr["actual"], out)
+        _collect_reads(expr["expected"], out)
+        return
 
 
 _IMPURE_FUNCTION_IDS = {"tensor.load", "tensor.save"}
@@ -879,6 +892,15 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         return _is_side_effect_free(expr["argument"])
     if op == "optional_some":
         return _is_side_effect_free(expr["value"])
+    if op in ("assert", "assert_eq"):
+        # Unlike every other namespaced call above, an assert's entire
+        # purpose IS its "may raise" effect, and it is used as a bare,
+        # unused-result statement in the *normal* case (not an edge case
+        # like string.slice's bounds check) -- so, unlike those, this can
+        # never be side-effect-free regardless of its arguments, or dead
+        # local elimination would silently turn every assertion into a
+        # no-op the moment its (always-unused) result isn't read.
+        return False
     if op == "array":
         return all(_is_side_effect_free(item) for item in expr["elements"])
     if op == "struct":
@@ -953,7 +975,7 @@ def _reads_name(expr: dict[str, Any], name: str) -> bool:
 
 def _is_cse_eligible(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
-    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function", "call_array_append", "call_array_concat"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function", "call_array_append", "call_array_concat", "assert", "assert_eq"):
         return False  # never dedupe calls: see module docstring
     if op == "const" or op == "local":
         return True
