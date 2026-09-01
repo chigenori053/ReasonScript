@@ -86,6 +86,50 @@ platform = "0.2"
 backend = "RuntimeReal"
 """
 
+_RECURSIVE_RSN = """\
+package depthtest
+module main {
+    fn CountUp(n: int) -> int {
+        if n >= 10 {
+            return n
+        }
+        return CountUp(n + 1)
+    }
+
+    calculation Answer {
+        result = CountUp(0)
+    }
+}
+"""
+
+
+def _recursive_reason_toml(max_call_depth: int | None) -> str:
+    lines = [
+        "[package]",
+        'name = "depthtest"',
+        'version = "0.1.0"',
+        "",
+        "[compiler]",
+        'language_core = "0.7"',
+        'platform = "0.2"',
+        "",
+        "[runtime]",
+        'backend = "RuntimeReal"',
+    ]
+    if max_call_depth is not None:
+        lines.append(f"max_call_depth = {max_call_depth}")
+    return "\n".join(lines) + "\n"
+
+
+def _setup_recursive_project(root: Path, *, max_call_depth: int | None) -> None:
+    (root / "src").mkdir(parents=True, exist_ok=True)
+    (root / "target" / "ast").mkdir(parents=True, exist_ok=True)
+    (root / "target" / "ir").mkdir(parents=True, exist_ok=True)
+    (root / "target" / "metadata").mkdir(parents=True, exist_ok=True)
+    (root / "target" / "runtime").mkdir(parents=True, exist_ok=True)
+    (root / "reason.toml").write_text(_recursive_reason_toml(max_call_depth), encoding="utf-8")
+    (root / "src" / "main.rsn").write_text(_RECURSIVE_RSN, encoding="utf-8")
+
 
 def _collect_only(
     project_root: Path, *, compile_only: bool = False
@@ -503,6 +547,60 @@ class TC1010DeterministicRebuild(unittest.TestCase):
         for f in sorted((self.tmp / "target" / "ir").glob("*.json")):
             result[f.name] = json.loads(f.read_text())
         return result
+
+
+class TC1011MaxCallDepthContract(unittest.TestCase):
+    """TC1-011 (Phase 4, "制御された再帰"): `reason.toml`'s
+    `[runtime] max_call_depth` is a genuine part of the compiler/runtime
+    contract end to end -- not just a `Manifest`-parsing detail -- the
+    same way `backend` already is (TC1-007)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_max_call_depth_accepts_a_positive_integer(self):
+        (self.tmp / "reason.toml").write_text(_recursive_reason_toml(5), encoding="utf-8")
+        manifest = Manifest.load(self.tmp)
+        self.assertEqual(manifest.max_call_depth, 5)
+
+    def test_max_call_depth_defaults_to_none_when_unset(self):
+        (self.tmp / "reason.toml").write_text(_recursive_reason_toml(None), encoding="utf-8")
+        manifest = Manifest.load(self.tmp)
+        self.assertIsNone(manifest.max_call_depth)
+
+    def test_non_positive_max_call_depth_is_rejected(self):
+        (self.tmp / "reason.toml").write_text(
+            _recursive_reason_toml(None).rstrip("\n") + "\nmax_call_depth = 0\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(ManifestError):
+            Manifest.load(self.tmp)
+
+    def test_reason_run_stops_at_a_configured_max_call_depth(self):
+        # CountUp needs 10 recursive calls to finish; a configured limit
+        # of 5 must stop it with RT-CALL-003 instead of running to
+        # completion.
+        _setup_recursive_project(self.tmp, max_call_depth=5)
+        build_run(self.tmp)
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            rc = run_run(self.tmp)
+        self.assertEqual(rc, 2)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["diagnostics"][0]["code"], "RT-CALL-003")
+
+    def test_reason_run_succeeds_without_a_configured_limit(self):
+        _setup_recursive_project(self.tmp, max_call_depth=None)
+        build_run(self.tmp)
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            rc = run_run(self.tmp)
+        self.assertEqual(rc, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["runtime_result"]["result"], 10)
 
 
 # ---------------------------------------------------------------------------

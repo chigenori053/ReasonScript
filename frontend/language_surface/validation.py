@@ -287,7 +287,6 @@ class SurfaceValidationError(ValueError):
 
 
 _CURRENT_NAMESPACE: ModuleNamespace | None = None
-_CURRENT_FUNCTION: str | None = None
 RUNTIME_RESULT_TYPES = {
     "SearchResult",
     "SimulationResult",
@@ -840,7 +839,6 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
 
 
 def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -> None:
-    global _CURRENT_FUNCTION
     _validate_ast_node(node)
     if node.return_type is not None:
         _resolve_type(node.return_type, symbols)
@@ -851,19 +849,14 @@ def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -
         )
         for parameter in node.parameters
     }
-    previous_function = _CURRENT_FUNCTION
-    _CURRENT_FUNCTION = node.name
-    try:
-        _validate_function_statements(
-            node.body,
-            symbols=symbols,
-            bindings=bindings,
-            allow_terminal_return=True,
-            loop_depth=0,
-            return_type=node.return_type,
-        )
-    finally:
-        _CURRENT_FUNCTION = previous_function
+    _validate_function_statements(
+        node.body,
+        symbols=symbols,
+        bindings=bindings,
+        allow_terminal_return=True,
+        loop_depth=0,
+        return_type=node.return_type,
+    )
     _validate_function_control_flow(node.body)
     if not _statement_list_terminates_with_return(node.body):
         raise SurfaceValidationError("FN-010 FCF-001 Not all execution paths return")
@@ -2350,8 +2343,6 @@ def _expression_type(
             )
             return null_type
         if isinstance(value.callee, IdentifierNode):
-            if value.callee.name == _CURRENT_FUNCTION:
-                raise SurfaceValidationError("FN-007 recursive function calls are rejected")
             function = symbols.get(value.callee.name)
             if isinstance(function, FunctionDeclarationNode):
                 if len(value.arguments) != len(function.parameters):
