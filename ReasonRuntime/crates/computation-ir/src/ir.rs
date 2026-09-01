@@ -89,57 +89,12 @@ pub enum Terminator {
         #[serde(rename = "else")]
         else_target: String,
     },
-    #[serde(rename = "pattern_branch")]
-    PatternBranch {
-        value: Expr,
-        pattern: Pattern,
-        then: String,
-        #[serde(rename = "else")]
-        else_target: String,
-    },
     #[serde(rename = "result")]
     Result { value: Expr },
     #[serde(rename = "return")]
     Return { value: Expr },
     #[serde(rename = "trap")]
     Trap { code: String, message: String },
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(tag = "kind")]
-pub enum Pattern {
-    #[serde(rename = "wildcard")]
-    Wildcard,
-    #[serde(rename = "binding")]
-    Binding { name: String },
-    #[serde(rename = "literal")]
-    Literal {
-        value_kind: String,
-        value: serde_json::Value,
-    },
-    #[serde(rename = "range")]
-    Range {
-        lower: serde_json::Value,
-        upper: serde_json::Value,
-        lower_inclusive: bool,
-        upper_inclusive: bool,
-    },
-    #[serde(rename = "enum")]
-    Enum {
-        enum_name: String,
-        variant_name: String,
-    },
-    #[serde(rename = "optional_none")]
-    OptionalNone,
-    #[serde(rename = "optional_some")]
-    OptionalSome { pattern: Box<Pattern> },
-    #[serde(rename = "struct")]
-    Struct {
-        type_name: String,
-        fields: BTreeMap<String, Pattern>,
-    },
-    #[serde(rename = "or")]
-    Or { alternatives: Vec<Pattern> },
 }
 
 #[derive(Debug, Deserialize)]
@@ -168,24 +123,6 @@ pub enum Expr {
     Struct {
         type_name: String,
         fields: BTreeMap<String, Expr>,
-        #[serde(default)]
-        source_span: Option<serde_json::Value>,
-    },
-    #[serde(rename = "enum_value")]
-    EnumValue {
-        enum_name: String,
-        variant_name: String,
-        #[serde(default)]
-        source_span: Option<serde_json::Value>,
-    },
-    #[serde(rename = "optional_some")]
-    OptionalSome {
-        value: Box<Expr>,
-        #[serde(default)]
-        source_span: Option<serde_json::Value>,
-    },
-    #[serde(rename = "optional_none")]
-    OptionalNone {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
@@ -283,20 +220,6 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
-    #[serde(rename = "call_array_concat")]
-    CallArrayConcat {
-        left: Box<Expr>,
-        right: Box<Expr>,
-        #[serde(default)]
-        source_span: Option<serde_json::Value>,
-    },
-    #[serde(rename = "call_string")]
-    CallString {
-        function_id: String,
-        arguments: Vec<Expr>,
-        #[serde(default)]
-        source_span: Option<serde_json::Value>,
-    },
     #[serde(rename = "call_function")]
     CallFunction {
         name: String,
@@ -311,19 +234,6 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
-    #[serde(rename = "call_assert")]
-    CallAssert {
-        condition: Box<Expr>,
-        #[serde(default)]
-        source_span: Option<serde_json::Value>,
-    },
-    #[serde(rename = "call_assert_eq")]
-    CallAssertEq {
-        left: Box<Expr>,
-        right: Box<Expr>,
-        #[serde(default)]
-        source_span: Option<serde_json::Value>,
-    },
 }
 
 impl Expr {
@@ -333,9 +243,6 @@ impl Expr {
             | Expr::Local { source_span, .. }
             | Expr::Array { source_span, .. }
             | Expr::Struct { source_span, .. }
-            | Expr::EnumValue { source_span, .. }
-            | Expr::OptionalSome { source_span, .. }
-            | Expr::OptionalNone { source_span, .. }
             | Expr::Unary { source_span, .. }
             | Expr::Binary { source_span, .. }
             | Expr::Comparison { source_span, .. }
@@ -349,12 +256,8 @@ impl Expr {
             | Expr::CallRelation { source_span, .. }
             | Expr::CallReasoning { source_span, .. }
             | Expr::CallArrayAppend { source_span, .. }
-            | Expr::CallArrayConcat { source_span, .. }
-            | Expr::CallString { source_span, .. }
             | Expr::CallFunction { source_span, .. }
-            | Expr::CallCast { source_span, .. }
-            | Expr::CallAssert { source_span, .. }
-            | Expr::CallAssertEq { source_span, .. } => source_span.as_ref(),
+            | Expr::CallCast { source_span, .. } => source_span.as_ref(),
         }
     }
 }

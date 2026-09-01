@@ -20,9 +20,6 @@ from frontend.language_surface.nodes import (
     ComparisonOperator,
     ConstStatementNode,
     ContinueStatementNode,
-    DefaultPatternNode,
-    EnumDeclarationNode,
-    EnumValuePatternNode,
     ExpressionNode,
     ExpressionStatementNode,
     FieldAssignmentStatementNode,
@@ -31,7 +28,6 @@ from frontend.language_surface.nodes import (
     FunctionDeclarationNode,
     GoalNode,
     IdentifierNode,
-    IdentifierPatternNode,
     IfStatementNode,
     ImportNode,
     IndexAccessNode,
@@ -41,21 +37,14 @@ from frontend.language_surface.nodes import (
     LogicalExpressionNode,
     LogicalOperator,
     LoopStatementNode,
-    LiteralPatternNode,
-    MatchStatementNode,
     MemberAccessNode,
     NoneLiteralNode,
     NullLiteralNode,
-    OptionalPatternNode,
-    OptionalValuePatternNode,
-    OrPatternNode,
     ParenthesizedExpressionNode,
     ProgramNode,
     QualifiedIdentifierNode,
-    QualifiedPatternNode,
     ReasonGraphDeclarationNode,
     ReasonObjectBindingNode,
-    RangePatternNode,
     ResultStatementNode,
     ReturnStatementNode,
     RuntimeCallExpressionNode,
@@ -63,14 +52,10 @@ from frontend.language_surface.nodes import (
     ConstraintNode,
     ExecutionPlanDeclarationNode,
     StringLiteralNode,
-    StructBindingPatternNode,
-    StructPatternNode,
     StructLiteralNode,
-    SomeExpressionNode,
     UnaryExpressionNode,
     UnaryOperator,
     WhileStatementNode,
-    WildcardPatternNode,
 )
 from frontend.relation.integration import relation_call_name
 from frontend.reason_object_runtime import (
@@ -118,32 +103,6 @@ class IntegratedRuntimeError(ValueError):
 class RuntimeStruct:
     type_name: str
     fields: dict[str, Any]
-
-
-@dataclass(frozen=True)
-class RuntimeEnumValue:
-    enum_name: str
-    variant_name: str
-
-    def to_runtime_value(self) -> dict[str, Any]:
-        return {"enum": self.enum_name, "variant": self.variant_name}
-
-
-@dataclass(frozen=True)
-class RuntimeOptionalSome:
-    value: Any
-
-    def to_runtime_value(self) -> dict[str, Any]:
-        return {"optional": "some", "value": self.value}
-
-
-@dataclass(frozen=True)
-class RuntimeOptionalNone:
-    def to_runtime_value(self) -> dict[str, Any]:
-        return {"optional": "none"}
-
-
-OPTIONAL_NONE = RuntimeOptionalNone()
 
 
 @dataclass
@@ -318,30 +277,6 @@ def execute_program(
             except ReasonObjectRuntimeError as error:
                 raise IntegratedRuntimeError(error.code, str(error)) from error
         module_objects[module.name] = loaded
-    enum_registry: dict[str, dict[str, dict[str, RuntimeEnumValue]]] = {}
-    for module in program.modules:
-        enum_registry[module.name] = {
-            item.name: {
-                variant.name: RuntimeEnumValue(item.name, variant.name)
-                for variant in item.values
-            }
-            for item in module.body
-            if isinstance(item, EnumDeclarationNode)
-        }
-        module_objects[module.name].update(enum_registry[module.name])
-    for module in program.modules:
-        for item in module.body:
-            if not isinstance(item, ImportNode) or item.resolution is None:
-                continue
-            target = enum_registry.get(item.resolution.namespace.rsplit(".", 1)[-1], {})
-            if item.resolution.symbol in target:
-                namespace = target[item.resolution.symbol]
-                for exposed_name in item.resolution.exposed_names:
-                    module_objects[module.name][exposed_name] = namespace
-            elif item.resolution.symbol is None:
-                for exposed_name in item.resolution.exposed_names:
-                    if exposed_name in target:
-                        module_objects[module.name][exposed_name] = target[exposed_name]
     function_registry: dict[str, RuntimeFunction] = {}
     package_prefix = f"{program.package.name}." if program.package is not None else ""
     for module in program.modules:
@@ -514,93 +449,7 @@ def _statements(
                     selected, env, runtime, trace, limit, scope, vision_runtime,
                     functions, max_call_depth, call_depth,
                 )
-        elif isinstance(statement, MatchStatementNode):
-            subject = _expression(
-                statement.expression, env, runtime, vision_runtime,
-                functions, max_call_depth, call_depth,
-            )
-            selected = False
-            for arm in statement.arms:
-                bindings = _match_pattern(arm.pattern.pattern, subject)
-                if bindings is None:
-                    continue
-                previous = {name: env[name] for name in bindings if name in env}
-                missing = set(bindings) - set(previous)
-                env.update(bindings)
-                try:
-                    if arm.guard is not None and not bool(_expression(
-                        arm.guard, env, runtime, vision_runtime,
-                        functions, max_call_depth, call_depth,
-                    )):
-                        continue
-                    selected = True
-                    _statements(
-                        arm.body, env, runtime, trace, limit, scope,
-                        vision_runtime, functions, max_call_depth, call_depth,
-                    )
-                    break
-                finally:
-                    for name in missing:
-                        env.pop(name, None)
-                    env.update(previous)
-            if not selected:
-                raise IntegratedRuntimeError("RT-MATCH-001", "match expression selected no arm")
         runtime.collect(env)
-
-
-def _match_pattern(pattern: Any, value: Any) -> dict[str, Any] | None:
-    if isinstance(pattern, IdentifierPatternNode):
-        return {pattern.name: value}
-    if isinstance(pattern, (WildcardPatternNode, DefaultPatternNode)):
-        return {}
-    if isinstance(pattern, LiteralPatternNode):
-        return {} if value == getattr(pattern.value, "value", None) else None
-    if isinstance(pattern, RangePatternNode):
-        try:
-            lower_ok = value >= pattern.lower.value if pattern.lower_inclusive else value > pattern.lower.value
-            upper_ok = value <= pattern.upper.value if pattern.upper_inclusive else value < pattern.upper.value
-        except TypeError:
-            return None
-        return {} if lower_ok and upper_ok else None
-    if isinstance(pattern, EnumValuePatternNode):
-        expected = RuntimeEnumValue(pattern.enum_name, pattern.value_name)
-        return {} if value == expected else None
-    if isinstance(pattern, QualifiedPatternNode):
-        expected = RuntimeEnumValue(pattern.namespace, pattern.identifier)
-        return {} if value == expected else None
-    if isinstance(pattern, OptionalPatternNode):
-        if pattern.kind == "None":
-            return {} if isinstance(value, RuntimeOptionalNone) else None
-        if not isinstance(value, RuntimeOptionalSome):
-            return None
-        return {pattern.binding: value.value} if pattern.binding else {}
-    if isinstance(pattern, OptionalValuePatternNode):
-        if pattern.kind == "None":
-            return {} if isinstance(value, RuntimeOptionalNone) else None
-        if not isinstance(value, RuntimeOptionalSome):
-            return None
-        return _match_pattern(pattern.pattern, value.value)
-    if isinstance(pattern, StructBindingPatternNode):
-        return {pattern.binding: value}
-    if isinstance(pattern, StructPatternNode):
-        if not isinstance(value, RuntimeStruct) or value.type_name != pattern.type_name:
-            return None
-        bindings: dict[str, Any] = {}
-        for field in pattern.fields:
-            if field.field_name not in value.fields:
-                return None
-            nested = _match_pattern(field.pattern, value.fields[field.field_name])
-            if nested is None:
-                return None
-            bindings.update(nested)
-        return bindings
-    if isinstance(pattern, OrPatternNode):
-        for alternative in pattern.alternatives:
-            bindings = _match_pattern(alternative, value)
-            if bindings is not None:
-                return bindings
-        return None
-    return None
 
 
 def _while_loop(
@@ -691,15 +540,8 @@ def _expression(
     value = value.expression if isinstance(value, ExpressionNode) else value
     if isinstance(value, (IntegerLiteralNode, FloatLiteralNode, BooleanLiteralNode, StringLiteralNode)):
         return value.value
-    if isinstance(value, NoneLiteralNode):
-        return OPTIONAL_NONE
-    if isinstance(value, NullLiteralNode):
+    if isinstance(value, (NoneLiteralNode, NullLiteralNode)):
         return None
-    if isinstance(value, SomeExpressionNode):
-        return RuntimeOptionalSome(_expression(
-            value.value, env, runtime, vision_runtime,
-            functions, max_call_depth, call_depth,
-        ))
     if isinstance(value, IdentifierNode):
         if value.name not in env:
             raise IntegratedRuntimeError("RT-NAME-001", f"unknown runtime name: {value.name}")
@@ -922,90 +764,6 @@ def _expression(
                     "RT-CALL-002", "array.append first argument must be an array"
                 )
             return [*collection, copy.deepcopy(item)]
-        if (
-            isinstance(value.callee, MemberAccessNode)
-            and isinstance(value.callee.object, IdentifierNode)
-            and value.callee.object.name == "array"
-            and value.callee.member == "concat"
-        ):
-            if len(value.arguments) != 2:
-                raise IntegratedRuntimeError(
-                    "RT-CALL-002", "array.concat expects two arguments"
-                )
-            left = _expression(
-                value.arguments[0], env, runtime, vision_runtime,
-                functions, max_call_depth, call_depth,
-            )
-            right = _expression(
-                value.arguments[1], env, runtime, vision_runtime,
-                functions, max_call_depth, call_depth,
-            )
-            if not isinstance(left, list) or not isinstance(right, list):
-                raise IntegratedRuntimeError(
-                    "RT-CALL-002", "array.concat arguments must be arrays"
-                )
-            return [*copy.deepcopy(left), *copy.deepcopy(right)]
-        if (
-            isinstance(value.callee, MemberAccessNode)
-            and isinstance(value.callee.object, IdentifierNode)
-            and value.callee.object.name == "string"
-        ):
-            func_name = value.callee.member
-            args = [
-                _expression(arg, env, runtime, vision_runtime, functions, max_call_depth, call_depth)
-                for arg in value.arguments
-            ]
-            if func_name == "concat":
-                if len(args) != 2 or not isinstance(args[0], str) or not isinstance(args[1], str):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.concat expects two string arguments")
-                return args[0] + args[1]
-            elif func_name == "join":
-                if len(args) != 2 or not isinstance(args[0], str) or not isinstance(args[1], list):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.join expects separator and list of strings")
-                for item in args[1]:
-                    if not isinstance(item, str):
-                        raise IntegratedRuntimeError("RT-CALL-002", "string.join list elements must be strings")
-                return args[0].join(args[1])
-            elif func_name == "length":
-                if len(args) != 1 or not isinstance(args[0], str):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.length expects one string argument")
-                return len(args[0])
-            elif func_name == "from_int":
-                if len(args) != 1 or isinstance(args[0], bool) or not isinstance(args[0], int):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.from_int expects one int argument")
-                return str(args[0])
-            elif func_name == "from_float":
-                if len(args) != 1 or isinstance(args[0], bool) or not isinstance(args[0], (float, int)):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.from_float expects one float argument")
-                return str(float(args[0]))
-            elif func_name == "slice":
-                if len(args) != 3 or not isinstance(args[0], str) or isinstance(args[1], bool) or not isinstance(args[1], int) or isinstance(args[2], bool) or not isinstance(args[2], int):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.slice expects string, int, int")
-                s, start, end = args[0], args[1], args[2]
-                if start < 0:
-                    start = 0
-                if end < start:
-                    end = start
-                return s[start:end]
-            else:
-                raise IntegratedRuntimeError("RT-CALL-002", f"unknown string standard function: string.{func_name}")
-        if isinstance(value.callee, IdentifierNode) and value.callee.name == "assert":
-            if len(value.arguments) != 1:
-                raise IntegratedRuntimeError("TEST-ASSERT-001", "assert expects 1 argument")
-            cond = _expression(value.arguments[0], env, runtime, vision_runtime, functions, max_call_depth, call_depth)
-            if not isinstance(cond, bool):
-                raise IntegratedRuntimeError("TEST-ASSERT-001", "assert condition must evaluate to boolean")
-            if not cond:
-                raise IntegratedRuntimeError("TEST-ASSERT-001", "assertion failed")
-            return True
-        if isinstance(value.callee, IdentifierNode) and value.callee.name == "assert_eq":
-            if len(value.arguments) != 2:
-                raise IntegratedRuntimeError("TEST-ASSERT-001", "assert_eq expects 2 arguments")
-            left = _expression(value.arguments[0], env, runtime, vision_runtime, functions, max_call_depth, call_depth)
-            right = _expression(value.arguments[1], env, runtime, vision_runtime, functions, max_call_depth, call_depth)
-            if left != right:
-                raise IntegratedRuntimeError("TEST-ASSERT-001", f"assertion failed: {left} != {right}")
-            return True
         if (
             isinstance(value.callee, IdentifierNode)
             and value.callee.name in {"float", "int"}

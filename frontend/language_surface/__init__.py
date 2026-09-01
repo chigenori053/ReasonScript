@@ -164,7 +164,6 @@ from .semantic_patterns import (
     semantic_pattern_from_json,
     semantic_pattern_to_json,
 )
-from .call_graph import CallGraphAnalysisResult, analyze_call_graph
 from .validation import SurfaceValidationError, validate
 
 __all__ = [
@@ -179,7 +178,6 @@ __all__ = [
     "BreakStatementNode",
     "CalculationNode",
     "CallExpressionNode",
-    "CallGraphAnalysisResult",
     "ComparisonExpressionNode",
     "ComparisonOperator",
     "ConceptNode",
@@ -306,7 +304,6 @@ __all__ = [
     "Visibility",
     "WhileStatementNode",
     "WildcardPatternNode",
-    "analyze_call_graph",
     "calculation_from_json",
     "compile_program",
     "execution_plan_for",

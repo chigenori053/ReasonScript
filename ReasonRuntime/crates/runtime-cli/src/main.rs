@@ -219,17 +219,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         .and_then(serde_json::Value::as_str)
         .unwrap_or("RuntimeReal")
         .to_owned();
-    let max_call_depth: u32 = limit(
-        limits,
-        "max_call_depth",
-        reasonscript_computation_ir::DEFAULT_MAX_CALL_DEPTH as usize,
-    ) as u32;
-    let max_loop_iterations: u64 = limit(
-        limits,
-        "max_loop_iterations",
-        reasonscript_computation_ir::DEFAULT_MAX_LOOP_ITERATIONS as usize,
-    ) as u64;
-    let mut vm = Vm::with_runtime_context(
+    let vm = Vm::with_runtime_context(
         &program,
         numeric_mode,
         tensor_policy,
@@ -239,8 +229,6 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         trace_enabled,
         backend,
     );
-    vm.set_max_call_depth(max_call_depth);
-    vm.set_max_loop_iterations(max_loop_iterations);
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let loop_trace = vm.loop_trace();

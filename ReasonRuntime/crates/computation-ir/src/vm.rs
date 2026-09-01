@@ -14,8 +14,8 @@ use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
-use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
-use crate::value::{from_json, to_json, EnumValue, RuntimeReasonObject, StructValue, Value};
+use crate::ir::{Block, Expr, Function, Instruction, Program, Terminator};
+use crate::value::{from_json, to_json, RuntimeReasonObject, StructValue, Value};
 
 #[derive(Debug)]
 pub struct RuntimeError {
@@ -47,8 +47,8 @@ pub enum Outcome {
     NoValue,
 }
 
-pub const DEFAULT_MAX_LOOP_ITERATIONS: u64 = 10_000;
-pub const DEFAULT_MAX_CALL_DEPTH: u32 = 128;
+const DEFAULT_MAX_LOOP_ITERATIONS: u64 = 10_000;
+const DEFAULT_MAX_CALL_DEPTH: u32 = 128;
 
 pub struct Vm<'a> {
     functions: HashMap<&'a str, &'a Function>,
@@ -188,14 +188,6 @@ impl<'a> Vm<'a> {
         }
     }
 
-    pub fn set_max_call_depth(&mut self, max_call_depth: u32) {
-        self.max_call_depth = max_call_depth;
-    }
-
-    pub fn set_max_loop_iterations(&mut self, max_loop_iterations: u64) {
-        self.max_loop_iterations = max_loop_iterations;
-    }
-
     pub fn loop_trace(&self) -> Vec<serde_json::Value> {
         self.loop_trace.borrow().clone()
     }
@@ -241,10 +233,6 @@ impl<'a> Vm<'a> {
                     .collect::<serde_json::Map<_, _>>();
                 serde_json::json!({"type": value.type_name, "fields": fields})
             }
-            Value::OptionalSome(value) => serde_json::json!({
-                "optional": "some",
-                "value": self.transport_value(value),
-            }),
             _ => to_json(value),
         }
     }
@@ -422,20 +410,6 @@ impl<'a> Vm<'a> {
                     };
                     current =
                         self.resolve_block_id(&blocks, if taken { then } else { else_target })?;
-                }
-                Terminator::PatternBranch {
-                    value,
-                    pattern,
-                    then,
-                    else_target,
-                } => {
-                    let subject = self.eval_expr(value, env, call_depth)?;
-                    if let Some(bindings) = match_pattern(pattern, &subject)? {
-                        env.borrow_mut().extend(bindings);
-                        current = self.resolve_block_id(&blocks, then)?;
-                    } else {
-                        current = self.resolve_block_id(&blocks, else_target)?;
-                    }
                 }
                 Terminator::Result { value } => {
                     return Ok(Outcome::Result(self.eval_expr(value, env, call_depth)?))
@@ -673,18 +647,6 @@ impl<'a> Vm<'a> {
                     fields: RefCell::new(evaluated),
                 })))
             }
-            Expr::EnumValue {
-                enum_name,
-                variant_name,
-                ..
-            } => Ok(Value::Enum(Rc::new(EnumValue {
-                enum_name: enum_name.clone(),
-                variant_name: variant_name.clone(),
-            }))),
-            Expr::OptionalSome { value, .. } => Ok(Value::OptionalSome(Rc::new(
-                self.eval_expr(value, env, call_depth)?,
-            ))),
-            Expr::OptionalNone { .. } => Ok(Value::OptionalNone),
             Expr::Unary {
                 operator, operand, ..
             } => {
@@ -908,216 +870,6 @@ impl<'a> Vm<'a> {
                     )),
                 }
             }
-            Expr::CallArrayConcat { left, right, .. } => {
-                let _guard = TempRootGuard::new(self);
-                let left_val = self.eval_expr(left, env, call_depth)?;
-                self.push_temporary_root(left_val.clone());
-                let right_val = self.eval_expr(right, env, call_depth)?;
-                match (left_val, right_val) {
-                    (Value::Array(l_items), Value::Array(r_items)) => {
-                        let mut new_items = Vec::with_capacity(l_items.borrow().len() + r_items.borrow().len());
-                        for it in l_items.borrow().iter() {
-                            new_items.push(it.deep_clone());
-                        }
-                        for it in r_items.borrow().iter() {
-                            new_items.push(it.deep_clone());
-                        }
-                        Ok(Value::Array(Rc::new(RefCell::new(new_items))))
-                    }
-                    _ => Err(RuntimeError::new(
-                        "RT-CALL-002",
-                        "array.concat arguments must be arrays".to_string(),
-                    )),
-                }
-            }
-            Expr::CallString {
-                function_id,
-                arguments,
-                ..
-            } => {
-                let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(arguments.len());
-                for argument in arguments {
-                    let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
-                    values.push(val);
-                }
-                match function_id.as_str() {
-                    "concat" => {
-                        if values.len() != 2 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.concat expects two string arguments".to_string(),
-                            ));
-                        }
-                        match (&values[0], &values[1]) {
-                            (Value::String(a), Value::String(b)) => {
-                                Ok(Value::String(format!("{}{}", a, b).into()))
-                            }
-                            _ => Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.concat expects two string arguments".to_string(),
-                            )),
-                        }
-                    }
-                    "join" => {
-                        if values.len() != 2 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.join expects separator and list of strings".to_string(),
-                            ));
-                        }
-                        let sep: &str = match &values[0] {
-                            Value::String(s) => s.as_ref(),
-                            _ => return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.join expects separator to be string".to_string(),
-                            )),
-                        };
-                        let list = match &values[1] {
-                            Value::Array(arr) => arr.borrow().clone(),
-                            _ => return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.join expects array of strings".to_string(),
-                            )),
-                        };
-                        let mut str_pieces: Vec<&str> = Vec::with_capacity(list.len());
-                        for item in &list {
-                            match item {
-                                Value::String(s) => str_pieces.push(s.as_ref()),
-                                _ => return Err(RuntimeError::new(
-                                    "RT-CALL-002",
-                                    "string.join array elements must be strings".to_string(),
-                                )),
-                            }
-                        }
-                        Ok(Value::String(str_pieces.join(sep).into()))
-                    }
-                    "length" => {
-                        if values.len() != 1 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.length expects one string argument".to_string(),
-                            ));
-                        }
-                        match &values[0] {
-                            Value::String(s) => Ok(Value::Int(s.chars().count() as i64)),
-                            _ => Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.length expects string argument".to_string(),
-                            )),
-                        }
-                    }
-                    "from_int" => {
-                        if values.len() != 1 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.from_int expects one int argument".to_string(),
-                            ));
-                        }
-                        match &values[0] {
-                            Value::Int(n) => Ok(Value::String(n.to_string().into())),
-                            _ => Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.from_int expects int argument".to_string(),
-                            )),
-                        }
-                    }
-                    "from_float" => {
-                        if values.len() != 1 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.from_float expects one float argument".to_string(),
-                            ));
-                        }
-                        match &values[0] {
-                            Value::Float(f) => {
-                                let s = if f.fract() == 0.0 {
-                                    format!("{:.1}", f)
-                                } else {
-                                    f.to_string()
-                                };
-                                Ok(Value::String(s.into()))
-                            }
-                            Value::Int(n) => {
-                                Ok(Value::String(format!("{:.1}", *n as f64).into()))
-                            }
-                            _ => Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.from_float expects float argument".to_string(),
-                            )),
-                        }
-                    }
-                    "slice" => {
-                        if values.len() != 3 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.slice expects string, start, end".to_string(),
-                            ));
-                        }
-                        let s: &str = match &values[0] {
-                            Value::String(s) => s.as_ref(),
-                            _ => return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.slice expects string for first argument".to_string(),
-                            )),
-                        };
-                        let start = match &values[1] {
-                            Value::Int(n) => *n,
-                            _ => return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.slice expects int for start index".to_string(),
-                            )),
-                        };
-                        let end = match &values[2] {
-                            Value::Int(n) => *n,
-                            _ => return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.slice expects int for end index".to_string(),
-                            )),
-                        };
-                        let chars: Vec<char> = s.chars().collect();
-                        let len = chars.len() as i64;
-                        let s_idx = start.max(0).min(len) as usize;
-                        let e_idx = end.max(s_idx as i64).min(len) as usize;
-                        let slice_str: String = chars[s_idx..e_idx].iter().collect();
-                        Ok(Value::String(slice_str.into()))
-                    }
-                    unknown => Err(RuntimeError::new(
-                        "RT-CALL-002",
-                        format!("unknown string standard function: string.{}", unknown),
-                    )),
-                }
-            }
-            Expr::CallAssert { condition, .. } => {
-                let _guard = TempRootGuard::new(self);
-                let cond_val = self.eval_expr(condition, env, call_depth)?;
-                match cond_val {
-                    Value::Bool(true) => Ok(Value::Bool(true)),
-                    Value::Bool(false) => Err(RuntimeError::new(
-                        "TEST-ASSERT-001",
-                        "assertion failed".to_string(),
-                    )),
-                    _ => Err(RuntimeError::new(
-                        "TEST-ASSERT-001",
-                        "assert condition must evaluate to boolean".to_string(),
-                    )),
-                }
-            }
-            Expr::CallAssertEq { left, right, .. } => {
-                let _guard = TempRootGuard::new(self);
-                let left_val = self.eval_expr(left, env, call_depth)?;
-                self.push_temporary_root(left_val.clone());
-                let right_val = self.eval_expr(right, env, call_depth)?;
-                if left_val == right_val {
-                    Ok(Value::Bool(true))
-                } else {
-                    Err(RuntimeError::new(
-                        "TEST-ASSERT-001",
-                        format!("assertion failed: left != right"),
-                    ))
-                }
-            }
             Expr::CallCast { name, argument, .. } => {
                 let value = self.eval_expr(argument, env, call_depth)?;
                 let numeric = match value {
@@ -1254,87 +1006,7 @@ fn collect_tensor_ids(
                 }
             }
         }
-        Value::OptionalSome(value) => {
-            collect_tensor_ids(value, roots, visited_arrays, visited_structs);
-        }
         _ => {}
-    }
-}
-
-fn match_pattern(
-    pattern: &Pattern,
-    value: &Value,
-) -> Result<Option<HashMap<String, Value>>, RuntimeError> {
-    match pattern {
-        Pattern::Wildcard => Ok(Some(HashMap::new())),
-        Pattern::Binding { name } => Ok(Some(HashMap::from([(name.clone(), value.clone())]))),
-        Pattern::Literal {
-            value_kind,
-            value: literal,
-        } => Ok((const_value(value_kind, literal)? == *value).then(HashMap::new)),
-        Pattern::Range {
-            lower,
-            upper,
-            lower_inclusive,
-            upper_inclusive,
-        } => {
-            let numeric = match value {
-                Value::Int(value) => *value as f64,
-                Value::Float(value) => *value,
-                _ => return Ok(None),
-            };
-            let lower = lower.as_f64().ok_or_else(|| {
-                RuntimeError::new("IR-EXEC-008", "malformed range lower bound")
-            })?;
-            let upper = upper.as_f64().ok_or_else(|| {
-                RuntimeError::new("IR-EXEC-008", "malformed range upper bound")
-            })?;
-            let lower_ok = if *lower_inclusive { numeric >= lower } else { numeric > lower };
-            let upper_ok = if *upper_inclusive { numeric <= upper } else { numeric < upper };
-            Ok((lower_ok && upper_ok).then(HashMap::new))
-        }
-        Pattern::Enum {
-            enum_name,
-            variant_name,
-        } => Ok(matches!(
-            value,
-            Value::Enum(actual)
-                if actual.enum_name == *enum_name && actual.variant_name == *variant_name
-        )
-        .then(HashMap::new)),
-        Pattern::OptionalNone => Ok(matches!(value, Value::OptionalNone).then(HashMap::new)),
-        Pattern::OptionalSome { pattern } => match value {
-            Value::OptionalSome(inner) => match_pattern(pattern, inner),
-            _ => Ok(None),
-        },
-        Pattern::Struct { type_name, fields } => {
-            let Value::Struct(actual) = value else {
-                return Ok(None);
-            };
-            if actual.type_name != *type_name {
-                return Ok(None);
-            }
-            let actual_fields = actual.fields.borrow();
-            let mut bindings = HashMap::new();
-            for (name, nested_pattern) in fields {
-                let Some(field_value) = actual_fields.get(name) else {
-                    return Ok(None);
-                };
-                let Some(nested) = match_pattern(nested_pattern, field_value)? else {
-                    return Ok(None);
-                };
-                bindings.extend(nested);
-            }
-            Ok(Some(bindings))
-        }
-        Pattern::Or { alternatives } => {
-            for alternative in alternatives {
-                if let Some(bindings) = match_pattern(alternative, value)? {
-                    return Ok(Some(bindings));
-                }
-            }
-            Ok(None)
-        }
     }
 }
 

@@ -151,29 +151,28 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
         json.dumps(ast_payload, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
-    from frontend.computation_ir import LoweringError
-    from .pipeline import lower_executable_program
+    from frontend.computation_ir import LoweringError, lower_program, validate_program
+    from frontend.computation_ir.optimizer import optimize_program
 
     computation_path = computation_ir_dir / "package.json"
     support_path = target / "runtime" / "runtime_support.json"
     try:
-        computation_ir = lower_executable_program(result.surface_ast)
+        computation_ir = optimize_program(lower_program(result.surface_ast))
+        validation_errors = validate_program(computation_ir)
+        if validation_errors:
+            raise LoweringError("IR-LOWER-010", "; ".join(validation_errors))
     except LoweringError as error:
-        message = str(error)
-        prefix = f"{error.code}: "
-        if message.startswith(prefix):
-            message = message[len(prefix):]
         computation_path.unlink(missing_ok=True)
         runtime_support = {
             "schema": "reasonscript-runtime-build-support/1.0",
             "rust_executable": False,
-            "diagnostic": {"code": error.code, "message": message},
+            "diagnostic": {"code": error.code, "message": str(error)},
         }
         support_path.write_text(
             json.dumps(runtime_support, indent=2, ensure_ascii=False), encoding="utf-8"
         )
         # A successful build is always runnable by `reason run`.
-        print(f"Error:\n\n{error.code}: {message}")
+        print(f"Error:\n\n{error.code}: {error}")
         return 1
     else:
         computation_path.write_text(

@@ -21,13 +21,14 @@ from __future__ import annotations
 
 SCHEMA = "reason-computation-ir/0.1"
 
-TERMINATOR_KINDS = ("jump", "branch", "pattern_branch", "return", "result", "trap")
+TERMINATOR_KINDS = ("jump", "branch", "return", "result", "trap")
 
 # Expression IR node "op" tags. Deliberately not exhaustive over the full
 # ReasonScript language surface: scope is bounded to what
 # `frontend.integrated_computation_runtime` (the AST evaluator this IR is
 # differentially tested against) itself supports. Constructs outside this
-# set (map/set literals and reason_object graph queries)
+# set (pattern matching, Optional/Some, map/set literals, reason_object graph
+# queries)
 # are out of scope for this phase and are rejected by the lowering with a
 # clear "not supported" error rather than silently mishandled.
 EXPRESSION_OPS = (
@@ -35,9 +36,6 @@ EXPRESSION_OPS = (
     "local",
     "array",
     "struct",
-    "enum_value",
-    "optional_some",
-    "optional_none",
     "unary",
     "binary",
     "comparison",
@@ -51,12 +49,8 @@ EXPRESSION_OPS = (
     "call_relation",
     "call_reasoning",
     "call_array_append",
-    "call_array_concat",
-    "call_string",
     "call_function",
     "call_cast",
-    "call_assert",
-    "call_assert_eq",
 )
 
 INSTRUCTION_OPS = (

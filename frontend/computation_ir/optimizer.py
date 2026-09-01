@@ -279,7 +279,7 @@ def _expr_is_pure_function_body(
 def _expr_children(expr: dict[str, Any]) -> list[dict[str, Any]]:
     children: list[dict[str, Any]] = []
     for key, value in expr.items():
-        if key == "source_span" or (key == "value" and expr.get("op") != "optional_some"):
+        if key in {"source_span", "value"}:
             continue
         if isinstance(value, dict) and "op" in value:
             children.append(value)
@@ -444,10 +444,8 @@ def _is_const(expr: dict[str, Any]) -> bool:
 
 def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
     op = expr.get("op")
-    if op in ("const", "local", "enum_value", "optional_none"):
+    if op in ("const", "local"):
         return expr
-    if op == "optional_some":
-        return {**expr, "value": _fold_expr(expr["value"])}
     if op == "array":
         return {**expr, "elements": [_fold_expr(item) for item in expr["elements"]]}
     if op == "struct":
@@ -558,7 +556,7 @@ def _reachable_block_ids(blocks_by_id: dict[str, dict[str, Any]], entry: str) ->
         terminator = blocks_by_id[block_id]["terminator"]
         if terminator["kind"] == "jump":
             stack.append(terminator["target"])
-        elif terminator["kind"] in {"branch", "pattern_branch"}:
+        elif terminator["kind"] == "branch":
             stack.append(terminator["then"])
             stack.append(terminator["else"])
     return seen
@@ -656,7 +654,7 @@ def _predecessors(blocks_by_id: dict[str, dict[str, Any]]) -> dict[str, set[str]
             [terminator["target"]]
             if terminator.get("kind") == "jump"
             else [terminator["then"], terminator["else"]]
-            if terminator.get("kind") in {"branch", "pattern_branch"}
+            if terminator.get("kind") == "branch"
             else []
         )
         for target in targets:
@@ -677,7 +675,7 @@ def _loop_region(
         terminator = blocks_by_id[block_id]["terminator"]
         if terminator.get("kind") == "jump":
             stack.append(terminator["target"])
-        elif terminator.get("kind") in {"branch", "pattern_branch"}:
+        elif terminator.get("kind") == "branch":
             stack.extend((terminator["then"], terminator["else"]))
     return region
 
@@ -775,9 +773,6 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
         for value in expr["fields"].values():
             _collect_reads(value, out)
         return
-    if op == "optional_some":
-        _collect_reads(expr["value"], out)
-        return
     if op == "unary":
         _collect_reads(expr["operand"], out)
         return
@@ -838,8 +833,6 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         return all(_is_side_effect_free(item) for item in expr["elements"])
     if op == "struct":
         return all(_is_side_effect_free(value) for value in expr["fields"].values())
-    if op == "optional_some":
-        return _is_side_effect_free(expr["value"])
     if op == "unary":
         return _is_side_effect_free(expr["operand"])
     if op in ("binary", "comparison", "logical"):
@@ -848,7 +841,7 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         return _is_side_effect_free(expr["collection"]) and _is_side_effect_free(expr["index"])
     if op == "member":
         return _is_side_effect_free(expr["object"])
-    return True  # const, local, enum_value, optional_none
+    return True  # const, local
 
 
 def _expr_key(expr: dict[str, Any]) -> str:
@@ -912,10 +905,8 @@ def _is_cse_eligible(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
     if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_reasoning", "call_function", "call_array_append"):
         return False  # never dedupe calls: see module docstring
-    if op in {"const", "local", "enum_value", "optional_none"}:
+    if op == "const" or op == "local":
         return True
-    if op == "optional_some":
-        return _is_cse_eligible(expr["value"])
     if op == "array":
         return all(_is_cse_eligible(item) for item in expr["elements"])
     if op == "struct":

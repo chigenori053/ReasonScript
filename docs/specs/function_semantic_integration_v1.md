@@ -37,7 +37,7 @@ Validation coverage:
 - `FN-004`: non-void functions require a guaranteed terminal return.
 - `FN-005`: return expressions and call arguments must match declared types.
 - `FN-006`: duplicate parameter names are invalid.
-- `FN-007`: controlled recursion (direct and mutual) is permitted under the deterministic `max_call_depth` runtime limit (Phase 4).
+- `FN-007`: direct recursive calls are rejected for v1.0.
 - `FN-008`: nested calls preserve inner-to-outer evaluation order and unique
   transition identities.
 - `FN-009`: multiline typed parameter lists parse equivalently to single-line
