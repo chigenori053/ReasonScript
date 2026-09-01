@@ -53,6 +53,27 @@ export function reasonExecutable(): string {
     }
   }
 
+  // A single .rsn file can activate the extension without opening its parent
+  // folder as a VS Code workspace. In that case, find a checkout-local CLI
+  // from the active document before falling back to PATH.
+  const document = vscode.workspace.textDocuments.find(
+    (candidate) => candidate.languageId === "reasonscript" && candidate.uri.scheme === "file"
+  ) ?? vscode.window.activeTextEditor?.document;
+  if (document?.uri.scheme === "file") {
+    let current = path.dirname(document.uri.fsPath);
+    while (true) {
+      const candidate = path.join(current, "reason");
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
+        break;
+      }
+      current = parent;
+    }
+  }
+
   // 3. PATH フォールバック（システムにインストール済みの場合）
   return process.platform === "win32" ? "reason.bat" : "reason";
 }

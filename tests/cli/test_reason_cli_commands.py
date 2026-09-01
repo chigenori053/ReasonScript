@@ -28,6 +28,27 @@ def test_dev_py_exposes_reason_command_group() -> None:
     assert 'if cmd == "reason"' in source
 
 
+def test_reason_lsp_starts_the_stdio_server() -> None:
+    request = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+    encoded = json.dumps(request).encode("utf-8")
+    exit_request = json.dumps({"jsonrpc": "2.0", "method": "exit"}).encode("utf-8")
+    payload = (
+        f"Content-Length: {len(encoded)}\r\n\r\n".encode("ascii")
+        + encoded
+        + f"Content-Length: {len(exit_request)}\r\n\r\n".encode("ascii")
+        + exit_request
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "toolchain", "lsp"],
+        cwd=REPO_ROOT,
+        input=payload,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert b'"name": "reasonscript-lsp"' in result.stdout
+
+
 def test_reason_check_accepts_rsn_file() -> None:
     result = _run("reason", "check", str(VALID))
     assert result.returncode == 0

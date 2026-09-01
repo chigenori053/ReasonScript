@@ -56,6 +56,13 @@ def main() -> int:
         from toolchain.version_validation import command as version_validate_command
         return version_validate_command(args[1:], Path.cwd())
 
+    if command == "lsp":
+        if len(args) != 1:
+            print("Usage: reason lsp")
+            return 1
+        from frontend.lsp.server import run_stdio
+        return run_stdio()
+
     project_root = Path.cwd()
     package = _package_arg(args[1:])
 
@@ -275,6 +282,7 @@ def _usage() -> None:
     print("  run           Execute the compiled program")
     print("  test          Run test suites")
     print("  check         Validate sources without building")
+    print("  lsp           Start the ReasonScript language server over stdio")
     print("  view          Browse .rsn source alongside its compiled representations")
     print("  workspace     Show workspace foundation summary")
     print("  summary       Show machine-readable project summary")

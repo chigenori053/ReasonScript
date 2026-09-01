@@ -40,10 +40,12 @@ const node_1 = require("vscode-languageclient/node");
 const workspace_1 = require("../workspace/workspace");
 function createLanguageClient(context) {
     const workspaceRoot = (0, workspace_1.detectWorkspaceRoot)();
-    const serverModule = "frontend.lsp";
     const serverOptions = {
-        command: "python3",
-        args: ["-m", serverModule],
+        // Use the public CLI instead of importing a checkout-local Python module.
+        // This works for both a source checkout and an installed ReasonScript
+        // distribution, where the extension cannot rely on PYTHONPATH.
+        command: (0, workspace_1.reasonExecutable)(),
+        args: ["lsp"],
         transport: node_1.TransportKind.stdio,
         options: {
             cwd: workspaceRoot?.fsPath ?? context.extensionPath

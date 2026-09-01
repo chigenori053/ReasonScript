@@ -19,7 +19,7 @@ viewer = ["windows-curses>=2.3; sys_platform == 'win32'"]
 full = ["matplotlib>=3.8,<4", "windows-curses>=2.3; sys_platform == 'win32'"]
 
 [tool.setuptools.packages.find]
-include = ["toolchain*", "runtime*"]
+include = ["toolchain*", "runtime*", "frontend*"]
 
 [tool.setuptools.package-data]
 toolchain = ["../VERSION", "../schemas/*.json", "../examples/**/*.rsn"]

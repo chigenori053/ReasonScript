@@ -7,14 +7,16 @@ import {
   TransportKind
 } from "vscode-languageclient/node";
 
-import { detectWorkspaceRoot } from "../workspace/workspace";
+import { detectWorkspaceRoot, reasonExecutable } from "../workspace/workspace";
 
 export function createLanguageClient(context: vscode.ExtensionContext): LanguageClient {
   const workspaceRoot = detectWorkspaceRoot();
-  const serverModule = "frontend.lsp";
   const serverOptions: ServerOptions = {
-    command: "python3",
-    args: ["-m", serverModule],
+    // Use the public CLI instead of importing a checkout-local Python module.
+    // This works for both a source checkout and an installed ReasonScript
+    // distribution, where the extension cannot rely on PYTHONPATH.
+    command: reasonExecutable(),
+    args: ["lsp"],
     transport: TransportKind.stdio,
     options: {
       cwd: workspaceRoot?.fsPath ?? context.extensionPath
