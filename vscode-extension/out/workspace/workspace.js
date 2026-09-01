@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.detectWorkspaceRoot = detectWorkspaceRoot;
 exports.commandCwd = commandCwd;
+exports.isProjectWorkspace = isProjectWorkspace;
 exports.reasonExecutable = reasonExecutable;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -64,6 +65,11 @@ function detectWorkspaceRoot(start) {
 }
 function commandCwd() {
     return detectWorkspaceRoot()?.fsPath;
+}
+function isProjectWorkspace() {
+    const root = detectWorkspaceRoot();
+    return Boolean(root && (fs.existsSync(path.join(root.fsPath, "reason.toml")) ||
+        fs.existsSync(path.join(root.fsPath, "reason.workspace.toml"))));
 }
 function reasonExecutable() {
     // 1. VSCode 設定で明示指定されている場合はそれを優先

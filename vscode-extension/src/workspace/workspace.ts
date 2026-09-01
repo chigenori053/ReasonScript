@@ -30,6 +30,16 @@ export function commandCwd(): string | undefined {
   return detectWorkspaceRoot()?.fsPath;
 }
 
+export function isProjectWorkspace(): boolean {
+  const root = detectWorkspaceRoot();
+  return Boolean(
+    root && (
+      fs.existsSync(path.join(root.fsPath, "reason.toml")) ||
+      fs.existsSync(path.join(root.fsPath, "reason.workspace.toml"))
+    )
+  );
+}
+
 export function reasonExecutable(): string {
   // 1. VSCode 設定で明示指定されている場合はそれを優先
   const config = vscode.workspace.getConfiguration("reasonscript");

@@ -75,6 +75,12 @@ function runToolchain(command, statusBar, packageName) {
     if (packageName) {
         args.push("--package", packageName);
     }
+    if (command === "check" && !packageName && !(0, workspace_1.isProjectWorkspace)()) {
+        const document = vscode.window.activeTextEditor?.document;
+        if (document?.languageId === "reasonscript" && document.uri.scheme === "file") {
+            args.push(document.uri.fsPath);
+        }
+    }
     channel.appendLine(`$ ${(0, workspace_1.reasonExecutable)()} ${args.join(" ")}`);
     return new Promise((resolve) => {
         const child = childProcess.spawn((0, workspace_1.reasonExecutable)(), args, { cwd, shell: process.platform === "win32" });

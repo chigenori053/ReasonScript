@@ -1,7 +1,7 @@
 import * as childProcess from "child_process";
 import * as vscode from "vscode";
 
-import { commandCwd, reasonExecutable } from "../workspace/workspace";
+import { commandCwd, isProjectWorkspace, reasonExecutable } from "../workspace/workspace";
 
 export type ToolchainCommand = "build" | "run" | "test" | "check";
 
@@ -53,6 +53,12 @@ export function runToolchain(
   const args: string[] = [command];
   if (packageName) {
     args.push("--package", packageName);
+  }
+  if (command === "check" && !packageName && !isProjectWorkspace()) {
+    const document = vscode.window.activeTextEditor?.document;
+    if (document?.languageId === "reasonscript" && document.uri.scheme === "file") {
+      args.push(document.uri.fsPath);
+    }
   }
   channel.appendLine(`$ ${reasonExecutable()} ${args.join(" ")}`);
   return new Promise((resolve) => {
