@@ -89,7 +89,7 @@ COMPATIBILITY_TARGETS = {
     "reasonscript-vision-runtime/0.1": lambda: __import__("toolchain.vision_runtime_cmd", fromlist=["PROFILE"]).PROFILE == "reasonscript-vision-runtime/0.1",
     "reasonscript-vision-language-integration/0.1": lambda: __import__("frontend.vision.contracts", fromlist=["PROFILE"]).PROFILE == "reasonscript-vision-language-integration/0.1",
     "reasonscript-vision-install-distribution/0.1": lambda: __import__("toolchain.distribution_validation", fromlist=["VISION_DISTRIBUTION_PROFILE"]).VISION_DISTRIBUTION_PROFILE == "reasonscript-vision-install-distribution/0.1",
-    "reason-computation-ir/0.1": lambda: __import__("frontend.computation_ir.schema", fromlist=["SCHEMA"]).SCHEMA == "reason-computation-ir/0.1",
+    "reason-computation-ir/0.2": lambda: __import__("frontend.computation_ir.schema", fromlist=["SCHEMA"]).SCHEMA == "reason-computation-ir/0.2",
     "reasonscript-tensor-function-manifest/1.0": lambda: __import__("toolchain.tensor_manifest", fromlist=["MANIFEST_SCHEMA"]).MANIFEST_SCHEMA == "reasonscript-tensor-function-manifest/1.0",
 }
 
