@@ -21,13 +21,37 @@ use std::fs;
 use std::io::{self, Read};
 use std::process::ExitCode;
 
-use reasonscript_computation_ir::{decode, to_json, NumericMode, TensorPolicy, Vm};
+use reasonscript_computation_ir::{
+    decode, to_json, NumericMode, TensorPolicy, Vm, DEFAULT_MAX_CALL_DEPTH,
+    DEFAULT_MAX_LOOP_ITERATIONS,
+};
 
 const REQUEST_SCHEMA: &str = "reasonscript-runtime-request/1.0";
 const RESULT_SCHEMA: &str = "reasonscript-runtime-result/1.0";
 const HOST_PROFILE: &str = "reasonscript-runtime-host/1.0";
 
 fn main() -> ExitCode {
+    // Phase 4 ("制御された再帰"): `Vm::call_function` recurses natively
+    // (`call_function` -> `run_function` -> `eval_expr` -> ...) rather
+    // than trampolining, so `max_call_depth`'s check is only the actual,
+    // deterministic limit on recursion if the executing thread has
+    // enough native stack to reach that depth without overflowing (a
+    // hard process abort, not the stable `RT-CALL-003` diagnostic the
+    // check is meant to produce) first. A thread's default stack size
+    // varies by platform and caller -- run on an explicitly-sized one so
+    // that stays true regardless of what stack size the calling context
+    // happens to provide, rather than depending on the OS process
+    // default being generous enough.
+    const STACK_SIZE: usize = 64 * 1024 * 1024;
+    std::thread::Builder::new()
+        .stack_size(STACK_SIZE)
+        .spawn(run_main)
+        .expect("failed to spawn runtime-host worker thread")
+        .join()
+        .expect("runtime-host worker thread panicked")
+}
+
+fn run_main() -> ExitCode {
     let path = env::args().nth(1);
     if path.as_deref() == Some("verify-native") {
         println!(
@@ -188,6 +212,13 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         "max_saved_tensor_bytes",
         tensor_policy.max_saved_tensor_bytes,
     );
+    let max_call_depth =
+        limit(limits, "max_call_depth", DEFAULT_MAX_CALL_DEPTH as usize) as u32;
+    let max_loop_iterations = limit(
+        limits,
+        "max_loop_iterations",
+        DEFAULT_MAX_LOOP_ITERATIONS as usize,
+    ) as u64;
     let capabilities = context
         .get("capabilities")
         .and_then(serde_json::Value::as_object)
@@ -219,17 +250,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         .and_then(serde_json::Value::as_str)
         .unwrap_or("RuntimeReal")
         .to_owned();
-    let max_call_depth: u32 = limit(
-        limits,
-        "max_call_depth",
-        reasonscript_computation_ir::DEFAULT_MAX_CALL_DEPTH as usize,
-    ) as u32;
-    let max_loop_iterations: u64 = limit(
-        limits,
-        "max_loop_iterations",
-        reasonscript_computation_ir::DEFAULT_MAX_LOOP_ITERATIONS as usize,
-    ) as u64;
-    let mut vm = Vm::with_runtime_context(
+    let vm = Vm::with_runtime_context(
         &program,
         numeric_mode,
         tensor_policy,
@@ -238,9 +259,9 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         filesystem_write,
         trace_enabled,
         backend,
+        max_call_depth,
+        max_loop_iterations,
     );
-    vm.set_max_call_depth(max_call_depth);
-    vm.set_max_loop_iterations(max_loop_iterations);
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let loop_trace = vm.loop_trace();

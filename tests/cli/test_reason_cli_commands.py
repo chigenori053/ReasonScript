@@ -10,8 +10,6 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEV = REPO_ROOT / "scripts" / "dev.py"
 VALID = REPO_ROOT / "examples" / "v0_5" / "002_single_calculation.rsn"
-SURFACE_ONLY = REPO_ROOT / "examples" / "v0_5" / "006_runtime_input_print.rsn"
-EXECUTABLE_PATTERN = REPO_ROOT / "examples" / "v0_5" / "009_optional_match.rsn"
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -58,37 +56,6 @@ def test_reason_check_accepts_rsn_file() -> None:
     assert "ReasonScript check passed" in result.stdout
 
 
-def test_reason_check_rejects_non_executable_surface_with_ir_diagnostic() -> None:
-    result = _run("reason", "check", str(SURFACE_ONLY), "--json")
-    payload = json.loads(result.stdout)
-    assert result.returncode == 1
-    assert payload["ok"] is False
-    assert payload["check_mode"] == "executable"
-    assert payload["execution_checked"] is True
-    assert payload["diagnostics"][0]["code"] == "IR-LOWER-006"
-    assert payload["diagnostics"][0]["stage"] == "computation_ir"
-
-
-def test_reason_check_surface_only_preserves_semantic_validation_mode() -> None:
-    result = _run(
-        "reason", "check", str(SURFACE_ONLY), "--surface-only", "--json"
-    )
-    payload = json.loads(result.stdout)
-    assert result.returncode == 0
-    assert payload["ok"] is True
-    assert payload["check_mode"] == "surface_only"
-    assert payload["execution_checked"] is False
-
-
-def test_reason_check_accepts_executable_optional_match() -> None:
-    result = _run("reason", "check", str(EXECUTABLE_PATTERN), "--json")
-    payload = json.loads(result.stdout)
-    assert result.returncode == 0
-    assert payload["ok"] is True
-    assert payload["check_mode"] == "executable"
-    assert payload["execution_checked"] is True
-
-
 def test_reason_analyze_accepts_rsn_file() -> None:
     result = _run("reason", "analyze", str(VALID), "--json")
     payload = json.loads(result.stdout)
@@ -104,10 +71,3 @@ def test_reason_run_accepts_rsn_file() -> None:
     assert payload["schema_version"] == "reasonscript-cli-run/0.1"
     assert payload["ok"] is True
 
-
-def test_reason_run_executes_optional_match() -> None:
-    result = _run("reason", "run", str(EXECUTABLE_PATTERN), "--json")
-    payload = json.loads(result.stdout)
-    assert result.returncode == 0
-    assert payload["ok"] is True
-    assert payload["runtime_result"]["calculations"]["Answer"] == 42

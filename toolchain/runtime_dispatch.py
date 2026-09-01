@@ -37,6 +37,7 @@ def execute_rust_program(
     *,
     backend: str = "RuntimeReal",
     include_trace: bool = False,
+    max_call_depth: int | None = None,
 ) -> dict[str, Any]:
     from frontend.computation_ir import LoweringError, lower_program
     from frontend.computation_ir.optimizer import optimize_program
@@ -56,6 +57,7 @@ def execute_rust_program(
         filesystem_write,
         backend=backend,
         include_trace=include_trace,
+        max_call_depth=max_call_depth,
     )
 
 
@@ -67,6 +69,7 @@ def execute_rust_ir(
     *,
     backend: str = "RuntimeReal",
     include_trace: bool = False,
+    max_call_depth: int | None = None,
 ) -> dict[str, Any]:
     from frontend.computation_ir.rust_bridge import find_binary, run_ir
 
@@ -88,6 +91,12 @@ def execute_rust_ir(
     # turn an otherwise executable calculation into a runtime failure.
     trace_unsupported = rust_trace_unsupported_operations(ir_document) if include_trace else ()
     trace_enabled = include_trace and not trace_unsupported
+    # Phase 4 ("制御された再帰"): `None` leaves `max_call_depth` out of the
+    # request entirely, so the Rust host falls back to its own
+    # DEFAULT_MAX_CALL_DEPTH -- the default value itself isn't duplicated
+    # here, only whether the caller (ultimately, `reason.toml`'s
+    # `[runtime] max_call_depth`) overrides it.
+    limits = {"max_call_depth": max_call_depth} if max_call_depth is not None else {}
     try:
         outcome = run_ir(
             ir_document,
@@ -97,6 +106,7 @@ def execute_rust_ir(
             filesystem_write=filesystem_write,
             backend=backend,
             trace_enabled=trace_enabled,
+            limits=limits,
         )
     except (OSError, ValueError) as error:
         raise RustDispatchError(

@@ -189,6 +189,119 @@ module Main {
         )
         self.assertEqual(results["Answer"], 3)
 
+    def test_enum_match_selects_matching_variant(self):
+        results = self.assert_parity(
+            """module M {
+  enum Color {
+    Red
+    Blue
+    Green
+  }
+
+  fn Score(color: Color) -> int {
+    match color {
+      Color.Red => return 1
+      Color.Blue => return 2
+      default => return 0
+    }
+  }
+
+  calculation Answer {
+    result = Score(Color.Blue)
+  }
+}
+"""
+        )
+        self.assertEqual(results["Answer"], 2)
+
+    def test_optional_some_and_none_are_distinguished_from_null(self):
+        results = self.assert_parity(
+            """module M {
+  fn Describe(value: optional<int>) -> int {
+    match value {
+      some(x) => return x
+      none => return -1
+    }
+  }
+
+  calculation Answer {
+    let a = Describe(some(42))
+    let b = Describe(none)
+    result = a + b
+  }
+}
+"""
+        )
+        self.assertEqual(results["Answer"], 41)
+
+    def test_guard_with_struct_pattern_binding(self):
+        results = self.assert_parity(
+            """module M {
+  struct Point {
+    x: int
+    y: int
+  }
+
+  fn Classify(p: Point) -> int {
+    match p {
+      Point { x, y } when x > y => return 1
+      Point { x, y } when x == y => return 0
+      default => return -1
+    }
+  }
+
+  calculation Answer {
+    let p = Point { x: 5, y: 2 }
+    result = Classify(p)
+  }
+}
+"""
+        )
+        self.assertEqual(results["Answer"], 1)
+
+    def test_or_pattern_and_range_pattern(self):
+        results = self.assert_parity(
+            """module M {
+  fn Grade(score: int) -> int {
+    match score {
+      90..100 => return 1
+      0..89 => return 0
+      default => return -1
+    }
+  }
+
+  calculation Answer {
+    result = Grade(95)
+  }
+}
+"""
+        )
+        self.assertEqual(results["Answer"], 1)
+
+    def test_nested_optional_enum_pattern(self):
+        results = self.assert_parity(
+            """module M {
+  enum Color {
+    Red
+    Blue
+  }
+
+  fn Describe(value: optional<Color>) -> int {
+    match value {
+      some(Color.Red) => return 1
+      some(Color.Blue) => return 2
+      none => return 0
+    }
+  }
+
+  calculation Answer {
+    result = Describe(some(Color.Blue))
+  }
+}
+"""
+        )
+        self.assertEqual(results["Answer"], 2)
+
     def test_softmax_is_implemented_by_the_rust_vm(self):
         source = """module M {
   calculation Answer {

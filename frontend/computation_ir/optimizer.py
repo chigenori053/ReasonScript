@@ -235,11 +235,21 @@ def _terminator_is_pure(
     pure,
     active: frozenset[str],
 ) -> bool:
-    return all(
+    if not all(
         _expr_is_pure_function_body(terminator[key], functions, pure, active)
         for key in ("condition", "value")
         if key in terminator
-    )
+    ):
+        return False
+    if terminator.get("kind") == "match":
+        if not _expr_is_pure_function_body(terminator["subject"], functions, pure, active):
+            return False
+        return all(
+            arm["guard"] is None
+            or _expr_is_pure_function_body(arm["guard"], functions, pure, active)
+            for arm in terminator["arms"]
+        )
+    return True
 
 
 def _expr_is_pure_function_body(
@@ -268,6 +278,10 @@ def _expr_is_pure_function_body(
         "call_relation",
         "call_reasoning",
         "call_array_append",
+        "call_array_concat",
+        "call_string",
+        "assert",
+        "assert_eq",
     }:
         return False
     return all(
@@ -279,7 +293,7 @@ def _expr_is_pure_function_body(
 def _expr_children(expr: dict[str, Any]) -> list[dict[str, Any]]:
     children: list[dict[str, Any]] = []
     for key, value in expr.items():
-        if key == "source_span" or (key == "value" and expr.get("op") != "optional_some"):
+        if key in {"source_span", "value"}:
             continue
         if isinstance(value, dict) and "op" in value:
             children.append(value)
@@ -431,6 +445,12 @@ def _fold_terminator(terminator: dict[str, Any]) -> dict[str, Any]:
         terminator["condition"] = _fold_expr(terminator["condition"])
     if "value" in terminator:
         terminator["value"] = _fold_expr(terminator["value"])
+    if terminator.get("kind") == "match":
+        terminator["subject"] = _fold_expr(terminator["subject"])
+        terminator["arms"] = [
+            {**arm, "guard": _fold_expr(arm["guard"]) if arm["guard"] is not None else None}
+            for arm in terminator["arms"]
+        ]
     return terminator
 
 
@@ -444,10 +464,8 @@ def _is_const(expr: dict[str, Any]) -> bool:
 
 def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
     op = expr.get("op")
-    if op in ("const", "local", "enum_value", "optional_none"):
+    if op in ("const", "local"):
         return expr
-    if op == "optional_some":
-        return {**expr, "value": _fold_expr(expr["value"])}
     if op == "array":
         return {**expr, "elements": [_fold_expr(item) for item in expr["elements"]]}
     if op == "struct":
@@ -520,6 +538,10 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_array_append":
         return {**expr, "collection": _fold_expr(expr["collection"]), "item": _fold_expr(expr["item"])}
+    if op == "call_array_concat":
+        return {**expr, "left": _fold_expr(expr["left"]), "right": _fold_expr(expr["right"])}
+    if op == "call_string":
+        return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_function":
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_cast":
@@ -528,6 +550,12 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
             value = float(argument["value"]) if expr["name"] == "float" else int(argument["value"])
             return _const("float" if expr["name"] == "float" else "int", value)
         return {**expr, "argument": argument}
+    if op == "optional_some":
+        return {**expr, "value": _fold_expr(expr["value"])}
+    if op == "assert":
+        return {**expr, "condition": _fold_expr(expr["condition"])}
+    if op == "assert_eq":
+        return {**expr, "actual": _fold_expr(expr["actual"]), "expected": _fold_expr(expr["expected"])}
     return expr
 
 
@@ -558,9 +586,11 @@ def _reachable_block_ids(blocks_by_id: dict[str, dict[str, Any]], entry: str) ->
         terminator = blocks_by_id[block_id]["terminator"]
         if terminator["kind"] == "jump":
             stack.append(terminator["target"])
-        elif terminator["kind"] in {"branch", "pattern_branch"}:
+        elif terminator["kind"] == "branch":
             stack.append(terminator["then"])
             stack.append(terminator["else"])
+        elif terminator["kind"] == "match":
+            stack.extend(arm["target"] for arm in terminator["arms"])
     return seen
 
 
@@ -648,18 +678,21 @@ def _hoist_loop_invariants(
     return result
 
 
+def _terminator_targets(terminator: dict[str, Any]) -> list[str]:
+    kind = terminator.get("kind")
+    if kind == "jump":
+        return [terminator["target"]]
+    if kind == "branch":
+        return [terminator["then"], terminator["else"]]
+    if kind == "match":
+        return [arm["target"] for arm in terminator["arms"]]
+    return []
+
+
 def _predecessors(blocks_by_id: dict[str, dict[str, Any]]) -> dict[str, set[str]]:
     result: dict[str, set[str]] = {block_id: set() for block_id in blocks_by_id}
     for block_id, block in blocks_by_id.items():
-        terminator = block["terminator"]
-        targets = (
-            [terminator["target"]]
-            if terminator.get("kind") == "jump"
-            else [terminator["then"], terminator["else"]]
-            if terminator.get("kind") in {"branch", "pattern_branch"}
-            else []
-        )
-        for target in targets:
+        for target in _terminator_targets(block["terminator"]):
             result.setdefault(target, set()).add(block_id)
     return result
 
@@ -675,10 +708,7 @@ def _loop_region(
             continue
         region.add(block_id)
         terminator = blocks_by_id[block_id]["terminator"]
-        if terminator.get("kind") == "jump":
-            stack.append(terminator["target"])
-        elif terminator.get("kind") in {"branch", "pattern_branch"}:
-            stack.extend((terminator["then"], terminator["else"]))
+        stack.extend(_terminator_targets(terminator))
     return region
 
 
@@ -744,6 +774,11 @@ def _eliminate_dead_locals(
             _collect_reads(terminator["condition"], read_names)
         if "value" in terminator:
             _collect_reads(terminator["value"], read_names)
+        if terminator.get("kind") == "match":
+            _collect_reads(terminator["subject"], read_names)
+            for arm in terminator["arms"]:
+                if arm["guard"] is not None:
+                    _collect_reads(arm["guard"], read_names)
 
     result = {}
     for block_id, block in blocks_by_id.items():
@@ -775,9 +810,6 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
         for value in expr["fields"].values():
             _collect_reads(value, out)
         return
-    if op == "optional_some":
-        _collect_reads(expr["value"], out)
-        return
     if op == "unary":
         _collect_reads(expr["operand"], out)
         return
@@ -792,7 +824,7 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
     if op == "member":
         _collect_reads(expr["object"], out)
         return
-    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_reasoning", "call_function"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function"):
         for argument in expr["arguments"]:
             _collect_reads(argument, out)
         return
@@ -800,8 +832,22 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
         _collect_reads(expr["collection"], out)
         _collect_reads(expr["item"], out)
         return
+    if op == "call_array_concat":
+        _collect_reads(expr["left"], out)
+        _collect_reads(expr["right"], out)
+        return
     if op == "call_cast":
         _collect_reads(expr["argument"], out)
+        return
+    if op == "optional_some":
+        _collect_reads(expr["value"], out)
+        return
+    if op == "assert":
+        _collect_reads(expr["condition"], out)
+        return
+    if op == "assert_eq":
+        _collect_reads(expr["actual"], out)
+        _collect_reads(expr["expected"], out)
         return
 
 
@@ -828,18 +874,37 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         # Array<Struct> value (see frontend/relation/integration.py) --
         # no I/O or mutation.
         return all(_is_side_effect_free(argument) for argument in expr["arguments"])
+    if op == "call_string":
+        # Every `string.*` function is a pure transformation over its
+        # String/Int/Float/Array<String> arguments (see
+        # frontend/string/integration.py) -- no I/O or mutation, though
+        # `string.slice` can still raise STR-004 out of range, so a call
+        # is only side-effect-*free* (safe to drop if unused), not
+        # necessarily exception-free.
+        return all(_is_side_effect_free(argument) for argument in expr["arguments"])
     if op == "call_function":
         return False  # a user function's body may call tensor.save; conservative
     if op == "call_array_append":
         return _is_side_effect_free(expr["collection"]) and _is_side_effect_free(expr["item"])
+    if op == "call_array_concat":
+        return _is_side_effect_free(expr["left"]) and _is_side_effect_free(expr["right"])
     if op == "call_cast":
         return _is_side_effect_free(expr["argument"])
+    if op == "optional_some":
+        return _is_side_effect_free(expr["value"])
+    if op in ("assert", "assert_eq"):
+        # Unlike every other namespaced call above, an assert's entire
+        # purpose IS its "may raise" effect, and it is used as a bare,
+        # unused-result statement in the *normal* case (not an edge case
+        # like string.slice's bounds check) -- so, unlike those, this can
+        # never be side-effect-free regardless of its arguments, or dead
+        # local elimination would silently turn every assertion into a
+        # no-op the moment its (always-unused) result isn't read.
+        return False
     if op == "array":
         return all(_is_side_effect_free(item) for item in expr["elements"])
     if op == "struct":
         return all(_is_side_effect_free(value) for value in expr["fields"].values())
-    if op == "optional_some":
-        return _is_side_effect_free(expr["value"])
     if op == "unary":
         return _is_side_effect_free(expr["operand"])
     if op in ("binary", "comparison", "logical"):
@@ -848,7 +913,7 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         return _is_side_effect_free(expr["collection"]) and _is_side_effect_free(expr["index"])
     if op == "member":
         return _is_side_effect_free(expr["object"])
-    return True  # const, local, enum_value, optional_none
+    return True  # const, local
 
 
 def _expr_key(expr: dict[str, Any]) -> str:
@@ -910,12 +975,10 @@ def _reads_name(expr: dict[str, Any], name: str) -> bool:
 
 def _is_cse_eligible(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
-    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_reasoning", "call_function", "call_array_append"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function", "call_array_append", "call_array_concat", "assert", "assert_eq"):
         return False  # never dedupe calls: see module docstring
-    if op in {"const", "local", "enum_value", "optional_none"}:
+    if op == "const" or op == "local":
         return True
-    if op == "optional_some":
-        return _is_cse_eligible(expr["value"])
     if op == "array":
         return all(_is_cse_eligible(item) for item in expr["elements"])
     if op == "struct":
@@ -930,4 +993,8 @@ def _is_cse_eligible(expr: dict[str, Any]) -> bool:
         return _is_cse_eligible(expr["object"])
     if op == "call_cast":
         return _is_cse_eligible(expr["argument"])
+    if op in ("enum_value", "optional_none"):
+        return True
+    if op == "optional_some":
+        return _is_cse_eligible(expr["value"])
     return False

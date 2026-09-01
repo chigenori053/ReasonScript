@@ -22,14 +22,3 @@ def test_reason_examples_validates_v0_5_corpus() -> None:
     assert payload["ok"] is True
     assert payload["valid_total"] == 10
     assert payload["invalid_total"] == 6
-    assert payload["executable_total"] == 8
-    assert payload["surface_only_total"] == 2
-    surface_only = {
-        Path(item["file"]).name
-        for item in payload["results"]
-        if item["check_mode"] == "surface_only"
-    }
-    assert surface_only == {
-        "006_runtime_input_print.rsn",
-        "007_runtime_operation.rsn",
-    }

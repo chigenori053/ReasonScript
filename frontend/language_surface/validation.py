@@ -22,6 +22,11 @@ from frontend.relation.integration import (
     relation_call_name,
     validate_relation_call,
 )
+from frontend.string.integration import (
+    StringSemanticError,
+    string_call_name,
+    validate_string_call,
+)
 from frontend.vision.integration import (
     VisionSemanticError,
     validate_vision_call,
@@ -282,7 +287,6 @@ class SurfaceValidationError(ValueError):
 
 
 _CURRENT_NAMESPACE: ModuleNamespace | None = None
-_CURRENT_FUNCTION: str | None = None
 RUNTIME_RESULT_TYPES = {
     "SearchResult",
     "SimulationResult",
@@ -801,7 +805,7 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
             visit(item.expression)
             return
         if isinstance(item, MemberAccessNode):
-            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "string", "tensor", "ruo", "optimizer", "relation"}:
+            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo", "optimizer", "relation"}:
                 return
             visit(item.object)
             return
@@ -835,7 +839,6 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
 
 
 def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -> None:
-    global _CURRENT_FUNCTION
     _validate_ast_node(node)
     if node.return_type is not None:
         _resolve_type(node.return_type, symbols)
@@ -846,19 +849,14 @@ def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -
         )
         for parameter in node.parameters
     }
-    previous_function = _CURRENT_FUNCTION
-    _CURRENT_FUNCTION = node.name
-    try:
-        _validate_function_statements(
-            node.body,
-            symbols=symbols,
-            bindings=bindings,
-            allow_terminal_return=True,
-            loop_depth=0,
-            return_type=node.return_type,
-        )
-    finally:
-        _CURRENT_FUNCTION = previous_function
+    _validate_function_statements(
+        node.body,
+        symbols=symbols,
+        bindings=bindings,
+        allow_terminal_return=True,
+        loop_depth=0,
+        return_type=node.return_type,
+    )
     _validate_function_control_flow(node.body)
     if not _statement_list_terminates_with_return(node.body):
         raise SurfaceValidationError("FN-010 FCF-001 Not all execution paths return")
@@ -1584,7 +1582,7 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "string", "tensor", "ruo", "vision", "optimizer", "relation"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1614,21 +1612,8 @@ def _validate_calculation_expression(
                 return
             visit(value.object)
         elif isinstance(value, CallExpressionNode):
-            if isinstance(value.callee, IdentifierNode) and value.callee.name in {"assert", "assert_eq"}:
-                for argument in value.arguments:
-                    visit(argument)
-                return
             if _array_call_name(value) is not None:
                 _validate_array_call(value)
-                for argument in value.arguments:
-                    visit(argument)
-                return
-            if isinstance(value.callee, IdentifierNode) and value.callee.name in {"assert", "assert_eq"}:
-                for argument in value.arguments:
-                    visit(argument)
-                return
-            if _string_call_name(value) is not None:
-                _validate_string_call(value)
                 for argument in value.arguments:
                     visit(argument)
                 return
@@ -1652,6 +1637,14 @@ def _validate_calculation_expression(
                 try:
                     validate_relation_call(value)
                 except RelationSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if string_call_name(value) is not None:
+                try:
+                    validate_string_call(value)
+                except StringSemanticError as error:
                     raise SurfaceValidationError(str(error)) from error
                 for argument in value.arguments:
                     visit(argument)
@@ -1763,6 +1756,26 @@ def _scalar_cast_name(value: CallExpressionNode, symbols: dict[str, Any]) -> str
     return None
 
 
+_ASSERT_NAMES = {"assert", "assert_eq"}
+
+
+def _assert_call_name(value: CallExpressionNode, symbols: dict[str, Any]) -> str | None:
+    """Resolve a bare `assert(...)`/`assert_eq(...)` call, mirroring `_scalar_cast_name`.
+
+    Phase 3 ("実行型テスト機構"): both are reserved global builtins, not a
+    namespace, exactly like `float`/`int` -- and, like those, a same-named
+    user `fn` declaration shadows the builtin rather than being rejected.
+    """
+    callee = value.callee
+    if (
+        isinstance(callee, IdentifierNode)
+        and callee.name in _ASSERT_NAMES
+        and not isinstance(symbols.get(callee.name), FunctionDeclarationNode)
+    ):
+        return callee.name
+    return None
+
+
 def _array_call_name(value: CallExpressionNode) -> str | None:
     callee = value.callee
     if (
@@ -1776,33 +1789,49 @@ def _array_call_name(value: CallExpressionNode) -> str | None:
 
 def _validate_array_call(value: CallExpressionNode) -> None:
     method = _array_call_name(value)
-    if method not in {"append", "concat"}:
+    if method not in ("append", "concat"):
         raise SurfaceValidationError("COLL-001 unknown array standard function")
-    if method == "append" and len(value.arguments) != 2:
-        raise SurfaceValidationError("COLL-001 array.append argument count mismatch")
-    if method == "concat" and len(value.arguments) != 2:
-        raise SurfaceValidationError("COLL-001 array.concat argument count mismatch")
+    if len(value.arguments) != 2:
+        raise SurfaceValidationError(f"COLL-001 array.{method} argument count mismatch")
 
 
-def _string_call_name(value: CallExpressionNode) -> str | None:
-    callee = value.callee
-    if (
-        isinstance(callee, MemberAccessNode)
-        and isinstance(callee.object, IdentifierNode)
-        and callee.object.name == "string"
-    ):
-        return callee.member
-    return None
+def _string_call_type(
+    name: str, value: CallExpressionNode, symbols: dict[str, Any], bindings: dict[str, Any]
+) -> Any:
+    def argument_type(index: int) -> Any:
+        argument = value.arguments[index]
+        expr = argument.expression if isinstance(argument, ExpressionNode) else argument
+        return _expression_type(expr, symbols, bindings)
 
-
-def _validate_string_call(value: CallExpressionNode) -> None:
-    method = _string_call_name(value)
-    valid_methods = {"concat": 2, "join": 2, "length": 1, "from_int": 1, "from_float": 1, "slice": 3}
-    if method not in valid_methods:
-        raise SurfaceValidationError(f"STR-001 unknown string standard function string.{method}")
-    expected_arity = valid_methods[method]
-    if len(value.arguments) != expected_arity:
-        raise SurfaceValidationError(f"STR-001 string.{method} argument count mismatch (expected {expected_arity}, got {len(value.arguments)})")
+    string_type = PrimitiveTypeNode(PrimitiveKind.STRING)
+    int_type = PrimitiveTypeNode(PrimitiveKind.INT)
+    if name == "string.concat":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.concat expects String")
+        _require_type_equal(string_type, argument_type(1), "STR-003 string.concat expects String")
+        return string_type
+    if name == "string.join":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.join separator must be String")
+        _require_type_equal(
+            ArrayTypeNode(string_type), argument_type(1), "STR-003 string.join values must be Array<String>"
+        )
+        return string_type
+    if name == "string.length":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.length expects String")
+        return int_type
+    if name == "string.from_int":
+        _require_type_equal(int_type, argument_type(0), "STR-003 string.from_int expects Int")
+        return string_type
+    if name == "string.from_float":
+        _require_type_equal(
+            PrimitiveTypeNode(PrimitiveKind.FLOAT), argument_type(0), "STR-003 string.from_float expects Float"
+        )
+        return string_type
+    if name == "string.slice":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.slice expects String")
+        _require_type_equal(int_type, argument_type(1), "STR-003 string.slice start must be Int")
+        _require_type_equal(int_type, argument_type(2), "STR-003 string.slice end must be Int")
+        return string_type
+    raise SurfaceValidationError(f"STR-001 unknown String function: {name}")
 
 
 def _validate_ruo_call(value: CallExpressionNode) -> None:
@@ -2149,89 +2178,30 @@ def _expression_type(
                 raise SurfaceValidationError(
                     "COLL-001 array.concat argument count mismatch"
                 )
-            a_type = _expression_type(
+            left_type = _expression_type(
                 value.arguments[0].expression
                 if isinstance(value.arguments[0], ExpressionNode)
                 else value.arguments[0],
                 symbols,
                 bindings,
             )
-            b_type = _expression_type(
+            right_type = _expression_type(
                 value.arguments[1].expression
                 if isinstance(value.arguments[1], ExpressionNode)
                 else value.arguments[1],
                 symbols,
                 bindings,
             )
-            if not isinstance(a_type, ArrayTypeNode) or not isinstance(b_type, ArrayTypeNode):
+            if not isinstance(left_type, ArrayTypeNode):
                 raise SurfaceValidationError(
-                    "COLL-002 array.concat arguments must be arrays"
+                    "COLL-002 array.concat first argument must be an array"
                 )
             _require_type_equal(
-                a_type.element_type,
-                b_type.element_type,
-                "COLL-003 array.concat element type mismatch",
+                left_type,
+                right_type,
+                "COLL-003 array.concat argument type mismatch",
             )
-            return a_type
-        if isinstance(value.callee, IdentifierNode) and value.callee.name in {"assert", "assert_eq"}:
-            if value.callee.name == "assert":
-                if len(value.arguments) != 1:
-                    raise SurfaceValidationError("TEST-001 assert expects 1 boolean argument")
-                cond_type = _expression_type(
-                    value.arguments[0].expression if isinstance(value.arguments[0], ExpressionNode) else value.arguments[0],
-                    symbols,
-                    bindings,
-                )
-                _require_type_equal(PrimitiveTypeNode(PrimitiveKind.BOOL), cond_type, "TEST-002 assert condition must be bool")
-                return PrimitiveTypeNode(PrimitiveKind.BOOL)
-            elif value.callee.name == "assert_eq":
-                if len(value.arguments) != 2:
-                    raise SurfaceValidationError("TEST-001 assert_eq expects 2 arguments")
-                t1 = _expression_type(
-                    value.arguments[0].expression if isinstance(value.arguments[0], ExpressionNode) else value.arguments[0],
-                    symbols,
-                    bindings,
-                )
-                t2 = _expression_type(
-                    value.arguments[1].expression if isinstance(value.arguments[1], ExpressionNode) else value.arguments[1],
-                    symbols,
-                    bindings,
-                )
-                _require_type_equal(t1, t2, "TEST-003 assert_eq argument type mismatch")
-                return PrimitiveTypeNode(PrimitiveKind.BOOL)
-        if _string_call_name(value) is not None:
-            str_method = _string_call_name(value)
-            arg_types = [
-                _expression_type(
-                    arg.expression if isinstance(arg, ExpressionNode) else arg,
-                    symbols,
-                    bindings,
-                )
-                for arg in value.arguments
-            ]
-            if str_method == "concat":
-                _require_type_equal(PrimitiveTypeNode(PrimitiveKind.STRING), arg_types[0], "STR-002 string.concat argument 0 must be string")
-                _require_type_equal(PrimitiveTypeNode(PrimitiveKind.STRING), arg_types[1], "STR-002 string.concat argument 1 must be string")
-                return PrimitiveTypeNode(PrimitiveKind.STRING)
-            elif str_method == "join":
-                _require_type_equal(PrimitiveTypeNode(PrimitiveKind.STRING), arg_types[0], "STR-002 string.join separator must be string")
-                if not isinstance(arg_types[1], ArrayTypeNode) or not isinstance(arg_types[1].element_type, PrimitiveTypeNode) or arg_types[1].element_type.kind != PrimitiveKind.STRING:
-                    raise SurfaceValidationError("STR-002 string.join items must be [string]")
-                return PrimitiveTypeNode(PrimitiveKind.STRING)
-            elif str_method == "length":
-                _require_type_equal(PrimitiveTypeNode(PrimitiveKind.STRING), arg_types[0], "STR-002 string.length argument must be string")
-                return PrimitiveTypeNode(PrimitiveKind.INT)
-            elif str_method == "from_int":
-                _require_type_equal(PrimitiveTypeNode(PrimitiveKind.INT), arg_types[0], "STR-002 string.from_int argument must be int")
-                return PrimitiveTypeNode(PrimitiveKind.STRING)
-            elif str_method == "from_float":
-                _require_type_equal(PrimitiveTypeNode(PrimitiveKind.FLOAT), arg_types[0], "STR-002 string.from_float argument must be float")
-                return PrimitiveTypeNode(PrimitiveKind.STRING)
-            elif str_method == "slice":
-                _require_type_equal(PrimitiveTypeNode(PrimitiveKind.STRING), arg_types[0], "STR-002 string.slice argument 0 must be string")
-                _require_type_equal(PrimitiveTypeNode(PrimitiveKind.INT), arg_types[1], "STR-002 string.slice argument 1 must be int")
-                _require_type_equal(PrimitiveTypeNode(PrimitiveKind.INT), arg_types[2], "STR-002 string.slice argument 2 must be int")
-                return PrimitiveTypeNode(PrimitiveKind.STRING)
+            return left_type
         if tensor_call_name(value) is not None:
             try:
                 validate_tensor_call(value)
@@ -2290,6 +2260,13 @@ def _expression_type(
             if not isinstance(rows_type, ArrayTypeNode):
                 raise SurfaceValidationError("REL-004 Relation function requires Array<Struct>")
             return rows_type
+        string_function = string_call_name(value)
+        if string_function is not None:
+            try:
+                validate_string_call(value)
+            except StringSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            return _string_call_type(string_function, value, symbols, bindings)
         if vision_call_name(value) is not None:
             try:
                 validate_vision_call(value)
@@ -2318,6 +2295,53 @@ def _expression_type(
             return PrimitiveTypeNode(
                 PrimitiveKind.FLOAT if cast_name == "float" else PrimitiveKind.INT
             )
+        assert_name = _assert_call_name(value, symbols)
+        if assert_name is not None:
+            null_type = PrimitiveTypeNode(PrimitiveKind.NULL)
+            if assert_name == "assert":
+                if len(value.arguments) != 1:
+                    raise SurfaceValidationError(
+                        "TEST-ASSERT-002 assert() expects exactly one argument"
+                    )
+                condition_argument = value.arguments[0]
+                condition_expression = (
+                    condition_argument.expression
+                    if isinstance(condition_argument, ExpressionNode)
+                    else condition_argument
+                )
+                condition_type = _expression_type(condition_expression, symbols, bindings)
+                if condition_type is not _UNKNOWN_TYPE and condition_type != PrimitiveTypeNode(
+                    PrimitiveKind.BOOL
+                ):
+                    raise SurfaceValidationError(
+                        "TEST-ASSERT-003 assert() argument must be Bool"
+                    )
+                return null_type
+            if len(value.arguments) != 2:
+                raise SurfaceValidationError(
+                    "TEST-ASSERT-002 assert_eq() expects exactly two arguments"
+                )
+            actual_argument, expected_argument = value.arguments
+            actual_type = _expression_type(
+                actual_argument.expression
+                if isinstance(actual_argument, ExpressionNode)
+                else actual_argument,
+                symbols,
+                bindings,
+            )
+            expected_type = _expression_type(
+                expected_argument.expression
+                if isinstance(expected_argument, ExpressionNode)
+                else expected_argument,
+                symbols,
+                bindings,
+            )
+            _require_type_equal(
+                actual_type,
+                expected_type,
+                "TEST-ASSERT-003 assert_eq() arguments must have the same type",
+            )
+            return null_type
         if isinstance(value.callee, IdentifierNode):
             function = symbols.get(value.callee.name)
             if isinstance(function, FunctionDeclarationNode):

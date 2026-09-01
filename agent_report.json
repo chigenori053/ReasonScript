@@ -1,18 +1,16 @@
 {
-  "version": "1.0",
-  "task": "ReasonScript v0.5.5.8 Package and Release Verification",
-  "status": "VALIDATED",
-  "tests_passed": 1240,
   "artifacts_generated": true,
-  "details": {
-    "version": "0.5.5.8",
-    "phase0_executable_check_contract": true,
-    "phase1_enum_optional_match_runtime": true,
-    "phase2_string_collection_stdlib": true,
-    "phase3_execution_based_test_framework": true,
-    "phase4_controlled_recursion": true,
-    "phase5_module_manifest_rgo_parity": true,
-    "package_generated": true,
-    "installation_updated": true
-  }
+  "commands_executed": [
+    "reason check",
+    "reason analyze",
+    "reason run",
+    "reason artifacts",
+    "reason validate-artifacts",
+    "reason golden"
+  ],
+  "schema": "reasonscript-agent-report/1.0",
+  "status": "VALIDATED",
+  "task": "Issues #9/#10 Completion Remediation",
+  "tests_passed": 1222,
+  "version": "1.0"
 }

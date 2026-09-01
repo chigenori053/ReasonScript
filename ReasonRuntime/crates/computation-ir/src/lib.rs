@@ -9,6 +9,7 @@ pub mod ir;
 pub mod optimizer_dispatch;
 pub mod relation_dispatch;
 pub mod ruo_dispatch;
+pub mod string_dispatch;
 pub mod tensor_dispatch;
 pub mod value;
 pub mod vision_dispatch;

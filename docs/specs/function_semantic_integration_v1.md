@@ -37,7 +37,15 @@ Validation coverage:
 - `FN-004`: non-void functions require a guaranteed terminal return.
 - `FN-005`: return expressions and call arguments must match declared types.
 - `FN-006`: duplicate parameter names are invalid.
-- `FN-007`: controlled recursion (direct and mutual) is permitted under the deterministic `max_call_depth` runtime limit (Phase 4).
+- `FN-007` (retired): direct recursive calls were unconditionally rejected
+  through v1.0. Phase 4 of the modernization plan ("制御された再帰") lifted
+  this for both direct and mutual recursion -- every evaluator (the AST
+  oracle, the Python Computation IR interpreter, and the Rust VM) already
+  bounded call depth with a stable `RT-CALL-003` diagnostic for ordinary
+  nested calls, so the same bound now governs recursive calls too. The
+  default `max_call_depth` (128) is part of the compiler/runtime contract
+  via `reason.toml`'s `[runtime] max_call_depth`, the same way `backend`
+  already is.
 - `FN-008`: nested calls preserve inner-to-outer evaluation order and unique
   transition identities.
 - `FN-009`: multiline typed parameter lists parse equivalently to single-line

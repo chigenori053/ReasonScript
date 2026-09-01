@@ -23,6 +23,7 @@ from frontend.language_surface.nodes import (
     DefaultPatternNode,
     EnumDeclarationNode,
     EnumValuePatternNode,
+    EnumVariantReferenceNode,
     ExpressionNode,
     ExpressionStatementNode,
     FieldAssignmentStatementNode,
@@ -38,10 +39,10 @@ from frontend.language_surface.nodes import (
     IndexAssignmentStatementNode,
     IntegerLiteralNode,
     LetStatementNode,
+    LiteralPatternNode,
     LogicalExpressionNode,
     LogicalOperator,
     LoopStatementNode,
-    LiteralPatternNode,
     MatchStatementNode,
     MemberAccessNode,
     NoneLiteralNode,
@@ -53,26 +54,27 @@ from frontend.language_surface.nodes import (
     ProgramNode,
     QualifiedIdentifierNode,
     QualifiedPatternNode,
+    RangePatternNode,
     ReasonGraphDeclarationNode,
     ReasonObjectBindingNode,
-    RangePatternNode,
     ResultStatementNode,
     ReturnStatementNode,
     RuntimeCallExpressionNode,
+    SomeExpressionNode,
     StateDeclarationNode,
     ConstraintNode,
     ExecutionPlanDeclarationNode,
     StringLiteralNode,
     StructBindingPatternNode,
-    StructPatternNode,
     StructLiteralNode,
-    SomeExpressionNode,
+    StructPatternNode,
     UnaryExpressionNode,
     UnaryOperator,
     WhileStatementNode,
     WildcardPatternNode,
 )
 from frontend.relation.integration import relation_call_name
+from frontend.string.integration import string_call_name
 from frontend.reason_object_runtime import (
     ReasonObjectRuntimeError,
     call_ruo,
@@ -122,28 +124,30 @@ class RuntimeStruct:
 
 @dataclass(frozen=True)
 class RuntimeEnumValue:
+    """A resolved `EnumName.VariantName` reference (Phase 1 enum unification).
+
+    Distinct from a plain string so `Color.Red == "Red"` is a type error
+    the way `TYPE-V004`-style arithmetic mixing is, not an accidental true
+    -- equality/pattern matching only ever compares two `RuntimeEnumValue`s.
+    """
+
     enum_name: str
     variant_name: str
 
-    def to_runtime_value(self) -> dict[str, Any]:
-        return {"enum": self.enum_name, "variant": self.variant_name}
-
 
 @dataclass(frozen=True)
-class RuntimeOptionalSome:
-    value: Any
+class RuntimeOptionalValue:
+    """`some(x)` / `none` (Phase 1 optional unification).
 
-    def to_runtime_value(self) -> dict[str, Any]:
-        return {"optional": "some", "value": self.value}
+    Deliberately not the same value as ReasonScript `null`
+    (`NullLiteralNode`, which still evaluates to plain Python `None`): a
+    `none` is a tagged "absent" `RuntimeOptionalValue`, so
+    `none == null` is false and a `None`/`Some` match arm can't
+    accidentally catch an unrelated `null`.
+    """
 
-
-@dataclass(frozen=True)
-class RuntimeOptionalNone:
-    def to_runtime_value(self) -> dict[str, Any]:
-        return {"optional": "none"}
-
-
-OPTIONAL_NONE = RuntimeOptionalNone()
+    has_value: bool
+    value: Any = None
 
 
 @dataclass
@@ -185,6 +189,83 @@ def _relation_field(row: RuntimeStruct, field: str) -> Any:
     if field not in row.fields:
         raise IntegratedRuntimeError("REL-005", f"unknown field {field} on {row.type_name}")
     return row.fields[field]
+
+
+def _match_pattern(pattern: Any, value: Any) -> dict[str, Any] | None:
+    """Structurally matches `value` against a `Pattern` AST node.
+
+    Returns the bindings a successful match would introduce (possibly
+    empty), or `None` if `pattern` does not match `value`. Language-surface
+    validation (`_validate_*_match_exhaustiveness` in
+    `frontend.language_surface.validation`) already guarantees a `match`
+    statement is exhaustive before this ever runs, so callers only need to
+    handle "no arm matched" as a defensive fallback, not an expected case.
+    """
+    if isinstance(pattern, (WildcardPatternNode, DefaultPatternNode)):
+        return {}
+    if isinstance(pattern, IdentifierPatternNode):
+        return {pattern.name: value}
+    if isinstance(pattern, StructBindingPatternNode):
+        return {pattern.binding: value}
+    if isinstance(pattern, LiteralPatternNode):
+        literal = pattern.value
+        literal_value = None if isinstance(literal, NullLiteralNode) else literal.value
+        return {} if value == literal_value else None
+    if isinstance(pattern, RangePatternNode):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        lower = pattern.lower.value
+        upper = pattern.upper.value
+        lower_ok = value >= lower if pattern.lower_inclusive else value > lower
+        upper_ok = value <= upper if pattern.upper_inclusive else value < upper
+        return {} if lower_ok and upper_ok else None
+    if isinstance(pattern, EnumValuePatternNode):
+        matches = (
+            isinstance(value, RuntimeEnumValue)
+            and value.enum_name == pattern.enum_name
+            and value.variant_name == pattern.value_name
+        )
+        return {} if matches else None
+    if isinstance(pattern, QualifiedPatternNode):
+        matches = (
+            isinstance(value, RuntimeEnumValue)
+            and value.enum_name == pattern.namespace
+            and value.variant_name == pattern.identifier
+        )
+        return {} if matches else None
+    if isinstance(pattern, OptionalPatternNode):
+        if not isinstance(value, RuntimeOptionalValue):
+            return None
+        if pattern.kind == "Some":
+            if not value.has_value:
+                return None
+            return {pattern.binding: value.value} if pattern.binding is not None else {}
+        return {} if not value.has_value else None
+    if isinstance(pattern, OptionalValuePatternNode):
+        if not isinstance(value, RuntimeOptionalValue):
+            return None
+        if pattern.kind == "Some":
+            return _match_pattern(pattern.pattern, value.value) if value.has_value else None
+        return {} if not value.has_value else None
+    if isinstance(pattern, StructPatternNode):
+        if not isinstance(value, RuntimeStruct) or value.type_name != pattern.type_name:
+            return None
+        bindings: dict[str, Any] = {}
+        for field in pattern.fields:
+            if field.field_name not in value.fields:
+                return None
+            sub_bindings = _match_pattern(field.pattern, value.fields[field.field_name])
+            if sub_bindings is None:
+                return None
+            bindings.update(sub_bindings)
+        return bindings
+    if isinstance(pattern, OrPatternNode):
+        for alternative in pattern.alternatives:
+            bindings = _match_pattern(alternative, value)
+            if bindings is not None:
+                return bindings
+        return None
+    raise IntegratedRuntimeError("RT-MATCH-002", f"unsupported pattern: {type(pattern).__name__}")
 
 
 def call_relation(function_id: str, *args: Any) -> Any:
@@ -248,6 +329,90 @@ def call_relation(function_id: str, *args: Any) -> Any:
     raise IntegratedRuntimeError("REL-001", f"unknown Relation function: {function_id}")
 
 
+_STRING_ARGUMENT_COUNTS: dict[str, int] = {
+    "string.concat": 2,
+    "string.join": 2,
+    "string.length": 1,
+    "string.from_int": 1,
+    "string.from_float": 1,
+    "string.slice": 3,
+}
+
+
+def _as_string(value: Any, function_id: str) -> str:
+    if isinstance(value, str):
+        return value
+    raise IntegratedRuntimeError("STR-003", f"{function_id} argument must be String")
+
+
+def _as_int(value: Any, function_id: str) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    raise IntegratedRuntimeError("STR-003", f"{function_id} argument must be Int")
+
+
+def format_float(value: float) -> str:
+    """Canonical `Float -> String` text, shared with the IR interpreter and
+    matched byte-for-byte by the Rust VM's `string_dispatch::from_float`.
+
+    Always includes a decimal point (`2.0`, not `2`) so a formatted Float
+    never looks like an Int. Deliberately scoped to the normal range: both
+    `repr()` here and Rust's `{}` Display use a shortest-round-trip digit
+    algorithm that agrees digit-for-digit for ordinary values, but Python
+    switches to scientific notation and Rust never does, so extreme
+    magnitudes (roughly outside 1e-4..1e16) are not guaranteed to format
+    identically between the two backends -- not a concern for this
+    minimal standard library, which has no other floating-point formatting
+    controls (precision, scientific notation, locale) to begin with.
+    """
+    text = repr(value)
+    return text if "." in text or "e" in text or "n" in text else f"{text}.0"
+
+
+def call_string(function_id: str, *args: Any) -> Any:
+    """Dispatch a `string.*` function (Phase 2 "String標準ライブラリ").
+
+    A plain module-level function, mirroring `call_relation`: every
+    `string.*` function is pure, with no Tensor backend or persistent
+    state involved.
+    """
+    if function_id not in _STRING_ARGUMENT_COUNTS:
+        raise IntegratedRuntimeError("STR-001", f"unknown String function: {function_id}")
+    expected = _STRING_ARGUMENT_COUNTS[function_id]
+    if len(args) != expected:
+        raise IntegratedRuntimeError(
+            "STR-002",
+            f"String function argument count mismatch: {function_id} expects {expected}",
+        )
+    if function_id == "string.concat":
+        a, b = args
+        return _as_string(a, function_id) + _as_string(b, function_id)
+    if function_id == "string.join":
+        separator, values = args
+        separator = _as_string(separator, function_id)
+        if not isinstance(values, list):
+            raise IntegratedRuntimeError("STR-003", "string.join second argument must be Array<String>")
+        return separator.join(_as_string(item, function_id) for item in values)
+    if function_id == "string.length":
+        return len(_as_string(args[0], function_id))
+    if function_id == "string.from_int":
+        return str(_as_int(args[0], function_id))
+    if function_id == "string.from_float":
+        value = args[0]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise IntegratedRuntimeError("STR-003", "string.from_float argument must be Float")
+        return format_float(float(value))
+    if function_id == "string.slice":
+        value, start, end = args
+        value = _as_string(value, function_id)
+        start = _as_int(start, function_id)
+        end = _as_int(end, function_id)
+        if start < 0 or end < start or end > len(value):
+            raise IntegratedRuntimeError("STR-004", f"string.slice bounds out of range: {start}..{end}")
+        return value[start:end]
+    raise IntegratedRuntimeError("STR-001", f"unknown String function: {function_id}")
+
+
 @dataclass
 class IntegratedComputationResult:
     value: Any
@@ -294,8 +459,22 @@ def execute_program(
     calculations: dict[str, Any] = {}
     object_root = (resource_root or Path.cwd()).resolve()
     module_objects: dict[str, dict[str, Any]] = {}
+    # Flat and program-wide, like `RuntimeStruct.type_name`: every module
+    # sees every declared enum's namespace object below, so `Color.Red`
+    # resolves via the ordinary `MemberAccessNode` handling in
+    # `_expression` (env lookup of "Color" finds this dict, then plain
+    # dict-member lookup) without needing a dedicated AST node or a
+    # separate scope parameter threaded through every evaluator call.
+    enum_namespaces: dict[str, dict[str, RuntimeEnumValue]] = {
+        item.name: {
+            value.name: RuntimeEnumValue(item.name, value.name) for value in item.values
+        }
+        for module in program.modules
+        for item in module.body
+        if isinstance(item, EnumDeclarationNode)
+    }
     for module in program.modules:
-        loaded: dict[str, Any] = {}
+        loaded: dict[str, Any] = dict(enum_namespaces)
         for item in module.body:
             if isinstance(item, (
                 GoalNode,
@@ -318,30 +497,6 @@ def execute_program(
             except ReasonObjectRuntimeError as error:
                 raise IntegratedRuntimeError(error.code, str(error)) from error
         module_objects[module.name] = loaded
-    enum_registry: dict[str, dict[str, dict[str, RuntimeEnumValue]]] = {}
-    for module in program.modules:
-        enum_registry[module.name] = {
-            item.name: {
-                variant.name: RuntimeEnumValue(item.name, variant.name)
-                for variant in item.values
-            }
-            for item in module.body
-            if isinstance(item, EnumDeclarationNode)
-        }
-        module_objects[module.name].update(enum_registry[module.name])
-    for module in program.modules:
-        for item in module.body:
-            if not isinstance(item, ImportNode) or item.resolution is None:
-                continue
-            target = enum_registry.get(item.resolution.namespace.rsplit(".", 1)[-1], {})
-            if item.resolution.symbol in target:
-                namespace = target[item.resolution.symbol]
-                for exposed_name in item.resolution.exposed_names:
-                    module_objects[module.name][exposed_name] = namespace
-            elif item.resolution.symbol is None:
-                for exposed_name in item.resolution.exposed_names:
-                    if exposed_name in target:
-                        module_objects[module.name][exposed_name] = target[exposed_name]
     function_registry: dict[str, RuntimeFunction] = {}
     package_prefix = f"{program.package.name}." if program.package is not None else ""
     for module in program.modules:
@@ -515,92 +670,53 @@ def _statements(
                     functions, max_call_depth, call_depth,
                 )
         elif isinstance(statement, MatchStatementNode):
-            subject = _expression(
-                statement.expression, env, runtime, vision_runtime,
+            _match_statement(
+                statement, env, runtime, trace, limit, scope, vision_runtime,
                 functions, max_call_depth, call_depth,
             )
-            selected = False
-            for arm in statement.arms:
-                bindings = _match_pattern(arm.pattern.pattern, subject)
-                if bindings is None:
-                    continue
-                previous = {name: env[name] for name in bindings if name in env}
-                missing = set(bindings) - set(previous)
-                env.update(bindings)
-                try:
-                    if arm.guard is not None and not bool(_expression(
-                        arm.guard, env, runtime, vision_runtime,
-                        functions, max_call_depth, call_depth,
-                    )):
-                        continue
-                    selected = True
-                    _statements(
-                        arm.body, env, runtime, trace, limit, scope,
-                        vision_runtime, functions, max_call_depth, call_depth,
-                    )
-                    break
-                finally:
-                    for name in missing:
-                        env.pop(name, None)
-                    env.update(previous)
-            if not selected:
-                raise IntegratedRuntimeError("RT-MATCH-001", "match expression selected no arm")
         runtime.collect(env)
 
 
-def _match_pattern(pattern: Any, value: Any) -> dict[str, Any] | None:
-    if isinstance(pattern, IdentifierPatternNode):
-        return {pattern.name: value}
-    if isinstance(pattern, (WildcardPatternNode, DefaultPatternNode)):
-        return {}
-    if isinstance(pattern, LiteralPatternNode):
-        return {} if value == getattr(pattern.value, "value", None) else None
-    if isinstance(pattern, RangePatternNode):
-        try:
-            lower_ok = value >= pattern.lower.value if pattern.lower_inclusive else value > pattern.lower.value
-            upper_ok = value <= pattern.upper.value if pattern.upper_inclusive else value < pattern.upper.value
-        except TypeError:
-            return None
-        return {} if lower_ok and upper_ok else None
-    if isinstance(pattern, EnumValuePatternNode):
-        expected = RuntimeEnumValue(pattern.enum_name, pattern.value_name)
-        return {} if value == expected else None
-    if isinstance(pattern, QualifiedPatternNode):
-        expected = RuntimeEnumValue(pattern.namespace, pattern.identifier)
-        return {} if value == expected else None
-    if isinstance(pattern, OptionalPatternNode):
-        if pattern.kind == "None":
-            return {} if isinstance(value, RuntimeOptionalNone) else None
-        if not isinstance(value, RuntimeOptionalSome):
-            return None
-        return {pattern.binding: value.value} if pattern.binding else {}
-    if isinstance(pattern, OptionalValuePatternNode):
-        if pattern.kind == "None":
-            return {} if isinstance(value, RuntimeOptionalNone) else None
-        if not isinstance(value, RuntimeOptionalSome):
-            return None
-        return _match_pattern(pattern.pattern, value.value)
-    if isinstance(pattern, StructBindingPatternNode):
-        return {pattern.binding: value}
-    if isinstance(pattern, StructPatternNode):
-        if not isinstance(value, RuntimeStruct) or value.type_name != pattern.type_name:
-            return None
-        bindings: dict[str, Any] = {}
-        for field in pattern.fields:
-            if field.field_name not in value.fields:
-                return None
-            nested = _match_pattern(field.pattern, value.fields[field.field_name])
-            if nested is None:
-                return None
-            bindings.update(nested)
-        return bindings
-    if isinstance(pattern, OrPatternNode):
-        for alternative in pattern.alternatives:
-            bindings = _match_pattern(alternative, value)
-            if bindings is not None:
-                return bindings
-        return None
-    return None
+def _match_statement(
+    statement: MatchStatementNode,
+    env: dict[str, Any],
+    runtime: TensorRuntime,
+    trace: list[dict[str, Any]],
+    limit: int,
+    scope: str,
+    vision_runtime: VisionRuntimeBridge,
+    functions: dict[str, FunctionDeclarationNode],
+    max_call_depth: int,
+    call_depth: int,
+) -> None:
+    subject = _expression(
+        statement.expression, env, runtime, vision_runtime,
+        functions, max_call_depth, call_depth,
+    )
+    for arm in statement.arms:
+        bindings = _match_pattern(arm.pattern.pattern, subject)
+        if bindings is None:
+            continue
+        previous: list[tuple[str, Any, bool]] = [
+            (name, env.get(name), name in env) for name in bindings
+        ]
+        env.update(bindings)
+        guard_ok = arm.guard is None or bool(_expression(
+            arm.guard, env, runtime, vision_runtime,
+            functions, max_call_depth, call_depth,
+        ))
+        if guard_ok:
+            _statements(
+                arm.body, env, runtime, trace, limit, scope, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            return
+        for name, old_value, existed in previous:
+            if existed:
+                env[name] = old_value
+            else:
+                del env[name]
+    raise IntegratedRuntimeError("RT-MATCH-001", "no match arm satisfied the value")
 
 
 def _while_loop(
@@ -691,15 +807,17 @@ def _expression(
     value = value.expression if isinstance(value, ExpressionNode) else value
     if isinstance(value, (IntegerLiteralNode, FloatLiteralNode, BooleanLiteralNode, StringLiteralNode)):
         return value.value
-    if isinstance(value, NoneLiteralNode):
-        return OPTIONAL_NONE
     if isinstance(value, NullLiteralNode):
         return None
+    if isinstance(value, NoneLiteralNode):
+        return RuntimeOptionalValue(False)
     if isinstance(value, SomeExpressionNode):
-        return RuntimeOptionalSome(_expression(
+        return RuntimeOptionalValue(True, _expression(
             value.value, env, runtime, vision_runtime,
             functions, max_call_depth, call_depth,
         ))
+    if isinstance(value, EnumVariantReferenceNode):
+        return RuntimeEnumValue(value.enum_name, value.variant_name)
     if isinstance(value, IdentifierNode):
         if value.name not in env:
             raise IntegratedRuntimeError("RT-NAME-001", f"unknown runtime name: {value.name}")
@@ -899,6 +1017,16 @@ def _expression(
                 for argument in value.arguments
             ]
             return call_relation(relation_function, *arguments)
+        string_function = string_call_name(value)
+        if string_function is not None:
+            arguments = [
+                _expression(
+                    argument, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for argument in value.arguments
+            ]
+            return call_string(string_function, *arguments)
         if (
             isinstance(value.callee, MemberAccessNode)
             and isinstance(value.callee.object, IdentifierNode)
@@ -930,7 +1058,7 @@ def _expression(
         ):
             if len(value.arguments) != 2:
                 raise IntegratedRuntimeError(
-                    "RT-CALL-002", "array.concat expects two arguments"
+                    "RT-CALL-006", "array.concat expects two arguments"
                 )
             left = _expression(
                 value.arguments[0], env, runtime, vision_runtime,
@@ -942,70 +1070,14 @@ def _expression(
             )
             if not isinstance(left, list) or not isinstance(right, list):
                 raise IntegratedRuntimeError(
-                    "RT-CALL-002", "array.concat arguments must be arrays"
+                    "RT-CALL-006", "array.concat arguments must be arrays"
                 )
-            return [*copy.deepcopy(left), *copy.deepcopy(right)]
-        if (
-            isinstance(value.callee, MemberAccessNode)
-            and isinstance(value.callee.object, IdentifierNode)
-            and value.callee.object.name == "string"
-        ):
-            func_name = value.callee.member
-            args = [
-                _expression(arg, env, runtime, vision_runtime, functions, max_call_depth, call_depth)
-                for arg in value.arguments
-            ]
-            if func_name == "concat":
-                if len(args) != 2 or not isinstance(args[0], str) or not isinstance(args[1], str):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.concat expects two string arguments")
-                return args[0] + args[1]
-            elif func_name == "join":
-                if len(args) != 2 or not isinstance(args[0], str) or not isinstance(args[1], list):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.join expects separator and list of strings")
-                for item in args[1]:
-                    if not isinstance(item, str):
-                        raise IntegratedRuntimeError("RT-CALL-002", "string.join list elements must be strings")
-                return args[0].join(args[1])
-            elif func_name == "length":
-                if len(args) != 1 or not isinstance(args[0], str):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.length expects one string argument")
-                return len(args[0])
-            elif func_name == "from_int":
-                if len(args) != 1 or isinstance(args[0], bool) or not isinstance(args[0], int):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.from_int expects one int argument")
-                return str(args[0])
-            elif func_name == "from_float":
-                if len(args) != 1 or isinstance(args[0], bool) or not isinstance(args[0], (float, int)):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.from_float expects one float argument")
-                return str(float(args[0]))
-            elif func_name == "slice":
-                if len(args) != 3 or not isinstance(args[0], str) or isinstance(args[1], bool) or not isinstance(args[1], int) or isinstance(args[2], bool) or not isinstance(args[2], int):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.slice expects string, int, int")
-                s, start, end = args[0], args[1], args[2]
-                if start < 0:
-                    start = 0
-                if end < start:
-                    end = start
-                return s[start:end]
-            else:
-                raise IntegratedRuntimeError("RT-CALL-002", f"unknown string standard function: string.{func_name}")
-        if isinstance(value.callee, IdentifierNode) and value.callee.name == "assert":
-            if len(value.arguments) != 1:
-                raise IntegratedRuntimeError("TEST-ASSERT-001", "assert expects 1 argument")
-            cond = _expression(value.arguments[0], env, runtime, vision_runtime, functions, max_call_depth, call_depth)
-            if not isinstance(cond, bool):
-                raise IntegratedRuntimeError("TEST-ASSERT-001", "assert condition must evaluate to boolean")
-            if not cond:
-                raise IntegratedRuntimeError("TEST-ASSERT-001", "assertion failed")
-            return True
-        if isinstance(value.callee, IdentifierNode) and value.callee.name == "assert_eq":
-            if len(value.arguments) != 2:
-                raise IntegratedRuntimeError("TEST-ASSERT-001", "assert_eq expects 2 arguments")
-            left = _expression(value.arguments[0], env, runtime, vision_runtime, functions, max_call_depth, call_depth)
-            right = _expression(value.arguments[1], env, runtime, vision_runtime, functions, max_call_depth, call_depth)
-            if left != right:
-                raise IntegratedRuntimeError("TEST-ASSERT-001", f"assertion failed: {left} != {right}")
-            return True
+            # Both sides are elements already living inside an array (unlike
+            # array.append's bare `item`, which needs a deep copy so the new
+            # array doesn't alias a plain local's value) -- a new list
+            # container with the same element identities, matching Rust's
+            # `Vec::clone()` (an `Rc`-bump per element, not a deep clone).
+            return [*left, *right]
         if (
             isinstance(value.callee, IdentifierNode)
             and value.callee.name in {"float", "int"}
@@ -1024,6 +1096,41 @@ def _expression(
                     "RT-CALL-005", f"{value.callee.name}() argument must be Int or Float"
                 )
             return float(argument) if value.callee.name == "float" else int(argument)
+        if (
+            isinstance(value.callee, IdentifierNode)
+            and value.callee.name in {"assert", "assert_eq"}
+            and value.callee.name not in functions
+        ):
+            if value.callee.name == "assert":
+                if len(value.arguments) != 1:
+                    raise IntegratedRuntimeError(
+                        "RT-CALL-002", "assert() expects exactly one argument"
+                    )
+                condition = _expression(
+                    value.arguments[0], env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                if condition is not True:
+                    raise IntegratedRuntimeError("TEST-ASSERT-001", "assertion failed")
+                return None
+            if len(value.arguments) != 2:
+                raise IntegratedRuntimeError(
+                    "RT-CALL-002", "assert_eq() expects exactly two arguments"
+                )
+            actual = _expression(
+                value.arguments[0], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            expected = _expression(
+                value.arguments[1], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            if actual != expected:
+                raise IntegratedRuntimeError(
+                    "TEST-ASSERT-001",
+                    f"assertion failed: expected {expected!r}, got {actual!r}",
+                )
+            return None
         if isinstance(value.callee, (IdentifierNode, QualifiedIdentifierNode)):
             function_ref = (
                 functions.get(value.callee.name)
@@ -1206,6 +1313,14 @@ def _plain(value: Any, runtime: TensorRuntime) -> Any:
             name: _plain(item, runtime)
             for name, item in sorted(value.fields.items())
         }
+    if isinstance(value, RuntimeEnumValue):
+        return {"enum_name": value.enum_name, "variant_name": value.variant_name}
+    if isinstance(value, RuntimeOptionalValue):
+        return (
+            {"optional": "some", "value": _plain(value.value, runtime)}
+            if value.has_value
+            else {"optional": "none"}
+        )
     if hasattr(value, "to_runtime_value"):
         return _plain(value.to_runtime_value(), runtime)
     if isinstance(value, dict):
@@ -1226,6 +1341,14 @@ def _trace_plain(value: Any) -> Any:
             name: _trace_plain(item)
             for name, item in sorted(value.fields.items())
         }
+    if isinstance(value, RuntimeEnumValue):
+        return {"enum_name": value.enum_name, "variant_name": value.variant_name}
+    if isinstance(value, RuntimeOptionalValue):
+        return (
+            {"optional": "some", "value": _trace_plain(value.value)}
+            if value.has_value
+            else {"optional": "none"}
+        )
     if hasattr(value, "to_runtime_value"):
         return _trace_plain(value.to_runtime_value())
     if isinstance(value, dict):

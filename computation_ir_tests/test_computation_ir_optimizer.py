@@ -620,6 +620,304 @@ class RelationFunctionsInteractionTests(OptimizerParityMixin, unittest.TestCase)
         self.assertEqual(len(filter_calls), 2)
 
 
+class StringFunctionsInteractionTests(OptimizerParityMixin, unittest.TestCase):
+    """Phase 2: the `string.*` namespace and `array.concat`'s interaction
+    with the optimizer -- an unused call is dead-code-eliminated (and,
+    for `string.*`, a local read only inside its `arguments` must still
+    count as "used" -- `_collect_reads` needed an explicit `call_string`
+    branch or a local read only there would look dead), a used pipeline
+    survives optimization with an identical result, and repeated calls
+    are never CSE-merged (matching every other namespaced call)."""
+
+    def test_unused_string_call_is_eliminated(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    let unused = string.concat("a", "b")
+                    result = 1
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        for block in optimized["functions"][0]["blocks"]:
+            for instruction in block["instructions"]:
+                self.assertNotEqual(instruction.get("target"), "unused")
+
+    def test_local_read_only_inside_string_call_arguments_is_not_eliminated(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    let piece = "hello"
+                    result = string.length(piece)
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        assigns = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "assign" and instruction.get("target") == "piece"
+        ]
+        self.assertEqual(len(assigns), 1)
+
+    def test_string_and_array_concat_pipeline_survives_optimization(self):
+        optimized, results = self.assert_parity(
+            """
+            module M {
+                calculation Answer {
+                    let unused = string.from_int(999)
+                    let combined = string.concat("foo", "bar")
+                    let letters = array.concat(["f", "o", "o"], ["b", "a", "r"])
+                    result = string.length(combined) * 100 + letters.length
+                }
+            }
+            """
+        )
+        self.assertEqual(results["Answer"], 606)
+        del optimized
+
+    def test_string_calls_are_never_deduplicated(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    let a = string.concat("x", "y")
+                    let b = string.concat("x", "y")
+                    result = string.length(a) + string.length(b)
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        concat_calls = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "assign"
+            and instruction["expr"].get("op") == "call_string"
+            and instruction["expr"].get("function_id") == "string.concat"
+        ]
+        self.assertEqual(len(concat_calls), 2)
+
+
+class AssertionOptimizationTests(OptimizerParityMixin, unittest.TestCase):
+    """Phase 3: `assert`/`assert_eq` must never be eliminated as dead code,
+    even though their result is always unused (their entire purpose is
+    the "may raise" side effect, unlike every other namespaced call this
+    optimizer treats as safe-to-drop-if-unused)."""
+
+    def test_unused_assert_survives_dead_code_elimination(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    assert(1 == 1)
+                    result = 1
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        asserts = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "expr" and instruction["expr"].get("op") == "assert"
+        ]
+        self.assertEqual(len(asserts), 1)
+
+    def test_unused_assert_eq_survives_dead_code_elimination(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    assert_eq(2 + 2, 4)
+                    result = 1
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        asserts = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "expr" and instruction["expr"].get("op") == "assert_eq"
+        ]
+        self.assertEqual(len(asserts), 1)
+
+    def test_local_read_only_inside_assert_condition_is_not_eliminated(self):
+        ir = _lower(
+            """
+            module M {
+                calculation Answer {
+                    let flag = true
+                    assert(flag)
+                    result = 1
+                }
+            }
+            """
+        )
+        optimized = optimize_program(ir)
+        assigns = [
+            instruction
+            for block in optimized["functions"][0]["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "assign" and instruction.get("target") == "flag"
+        ]
+        self.assertEqual(len(assigns), 1)
+
+    def test_assertion_pipeline_survives_optimization(self):
+        optimized, results = self.assert_parity(
+            """
+            module M {
+                calculation Answer {
+                    let a = 2 + 2
+                    assert_eq(a, 4)
+                    assert(a > 0)
+                    result = a
+                }
+            }
+            """
+        )
+        self.assertEqual(results["Answer"], 4)
+        del optimized
+
+
+class MatchOptimizationTests(OptimizerParityMixin, unittest.TestCase):
+    """Phase 1: the `match` terminator and `enum_value`/`optional_some`/
+    `optional_none` expressions must survive every optimizer pass intact.
+
+    `match` arm blocks are only reachable via a terminator's `arms[].target`
+    list, not `jump`/`branch`'s `target`/`then`/`else` -- unreachable-block
+    removal, predecessor computation, and loop-region detection all needed
+    dedicated `match` handling (`_terminator_targets`) or they would treat
+    every arm block as unreachable and delete it out from under the
+    `match` terminator that still references it.
+    """
+
+    def test_enum_match_survives_unreachable_block_removal(self):
+        # Each arm assigns and falls through to the match's merge block
+        # (rather than every arm unconditionally `return`ing) so the merge
+        # block itself stays reachable -- an all-`return` match/if's merge
+        # block is *already*, pre-existing-ly, reported unreachable by
+        # `validate_program` (the same is true of `_lower_if`, unrelated
+        # to Phase 1); that's a separate, narrower lowering quirk this
+        # test isn't about, so it's avoided here rather than masked.
+        optimized, results = self.assert_parity(
+            """
+            module M {
+                enum Color {
+                    Red
+                    Blue
+                    Green
+                }
+
+                calculation Answer {
+                    let color = Color.Blue
+                    let score = 0
+                    match color {
+                        Color.Red => {
+                            score = 1
+                        }
+                        Color.Blue => {
+                            score = 2
+                        }
+                        default => {
+                            score = 0
+                        }
+                    }
+                    result = score
+                }
+            }
+            """
+        )
+        self.assertEqual(results["Answer"], 2)
+        answer_fn = next(f for f in optimized["functions"] if f["id"] == "Answer")
+        block_ids = {block["id"] for block in answer_fn["blocks"]}
+        match_terminators = [
+            block["terminator"]
+            for block in answer_fn["blocks"]
+            if block["terminator"]["kind"] == "match"
+        ]
+        self.assertEqual(len(match_terminators), 1)
+        for arm in match_terminators[0]["arms"]:
+            self.assertIn(arm["target"], block_ids)
+
+    def test_optional_some_binding_is_not_treated_as_dead_by_local_elimination(self):
+        # `y` is read only inside the match `subject` -- `_eliminate_dead_locals`
+        # must see that read (via the match terminator's `subject`, not
+        # `condition`/`value`) or it would drop `let y = some(5)` and the
+        # match dispatch would fail against an undefined local.
+        optimized, results = self.assert_parity(
+            """
+            module M {
+                calculation Answer {
+                    let y = some(5)
+                    let outcome = -1
+                    match y {
+                        some(x) => {
+                            outcome = x
+                        }
+                        none => {
+                            outcome = -1
+                        }
+                    }
+                    result = outcome
+                }
+            }
+            """
+        )
+        self.assertEqual(results["Answer"], 5)
+        answer_fn = next(f for f in optimized["functions"] if f["id"] == "Answer")
+        assigns = [
+            instruction
+            for block in answer_fn["blocks"]
+            for instruction in block["instructions"]
+            if instruction.get("op") == "assign" and instruction.get("target") == "y"
+        ]
+        self.assertEqual(len(assigns), 1)
+
+    def test_match_inside_while_loop_does_not_corrupt_licm(self):
+        # A mutation that happens only inside a match arm (`total` here)
+        # must still count as "mutated within the loop" for LICM's
+        # hoisting-eligibility check -- otherwise `_loop_region`'s
+        # traversal silently stopping at the `match` terminator could let
+        # LICM hoist something that reads a value the loop actually
+        # changes underneath it.
+        optimized, results = self.assert_parity(
+            """
+            module M {
+                calculation Answer {
+                    let total = 0
+                    let i = 0
+                    while i < 5 {
+                        match i {
+                            0 | 2 | 4 => {
+                                let step = total + i
+                                total = step
+                            }
+                            default => {
+                                let step = total
+                                total = step
+                            }
+                        }
+                        i = i + 1
+                    }
+                    result = total
+                }
+            }
+            """
+        )
+        self.assertEqual(results["Answer"], 6)
+        del optimized
+
+
 class TensorDifferentialTests(OptimizerParityMixin, unittest.TestCase):
     def test_matmul_program_survives_optimization(self):
         self.assert_parity(

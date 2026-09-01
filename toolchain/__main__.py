@@ -116,22 +116,18 @@ def main() -> int:
 
     if command == "test":
         from toolchain.runner_cmd import run
-        junit_arg = _option_arg(args[1:], "--junit")
         return run(
             project_root,
             package=package,
             compile_only="--compile-only" in args[1:],
-            json_output="--json" in args[1:],
-            junit_path=Path(junit_arg) if junit_arg else None,
+            output_format=_option_arg(args[1:], "--format") or "text",
+            filesystem_read="--allow-read" in args[1:],
+            filesystem_write="--allow-write" in args[1:],
         )
 
     if command == "check":
         from toolchain.check_cmd import run
-        return run(
-            project_root,
-            package=package,
-            surface_only="--surface-only" in args[1:],
-        )
+        return run(project_root, package=package)
 
     if command in {"workspace", "summary", "index", "scan"}:
         from toolchain.workspace_cmd import run
@@ -324,14 +320,6 @@ def _usage() -> None:
 
 
 def _command_usage(command: str) -> None:
-    if command == "check":
-        print(
-            "Usage: reason check [source.rsn] [--package NAME] "
-            "[--surface-only] [--json]"
-        )
-        print("Default check validates Surface semantics and executable Computation IR.")
-        print("--surface-only skips the executability guarantee.")
-        return
     print(f"Usage: reason {command} [args]")
     print("Run 'reason help' for the full command list.")
 

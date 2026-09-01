@@ -25,13 +25,13 @@ from frontend.integrated_computation_runtime import (
     IntegratedComputationResult,
     IntegratedRuntimeError,
     LoopLimitError,
-    OPTIONAL_NONE,
     RuntimeEnumValue,
-    RuntimeOptionalSome,
+    RuntimeOptionalValue,
     RuntimeStruct,
     _index_value,
     _trace_env,
     call_relation,
+    call_string,
 )
 from frontend.reason_object_runtime import ReasonObjectRuntimeError, call_ruo, load_reason_object
 from frontend.reasoning_reference import ReasoningReferenceError, call_reasoning
@@ -156,15 +156,6 @@ def _run_function(function_ir: dict[str, Any], env: dict[str, Any], ctx: _Contex
             condition = bool(_eval_expr(terminator["condition"], env, ctx, call_depth))
             current = terminator["then"] if condition else terminator["else"]
             continue
-        if kind == "pattern_branch":
-            value = _eval_expr(terminator["value"], env, ctx, call_depth)
-            bindings = _match_pattern(terminator["pattern"], value)
-            if bindings is not None:
-                env.update(bindings)
-                current = terminator["then"]
-            else:
-                current = terminator["else"]
-            continue
         if kind == "result":
             raise _IRResult(_eval_expr(terminator["value"], env, ctx, call_depth))
         if kind == "return":
@@ -173,6 +164,9 @@ def _run_function(function_ir: dict[str, Any], env: dict[str, Any], ctx: _Contex
             if terminator["code"] == "IR-NO-VALUE":
                 raise _IRNoValue()
             raise IRExecutionError(terminator["code"], terminator["message"])
+        if kind == "match":
+            current = _match_dispatch(terminator, env, ctx, call_depth)
+            continue
         raise IRExecutionError("IR-EXEC-001", f"unknown terminator kind: {kind}")
 
 
@@ -230,55 +224,89 @@ def _execute_instruction(instruction: dict[str, Any], env: dict[str, Any], ctx: 
     raise IRExecutionError("IR-EXEC-002", f"unknown instruction op: {op}")
 
 
-def _visible_trace_env(env: dict[str, Any]) -> dict[str, Any]:
-    return _trace_env({
-        name: value for name, value in env.items()
-        if not name.startswith(("__for_", "__trace_", "__opt_"))
-    })
+def _match_dispatch(terminator: dict[str, Any], env: dict[str, Any], ctx: _Context, call_depth: int) -> str:
+    """Executes a `match` terminator: returns the block id execution continues at.
+
+    Mirrors `_match_statement` in `frontend.integrated_computation_runtime`
+    (the AST oracle), but matches against the JSON `Pattern` shape
+    `lowering.py._lower_pattern` produces rather than AST `Pattern` nodes.
+    """
+    subject = _eval_expr(terminator["subject"], env, ctx, call_depth)
+    for arm in terminator["arms"]:
+        bindings = _match_pattern_json(arm["pattern"], subject)
+        if bindings is None:
+            continue
+        previous: list[tuple[str, Any, bool]] = [
+            (name, env.get(name), name in env) for name in bindings
+        ]
+        env.update(bindings)
+        guard = arm.get("guard")
+        guard_ok = guard is None or bool(_eval_expr(guard, env, ctx, call_depth))
+        if guard_ok:
+            return arm["target"]
+        for name, old_value, existed in previous:
+            if existed:
+                env[name] = old_value
+            else:
+                del env[name]
+    raise IntegratedRuntimeError("RT-MATCH-001", "no match arm satisfied the value")
 
 
-def _match_pattern(pattern: dict[str, Any], value: Any) -> dict[str, Any] | None:
+def _match_pattern_json(pattern: dict[str, Any], value: Any) -> dict[str, Any] | None:
     kind = pattern["kind"]
     if kind == "wildcard":
         return {}
     if kind == "binding":
         return {pattern["name"]: value}
     if kind == "literal":
-        return {} if value == pattern.get("value") else None
+        literal_value = pattern["value"] if pattern["value_kind"] != "null" else None
+        return {} if value == literal_value else None
     if kind == "range":
-        try:
-            lower_ok = value >= pattern["lower"] if pattern["lower_inclusive"] else value > pattern["lower"]
-            upper_ok = value <= pattern["upper"] if pattern["upper_inclusive"] else value < pattern["upper"]
-        except TypeError:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
             return None
+        lower, upper = pattern["lower"], pattern["upper"]
+        lower_ok = value >= lower if pattern["lower_inclusive"] else value > lower
+        upper_ok = value <= upper if pattern["upper_inclusive"] else value < upper
         return {} if lower_ok and upper_ok else None
-    if kind == "enum":
-        return {} if value == RuntimeEnumValue(pattern["enum_name"], pattern["variant_name"]) else None
-    if kind == "optional_none":
-        return {} if value == OPTIONAL_NONE else None
+    if kind == "enum_value":
+        matches = (
+            isinstance(value, RuntimeEnumValue)
+            and value.enum_name == pattern["enum_name"]
+            and value.variant_name == pattern["variant_name"]
+        )
+        return {} if matches else None
     if kind == "optional_some":
-        if not isinstance(value, RuntimeOptionalSome):
+        if not isinstance(value, RuntimeOptionalValue) or not value.has_value:
             return None
-        return _match_pattern(pattern["pattern"], value.value)
+        return _match_pattern_json(pattern["pattern"], value.value)
+    if kind == "optional_none":
+        return {} if isinstance(value, RuntimeOptionalValue) and not value.has_value else None
     if kind == "struct":
         if not isinstance(value, RuntimeStruct) or value.type_name != pattern["type_name"]:
             return None
         bindings: dict[str, Any] = {}
-        for name, nested_pattern in pattern["fields"].items():
-            if name not in value.fields:
+        for field_name, field_pattern in pattern["fields"].items():
+            if field_name not in value.fields:
                 return None
-            nested = _match_pattern(nested_pattern, value.fields[name])
-            if nested is None:
+            sub_bindings = _match_pattern_json(field_pattern, value.fields[field_name])
+            if sub_bindings is None:
                 return None
-            bindings.update(nested)
+            bindings.update(sub_bindings)
         return bindings
     if kind == "or":
         for alternative in pattern["alternatives"]:
-            bindings = _match_pattern(alternative, value)
-            if bindings is not None:
-                return bindings
+            alternative_bindings = _match_pattern_json(alternative, value)
+            if alternative_bindings is not None:
+                return alternative_bindings
         return None
-    raise IRExecutionError("IR-EXEC-008", f"unknown pattern kind: {kind}")
+    raise IRExecutionError("IR-EXEC-010", f"unknown pattern kind: {kind}")
+
+
+def _visible_trace_env(env: dict[str, Any]) -> dict[str, Any]:
+    return _trace_env({
+        name: value for name, value in env.items()
+        if not name.startswith(("__for_", "__trace_", "__opt_"))
+    })
 
 
 _BINARY_OPS = {
@@ -315,12 +343,6 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
             node["type_name"],
             {name: _eval_expr(expr, env, ctx, call_depth) for name, expr in node["fields"].items()},
         )
-    if op == "enum_value":
-        return RuntimeEnumValue(node["enum_name"], node["variant_name"])
-    if op == "optional_some":
-        return RuntimeOptionalSome(_eval_expr(node["value"], env, ctx, call_depth))
-    if op == "optional_none":
-        return OPTIONAL_NONE
     if op == "unary":
         operand = _eval_expr(node["operand"], env, ctx, call_depth)
         return -operand if node["operator"] == "Negate" else not operand
@@ -375,6 +397,9 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
     if op == "call_relation":
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         return call_relation(node["function_id"], *arguments)
+    if op == "call_string":
+        arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
+        return call_string(node["function_id"], *arguments)
     if op == "call_vision":
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         return ctx.vision_runtime.call(node["function_id"], *arguments)
@@ -398,60 +423,8 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
         left = _eval_expr(node["left"], env, ctx, call_depth)
         right = _eval_expr(node["right"], env, ctx, call_depth)
         if not isinstance(left, list) or not isinstance(right, list):
-            raise IntegratedRuntimeError("RT-CALL-002", "array.concat arguments must be arrays")
-        import copy
-        return [*copy.deepcopy(left), *copy.deepcopy(right)]
-    if op == "call_string":
-        function_id = node["function_id"]
-        arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
-        if function_id == "concat":
-            if len(arguments) != 2 or not isinstance(arguments[0], str) or not isinstance(arguments[1], str):
-                raise IntegratedRuntimeError("RT-CALL-002", "string.concat expects two string arguments")
-            return arguments[0] + arguments[1]
-        elif function_id == "join":
-            if len(arguments) != 2 or not isinstance(arguments[0], str) or not isinstance(arguments[1], list):
-                raise IntegratedRuntimeError("RT-CALL-002", "string.join expects separator string and list of strings")
-            for item in arguments[1]:
-                if not isinstance(item, str):
-                    raise IntegratedRuntimeError("RT-CALL-002", "string.join list elements must be strings")
-            return arguments[0].join(arguments[1])
-        elif function_id == "length":
-            if len(arguments) != 1 or not isinstance(arguments[0], str):
-                raise IntegratedRuntimeError("RT-CALL-002", "string.length expects one string argument")
-            return len(arguments[0])
-        elif function_id == "from_int":
-            if len(arguments) != 1 or isinstance(arguments[0], bool) or not isinstance(arguments[0], int):
-                raise IntegratedRuntimeError("RT-CALL-002", "string.from_int expects one int argument")
-            return str(arguments[0])
-        elif function_id == "from_float":
-            if len(arguments) != 1 or isinstance(arguments[0], bool) or not isinstance(arguments[0], (float, int)):
-                raise IntegratedRuntimeError("RT-CALL-002", "string.from_float expects one float argument")
-            f_val = float(arguments[0])
-            return str(f_val)
-        elif function_id == "slice":
-            if len(arguments) != 3 or not isinstance(arguments[0], str) or isinstance(arguments[1], bool) or not isinstance(arguments[1], int) or isinstance(arguments[2], bool) or not isinstance(arguments[2], int):
-                raise IntegratedRuntimeError("RT-CALL-002", "string.slice expects string, int, int")
-            s, start, end = arguments[0], arguments[1], arguments[2]
-            if start < 0:
-                start = 0
-            if end < start:
-                end = start
-            return s[start:end]
-        else:
-            raise IntegratedRuntimeError("RT-CALL-002", f"unknown string standard function: {function_id}")
-    if op == "call_assert":
-        cond = _eval_expr(node["condition"], env, ctx, call_depth)
-        if not isinstance(cond, bool):
-            raise IntegratedRuntimeError("TEST-ASSERT-001", "assert condition must evaluate to boolean")
-        if not cond:
-            raise IntegratedRuntimeError("TEST-ASSERT-001", "assertion failed")
-        return True
-    if op == "call_assert_eq":
-        left = _eval_expr(node["left"], env, ctx, call_depth)
-        right = _eval_expr(node["right"], env, ctx, call_depth)
-        if left != right:
-            raise IntegratedRuntimeError("TEST-ASSERT-001", f"assertion failed: {left} != {right}")
-        return True
+            raise IntegratedRuntimeError("RT-CALL-006", "array.concat arguments must be arrays")
+        return [*left, *right]
     if op == "call_cast":
         argument = _eval_expr(node["argument"], env, ctx, call_depth)
         if isinstance(argument, bool) or not isinstance(argument, (int, float)):
@@ -459,6 +432,25 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
         return float(argument) if node["name"] == "float" else int(argument)
     if op == "call_function":
         return _call_function(node["name"], node["arguments"], env, ctx, call_depth)
+    if op == "enum_value":
+        return RuntimeEnumValue(node["enum_name"], node["variant_name"])
+    if op == "optional_some":
+        return RuntimeOptionalValue(True, _eval_expr(node["value"], env, ctx, call_depth))
+    if op == "optional_none":
+        return RuntimeOptionalValue(False)
+    if op == "assert":
+        condition = _eval_expr(node["condition"], env, ctx, call_depth)
+        if condition is not True:
+            raise IntegratedRuntimeError("TEST-ASSERT-001", "assertion failed")
+        return None
+    if op == "assert_eq":
+        actual = _eval_expr(node["actual"], env, ctx, call_depth)
+        expected = _eval_expr(node["expected"], env, ctx, call_depth)
+        if actual != expected:
+            raise IntegratedRuntimeError(
+                "TEST-ASSERT-001", f"assertion failed: expected {expected!r}, got {actual!r}"
+            )
+        return None
     raise IRExecutionError("IR-EXEC-003", f"unknown expression op: {op}")
 
 

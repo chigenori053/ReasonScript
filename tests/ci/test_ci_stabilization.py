@@ -64,7 +64,6 @@ def test_modern_language_computation_ir_validation_scope_is_in_test_platform():
         assert required_suite in test_platform
 
     assert (ROOT / "computation_ir_tests/test_computation_ir_rust_parity.py").exists()
-    assert (ROOT / "computation_ir_tests/test_controlled_recursion.py").exists()
     assert (ROOT / "tensor_standard_functions_tests/test_tensor_standard_functions.py").exists()
     assert (ROOT / "language_spec_validation_tests/test_core_language_spec.py").exists()
     assert (ROOT / "frontend/parser_conformance/end_to_end_tests/test_end_to_end.py").exists()

@@ -15,7 +15,7 @@ use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
 use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
-use crate::value::{from_json, to_json, EnumValue, RuntimeReasonObject, StructValue, Value};
+use crate::value::{from_json, to_json, RuntimeReasonObject, StructValue, Value};
 
 #[derive(Debug)]
 pub struct RuntimeError {
@@ -47,6 +47,9 @@ pub enum Outcome {
     NoValue,
 }
 
+/// Compiler/runtime contract defaults (Phase 4, "制御された再帰"):
+/// overridable per request via `context.limits.max_call_depth` /
+/// `max_loop_iterations`, same mechanism as the Tensor policy limits.
 pub const DEFAULT_MAX_LOOP_ITERATIONS: u64 = 10_000;
 pub const DEFAULT_MAX_CALL_DEPTH: u32 = 128;
 
@@ -135,9 +138,17 @@ impl<'a> Vm<'a> {
             true,
             false,
             "RuntimeReal".to_owned(),
+            DEFAULT_MAX_CALL_DEPTH,
+            DEFAULT_MAX_LOOP_ITERATIONS,
         )
     }
 
+    /// `max_call_depth`/`max_loop_iterations`: Phase 4 ("制御された再帰")
+    /// exposes both as part of the compiler/runtime contract (the
+    /// `reasonscript-runtime-request/1.0` protocol's `context.limits`,
+    /// same mechanism the Tensor policy limits already use), rather than
+    /// only ever being the hardcoded `DEFAULT_MAX_CALL_DEPTH`/
+    /// `DEFAULT_MAX_LOOP_ITERATIONS` every caller silently got before.
     #[allow(clippy::too_many_arguments)]
     pub fn with_runtime_context(
         program: &'a Program,
@@ -148,6 +159,8 @@ impl<'a> Vm<'a> {
         filesystem_write: bool,
         trace_enabled: bool,
         backend: String,
+        max_call_depth: u32,
+        max_loop_iterations: u64,
     ) -> Self {
         let functions = program
             .functions
@@ -163,8 +176,8 @@ impl<'a> Vm<'a> {
         );
         Vm {
             functions,
-            max_loop_iterations: DEFAULT_MAX_LOOP_ITERATIONS,
-            max_call_depth: DEFAULT_MAX_CALL_DEPTH,
+            max_loop_iterations,
+            max_call_depth,
             tensors: RefCell::new(tensors),
             reason_objects: RefCell::new(HashMap::new()),
             reasoning_bindings: program
@@ -186,14 +199,6 @@ impl<'a> Vm<'a> {
             active_calculations: RefCell::new(Vec::new()),
             temporary_roots: RefCell::new(Vec::new()),
         }
-    }
-
-    pub fn set_max_call_depth(&mut self, max_call_depth: u32) {
-        self.max_call_depth = max_call_depth;
-    }
-
-    pub fn set_max_loop_iterations(&mut self, max_loop_iterations: u64) {
-        self.max_loop_iterations = max_loop_iterations;
     }
 
     pub fn loop_trace(&self) -> Vec<serde_json::Value> {
@@ -241,10 +246,6 @@ impl<'a> Vm<'a> {
                     .collect::<serde_json::Map<_, _>>();
                 serde_json::json!({"type": value.type_name, "fields": fields})
             }
-            Value::OptionalSome(value) => serde_json::json!({
-                "optional": "some",
-                "value": self.transport_value(value),
-            }),
             _ => to_json(value),
         }
     }
@@ -423,20 +424,6 @@ impl<'a> Vm<'a> {
                     current =
                         self.resolve_block_id(&blocks, if taken { then } else { else_target })?;
                 }
-                Terminator::PatternBranch {
-                    value,
-                    pattern,
-                    then,
-                    else_target,
-                } => {
-                    let subject = self.eval_expr(value, env, call_depth)?;
-                    if let Some(bindings) = match_pattern(pattern, &subject)? {
-                        env.borrow_mut().extend(bindings);
-                        current = self.resolve_block_id(&blocks, then)?;
-                    } else {
-                        current = self.resolve_block_id(&blocks, else_target)?;
-                    }
-                }
                 Terminator::Result { value } => {
                     return Ok(Outcome::Result(self.eval_expr(value, env, call_depth)?))
                 }
@@ -448,6 +435,64 @@ impl<'a> Vm<'a> {
                         return Ok(Outcome::NoValue);
                     }
                     return Err(RuntimeError::new(code, message.clone()));
+                }
+                Terminator::Match { subject, arms } => {
+                    let subject_value = self.eval_expr(subject, env, call_depth)?;
+                    let mut matched_target: Option<&str> = None;
+                    for arm in arms {
+                        let Some(bindings) = match_pattern(&arm.pattern, &subject_value) else {
+                            continue;
+                        };
+                        let previous: Vec<(String, Option<Value>)> = {
+                            let mut env_mut = env.borrow_mut();
+                            bindings
+                                .into_iter()
+                                .map(|(name, value)| {
+                                    let old = env_mut.insert(name.clone(), value);
+                                    (name, old)
+                                })
+                                .collect()
+                        };
+                        let guard_ok = match &arm.guard {
+                            None => true,
+                            Some(guard_expr) => {
+                                match self.eval_expr(guard_expr, env, call_depth)? {
+                                    Value::Bool(value) => value,
+                                    other => {
+                                        return Err(RuntimeError::new(
+                                            "IR-EXEC-007",
+                                            format!(
+                                                "match guard must be Bool, got {}",
+                                                other.type_name()
+                                            ),
+                                        ))
+                                    }
+                                }
+                            }
+                        };
+                        if guard_ok {
+                            matched_target = Some(arm.target.as_str());
+                            break;
+                        }
+                        let mut env_mut = env.borrow_mut();
+                        for (name, old_value) in previous {
+                            match old_value {
+                                Some(value) => {
+                                    env_mut.insert(name, value);
+                                }
+                                None => {
+                                    env_mut.remove(&name);
+                                }
+                            }
+                        }
+                    }
+                    let Some(target) = matched_target else {
+                        return Err(RuntimeError::new(
+                            "RT-MATCH-001",
+                            "no match arm satisfied the value",
+                        ));
+                    };
+                    current = self.resolve_block_id(&blocks, target)?;
                 }
             }
         }
@@ -673,18 +718,6 @@ impl<'a> Vm<'a> {
                     fields: RefCell::new(evaluated),
                 })))
             }
-            Expr::EnumValue {
-                enum_name,
-                variant_name,
-                ..
-            } => Ok(Value::Enum(Rc::new(EnumValue {
-                enum_name: enum_name.clone(),
-                variant_name: variant_name.clone(),
-            }))),
-            Expr::OptionalSome { value, .. } => Ok(Value::OptionalSome(Rc::new(
-                self.eval_expr(value, env, call_depth)?,
-            ))),
-            Expr::OptionalNone { .. } => Ok(Value::OptionalNone),
             Expr::Unary {
                 operator, operand, ..
             } => {
@@ -910,23 +943,22 @@ impl<'a> Vm<'a> {
             }
             Expr::CallArrayConcat { left, right, .. } => {
                 let _guard = TempRootGuard::new(self);
-                let left_val = self.eval_expr(left, env, call_depth)?;
-                self.push_temporary_root(left_val.clone());
-                let right_val = self.eval_expr(right, env, call_depth)?;
-                match (left_val, right_val) {
-                    (Value::Array(l_items), Value::Array(r_items)) => {
-                        let mut new_items = Vec::with_capacity(l_items.borrow().len() + r_items.borrow().len());
-                        for it in l_items.borrow().iter() {
-                            new_items.push(it.deep_clone());
-                        }
-                        for it in r_items.borrow().iter() {
-                            new_items.push(it.deep_clone());
-                        }
+                let left_value = self.eval_expr(left, env, call_depth)?;
+                self.push_temporary_root(left_value.clone());
+                let right_value = self.eval_expr(right, env, call_depth)?;
+                match (left_value, right_value) {
+                    (Value::Array(left_items), Value::Array(right_items)) => {
+                        let mut new_items = left_items.borrow().clone();
+                        new_items.extend(right_items.borrow().iter().cloned());
                         Ok(Value::Array(Rc::new(RefCell::new(new_items))))
                     }
-                    _ => Err(RuntimeError::new(
-                        "RT-CALL-002",
-                        "array.concat arguments must be arrays".to_string(),
+                    (left, right) => Err(RuntimeError::new(
+                        "RT-CALL-006",
+                        format!(
+                            "array.concat arguments must be arrays, got {} and {}",
+                            left.type_name(),
+                            right.type_name()
+                        ),
                     )),
                 }
             }
@@ -942,181 +974,7 @@ impl<'a> Vm<'a> {
                     self.push_temporary_root(val.clone());
                     values.push(val);
                 }
-                match function_id.as_str() {
-                    "concat" => {
-                        if values.len() != 2 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.concat expects two string arguments".to_string(),
-                            ));
-                        }
-                        match (&values[0], &values[1]) {
-                            (Value::String(a), Value::String(b)) => {
-                                Ok(Value::String(format!("{}{}", a, b).into()))
-                            }
-                            _ => Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.concat expects two string arguments".to_string(),
-                            )),
-                        }
-                    }
-                    "join" => {
-                        if values.len() != 2 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.join expects separator and list of strings".to_string(),
-                            ));
-                        }
-                        let sep: &str = match &values[0] {
-                            Value::String(s) => s.as_ref(),
-                            _ => return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.join expects separator to be string".to_string(),
-                            )),
-                        };
-                        let list = match &values[1] {
-                            Value::Array(arr) => arr.borrow().clone(),
-                            _ => return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.join expects array of strings".to_string(),
-                            )),
-                        };
-                        let mut str_pieces: Vec<&str> = Vec::with_capacity(list.len());
-                        for item in &list {
-                            match item {
-                                Value::String(s) => str_pieces.push(s.as_ref()),
-                                _ => return Err(RuntimeError::new(
-                                    "RT-CALL-002",
-                                    "string.join array elements must be strings".to_string(),
-                                )),
-                            }
-                        }
-                        Ok(Value::String(str_pieces.join(sep).into()))
-                    }
-                    "length" => {
-                        if values.len() != 1 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.length expects one string argument".to_string(),
-                            ));
-                        }
-                        match &values[0] {
-                            Value::String(s) => Ok(Value::Int(s.chars().count() as i64)),
-                            _ => Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.length expects string argument".to_string(),
-                            )),
-                        }
-                    }
-                    "from_int" => {
-                        if values.len() != 1 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.from_int expects one int argument".to_string(),
-                            ));
-                        }
-                        match &values[0] {
-                            Value::Int(n) => Ok(Value::String(n.to_string().into())),
-                            _ => Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.from_int expects int argument".to_string(),
-                            )),
-                        }
-                    }
-                    "from_float" => {
-                        if values.len() != 1 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.from_float expects one float argument".to_string(),
-                            ));
-                        }
-                        match &values[0] {
-                            Value::Float(f) => {
-                                let s = if f.fract() == 0.0 {
-                                    format!("{:.1}", f)
-                                } else {
-                                    f.to_string()
-                                };
-                                Ok(Value::String(s.into()))
-                            }
-                            Value::Int(n) => {
-                                Ok(Value::String(format!("{:.1}", *n as f64).into()))
-                            }
-                            _ => Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.from_float expects float argument".to_string(),
-                            )),
-                        }
-                    }
-                    "slice" => {
-                        if values.len() != 3 {
-                            return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.slice expects string, start, end".to_string(),
-                            ));
-                        }
-                        let s: &str = match &values[0] {
-                            Value::String(s) => s.as_ref(),
-                            _ => return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.slice expects string for first argument".to_string(),
-                            )),
-                        };
-                        let start = match &values[1] {
-                            Value::Int(n) => *n,
-                            _ => return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.slice expects int for start index".to_string(),
-                            )),
-                        };
-                        let end = match &values[2] {
-                            Value::Int(n) => *n,
-                            _ => return Err(RuntimeError::new(
-                                "RT-CALL-002",
-                                "string.slice expects int for end index".to_string(),
-                            )),
-                        };
-                        let chars: Vec<char> = s.chars().collect();
-                        let len = chars.len() as i64;
-                        let s_idx = start.max(0).min(len) as usize;
-                        let e_idx = end.max(s_idx as i64).min(len) as usize;
-                        let slice_str: String = chars[s_idx..e_idx].iter().collect();
-                        Ok(Value::String(slice_str.into()))
-                    }
-                    unknown => Err(RuntimeError::new(
-                        "RT-CALL-002",
-                        format!("unknown string standard function: string.{}", unknown),
-                    )),
-                }
-            }
-            Expr::CallAssert { condition, .. } => {
-                let _guard = TempRootGuard::new(self);
-                let cond_val = self.eval_expr(condition, env, call_depth)?;
-                match cond_val {
-                    Value::Bool(true) => Ok(Value::Bool(true)),
-                    Value::Bool(false) => Err(RuntimeError::new(
-                        "TEST-ASSERT-001",
-                        "assertion failed".to_string(),
-                    )),
-                    _ => Err(RuntimeError::new(
-                        "TEST-ASSERT-001",
-                        "assert condition must evaluate to boolean".to_string(),
-                    )),
-                }
-            }
-            Expr::CallAssertEq { left, right, .. } => {
-                let _guard = TempRootGuard::new(self);
-                let left_val = self.eval_expr(left, env, call_depth)?;
-                self.push_temporary_root(left_val.clone());
-                let right_val = self.eval_expr(right, env, call_depth)?;
-                if left_val == right_val {
-                    Ok(Value::Bool(true))
-                } else {
-                    Err(RuntimeError::new(
-                        "TEST-ASSERT-001",
-                        format!("assertion failed: left != right"),
-                    ))
-                }
+                crate::string_dispatch::call(function_id, values)
             }
             Expr::CallCast { name, argument, .. } => {
                 let value = self.eval_expr(argument, env, call_depth)?;
@@ -1142,6 +1000,47 @@ impl<'a> Vm<'a> {
             Expr::CallFunction {
                 name, arguments, ..
             } => self.call_function(name, arguments, env, call_depth),
+            Expr::EnumValue {
+                enum_name,
+                variant_name,
+                ..
+            } => Ok(Value::Enum {
+                enum_name: Rc::from(enum_name.as_str()),
+                variant_name: Rc::from(variant_name.as_str()),
+            }),
+            Expr::OptionalSome { value, .. } => {
+                let inner = self.eval_expr(value, env, call_depth)?;
+                Ok(Value::Optional(Some(Box::new(inner))))
+            }
+            Expr::OptionalNone { .. } => Ok(Value::Optional(None)),
+            Expr::Assert { condition, .. } => {
+                match self.eval_expr(condition, env, call_depth)? {
+                    Value::Bool(true) => Ok(Value::Null),
+                    Value::Bool(false) => {
+                        Err(RuntimeError::new("TEST-ASSERT-001", "assertion failed"))
+                    }
+                    other => Err(RuntimeError::new(
+                        "RT-TYPE-001",
+                        format!("assert() argument must be Bool, got {}", other.type_name()),
+                    )),
+                }
+            }
+            Expr::AssertEq { actual, expected, .. } => {
+                let _guard = TempRootGuard::new(self);
+                let actual_value = self.eval_expr(actual, env, call_depth)?;
+                self.push_temporary_root(actual_value.clone());
+                let expected_value = self.eval_expr(expected, env, call_depth)?;
+                if actual_value == expected_value {
+                    Ok(Value::Null)
+                } else {
+                    Err(RuntimeError::new(
+                        "TEST-ASSERT-001",
+                        format!(
+                            "assertion failed: expected {expected_value}, got {actual_value}"
+                        ),
+                    ))
+                }
+            }
         }
     }
 
@@ -1254,87 +1153,7 @@ fn collect_tensor_ids(
                 }
             }
         }
-        Value::OptionalSome(value) => {
-            collect_tensor_ids(value, roots, visited_arrays, visited_structs);
-        }
         _ => {}
-    }
-}
-
-fn match_pattern(
-    pattern: &Pattern,
-    value: &Value,
-) -> Result<Option<HashMap<String, Value>>, RuntimeError> {
-    match pattern {
-        Pattern::Wildcard => Ok(Some(HashMap::new())),
-        Pattern::Binding { name } => Ok(Some(HashMap::from([(name.clone(), value.clone())]))),
-        Pattern::Literal {
-            value_kind,
-            value: literal,
-        } => Ok((const_value(value_kind, literal)? == *value).then(HashMap::new)),
-        Pattern::Range {
-            lower,
-            upper,
-            lower_inclusive,
-            upper_inclusive,
-        } => {
-            let numeric = match value {
-                Value::Int(value) => *value as f64,
-                Value::Float(value) => *value,
-                _ => return Ok(None),
-            };
-            let lower = lower.as_f64().ok_or_else(|| {
-                RuntimeError::new("IR-EXEC-008", "malformed range lower bound")
-            })?;
-            let upper = upper.as_f64().ok_or_else(|| {
-                RuntimeError::new("IR-EXEC-008", "malformed range upper bound")
-            })?;
-            let lower_ok = if *lower_inclusive { numeric >= lower } else { numeric > lower };
-            let upper_ok = if *upper_inclusive { numeric <= upper } else { numeric < upper };
-            Ok((lower_ok && upper_ok).then(HashMap::new))
-        }
-        Pattern::Enum {
-            enum_name,
-            variant_name,
-        } => Ok(matches!(
-            value,
-            Value::Enum(actual)
-                if actual.enum_name == *enum_name && actual.variant_name == *variant_name
-        )
-        .then(HashMap::new)),
-        Pattern::OptionalNone => Ok(matches!(value, Value::OptionalNone).then(HashMap::new)),
-        Pattern::OptionalSome { pattern } => match value {
-            Value::OptionalSome(inner) => match_pattern(pattern, inner),
-            _ => Ok(None),
-        },
-        Pattern::Struct { type_name, fields } => {
-            let Value::Struct(actual) = value else {
-                return Ok(None);
-            };
-            if actual.type_name != *type_name {
-                return Ok(None);
-            }
-            let actual_fields = actual.fields.borrow();
-            let mut bindings = HashMap::new();
-            for (name, nested_pattern) in fields {
-                let Some(field_value) = actual_fields.get(name) else {
-                    return Ok(None);
-                };
-                let Some(nested) = match_pattern(nested_pattern, field_value)? else {
-                    return Ok(None);
-                };
-                bindings.extend(nested);
-            }
-            Ok(Some(bindings))
-        }
-        Pattern::Or { alternatives } => {
-            for alternative in alternatives {
-                if let Some(bindings) = match_pattern(alternative, value)? {
-                    return Ok(Some(bindings));
-                }
-            }
-            Ok(None)
-        }
     }
 }
 
@@ -1361,6 +1180,97 @@ fn const_value(kind: &str, value: &serde_json::Value) -> Result<Value, RuntimeEr
             "IR-EXEC-008",
             format!("unknown const kind: {other}"),
         )),
+    }
+}
+
+/// Structurally matches `value` against a `match` terminator arm's
+/// `Pattern`. Returns the bindings a successful match would introduce
+/// (possibly empty), or `None` if `pattern` does not match `value`.
+/// Mirrors `_match_pattern_json` in `frontend/computation_ir/interpreter.py`
+/// -- the two must agree on every pattern kind for the Python-vs-Rust
+/// parity gate (`test_computation_ir_rust_parity.py`) to hold. Language
+/// surface validation already guarantees a `match` statement is
+/// exhaustive before this IR is ever produced, so a fully-exhausted arm
+/// list (the `RT-MATCH-001` case in the caller) is a defensive fallback,
+/// not an expected outcome.
+fn match_pattern(pattern: &Pattern, value: &Value) -> Option<Vec<(String, Value)>> {
+    match pattern {
+        Pattern::Wildcard => Some(Vec::new()),
+        Pattern::Binding { name } => Some(vec![(name.clone(), value.clone())]),
+        Pattern::Literal { value_kind, value: literal } => {
+            let literal_value = const_value(value_kind, literal).ok()?;
+            if &literal_value == value {
+                Some(Vec::new())
+            } else {
+                None
+            }
+        }
+        Pattern::Range {
+            lower,
+            upper,
+            lower_inclusive,
+            upper_inclusive,
+        } => {
+            let subject = match value {
+                Value::Int(v) => *v as f64,
+                Value::Float(v) => *v,
+                _ => return None,
+            };
+            let lower = lower.as_f64()?;
+            let upper = upper.as_f64()?;
+            let lower_ok = if *lower_inclusive {
+                subject >= lower
+            } else {
+                subject > lower
+            };
+            let upper_ok = if *upper_inclusive {
+                subject <= upper
+            } else {
+                subject < upper
+            };
+            if lower_ok && upper_ok {
+                Some(Vec::new())
+            } else {
+                None
+            }
+        }
+        Pattern::EnumValue {
+            enum_name,
+            variant_name,
+        } => match value {
+            Value::Enum {
+                enum_name: value_enum,
+                variant_name: value_variant,
+            } if value_enum.as_ref() == enum_name.as_str()
+                && value_variant.as_ref() == variant_name.as_str() =>
+            {
+                Some(Vec::new())
+            }
+            _ => None,
+        },
+        Pattern::OptionalSome { pattern } => match value {
+            Value::Optional(Some(inner)) => match_pattern(pattern, inner),
+            _ => None,
+        },
+        Pattern::OptionalNone => match value {
+            Value::Optional(None) => Some(Vec::new()),
+            _ => None,
+        },
+        Pattern::Struct { type_name, fields } => match value {
+            Value::Struct(struct_value) if &struct_value.type_name == type_name => {
+                let mut bindings = Vec::new();
+                let struct_fields = struct_value.fields.borrow();
+                for (field_name, field_pattern) in fields {
+                    let field_value = struct_fields.get(field_name)?;
+                    bindings.extend(match_pattern(field_pattern, field_value)?);
+                }
+                Some(bindings)
+            }
+            _ => None,
+        },
+        Pattern::Or { alternatives } => {
+            alternatives.iter().find_map(|alternative| match_pattern(alternative, value))
+        }
     }
 }
 
@@ -1546,6 +1456,43 @@ mod tests {
         let program = decode(source).expect("valid IR JSON");
         let vm = Vm::new(&program);
         vm.run_calculations(&program)
+    }
+
+    /// Like `run`, but executes on a thread with an explicit, large
+    /// stack, and returns JSON instead of `Value` -- needed only for the
+    /// deep-recursion tests below. `Value` holds `Rc`, which isn't
+    /// `Send`, so results can't cross a `thread::spawn`/`.join()`
+    /// boundary directly; converting to `serde_json::Value` (fully
+    /// owned, no `Rc`) inside the worker thread before it returns
+    /// sidesteps that.
+    ///
+    /// This exists because `cargo test`'s own per-test thread stack is
+    /// markedly smaller than a real process's main thread (how
+    /// `reason-runtime-host` is actually invoked, where the OS default
+    /// already comfortably covers `max_call_depth`'s 128-level default)
+    /// -- without it, `unbounded_recursion_stops_at_max_call_depth_with_rt_call_003`
+    /// below stack-overflows and aborts the whole test binary before the
+    /// depth check ever fires, instead of exercising it. `runtime-cli`'s
+    /// `main` defends against the same underlying risk in production the
+    /// same way (see its `run_main` wrapper) -- the depth check is only
+    /// the *actual*, deterministic limit if the executing thread has
+    /// enough native stack to reach it without overflowing first.
+    fn run_json_on_large_stack(source: &str) -> Result<serde_json::Value, String> {
+        const STACK_SIZE: usize = 64 * 1024 * 1024;
+        let source = source.to_string();
+        std::thread::Builder::new()
+            .stack_size(STACK_SIZE)
+            .spawn(move || -> Result<serde_json::Value, String> {
+                let results = run(&source).map_err(|error| error.code)?;
+                let mut map = serde_json::Map::new();
+                for (name, value) in results {
+                    map.insert(name, to_json(&value));
+                }
+                Ok(serde_json::Value::Object(map))
+            })
+            .expect("failed to spawn test worker thread")
+            .join()
+            .expect("test worker thread panicked")
     }
 
     #[test]
@@ -1839,5 +1786,366 @@ mod tests {
             }
             other => panic!("expected an array, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn enum_values_compare_by_name_not_by_string() {
+        assert_eq!(
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            },
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            }
+        );
+        assert_ne!(
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            },
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Blue")
+            }
+        );
+        assert_ne!(
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            },
+            Value::String(Rc::from("Red"))
+        );
+    }
+
+    #[test]
+    fn match_dispatches_on_enum_value_falling_through_to_wildcard() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [
+                    {
+                        "id": "b1",
+                        "instructions": [{
+                            "op": "assign", "target": "color",
+                            "expr": {"op": "enum_value", "enum_name": "Color", "variant_name": "Green"}
+                        }],
+                        "terminator": {
+                            "kind": "match",
+                            "subject": {"op": "local", "name": "color"},
+                            "arms": [
+                                {
+                                    "pattern": {"kind": "enum_value", "enum_name": "Color", "variant_name": "Red"},
+                                    "guard": null,
+                                    "target": "b_red"
+                                },
+                                {
+                                    "pattern": {"kind": "wildcard"},
+                                    "guard": null,
+                                    "target": "b_default"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "id": "b_red",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": 1}}
+                    },
+                    {
+                        "id": "b_default",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": 0}}
+                    }
+                ]
+            }]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(results, vec![("Answer".to_string(), Value::Int(0))]);
+    }
+
+    #[test]
+    fn match_binds_optional_some_and_distinguishes_none_from_null() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Some", "None"],
+            "functions": [
+                {
+                    "id": "Some",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [
+                        {
+                            "id": "b1",
+                            "instructions": [{
+                                "op": "assign", "target": "value",
+                                "expr": {"op": "optional_some", "value": {"op": "const", "kind": "int", "value": 42}}
+                            }],
+                            "terminator": {
+                                "kind": "match",
+                                "subject": {"op": "local", "name": "value"},
+                                "arms": [
+                                    {
+                                        "pattern": {"kind": "optional_some", "pattern": {"kind": "binding", "name": "x"}},
+                                        "guard": null,
+                                        "target": "b_some"
+                                    },
+                                    {
+                                        "pattern": {"kind": "optional_none"},
+                                        "guard": null,
+                                        "target": "b_none"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "id": "b_some",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "local", "name": "x"}}
+                        },
+                        {
+                            "id": "b_none",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": -1}}
+                        }
+                    ]
+                },
+                {
+                    "id": "None",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [
+                        {
+                            "id": "b1",
+                            "instructions": [{
+                                "op": "assign", "target": "value",
+                                "expr": {"op": "optional_none"}
+                            }],
+                            "terminator": {
+                                "kind": "match",
+                                "subject": {"op": "local", "name": "value"},
+                                "arms": [
+                                    {
+                                        "pattern": {"kind": "optional_some", "pattern": {"kind": "binding", "name": "x"}},
+                                        "guard": null,
+                                        "target": "b_some"
+                                    },
+                                    {
+                                        "pattern": {"kind": "optional_none"},
+                                        "guard": null,
+                                        "target": "b_none"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "id": "b_some",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "local", "name": "x"}}
+                        },
+                        {
+                            "id": "b_none",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": -1}}
+                        }
+                    ]
+                }
+            ]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(
+            results,
+            vec![
+                ("Some".to_string(), Value::Int(42)),
+                ("None".to_string(), Value::Int(-1)),
+            ]
+        );
+    }
+
+    #[test]
+    fn match_guard_failure_rolls_back_pattern_bindings_before_trying_next_arm() {
+        // Both arms bind the subject to `x`; the first arm's guard is
+        // false, so its binding must be undone before the second arm's
+        // guard runs -- otherwise a stale `x` from the failed first arm
+        // could leak into the second arm's guard evaluation.
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [
+                    {
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "match",
+                            "subject": {"op": "const", "kind": "int", "value": 5},
+                            "arms": [
+                                {
+                                    "pattern": {"kind": "binding", "name": "x"},
+                                    "guard": {
+                                        "op": "comparison", "operator": "GreaterThan",
+                                        "left": {"op": "local", "name": "x"},
+                                        "right": {"op": "const", "kind": "int", "value": 10}
+                                    },
+                                    "target": "b_big"
+                                },
+                                {
+                                    "pattern": {"kind": "binding", "name": "x"},
+                                    "guard": null,
+                                    "target": "b_default"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "id": "b_big",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": 1}}
+                    },
+                    {
+                        "id": "b_default",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "local", "name": "x"}}
+                    }
+                ]
+            }]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(results, vec![("Answer".to_string(), Value::Int(5))]);
+    }
+
+    #[test]
+    fn direct_self_recursion_computes_correctly() {
+        // Phase 4 ("制御された再帰"): a function calling itself is no
+        // longer rejected at the language-surface level (FN-007 removed)
+        // -- this proves the VM's own call-depth machinery (already
+        // present for ordinary nested calls) handles a self-referential
+        // `call_function` correctly, independent of the Python lowering
+        // pipeline.
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [
+                {
+                    "id": "fn.Factorial",
+                    "parameters": ["n"],
+                    "entry_block": "b1",
+                    "blocks": [
+                        {
+                            "id": "b1",
+                            "instructions": [],
+                            "terminator": {
+                                "kind": "branch",
+                                "condition": {
+                                    "op": "comparison", "operator": "LessThanOrEqual",
+                                    "left": {"op": "local", "name": "n"},
+                                    "right": {"op": "const", "kind": "int", "value": 1}
+                                },
+                                "then": "b_base",
+                                "else": "b_recurse"
+                            }
+                        },
+                        {
+                            "id": "b_base",
+                            "instructions": [],
+                            "terminator": {"kind": "return", "value": {"op": "const", "kind": "int", "value": 1}}
+                        },
+                        {
+                            "id": "b_recurse",
+                            "instructions": [],
+                            "terminator": {
+                                "kind": "return",
+                                "value": {
+                                    "op": "binary", "operator": "Multiply",
+                                    "left": {"op": "local", "name": "n"},
+                                    "right": {
+                                        "op": "call_function", "name": "Factorial",
+                                        "arguments": [{
+                                            "op": "binary", "operator": "Subtract",
+                                            "left": {"op": "local", "name": "n"},
+                                            "right": {"op": "const", "kind": "int", "value": 1}
+                                        }]
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "result",
+                            "value": {
+                                "op": "call_function", "name": "Factorial",
+                                "arguments": [{"op": "const", "kind": "int", "value": 5}]
+                            }
+                        }
+                    }]
+                }
+            ]
+        }"#;
+        let result = run_json_on_large_stack(ir).expect("no runtime error");
+        assert_eq!(result["Answer"], serde_json::json!(120));
+    }
+
+    #[test]
+    fn unbounded_recursion_stops_at_max_call_depth_with_rt_call_003() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [
+                {
+                    "id": "fn.Loop",
+                    "parameters": ["n"],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "return",
+                            "value": {
+                                "op": "call_function", "name": "Loop",
+                                "arguments": [{
+                                    "op": "binary", "operator": "Add",
+                                    "left": {"op": "local", "name": "n"},
+                                    "right": {"op": "const", "kind": "int", "value": 1}
+                                }]
+                            }
+                        }
+                    }]
+                },
+                {
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "result",
+                            "value": {
+                                "op": "call_function", "name": "Loop",
+                                "arguments": [{"op": "const", "kind": "int", "value": 0}]
+                            }
+                        }
+                    }]
+                }
+            ]
+        }"#;
+        let error_code = run_json_on_large_stack(ir).expect_err("must fail");
+        assert_eq!(error_code, "RT-CALL-003");
     }
 }
