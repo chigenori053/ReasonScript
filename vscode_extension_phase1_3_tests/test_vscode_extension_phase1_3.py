@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import unittest
 from pathlib import Path
 
@@ -12,10 +11,8 @@ EXT = ROOT / "vscode-extension"
 
 class VSCodeExtensionPhase13Tests(unittest.TestCase):
     def setUp(self):
-        self.package = json.loads((EXT / "package.json").read_text(encoding="utf-8"))
         self.extension_source = (EXT / "src" / "extension.ts").read_text(encoding="utf-8")
         self.toolchain_source = (EXT / "src" / "commands" / "toolchain.ts").read_text(encoding="utf-8")
-        self.commands = [item["command"] for item in self.package["contributes"]["commands"]]
 
     # -------------------------------------------------------------------------
     # VSXP13-001  Module Load Success
@@ -60,30 +57,6 @@ class VSCodeExtensionPhase13Tests(unittest.TestCase):
     def test_vsxp13_006_extension_host_visibility(self):
         """extension.ts uses console.log for visibility in Extension Host."""
         self.assertIn('console.log("[ReasonScript] activate start");', self.extension_source)
-
-    # -------------------------------------------------------------------------
-    # VSXP13-007  Build Command Registration
-    # -------------------------------------------------------------------------
-    def test_vsxp13_007_build_command_registration(self):
-        self.assertIn("reasonscript.build", self.commands)
-
-    # -------------------------------------------------------------------------
-    # VSXP13-008  Run Command Registration
-    # -------------------------------------------------------------------------
-    def test_vsxp13_008_run_command_registration(self):
-        self.assertIn("reasonscript.run", self.commands)
-
-    # -------------------------------------------------------------------------
-    # VSXP13-009  Test Command Registration
-    # -------------------------------------------------------------------------
-    def test_vsxp13_009_test_command_registration(self):
-        self.assertIn("reasonscript.test", self.commands)
-
-    # -------------------------------------------------------------------------
-    # VSXP13-010  Check Command Registration
-    # -------------------------------------------------------------------------
-    def test_vsxp13_010_check_command_registration(self):
-        self.assertIn("reasonscript.check", self.commands)
 
     # -------------------------------------------------------------------------
     # VSXP13-011  LSP Failure Isolation Regression

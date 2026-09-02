@@ -8,17 +8,6 @@ DEV_PY = REPO_ROOT / "scripts" / "dev.py"
 OFFICIAL_UI = REPO_ROOT / "apps" / "reasonscript-ide" / "ui"
 COMMANDS_DOC = REPO_ROOT / "docs" / "development" / "commands.md"
 TEST_MATRIX_DOC = REPO_ROOT / "docs" / "development" / "test_matrix.md"
-MIGRATION_DOC = REPO_ROOT / "docs" / "development" / "legacy_feature_migration_decision.md"
-PLACEMENT_DOC = REPO_ROOT / "docs" / "development" / "legacy_feature_official_ide_placement.md"
-CHANGELOG = REPO_ROOT / "docs" / "changelog" / "ide_phase_4_5_d_legacy_playground_physical_removal.md"
-REMOVAL_DOC = REPO_ROOT / "docs" / "development" / "legacy_playground_physical_removal_phase_4_5_d.md"
-
-ALLOWED_HISTORICAL_FILES = {
-    REPO_ROOT / "docs" / "development" / "legacy_playground_removal_impact.md",
-    REPO_ROOT / "docs" / "development" / "ide_code_review_phase_4_5_a.md",
-    REPO_ROOT / "docs" / "development" / "ide_version_inventory.md",
-    REMOVAL_DOC,
-}
 
 
 def _read(path: Path) -> str:
@@ -93,30 +82,3 @@ def test_official_ide_ui_path_remains_apps_reasonscript_ide_ui() -> None:
     assert "apps/reasonscript-ide/ui" in source
     source = _read(TEST_MATRIX_DOC)
     assert "apps/reasonscript-ide/ui/" in source
-
-
-def test_historical_docs_may_mention_removed_legacy_ui() -> None:
-    for path in ALLOWED_HISTORICAL_FILES:
-        if path.is_file():
-            source = _read(path)
-            assert "playground/frontend" in source or "removed" in source.lower()
-
-
-def test_deletion_gate_docs_updated() -> None:
-    source = _read(MIGRATION_DOC)
-    assert "LEGACY PLAYGROUND FRONTEND REMOVED" in source
-    source = _read(PLACEMENT_DOC)
-    assert "Phase 4.5-D removed the legacy Playground frontend." in source
-
-
-def test_changelog_exists() -> None:
-    assert CHANGELOG.is_file()
-    source = _read(CHANGELOG)
-    assert "Phase 4.5-D" in source
-    assert "Legacy Playground Physical Removal" in source
-
-
-def test_removal_spec_doc_exists() -> None:
-    assert REMOVAL_DOC.is_file()
-    source = _read(REMOVAL_DOC)
-    assert "playground/frontend" in source

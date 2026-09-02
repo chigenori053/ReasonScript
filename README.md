@@ -35,7 +35,8 @@ for the official macOS arm64 package update procedure.
 
 `./reason ci` runs the full CI Stabilization pipeline (checkout, workspace,
 diagnostics, artifacts, golden corpus, agent protocol, DTO compatibility,
-and the test suite — 1085 tests passing as of this release).
+and the repository-wide Rust and Python test platform, including regression
+tests).
 
 ### Not yet implemented
 

@@ -93,7 +93,7 @@ COMPATIBILITY_TARGETS = {
     "reasonscript-tensor-function-manifest/1.0": lambda: __import__("toolchain.tensor_manifest", fromlist=["MANIFEST_SCHEMA"]).MANIFEST_SCHEMA == "reasonscript-tensor-function-manifest/1.0",
 }
 
-DEFAULT_TEST_COMMAND = (sys.executable, "-m", "pytest", "tests", "-q")
+DEFAULT_TEST_COMMAND = (sys.executable, "scripts/test_platform.py", "test")
 
 
 def run_pipeline(root: Path, *, run_tests: bool = True, test_command: tuple[str, ...] = DEFAULT_TEST_COMMAND) -> dict[str, Any]:
@@ -330,8 +330,7 @@ def _check_tests(root: Path, *, run_tests: bool, test_command: tuple[str, ...]) 
 
 
 def _parse_passed_count(output: str) -> int:
-    match = re.search(r"(\d+) passed", output)
-    return int(match.group(1)) if match else 0
+    return sum(int(value) for value in re.findall(r"(\d+) passed", output))
 
 
 def _read_json(path: Path) -> Any:

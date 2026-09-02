@@ -95,6 +95,12 @@ reason agent-report
 
 `reason ci` implements the canonical pipeline described in Section 4 and orchestrates the required commands above.
 
+The repository-wide test definition is `python3 scripts/test_platform.py test`.
+Both `reason ci` and the GitHub Actions Test workflow shall invoke this same
+definition. The test target includes unit, integration, regression,
+compatibility, golden, playground, CLI, and native Rust tests, and shall not
+run a nested test directory more than once.
+
 ## 6. Validation Pipeline
 
 The CI pipeline shall validate:
@@ -118,6 +124,11 @@ The CI workflow shall execute:
 - CLI Tests
 
 Additional test categories may be added without modifying this specification.
+
+Continuous tests shall protect current product behavior or a supported
+compatibility contract. Tests whose only purpose is to prove that a completed
+historical phase document or changelog entry exists shall not remain in the
+repository-wide suite. Identical checks shall have one canonical owner.
 
 ## 8. Artifact Verification
 
@@ -235,6 +246,8 @@ The canonical workflow shall:
 - fail on validation errors
 - upload generated artifacts when configured
 - publish machine-readable reports
+- use `scripts/test_platform.py test` as the single repository-wide test definition
+- avoid repeating regression or canonical CI execution inside the Test workflow
 
 The workflow shall remain deterministic across supported operating systems.
 

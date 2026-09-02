@@ -515,13 +515,6 @@ class TC1010DeterministicRebuild(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def test_second_build_is_cached(self, capsule=None):
-        build_run(self.tmp)
-        ir_before = self._read_ir()
-        build_run(self.tmp)
-        ir_after = self._read_ir()
-        self.assertEqual(ir_before, ir_after)
-
     def test_unchanged_source_skips_rebuild(self):
         build_run(self.tmp)
         ir_before = self._read_ir()

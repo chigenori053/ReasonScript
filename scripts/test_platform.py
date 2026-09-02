@@ -152,27 +152,40 @@ def _steps_for(target: str, *, quick: bool, passthrough: list[str]) -> list[Step
     if target == "test":
         return (
             _rust_test_steps()
-            + _pytest_steps("unit", passthrough)
-            + _pytest_steps("integration", passthrough)
-            + _pytest_steps("golden", passthrough)
-            + _pytest_steps("compatibility", passthrough)
-            + _pytest_steps("playground", passthrough)
+            + _pytest_steps_for_groups(
+                ("unit", "integration", "regression", "golden", "compatibility", "playground"),
+                passthrough,
+            )
         )
     if target == "release-check":
-        return (
-            _build_steps()
-            + _steps_for("test", quick=quick, passthrough=passthrough)
-            + _pytest_steps("regression", passthrough)
-        )
+        return _build_steps() + _steps_for("test", quick=quick, passthrough=passthrough)
     if target in PYTEST_GROUPS:
         return _pytest_steps(target, passthrough)
     raise AssertionError(f"unknown target: {target}")
 
 
 def _pytest_steps(group: str, passthrough: list[str]) -> list[Step]:
-    paths = [path for path in PYTEST_GROUPS[group] if (ROOT / path).exists()]
+    return _pytest_steps_for_groups((group,), passthrough)
+
+
+def _pytest_steps_for_groups(groups: tuple[str, ...], passthrough: list[str]) -> list[Step]:
+    """Build one complete pytest plan without running nested suites twice."""
+    candidates = list(dict.fromkeys(
+        path
+        for group in groups
+        for path in PYTEST_GROUPS[group]
+        if (ROOT / path).exists()
+    ))
+    paths = [
+        path
+        for path in candidates
+        if not any(
+            other != path and Path(other) in Path(path).parents
+            for other in candidates
+        )
+    ]
     return [
-        Step(f"pytest:{group}:{path}", [sys.executable, "-m", "pytest", path, *passthrough])
+        Step(f"pytest:{path}", [sys.executable, "-m", "pytest", path, *passthrough])
         for path in paths
     ]
 

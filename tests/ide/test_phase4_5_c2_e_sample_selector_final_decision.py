@@ -14,11 +14,8 @@ SAMPLE_BROWSER_VIEW = UI_SRC / "views" / "SampleBrowserView.tsx"
 SAMPLE_LOGS_VIEW = UI_SRC / "views" / "SampleOperationLogsView.tsx"
 SAMPLE_METADATA_VIEW = UI_SRC / "views" / "SampleMetadataView.tsx"
 STANDARD_LAYOUT = UI_SRC / "views" / "StandardLayoutViews.tsx"
-FEATURE_DOC = REPO_ROOT / "docs" / "development" / "legacy_feature_migration_decision.md"
-API_DOC = REPO_ROOT / "docs" / "development" / "legacy_api_retention_policy.md"
 PLACEMENT_DOC = REPO_ROOT / "docs" / "development" / "legacy_feature_official_ide_placement.md"
 MIGRATION_DOC = REPO_ROOT / "docs" / "development" / "sample_selector_final_decision_phase_4_5_c2_e.md"
-CHANGELOG = REPO_ROOT / "docs" / "changelog" / "ide_phase_4_5_c2_e_sample_selector_final_decision.md"
 
 
 def _read(path: Path) -> str:
@@ -44,7 +41,6 @@ def test_sample_browser_view_model_file_exists() -> None:
         "sampleBrowserIssuesAsPlatformDiagnostics",
     ]:
         assert text in source
-
 
 def test_official_ide_includes_sample_browser_surface() -> None:
     source = _read(SAMPLE_BROWSER_VIEW) + _read(WORKSPACE_EXPLORER)
@@ -123,29 +119,3 @@ def test_missing_examples_state_has_fallback_empty_states() -> None:
         "Examples unavailable.",
     ]:
         assert text in source
-
-
-def test_legacy_feature_decision_doc_updates_sample_selector_to_migrated() -> None:
-    source = _read(FEATURE_DOC)
-    row = re.search(r"^\|\s*Sample selector\s*\|.*$", source, re.MULTILINE)
-    assert row is not None
-    assert "`MIGRATED`" in row.group(0)
-    assert "REVIEWED - UPDATED THROUGH PHASE 4.5-D." in source
-    assert "LEGACY PLAYGROUND FRONTEND REMOVED" in source
-    assert "None. All previously deferred legacy UI features have been resolved." in source
-
-
-def test_api_retention_policy_updates_examples_for_official_ide() -> None:
-    source = _read(API_DOC)
-    row = re.search(r"^\|\s*`/api/examples`\s*\|.*$", source, re.MULTILINE)
-    assert row is not None
-    assert "`KEEP_FOR_OFFICIAL_IDE`" in row.group(0)
-    assert "Migrated in Phase 4.5-C2-E without backend contract rewrite." in row.group(0)
-
-
-def test_docs_and_changelog_exist() -> None:
-    for path in [PLACEMENT_DOC, MIGRATION_DOC, CHANGELOG]:
-        assert path.is_file(), path
-        assert path.read_text(encoding="utf-8").strip()
-    assert "Phase 4.5-C2-E" in _read(MIGRATION_DOC)
-    assert "All legacy UI migration and decision blockers have been resolved." in _read(CHANGELOG)

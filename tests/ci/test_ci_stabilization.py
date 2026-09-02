@@ -1,5 +1,8 @@
 from pathlib import Path
 
+from scripts import test_platform
+from toolchain.ci import DEFAULT_TEST_COMMAND, _parse_passed_count
+
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
@@ -24,9 +27,29 @@ def test_workflows_use_test_platform_entrypoint():
     assert "scripts/test_platform.py lint" in _workflow("lint.yml")
     assert "scripts/test_platform.py build --quick" in _workflow("build.yml")
     assert "scripts/test_platform.py test" in _workflow("test.yml")
-    assert "scripts/test_platform.py regression" in _workflow("test.yml")
+    assert "scripts/test_platform.py regression" not in _workflow("test.yml")
+    assert "./reason ci" not in _workflow("test.yml")
     assert "scripts/test_platform.py release-check --quick" in _workflow("release.yml")
     assert "./reason ci" in _workflow("ci.yml")
+
+
+def test_canonical_ci_and_github_test_share_the_full_test_platform():
+    assert DEFAULT_TEST_COMMAND[1:] == ("scripts/test_platform.py", "test")
+
+    steps = test_platform._steps_for("test", quick=False, passthrough=[])
+    pytest_paths = [step.command[3] for step in steps if step.command[1:3] == ["-m", "pytest"]]
+
+    assert "tests" in pytest_paths
+    assert "language_surface_release_tests" in pytest_paths
+    assert "runtime_semantics_validation_tests" in pytest_paths
+    assert "tests/golden" not in pytest_paths
+    assert "tests/compatibility" not in pytest_paths
+    assert len(pytest_paths) == len(set(pytest_paths))
+
+
+def test_ci_report_sums_all_test_platform_subsuite_results():
+    output = "20 passed; 0 failed\n1230 passed, 3 skipped\n10 passed in 0.2s\n"
+    assert _parse_passed_count(output) == 1260
 
 
 def test_v0_6_language_layer_validation_scope_is_in_standard_test_platform():
