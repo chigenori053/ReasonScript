@@ -1,4 +1,4 @@
-"""CLI for canonical `.rstensor` import, inspection, and verification."""
+"""CLI for native `.rstensor` import, inspection, and verification."""
 
 from __future__ import annotations
 
@@ -7,7 +7,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from frontend.tensor.runtime import TensorError, TensorRuntime
+from frontend.language_surface.parser import parse
+from toolchain.runtime_dispatch import RustDispatchError, execute_rust_program
+
+
+class TensorCommandError(ValueError):
+    def __init__(self, code: str, message: str):
+        self.code = code
+        super().__init__(message)
 
 
 def _option(args: list[str], name: str) -> str | None:
@@ -39,23 +46,40 @@ def _source_values(path: Path, format_name: str) -> tuple[Any, str | None]:
         try:
             import numpy
         except ImportError as error:
-            raise TensorError(
+            raise TensorCommandError(
                 "TIO-006", "NumPy is required for --from npy"
             ) from error
         array = numpy.load(path, allow_pickle=False)
         dtype = {
-            "bool": "bool",
-            "int32": "i32",
-            "int64": "i64",
-            "float32": "f32",
-            "float64": "f64",
+            "bool": "bool", "int32": "i32", "int64": "i64",
+            "float32": "f32", "float64": "f64",
         }.get(str(array.dtype))
         if dtype is None:
-            raise TensorError(
+            raise TensorCommandError(
                 "TIO-006", f"unsupported NumPy dtype: {array.dtype}"
             )
         return array.tolist(), dtype
-    raise TensorError("TIO-006", f"unsupported Tensor import format: {format_name}")
+    raise TensorCommandError(
+        "TIO-006", f"unsupported Tensor import format: {format_name}"
+    )
+
+
+def _literal(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+
+
+def _run_native(source: str, root: Path, *, read: bool, write: bool) -> dict[str, Any]:
+    return execute_rust_program(
+        parse(source), root, read, write, include_trace=True
+    )
+
+
+def _tensor_metadata(result: dict[str, Any]) -> dict[str, Any]:
+    for step in result.get("tensor_trace", []):
+        output = step.get("output") if isinstance(step, dict) else None
+        if isinstance(output, dict) and "tensor_id" in output:
+            return output
+    raise TensorCommandError("TIO-006", "native Tensor metadata is unavailable")
 
 
 def run(args: list[str], root: Path) -> int:
@@ -71,73 +95,70 @@ def run(args: list[str], root: Path) -> int:
             target_value = _option(args, "--output")
             format_name = _option(args, "--from")
             if not source_value or not target_value or not format_name:
-                raise TensorError(
+                raise TensorCommandError(
                     "TIO-006",
                     "tensor import requires --from, --input, and --output",
                 )
             source, target = _path(source_value), _path(target_value)
             values, inferred_dtype = _source_values(source, format_name)
             dtype = _option(args, "--dtype") or inferred_dtype
-            runtime = TensorRuntime(
-                resource_root=target.parent,
-                filesystem_write=True,
+            dtype_argument = f", {_literal(dtype)}" if dtype else ""
+            native = _run_native(
+                "module TensorImport {\n"
+                "  calculation Command {\n"
+                f"    let value = tensor.create({_literal(values)}{dtype_argument})\n"
+                f"    let receipt = tensor.save(value, {_literal(target.name)}, "
+                f"{'true' if '--overwrite' in args else 'false'})\n"
+                "    result = receipt\n"
+                "  }\n"
+                "}\n",
+                target.parent,
+                read=False,
+                write=True,
             )
-            tensor = runtime.create(values, dtype=dtype)
-            receipt = runtime.save(
-                tensor, target.name, overwrite="--overwrite" in args
-            )
+            receipt = native["result"]
+            metadata = _tensor_metadata(native)
             result = {
-                "command": "import",
-                "ok": True,
-                "source": str(source),
-                **receipt,
-                "shape": list(tensor.shape),
-                "dtype": tensor.dtype,
+                "command": "import", "ok": True, "source": str(source),
+                **receipt, "shape": metadata["shape"], "dtype": metadata["dtype"],
             }
         else:
             if len(args) < 2:
-                raise TensorError("TIO-006", "Tensor file path is required")
+                raise TensorCommandError("TIO-006", "Tensor file path is required")
             source = _path(args[1])
-            runtime = TensorRuntime(
-                resource_root=source.parent,
-                filesystem_read=True,
+            native = _run_native(
+                "module TensorInspect {\n"
+                "  calculation Command {\n"
+                f"    let value = tensor.load({_literal(source.name)})\n"
+                "    result = tensor.size(value)\n"
+                "  }\n"
+                "}\n",
+                source.parent,
+                read=True,
+                write=False,
             )
-            tensor = runtime.load(source.name)
+            metadata = _tensor_metadata(native)
+            shape = metadata["shape"]
             result = {
-                "command": operation,
-                "ok": True,
-                "path": str(source),
-                "shape": list(tensor.shape),
-                "rank": tensor.rank,
-                "dtype": tensor.dtype,
+                "command": operation, "ok": True, "path": str(source),
+                "shape": shape, "rank": len(shape), "dtype": metadata["dtype"],
                 "byte_size": source.stat().st_size,
             }
-    except (OSError, ValueError, TensorError) as error:
-        code = (
-            error.diagnostic.code
-            if isinstance(error, TensorError)
-            else "TIO-006"
-        )
+    except (OSError, ValueError, TensorCommandError, RustDispatchError) as error:
+        if isinstance(error, RustDispatchError):
+            code = error.code
+        elif isinstance(error, TensorCommandError):
+            code = error.code
+        else:
+            code = "TIO-006"
         result = {
-            "command": operation,
-            "ok": False,
+            "command": operation, "ok": False,
             "diagnostics": [{"code": code, "message": str(error)}],
         }
     if json_output:
-        print(
-            json.dumps(
-                result,
-                ensure_ascii=False,
-                sort_keys=True,
-                indent=2,
-                allow_nan=False,
-            )
-        )
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False))
     elif result["ok"]:
-        print(
-            f"Tensor {operation} passed: "
-            f"shape={result.get('shape')} dtype={result.get('dtype')}"
-        )
+        print(f"Tensor {operation} passed: shape={result.get('shape')} dtype={result.get('dtype')}")
     else:
         diagnostic = result["diagnostics"][0]
         print(f"{diagnostic['code']}: {diagnostic['message']}")

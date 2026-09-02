@@ -85,6 +85,83 @@ def test_ruo_standard_function_namespace_lowers_to_typed_operations() -> None:
     with pytest.raises(SurfaceSyntaxError, match="RUO-N2-009"): parse('model X {\n reason_object x from "x.ruo";\n calculation A {\n result = ruo.unknown(x)\n }\n}\n')
 
 
+def test_reason_object_is_a_first_class_function_value() -> None:
+    source = '''model X {
+ reason_object vehicle from "objects/complete.ruo" as "ruo:object:universal-fixture";
+ fn Identity(value: ReasonObject) -> ReasonObject {
+  return value
+ }
+ calculation Probe {
+  let current = Identity(vehicle)
+  result = ruo.object_id(current)
+ }
+}
+'''
+    program = parse(source)
+    assert compile_program(program)[0]["metadata"]["reason_object_operations"][0]["output_type"] == "StableId"
+
+
+def test_ruo_static_argument_types_are_checked() -> None:
+    with pytest.raises(SurfaceSyntaxError, match=r"RUO-N2-009.*expects ReasonObject"):
+        parse('model X {\n calculation Probe {\n  result = ruo.object_id(1)\n }\n}\n')
+
+
+def test_reason_object_executes_through_ast_and_computation_ir() -> None:
+    from frontend.computation_ir import interpret_program, lower_program
+    from frontend.integrated_computation_runtime import execute_program
+
+    source = '''model X {
+ reason_object vehicle from "objects/complete.ruo" as "ruo:object:universal-fixture";
+ fn Identity(value: ReasonObject) -> ReasonObject {
+  return value
+ }
+ calculation Probe {
+  result = ruo.object_id(Identity(vehicle))
+ }
+}
+'''
+    root = ROOT / "artifacts/reasonunit_language/ruo_n2/fixtures"
+    program = parse(source)
+    ast = execute_program(program, resource_root=root, filesystem_read=True).to_dict()
+    ir = interpret_program(lower_program(program), resource_root=root, filesystem_read=True).to_dict()
+    assert ast["calculations"] == ir["calculations"] == {"Probe": "ruo:object:universal-fixture"}
+
+
+def test_reason_object_identity_executes_in_rust_vm_when_built() -> None:
+    from frontend.computation_ir import lower_program
+    from frontend.computation_ir.rust_bridge import find_binary, run_ir
+
+    binary = find_binary()
+    if binary is None:
+        pytest.skip("Rust computation runtime has not been built")
+    source = '''model X {
+ reason_object vehicle from "objects/complete.ruo" as "ruo:object:universal-fixture";
+ calculation Probe {
+  result = ruo.object_id(ruo.snapshot(vehicle))
+ }
+}
+'''
+    root = ROOT / "artifacts/reasonunit_language/ruo_n2/fixtures"
+    outcome = run_ir(lower_program(parse(source)), binary=binary, cwd=root)
+    assert outcome.ok and outcome.calculation_results == {"Probe": "ruo:object:universal-fixture"}
+
+
+def test_reason_object_calculation_requires_read_capability() -> None:
+    from frontend.integrated_computation_runtime import IntegratedRuntimeError, execute_program
+
+    source = '''model X {
+ reason_object vehicle from "objects/complete.ruo";
+ calculation Probe {
+  result = ruo.object_id(vehicle)
+ }
+}
+'''
+    root = ROOT / "artifacts/reasonunit_language/ruo_n2/fixtures"
+    with pytest.raises(IntegratedRuntimeError) as raised:
+        execute_program(parse(source), resource_root=root)
+    assert raised.value.code == "RUO-N2-007"
+
+
 def test_non_opt_in_ast_ir_and_plan_remain_unchanged() -> None:
     source = 'model X {\n calculation A {\n  result = 1\n }\n}\n'; program = parse(source); before = to_json_value(program); ir = compile_program(program)[0]
     assert format_reason_object_source(source) == source and to_json_value(parse(source)) == before

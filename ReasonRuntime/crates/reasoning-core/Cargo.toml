@@ -1,0 +1,9 @@
+[package]
+name = "reasonscript-reasoning-core"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Deterministic native runtime.search/simulate/predict/plan core."
+
+[dependencies]
+serde_json = "1.0"

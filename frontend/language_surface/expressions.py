@@ -608,6 +608,18 @@ class _Parser:
             if self.current.kind == _Kind.IDENTIFIER and self._next_kind() == _Kind.ASSIGN:
                 name = self.take().value
                 self.take()
+                if _optimizer_callee_name(callee) is not None:
+                    # optimizer.* functions are always positional-only
+                    # (see frontend/tensor/optimizers.py) -- named
+                    # arguments are rejected outright rather than falling
+                    # through to the Tensor named-argument check below,
+                    # which would misreport this as a Tensor diagnostic.
+                    raise ExpressionSyntaxError(f"OPT-002 named arguments are not supported: {name}")
+                if _relation_callee_name(callee) is not None:
+                    # relation.* functions are always positional-only
+                    # (see frontend/relation/integration.py), same
+                    # rationale as optimizer.* above.
+                    raise ExpressionSyntaxError(f"REL-002 named arguments are not supported: {name}")
                 function = _tensor_callee_name(callee)
                 signature = operation_signature(function or "")
                 positions = signature.arguments if signature is not None else ()
@@ -740,6 +752,26 @@ def _tensor_callee_name(callee: Expression) -> str | None:
         and callee.object.name == "tensor"
     ):
         return f"tensor.{callee.member}"
+    return None
+
+
+def _optimizer_callee_name(callee: Expression) -> str | None:
+    if (
+        isinstance(callee, MemberAccessNode)
+        and isinstance(callee.object, IdentifierNode)
+        and callee.object.name == "optimizer"
+    ):
+        return f"optimizer.{callee.member}"
+    return None
+
+
+def _relation_callee_name(callee: Expression) -> str | None:
+    if (
+        isinstance(callee, MemberAccessNode)
+        and isinstance(callee.object, IdentifierNode)
+        and callee.object.name == "relation"
+    ):
+        return f"relation.{callee.member}"
     return None
 
 

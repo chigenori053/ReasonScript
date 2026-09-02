@@ -1,5 +1,361 @@
 # Changelog
 
+## [0.5.5.8] - 2026-08-30
+
+### Added
+- Completed ReasonScript Modernization Phases 0 through 5:
+  - Phase 0: Enforced executable check contract across CLI and toolchain.
+  - Phase 1: Implemented unified enum, optional, and pattern matching runtime.
+  - Phase 2: Added `string.*` and collection standard library functions.
+  - Phase 3: Implemented execution-based test framework with `assert` and `assert_eq`.
+  - Phase 4: Enabled controlled recursion with call graph analysis and recursion limits.
+  - Phase 5: Reconciled module, manifest, and ReasonGraph native transaction parity.
+
+### Fixed
+
+
+- Completed UERA-8 optimizer integration: Computation IR now classifies pure
+  functions conservatively, inlines eligible non-recursive functions with at
+  most 32 instructions, and performs trace-preserving loop-invariant code
+  motion for proven-total expressions. Built-project and standalone native
+  execution both consume optimized IR. Added a reproducible Relation Matrix
+  benchmark recording result parity, a 0.01131-second optimized median, and a
+  1.336x speedup against the unoptimized interpreter.
+- Completed UERA-9 diagnostics for parenthesized multiline expressions:
+  unexpected and unclosed parentheses report exact physical line/column
+  locations, and regression tests now assert call-node source locations.
+- Stabilized GitHub CI by building `reason-runtime-host` inside Test and CI
+  jobs before runtime tests and by freezing Ruff to the repository's intended
+  error rule families.
+- Restored the accepted `reason run --result-output PATH` contract: the file
+  contains only the finite JSON-compatible calculation result, while the full
+  runtime envelope remains available through `--json` and `--out`. Removed the
+  conflicting v0.5.5.4 regression expectation that caused canonical CI to fail.
+- Restored runtime trace collection for `reason run --json`, preserving the
+  Vision and other machine-readable trace contracts while keeping `--trace` as
+  the explicit switch for human-readable runs.
+- Synchronized the RUO first-class runtime and Rust consolidation documents
+  with the completed strict-native implementation: all 16 `ruo.*` functions
+  execute in Rust without product fallback, and the documented workspace
+  layout now matches the consolidated Cargo workspace.
+
+- Completed first-class ReasonUnit Object bindings in the language and Python
+  computation runtimes. `ReasonObject` and related opaque RUO types now resolve
+  in function signatures, `reason_object` identifiers infer `ReasonObject`,
+  `ruo.*` calls provide result types and statically reject known argument-kind
+  mismatches, and both the AST evaluator and Python Computation IR interpreter
+  execute capability-confined Object bindings through a shared dispatcher.
+  Added `call_ruo` and Object binding records to `reason-computation-ir/0.1`;
+  the Rust VM now verifies native Objects and executes identity, snapshot,
+  resolution, status, and diagnostics, with the remaining operations routed to
+  the Python fallback. RUO-W1 world-level cutover remains explicitly deferred.
+
+- Hardened the `optimizer.*` implementation after a completeness audit:
+  `optimizer_dispatch.rs` now checks argument count upfront (a hand-built
+  IR document with too few arguments previously panicked via an
+  unchecked slice index instead of returning `OPT-002` -- unreachable
+  from real `.rsn` source, but a real robustness gap for hand-built IR);
+  `TensorRuntime.call_optimizer` now accepts and attaches
+  `_source_location` to raised errors, matching `call()`'s diagnostics
+  (both the IR interpreter and the AST evaluator now thread it through);
+  named-argument syntax on an `optimizer.*` call is now rejected with
+  `OPT-002` at parse time instead of falling through to a misleading
+  `TSF-016` Tensor diagnostic. 4 new regression tests.
+
+### Added
+
+- Completed Rust runtime consolidation Phase 9 cleanup: deleted the
+  unreferenced `Legacy/runtime` tree and `RuntimeComplex` placeholder crate;
+  removed Phase 6 optional-dispatch probes, Tensor-I/O fallback detection,
+  `fallback_reason` result metadata, stale shadow-mode guidance, and obsolete
+  build/pytest entries; and renamed the native dispatch regression suite.
+  Python reference engines and `RuntimeReal/HybridRuntime` remain because
+  active differential and SDK/DTO compatibility tests still require them.
+
+- Completed Rust runtime consolidation Phase 8: renamed the primary workspace
+  to `ReasonRuntime/`, moved the RUO and Vision libraries/binaries into
+  `crates/reason-object-core` and `crates/vision-core`, switched build/install/
+  validation discovery to the unified workspace target, and deleted the
+  superseded `ReasonComputationRuntime`, `NativeReasonUnitRuntime`, and
+  `VisionRuntime` directory layouts and duplicate Cargo lockfiles.
+
+- Completed Rust runtime consolidation Phase 7: removed Python evaluator
+  fallback from standalone and project execution, switched project validation
+  and `reason tensor import|inspect|verify` to the Rust host, and separated the
+  compiler's Tensor contract registry from the Python Tensor evaluator. Native
+  host/lowering/capability/bridge/runtime failures now remain structured Rust
+  diagnostics. Python evaluators are retained only as differential-test and
+  benchmark references pending their final deletion gates.
+
+- Completed Rust runtime consolidation Phase 6: added an in-process Rust
+  reasoning core for `runtime.search`, `runtime.simulate`, `runtime.predict`,
+  and `runtime.plan`; lowered those calls through Computation IR; propagated
+  RuntimeReal/HybridRuntime backend selection; and returned native reasoning
+  result, trace, and ExecutionPlan data. Differential tests freeze the existing
+  Optional result and diagnostic ABI against both Python reference evaluators.
+
+- Completed Rust runtime consolidation Phase 5: all 16 `ruo.*` functions and
+  both `vision.*` functions now execute as libraries inside the Rust runtime
+  host. Added canonical RUO-F1 save/publication, transaction and query parity,
+  Vision capability/path enforcement, native Vision trace, and differential
+  Python/Rust tests for results, diagnostics, saved Objects, and Tensor
+  resources. The Python RUO/Vision runtimes remain reference/fallback code
+  pending the Phase 7 retirement gates.
+
+- Added Phase 10's minimal SVD foundation (narrowed from the full
+  "Tucker optimizer/rank選択/denoise" scope after confirming no SVD,
+  eigendecomposition, or Tucker decomposition existed anywhere in this
+  repository to build Tucker on top of): a one-sided Jacobi SVD
+  (Hestenes' method) implemented identically and independently in
+  `frontend/tensor/linalg.py` and
+  `ReasonComputationRuntime/crates/tensor-core/src/linalg.rs`. Not
+  wired into the `tensor.*` language surface/IR yet -- `U`/singular
+  values/`V` are three differently-shaped outputs, hitting the same
+  "no synthetic struct return type" gap `optimizer.*`'s `join`/`project`
+  already document, a real separate design decision. Verified against
+  closed-form singular values, reconstruction accuracy, and `U`/`V`
+  orthogonality on both sides independently (no IR/CLI path exists yet
+  for the usual subprocess differential test, so both implementations
+  are checked against the same shared expected values instead). 4 new
+  Rust unit tests, 10 new Python tests
+  (`tensor_standard_functions_tests/test_linalg_svd.py`). Tucker
+  decomposition itself (mode-n unfolding, core tensor computation, rank
+  selection, `@approximate` syntax) remains real follow-up work; see
+  AGENTS.md.
+- Added Phase 9's `NumericMode::NativeFast` (narrowed after checking
+  this environment has no GPU and no system BLAS library, and after a
+  scope decision to skip a cost model): a second numeric mode alongside
+  the existing, default, completely unchanged `CompatReference`,
+  selected via `REASONSCRIPT_NUMERIC_MODE=native-fast` on the Rust CLI.
+  Real `f32` rounding (`Dtype::round_for_mode`, a strict superset of the
+  existing `cast`) at every intermediate Tensor a native-fast
+  computation produces, and `rayon`-parallelized elementwise/unary/
+  reduce/matmul op paths in `reasonscript-tensor-core`'s `ops.rs`, each
+  proven deterministic by construction (documented per function: fixed
+  per-row/per-group sequential accumulation order, never a
+  floating-point summation reorder) rather than by luck. 5 new Rust
+  unit tests proving bit-exact parity between each parallel function
+  and its sequential twin, plus 7 new Python tests
+  (`computation_ir_tests/test_computation_ir_native_fast_mode.py`)
+  covering default-mode equivalence, real f32 rounding, f64 bit-exact
+  parity between modes, and determinism across repeated process
+  invocations. `scripts/benchmark_native_fast.py` measures real
+  wall-clock speedup (1.42x on this session's 4-core, no-BLAS, no-GPU
+  environment for a 700×700 matmul workload) rather than reporting the
+  plan's un-validatable "10倍以上" target, which bundles BLAS and GPU
+  that are both out of scope here. See AGENTS.md for the full design
+  writeup and what's still Pending (BLAS, GPU, a cost model, packed
+  `f32`/`f64` storage).
+- Added the `relation.*` namespace (Phase 8, "Tensor Logic hybrid",
+  narrowed to its relational-algebra core after a scope decision):
+  `filter_eq`/`filter_ne`/`filter_gt`/`filter_gte`/`filter_lt`/`filter_lte`,
+  `count`, `distinct_by`, and `sort_by` over `Array<Struct>`
+  (ReasonScript's existing "array of same-shaped structs" IS a
+  relation's tuple set). All type-preserving (input/output share the
+  same `Array<Struct>` type), so no synthetic struct return type is
+  needed -- `join`/`project` are NOT implemented, since both change a
+  row's field shape and hit a real static-typing gap (no way to
+  synthesize a `StructDeclarationNode` for a derived field set); this
+  needs its own design decision, not made here. Every filter/sort field
+  argument is a required string literal (`REL-003` otherwise):
+  ReasonScript has no closures, so an arbitrary predicate can't be
+  passed. New `call_relation` IR node
+  (`frontend/computation_ir/schema.py`), a plain module-level
+  `call_relation` dispatcher in `frontend/integrated_computation_runtime.py`
+  (no persistent state -- every function is a pure `Array<Struct>` read)
+  used by both the AST evaluator and the IR interpreter, and
+  `ReasonComputationRuntime/crates/computation-ir/src/relation_dispatch.rs`
+  reusing `vm::eval_comparison` directly. New `REL-001`..`REL-007`
+  diagnostic family, kept outside the Tensor Standard Functions
+  contract. The Phase 7 IR optimizer treats `call_relation` like
+  `call_tensor`/`call_optimizer` (side-effect-free, never
+  CSE-deduplicated). 19 new differential Python/Rust tests
+  (`computation_ir_tests/test_computation_ir_relation_functions.py`),
+  plus 3 more covering its interaction with the Phase 7 IR optimizer.
+  Found and fixed two real parity/correctness bugs during development:
+  Python's `distinct_by` originally used a hash set (raises on an
+  unhashable field value, unlike Rust's linear equality scan) --
+  switched to a linear scan on both sides; Rust's `sort_by` comparator
+  originally derived `Ordering` naively from a single `<` check
+  (reports `Greater` for two *equal* fields in both directions, an
+  inconsistent comparator) -- fixed to derive a proper 3-way ordering
+  from two `<` comparisons, matching Python's `sorted()`. See AGENTS.md
+  for the full design writeup, including why the dense/sparse Tensor
+  partitioning half of Phase 8 and anything tied to the plan's
+  Transformer-specific "Relation Matrix" framing remain out of scope
+  (no fixture in this repository).
+
+- Added the `optimizer.*` namespace (SGD, Momentum, Adam, AdamW),
+  previously deferred as "Pending -- explicitly deferred as a separate
+  scope decision". New language surface (`frontend/tensor/optimizers.py`),
+  a new `call_optimizer` IR node alongside `call_tensor`/`call_vision`,
+  and a shared numeric implementation in both engines
+  (`TensorRuntime.call_optimizer` composed from the same elementwise
+  primitives `tensor.*` uses but never autograd-taped, and
+  `ReasonComputationRuntime/crates/computation-ir/src/optimizer_dispatch.rs`
+  composed the same way from `reasonscript_tensor_core::ops::broadcast_binary`).
+  Every function returns a single Tensor (`optimizer.sgd`,
+  `optimizer.momentum_velocity`/`optimizer.momentum`,
+  `optimizer.adam_moment1`/`optimizer.adam_moment2`/`optimizer.adam`,
+  `optimizer.adamw`) rather than a struct, working around a real gap in
+  the static type checker (no field access on a synthetic struct return
+  type). Deliberately kept outside the Tensor Standard Functions
+  contract (`tensor_function_manifest.json`/`reason tensor-manifest
+  --check` untouched) with its own `OPT-001`..`OPT-005` diagnostics. 13
+  new differential Python/Rust tests
+  (`computation_ir_tests/test_computation_ir_optimizer_functions.py`),
+  including a 30-iteration Adam training loop that actually converges.
+  Both the AST evaluator and the IR interpreter dispatch `optimizer.*`
+  calls; the Phase 7 IR optimizer treats `call_optimizer` like
+  `call_tensor` (side-effect-free, never CSE-deduplicated). See
+  AGENTS.md for the full design writeup and documented gaps (no
+  stateful `optimizer.step(handle, ...)` object API, no LR schedulers,
+  no gradient clipping).
+- Added Phase 7 "IR最適化" (`frontend/computation_ir/optimizer.py`,
+  `optimize_program`): constant folding (arithmetic/comparison/unary/
+  logical short-circuit/cast, leaving divide-or-modulo-by-zero unfolded
+  so RT-ARITH-001 still raises correctly), dead branch elimination,
+  unreachable block removal, dead local elimination (never eliminating
+  `tensor.load`/`tensor.save`), and local (single-block) common
+  subexpression elimination (never deduplicating Tensor/vision/function/
+  array-append calls). Runs once on the shared
+  `reason-computation-ir/0.1` JSON, benefiting both the Python
+  interpreter and the Rust `reason-computation-runtime`. New CLI flag
+  `reason computation-ir --optimize`. 18 new differential tests
+  (`computation_ir_tests/test_computation_ir_optimizer.py`, comparing
+  unoptimized/optimized results across both Python and Rust), including
+  a regression test for a self-referential-assign CSE cache-poisoning
+  bug (`i = i + 1`) found and fixed during development. Cross-block CSE,
+  loop-invariant code motion, a Relation Matrix cache, a compile-time
+  gradient-pruning pass, Tensor buffer reuse, and kernel fusion are
+  explicitly out of scope (see AGENTS.md for why). Optimizers (SGD/
+  Momentum/Adam/AdamW) remain Pending, unaffected by this phase.
+- Added Phase 6 "Rust default execution" to `scripts/reason_cli.py`
+  (`_run_result`/`_try_rust_execution`): `reason run`/`reason check` now
+  try the Rust computation runtime first for calculation/Tensor
+  programs, transparently falling back to the Python AST evaluator for
+  an unsupported construct, `tensor.load`/`save` without filesystem
+  capabilities granted, a trace request (`--trace`/`--json`, since Rust
+  doesn't produce trace/metadata parity yet), or any genuine runtime
+  error (re-derived via Python's own diagnostic path rather than
+  reshaping a Rust error here). `result["execution_mode"]` is now
+  `"integrated-rust"` when Rust ran the program. Added opt-in shadow
+  mode (`REASONSCRIPT_SHADOW_MODE=1`): re-runs a Rust-executed program
+  through Python and warns on stderr (without failing) if they disagree.
+  `runtime-cli`'s `serde_json` now uses `preserve_order` so
+  `calculation_results` comes back in execution order rather than
+  alphabetized. 8 new tests
+  (`runtime_completeness_tests/test_native_runtime_dispatch.py`).
+  Optimizers (SGD/Momentum/Adam/AdamW) remain Pending, per an explicit
+  decision to treat that as separate, not-yet-scoped work (see AGENTS.md).
+- Added Phase 5 "Rust Autograd" to `reasonscript-tensor-core`
+  (`autograd.rs`: tape + VJPs for every differentiable forward op the
+  crate implements) and wired `parameter`/`detach`/`requires_grad`/`grad`
+  into `tensor_dispatch.rs`, matching Python's `_GradNode`/`_vjp`/
+  `TensorRuntime.grad` exactly (including first-occurrence tie-breaking
+  for min/max gradients). Verified via a standalone Rust finite-difference
+  unit test (no Python needed), 18 new differential parity tests
+  (`computation_ir_tests/test_computation_ir_autograd_parity.py`), and a
+  hand-rolled 20-step gradient-descent loop matching `0.8**20` to full
+  f64 precision in both languages. Found and fixed a real bug along the
+  way: Python's broadcast ops (`add`/`multiply`/...) silently auto-box a
+  bare scalar/array literal operand into an untracked Tensor
+  (`_operand()`); the initial Rust port required an explicit Tensor
+  handle for both operands and rejected `tensor.multiply(x, 0.1)` with
+  `RT-CALL-005` until `operand_id()` was added to mirror that. Optimizers
+  (SGD/Momentum/Adam/AdamW) are explicitly NOT implemented: there is no
+  `optimizer.*` namespace anywhere in ReasonScript's language surface or
+  Python runtime to port from or diff against (see AGENTS.md).
+- Added `reasonscript-tensor-core` to `ReasonComputationRuntime/`,
+  implementing Phase 4 ("Rust Tensor forward"): Tensor storage/handle,
+  dtype system (compat-reference: f64 internally regardless of declared
+  dtype), dense CPU reference ops, a SHA-256-counter RNG matching Python
+  byte-for-byte, and `.rstensor` encode/decode with verified
+  bidirectional cross-language interop (Rust writes/Python reads and
+  vice versa). Wired into `computation-ir`'s VM via
+  `tensor_dispatch.rs`, which now executes ~50 of the 65 Tensor Standard
+  Functions for real (creation, inspection, shape ops, broadcast
+  binary/comparison/unary elementwise, reductions, dot/matmul/norm,
+  cast, to_array/scalar, the 4 RNG functions, load/save) rather than
+  always returning `RT-UNSUPPORTED-001`. `slice`/`narrow`/`gather`/
+  `concat`/`stack`, the neural-net inference ops
+  (`relu`/`softmax`/`linear`/`conv2d`/`max_pool2d`/`avg_pool2d`), and
+  autograd (`parameter`/`detach`/`requires_grad`/`grad`, Phase 5) remain
+  `RT-UNSUPPORTED-001`. Found and fixed a real cross-language semantic
+  gap along the way: Python `float / 0.0` raises at computation time
+  (normalized to `TensorError("TSF-012", ...)`) while Rust's `f64`
+  division silently produces `inf`; the Rust divide op now pre-checks
+  for a zero divisor to match. 16 new differential tests
+  (`computation_ir_tests/test_computation_ir_tensor_parity.py`), all
+  passing, including exact RNG value equality and both `.rstensor`
+  interop directions.
+- Added `ReasonComputationRuntime/`, a new independent Cargo workspace
+  implementing the Phase 3 "Rust VM skeleton": `computation-ir` (a
+  `reason-computation-ir/0.1` decoder plus a Tensor-less basic-block VM
+  matching `frontend/computation_ir/interpreter.py`'s semantics and RT-*
+  error codes instruction-for-instruction) and `runtime-cli` (the
+  `reason-computation-runtime` binary). `call_tensor`/`call_vision`
+  return `RT-UNSUPPORTED-001` rather than executing (Phase 4+ scope).
+  `frontend/computation_ir/rust_bridge.py` +
+  `computation_ir_tests/test_computation_ir_rust_parity.py` implement the
+  Phase 3 gate ("Tensorなしcalculationのpython/Rust一致"), skipping (not
+  failing) if the binary isn't built.
+  `scripts/test_platform.py`'s `RUST_CRATES`/`RUST_TEST_CRATES` now
+  include it, so `python3 scripts/test_platform.py test` builds and
+  `cargo test`s it before the Python parity tests run.
+- Added `frontend.computation_ir`: a Phase 2 `reason-computation-ir/0.1`
+  implementation — AST-to-basic-block lowering (`lowering.py`), a
+  temporary Python interpreter for that IR (`interpreter.py`), structural
+  schema validation (`validation.py`), and a differential test harness
+  proving the IR interpreter agrees with the existing AST evaluator
+  (`differential.py`, `computation_ir_tests/`). Exposed via
+  `reason computation-ir [--json] [--validate] <file.rsn>`. Rust work is
+  explicitly out of scope for this phase; see AGENTS.md for the exact
+  language-construct coverage and known scope limits.
+- Added `float(x)` / `int(x)` explicit numeric conversion builtins
+  (ReasonScript modernization plan L-004). `int(x)` truncates toward
+  zero. Validated in `frontend/language_surface/validation.py`
+  (`CAST-001`/`CAST-002`), evaluated in
+  `frontend/integrated_computation_runtime.py` (`RT-CALL-005`) and
+  `frontend/language_surface/integration.py`'s compile-time folding.
+- Added `TensorRuntime.no_grad()` (`frontend/tensor/runtime.py`), a
+  context manager that suppresses autograd tape recording for its
+  duration, implementing the plan's "evaluationをno-gradにする" Phase 1
+  item.
+
+- Added `reason tensor-manifest`, which emits a frozen
+  `reasonscript-tensor-function-manifest/1.0` JSON manifest of every
+  `tensor.*` function's argument/return/diagnostic contract, and a
+  `--check` mode that fails when the live contract set drifts from the
+  committed baseline (`docs/reports/tensor_function_manifest.json`). A
+  regression test (`tensor_standard_functions_tests/test_tensor_function_manifest.py`)
+  enforces this baseline in CI. This is the "契約manifest化 / 契約凍結"
+  Phase 0 baseline task from the ReasonScript modernization plan.
+- Added `scripts/benchmark_tensor.py` (`make benchmark-tensor`), a
+  micro/operator-tier benchmark harness measuring per-call latency of the
+  current Python Tensor runtime (cast/dispatch, elementwise, reduction,
+  matmul, softmax, gather), producing a `reasonscript-tensor-benchmark/1.0`
+  JSON report. This establishes the Phase 0 "before" baseline the plan's
+  later Rust runtime and IR-optimizer phases are meant to be measured
+  against.
+
+### Fixed
+
+- Fixed `/` and `%` leaking a raw Python `ZeroDivisionError` out of
+  `frontend/integrated_computation_runtime.py`'s expression evaluator
+  instead of the `IntegratedRuntimeError` diagnostic every other failure
+  path there uses. Division/modulo by zero now raises
+  `IntegratedRuntimeError("RT-ARITH-001", ...)`. Found while implementing
+  the L-006 DIVIDE type fix below; Tensor division-by-zero was already
+  handled correctly (wrapped as `TensorError("TSF-012", ...)` at the
+  `TensorRuntime.call()` boundary), so this inconsistency was isolated to
+  the scalar language evaluator.
+- Fixed the static type checker returning `Int` for `Int / Int` when `/`
+  actually evaluates to a Python float at runtime (a real type/value
+  mismatch). `/` is now always typed `Float`, matching its true-division
+  runtime semantics (ReasonScript modernization plan L-006, partial: `//`
+  is not introduced, since it is the existing line-comment token).
+
 ## v0.5.4.5 — 2026-08-07
 
 ### Added

@@ -89,9 +89,11 @@ COMPATIBILITY_TARGETS = {
     "reasonscript-vision-runtime/0.1": lambda: __import__("toolchain.vision_runtime_cmd", fromlist=["PROFILE"]).PROFILE == "reasonscript-vision-runtime/0.1",
     "reasonscript-vision-language-integration/0.1": lambda: __import__("frontend.vision.contracts", fromlist=["PROFILE"]).PROFILE == "reasonscript-vision-language-integration/0.1",
     "reasonscript-vision-install-distribution/0.1": lambda: __import__("toolchain.distribution_validation", fromlist=["VISION_DISTRIBUTION_PROFILE"]).VISION_DISTRIBUTION_PROFILE == "reasonscript-vision-install-distribution/0.1",
+    "reason-computation-ir/0.2": lambda: __import__("frontend.computation_ir.schema", fromlist=["SCHEMA"]).SCHEMA == "reason-computation-ir/0.2",
+    "reasonscript-tensor-function-manifest/1.0": lambda: __import__("toolchain.tensor_manifest", fromlist=["MANIFEST_SCHEMA"]).MANIFEST_SCHEMA == "reasonscript-tensor-function-manifest/1.0",
 }
 
-DEFAULT_TEST_COMMAND = (sys.executable, "-m", "pytest", "tests", "-q")
+DEFAULT_TEST_COMMAND = (sys.executable, "scripts/test_platform.py", "test")
 
 
 def run_pipeline(root: Path, *, run_tests: bool = True, test_command: tuple[str, ...] = DEFAULT_TEST_COMMAND) -> dict[str, Any]:
@@ -315,13 +317,20 @@ def _check_tests(root: Path, *, run_tests: bool, test_command: tuple[str, ...]) 
         return False, [_ci_diag("CI-008", f"Test failure: {error}", file="tests")], None, 0
     count = _parse_passed_count(completed.stdout)
     if completed.returncode != 0:
-        return False, [_ci_diag("CI-008", "Test failure", file="tests")], {"tests_passed": count}, count
+        if "No module named pytest" in completed.stderr:
+            message = (
+                "Test failure: pytest is not installed in this Python interpreter "
+                f"({test_command[0]}). Install development dependencies with: "
+                "pip install -r requirements-dev.txt"
+            )
+        else:
+            message = "Test failure"
+        return False, [_ci_diag("CI-008", message, file="tests")], {"tests_passed": count}, count
     return True, [], {"tests_passed": count}, count
 
 
 def _parse_passed_count(output: str) -> int:
-    match = re.search(r"(\d+) passed", output)
-    return int(match.group(1)) if match else 0
+    return sum(int(value) for value in re.findall(r"(\d+) passed", output))
 
 
 def _read_json(path: Path) -> Any:

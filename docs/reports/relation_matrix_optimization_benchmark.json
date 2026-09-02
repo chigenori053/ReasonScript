@@ -1,0 +1,15 @@
+{
+  "fixture": "benchmarks/relation_matrix.rsn",
+  "generated_on": "2026-08-29",
+  "optimized_median_seconds": 0.011310917000173504,
+  "parity": true,
+  "result": {
+    "RelationMatrix": true
+  },
+  "samples": 15,
+  "schema": "reasonscript-relation-matrix-benchmark/1.0",
+  "speedup": 1.335748640008837,
+  "target_met": true,
+  "target_seconds": 1.5,
+  "unoptimized_median_seconds": 0.015108542000234593
+}

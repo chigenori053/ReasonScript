@@ -74,6 +74,44 @@ def install(prefix: Path, json_output: bool) -> int:
             encoding="utf-8",
         )
         runtime_launcher.chmod(0o755)
+        host_name = "reason-runtime-host.exe" if os.name == "nt" else "reason-runtime-host"
+        host_binary = temp / "bin" / host_name
+        packaged_host = ROOT / "bin" / host_name
+        if packaged_host.is_file():
+            shutil.copy2(packaged_host, host_binary)
+        else:
+            cargo = shutil.which("cargo")
+            if not cargo:
+                raise RuntimeError("cargo is required to build the Rust Runtime Host from source")
+            host_build = subprocess.run(
+                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonRuntime/Cargo.toml")],
+                text=True,
+                capture_output=True,
+            )
+            if host_build.returncode:
+                raise RuntimeError(f"Reason Runtime Host build failed: {host_build.stderr.strip()}")
+            shutil.copy2(
+                ROOT / "ReasonRuntime" / "target" / "release" / host_name,
+                host_binary,
+            )
+        host_binary.chmod(0o755)
+        cluster_name = "reason-cluster.exe" if os.name == "nt" else "reason-cluster"
+        cluster_binary = temp / "bin" / cluster_name
+        packaged_cluster = ROOT / "bin" / cluster_name
+        if packaged_cluster.is_file():
+            shutil.copy2(packaged_cluster, cluster_binary)
+        else:
+            cargo = shutil.which("cargo")
+            if not cargo:
+                raise RuntimeError("cargo is required to build the Rust Cluster Runtime from source")
+            cluster_build = subprocess.run(
+                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ClusterRuntime/Cargo.toml")],
+                text=True, capture_output=True,
+            )
+            if cluster_build.returncode:
+                raise RuntimeError(f"Rust Cluster Runtime build failed: {cluster_build.stderr.strip()}")
+            shutil.copy2(ROOT / "ClusterRuntime" / "target" / "release" / cluster_name, cluster_binary)
+        cluster_binary.chmod(0o755)
         vision_name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
         vision_binary = temp / "bin" / vision_name
         packaged_vision = ROOT / "bin" / vision_name
@@ -82,15 +120,15 @@ def install(prefix: Path, json_output: bool) -> int:
         else:
             cargo = shutil.which("cargo")
             if not cargo:
-                raise RuntimeError("cargo is required to build the native VisionRuntime from source")
+                raise RuntimeError("cargo is required to build the native ReasonRuntime/crates/vision-core from source")
             vision_build = subprocess.run(
-                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisionRuntime/Cargo.toml")],
+                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonRuntime/crates/vision-core/Cargo.toml")],
                 text=True,
                 capture_output=True,
             )
             if vision_build.returncode:
-                raise RuntimeError(f"VisionRuntime build failed: {vision_build.stderr.strip()}")
-            shutil.copy2(ROOT / "VisionRuntime" / "target" / "release" / vision_name, vision_binary)
+                raise RuntimeError(f"ReasonRuntime/crates/vision-core build failed: {vision_build.stderr.strip()}")
+            shutil.copy2(ROOT / "ReasonRuntime" / "target" / "release" / vision_name, vision_binary)
         vision_binary.chmod(0o755)
         visualization_name = "reason-visualization.exe" if os.name == "nt" else "reason-visualization"
         visualization_binary = temp / "bin" / visualization_name
@@ -124,7 +162,7 @@ def install(prefix: Path, json_output: bool) -> int:
             if not cargo:
                 raise RuntimeError(
                     "cargo is required to build the native "
-                    "NativeReasonUnitRuntime from source"
+                    "ReasonRuntime/crates/reason-object-core from source"
                 )
             reasonunit_build = subprocess.run(
                 [
@@ -133,19 +171,19 @@ def install(prefix: Path, json_output: bool) -> int:
                     "--offline",
                     "--release",
                     "--manifest-path",
-                    str(ROOT / "NativeReasonUnitRuntime/Cargo.toml"),
+                    str(ROOT / "ReasonRuntime/crates/reason-object-core/Cargo.toml"),
                 ],
                 text=True,
                 capture_output=True,
             )
             if reasonunit_build.returncode:
                 raise RuntimeError(
-                    "NativeReasonUnitRuntime build failed: "
+                    "ReasonRuntime/crates/reason-object-core build failed: "
                     f"{reasonunit_build.stderr.strip()}"
                 )
             shutil.copy2(
                 ROOT
-                / "NativeReasonUnitRuntime"
+                / "ReasonRuntime"
                 / "target"
                 / "release"
                 / reasonunit_name,

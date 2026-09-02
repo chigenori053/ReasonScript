@@ -102,16 +102,32 @@ def _write_payload(package: Path, target_platform: str) -> Path:
     runtime_launcher.chmod(0o755)
     cargo = shutil.which("cargo")
     if not cargo:
-        raise BuildRejected("cargo is required to build the native VisionRuntime")
-    vision_build = subprocess.run(
-        [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisionRuntime/Cargo.toml")],
+        raise BuildRejected("cargo is required to build the native runtimes")
+    host_build = subprocess.run(
+        [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonRuntime/Cargo.toml")],
         text=True,
         capture_output=True,
     )
-    if vision_build.returncode:
-        raise BuildRejected(f"VisionRuntime build failed: {vision_build.stderr.strip()}")
+    if host_build.returncode:
+        raise BuildRejected(f"Reason Runtime Host build failed: {host_build.stderr.strip()}")
+    host_name = "reason-runtime-host.exe" if target_platform == "windows" else "reason-runtime-host"
+    shutil.copy2(
+        ROOT / "ReasonRuntime" / "target" / "release" / host_name,
+        payload / "bin" / host_name,
+    )
+    (payload / "bin" / host_name).chmod(0o755)
+    cluster_build = subprocess.run(
+        [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ClusterRuntime/Cargo.toml")],
+        text=True,
+        capture_output=True,
+    )
+    if cluster_build.returncode:
+        raise BuildRejected(f"Rust Cluster Runtime build failed: {cluster_build.stderr.strip()}")
+    cluster_name = "reason-cluster.exe" if target_platform == "windows" else "reason-cluster"
+    shutil.copy2(ROOT / "ClusterRuntime" / "target" / "release" / cluster_name, payload / "bin" / cluster_name)
+    (payload / "bin" / cluster_name).chmod(0o755)
     vision_name = "reason-vision.exe" if target_platform == "windows" else "reason-vision"
-    shutil.copy2(ROOT / "VisionRuntime" / "target" / "release" / vision_name, payload / "bin" / vision_name)
+    shutil.copy2(ROOT / "ReasonRuntime" / "target" / "release" / vision_name, payload / "bin" / vision_name)
     (payload / "bin" / vision_name).chmod(0o755)
     visualization_build = subprocess.run(
         [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisualizationRuntime/Cargo.toml")],
@@ -122,30 +138,13 @@ def _write_payload(package: Path, target_platform: str) -> Path:
     visualization_name = "reason-visualization.exe" if target_platform == "windows" else "reason-visualization"
     shutil.copy2(ROOT / "VisualizationRuntime" / "target" / "release" / visualization_name, payload / "bin" / visualization_name)
     (payload / "bin" / visualization_name).chmod(0o755)
-    reasonunit_build = subprocess.run(
-        [
-            cargo,
-            "build",
-            "--offline",
-            "--release",
-            "--manifest-path",
-            str(ROOT / "NativeReasonUnitRuntime/Cargo.toml"),
-        ],
-        text=True,
-        capture_output=True,
-    )
-    if reasonunit_build.returncode:
-        raise BuildRejected(
-            "NativeReasonUnitRuntime build failed: "
-            f"{reasonunit_build.stderr.strip()}"
-        )
     reasonunit_name = (
         "reasonunit-runtime-native.exe"
         if target_platform == "windows"
         else "reasonunit-runtime-native"
     )
     shutil.copy2(
-        ROOT / "NativeReasonUnitRuntime" / "target" / "release" / reasonunit_name,
+        ROOT / "ReasonRuntime" / "target" / "release" / reasonunit_name,
         payload / "bin" / reasonunit_name,
     )
     (payload / "bin" / reasonunit_name).chmod(0o755)

@@ -1,8 +1,8 @@
 {
   "schema_version": "reasonscript-validation-profile-declaration/1.0",
-  "reason_version": "0.5.4.6",
+  "reason_version": "0.5.5.8",
   "install_foundation_version": "1.1",
-  "runtime_version": "0.5.4.6",
+  "runtime_version": "0.5.5.8",
   "commands": [
     "--version",
     "doctor",
@@ -185,7 +185,7 @@
       "required": true
     },
     "vision-runtime-v0.1": {
-      "path": "VisionRuntime",
+      "path": "ReasonRuntime/crates/vision-core",
       "required": true
     },
     "semantic-visualization-runtime-v0.1": {
@@ -193,7 +193,15 @@
       "required": true
     },
     "reasonunit-runtime-v1.0": {
-      "path": "NativeReasonUnitRuntime",
+      "path": "ReasonRuntime/crates/reason-object-core",
+      "required": true
+    },
+    "runtime-host-v1.0": {
+      "path": "ReasonRuntime",
+      "required": true
+    },
+    "cluster-runtime-v0.2": {
+      "path": "ClusterRuntime",
       "required": true
     }
   },
@@ -208,6 +216,14 @@
     },
     "vision_observation": {
       "path": "schemas/vision_observation.schema.json",
+      "required": true
+    },
+    "runtime_request": {
+      "path": "schemas/runtime_request.schema.json",
+      "required": true
+    },
+    "runtime_result": {
+      "path": "schemas/runtime_result.schema.json",
       "required": true
     }
   }

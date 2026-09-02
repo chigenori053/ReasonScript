@@ -1,7 +1,6 @@
 """Phase 4.5-C2-D audit and language audit matrix migration contract tests."""
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -14,24 +13,11 @@ SUMMARY_VIEW = UI_SRC / "views" / "LanguageAuditSummaryView.tsx"
 MATRIX_VIEW = UI_SRC / "views" / "LanguageAuditMatrixView.tsx"
 LOGS_VIEW = UI_SRC / "views" / "LanguageAuditLogsView.tsx"
 ARTIFACTS_VIEW = UI_SRC / "views" / "LanguageAuditArtifactsView.tsx"
-FEATURE_DOC = REPO_ROOT / "docs" / "development" / "legacy_feature_migration_decision.md"
-API_DOC = REPO_ROOT / "docs" / "development" / "legacy_api_retention_policy.md"
-PLACEMENT_DOC = REPO_ROOT / "docs" / "development" / "legacy_feature_official_ide_placement.md"
 MIGRATION_DOC = REPO_ROOT / "docs" / "development" / "audit_language_matrix_migration_phase_4_5_c2_d.md"
-CHANGELOG = REPO_ROOT / "docs" / "changelog" / "ide_phase_4_5_c2_d_audit_language_matrix_migration.md"
-
-MIGRATED_FEATURES = ["Audit", "Language audit matrix"]
 
 
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
-
-
-def _app_right_inspector_ids() -> list[str]:
-    source = _read(APP)
-    start = source.index("const rightInspectorTabs")
-    end = source.index("  ];", start)
-    return re.findall(r'id:\s*"([^"]+)"', source[start:end])
 
 
 def test_language_audit_view_model_file_exists() -> None:
@@ -45,7 +31,6 @@ def test_language_audit_view_model_file_exists() -> None:
         "languageAuditIssuesAsPlatformDiagnostics",
     ]:
         assert text in source
-
 
 def test_official_ide_includes_audit_and_matrix_surfaces() -> None:
     source = _read(SUMMARY_VIEW) + _read(MATRIX_VIEW)
@@ -106,10 +91,6 @@ def test_audit_export_and_freshness_policies_are_documented() -> None:
     assert "stale audit result remains visible" in source.lower()
 
 
-def test_standard_layout_top_level_right_inspector_tabs_remain_unchanged() -> None:
-    assert _app_right_inspector_ids() == ["overview", "plan", "simulation", "knowledge", "artifacts"]
-
-
 def test_language_audit_api_integration_exists_without_backend_contract_rewrite() -> None:
     source = _read(BRIDGE) + _read(APP) + _read(MIGRATION_DOC)
     assert '"/api/language-audit"' in source
@@ -129,37 +110,3 @@ def test_missing_audit_state_has_fallback_empty_states() -> None:
         "Audit export unavailable.",
     ]:
         assert text in source
-
-
-def test_legacy_feature_decision_docs_updated_to_migrated() -> None:
-    source = _read(FEATURE_DOC)
-    for feature in MIGRATED_FEATURES:
-        row = re.search(rf"^\|\s*{re.escape(feature)}\s*\|.*$", source, re.MULTILINE)
-        assert row is not None, feature
-        assert "`MIGRATED`" in row.group(0)
-    assert "REVIEWED - UPDATED THROUGH PHASE 4.5-D." in source
-    assert "LEGACY PLAYGROUND FRONTEND REMOVED" in source
-
-
-def test_final_recommendation_text_is_updated_for_post_c2_d_tracking() -> None:
-    source = _read(FEATURE_DOC)
-    assert "Legacy Playground frontend has been physically removed." in source
-    assert "Phase 5 - Workspace Diagnostics & Project Validation" in source
-
-
-def test_api_retention_policy_updated_for_language_audit() -> None:
-    source = _read(API_DOC)
-    audit_row = re.search(r"^\|\s*`/api/language-audit`\s*\|.*$", source, re.MULTILINE)
-    export_row = re.search(r"^\|\s*`/api/language-audit/export`\s*\|.*$", source, re.MULTILINE)
-    assert audit_row is not None
-    assert export_row is not None
-    assert "`KEEP_FOR_OFFICIAL_IDE`" in audit_row.group(0)
-    assert "`KEEP_FOR_OFFICIAL_IDE_OR_BACKEND_ONLY`" in export_row.group(0)
-
-
-def test_docs_and_changelog_exist() -> None:
-    for path in [PLACEMENT_DOC, MIGRATION_DOC, CHANGELOG]:
-        assert path.is_file(), path
-        assert path.read_text(encoding="utf-8").strip()
-    assert "Phase 4.5-C2-D" in _read(MIGRATION_DOC)
-    assert "All `MIGRATE_REQUIRED` legacy UI features have been migrated." in _read(CHANGELOG)

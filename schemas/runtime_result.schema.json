@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/runtime_result.schema.json",
+  "title": "ReasonScript Runtime Result 1.0",
+  "type": "object",
+  "required": ["schema", "request_id", "ok", "execution_mode", "calculation_results", "diagnostics", "metadata"],
+  "properties": {
+    "schema": {"const": "reasonscript-runtime-result/1.0"},
+    "request_id": {"type": "string"},
+    "ok": {"type": "boolean"},
+    "execution_mode": {"const": "rust"},
+    "calculation_results": {"type": ["object", "null"]},
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "category", "message"],
+        "properties": {
+          "code": {"type": "string"},
+          "severity": {"enum": ["info", "warning", "error", "fatal"]},
+          "category": {"type": "string"},
+          "message": {"type": "string"},
+          "source_location": {"type": ["object", "null"]}
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["host_profile", "trace", "tensor_metadata", "reason_object_metadata"]
+    }
+  },
+  "additionalProperties": false
+}

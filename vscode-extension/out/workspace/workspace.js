@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.detectWorkspaceRoot = detectWorkspaceRoot;
 exports.commandCwd = commandCwd;
+exports.isProjectWorkspace = isProjectWorkspace;
 exports.reasonExecutable = reasonExecutable;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -65,6 +66,11 @@ function detectWorkspaceRoot(start) {
 function commandCwd() {
     return detectWorkspaceRoot()?.fsPath;
 }
+function isProjectWorkspace() {
+    const root = detectWorkspaceRoot();
+    return Boolean(root && (fs.existsSync(path.join(root.fsPath, "reason.toml")) ||
+        fs.existsSync(path.join(root.fsPath, "reason.workspace.toml"))));
+}
 function reasonExecutable() {
     // 1. VSCode 設定で明示指定されている場合はそれを優先
     const config = vscode.workspace.getConfiguration("reasonscript");
@@ -84,6 +90,24 @@ function reasonExecutable() {
         const candidateInRoot = path.join(root.fsPath, "reason");
         if (fs.existsSync(candidateInRoot)) {
             return candidateInRoot;
+        }
+    }
+    // A single .rsn file can activate the extension without opening its parent
+    // folder as a VS Code workspace. In that case, find a checkout-local CLI
+    // from the active document before falling back to PATH.
+    const document = vscode.workspace.textDocuments.find((candidate) => candidate.languageId === "reasonscript" && candidate.uri.scheme === "file") ?? vscode.window.activeTextEditor?.document;
+    if (document?.uri.scheme === "file") {
+        let current = path.dirname(document.uri.fsPath);
+        while (true) {
+            const candidate = path.join(current, "reason");
+            if (fs.existsSync(candidate)) {
+                return candidate;
+            }
+            const parent = path.dirname(current);
+            if (parent === current) {
+                break;
+            }
+            current = parent;
         }
     }
     // 3. PATH フォールバック（システムにインストール済みの場合）

@@ -1,5 +1,8 @@
 from pathlib import Path
 
+from scripts import test_platform
+from toolchain.ci import DEFAULT_TEST_COMMAND, _parse_passed_count
+
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
@@ -9,12 +12,12 @@ def _workflow(name: str) -> str:
 
 
 def test_required_workflows_exist():
-    for name in ("lint.yml", "build.yml", "test.yml", "release.yml"):
+    for name in ("lint.yml", "build.yml", "test.yml", "release.yml", "ci.yml"):
         assert (WORKFLOWS / name).exists(), name
 
 
 def test_workflows_install_shared_dev_requirements():
-    for name in ("lint.yml", "build.yml", "test.yml", "release.yml"):
+    for name in ("lint.yml", "build.yml", "test.yml", "release.yml", "ci.yml"):
         content = _workflow(name)
         assert "python3 -m pip install --upgrade pip" in content
         assert "python3 -m pip install -r requirements-dev.txt" in content
@@ -24,8 +27,29 @@ def test_workflows_use_test_platform_entrypoint():
     assert "scripts/test_platform.py lint" in _workflow("lint.yml")
     assert "scripts/test_platform.py build --quick" in _workflow("build.yml")
     assert "scripts/test_platform.py test" in _workflow("test.yml")
-    assert "scripts/test_platform.py regression" in _workflow("test.yml")
+    assert "scripts/test_platform.py regression" not in _workflow("test.yml")
+    assert "./reason ci" not in _workflow("test.yml")
     assert "scripts/test_platform.py release-check --quick" in _workflow("release.yml")
+    assert "./reason ci" in _workflow("ci.yml")
+
+
+def test_canonical_ci_and_github_test_share_the_full_test_platform():
+    assert DEFAULT_TEST_COMMAND[1:] == ("scripts/test_platform.py", "test")
+
+    steps = test_platform._steps_for("test", quick=False, passthrough=[])
+    pytest_paths = [step.command[3] for step in steps if step.command[1:3] == ["-m", "pytest"]]
+
+    assert "tests" in pytest_paths
+    assert "language_surface_release_tests" in pytest_paths
+    assert "runtime_semantics_validation_tests" in pytest_paths
+    assert "tests/golden" not in pytest_paths
+    assert "tests/compatibility" not in pytest_paths
+    assert len(pytest_paths) == len(set(pytest_paths))
+
+
+def test_ci_report_sums_all_test_platform_subsuite_results():
+    output = "20 passed; 0 failed\n1230 passed, 3 skipped\n10 passed in 0.2s\n"
+    assert _parse_passed_count(output) == 1260
 
 
 def test_v0_6_language_layer_validation_scope_is_in_standard_test_platform():
@@ -46,3 +70,24 @@ def test_v0_6_language_layer_validation_scope_is_in_standard_test_platform():
     assert (ROOT / "tests/compatibility/test_top_level_construct_policy_v0_6.py").exists()
     assert (ROOT / "tests/playground/test_top_level_construct_projection_v0_6.py").exists()
     assert (ROOT / "tests/playground/test_reserved_construct_diagnostics_v0_6.py").exists()
+
+
+def test_modern_language_computation_ir_validation_scope_is_in_test_platform():
+    test_platform = (ROOT / "scripts" / "test_platform.py").read_text()
+
+    for required_suite in [
+        "computation_ir_tests",
+        "tensor_standard_functions_tests",
+        "language_spec_validation_tests",
+        "frontend/parser_conformance",
+        "frontend/compiler_conformance",
+        "ast_validation_tests",
+        "type_specification_tests",
+    ]:
+        assert required_suite in test_platform
+
+    assert (ROOT / "computation_ir_tests/test_computation_ir_rust_parity.py").exists()
+    assert (ROOT / "tensor_standard_functions_tests/test_tensor_standard_functions.py").exists()
+    assert (ROOT / "language_spec_validation_tests/test_core_language_spec.py").exists()
+    assert (ROOT / "frontend/parser_conformance/end_to_end_tests/test_end_to_end.py").exists()
+    assert (ROOT / "frontend/compiler_conformance/end_to_end_tests/test_end_to_end.py").exists()

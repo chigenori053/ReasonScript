@@ -12,6 +12,21 @@ from frontend.tensor.integration import (
     tensor_call_name,
     validate_tensor_call,
 )
+from frontend.tensor.optimizers import (
+    OptimizerSemanticError,
+    optimizer_call_name,
+    validate_optimizer_call,
+)
+from frontend.relation.integration import (
+    RelationSemanticError,
+    relation_call_name,
+    validate_relation_call,
+)
+from frontend.string.integration import (
+    StringSemanticError,
+    string_call_name,
+    validate_string_call,
+)
 from frontend.vision.integration import (
     VisionSemanticError,
     validate_vision_call,
@@ -98,7 +113,6 @@ from .nodes import (
     ReasonGraphBindingNode,
     ReasonGraphTransitionNode,
     ReasonObjectBindingNode,
-    ReasonGraphBindingNode,
     ReasonObjectClauseSpanNode,
     RelationNode,
     RelationType,
@@ -273,12 +287,36 @@ class SurfaceValidationError(ValueError):
 
 
 _CURRENT_NAMESPACE: ModuleNamespace | None = None
-_CURRENT_FUNCTION: str | None = None
 RUNTIME_RESULT_TYPES = {
     "SearchResult",
     "SimulationResult",
     "PredictionResult",
     "PlanningResult",
+    "Tensor",
+    "TensorArtifactReceipt",
+    "VisionObservation",
+    "VisionBuildResult",
+    # RUO-N2 opaque values are first-class surface types. They expose no
+    # fields; callers move them through bindings/functions and use ``ruo.*``.
+    "ReasonObject",
+    "ReasonObjectSnapshot",
+    "ReasonEntityRef",
+    "ReasonQuery",
+    "ReasonQueryResult",
+    "ReasonTransaction",
+    "ReasonTransactionResult",
+    "ReasonSelector",
+    "ReasonSelection",
+    "ReasonProjection",
+    "ReasonTensorView",
+    "ReasonDiagnosticSet",
+    "ReasonOperation",
+    "ReasonProjectionProfile",
+    "ReasonStatus",
+    "ReasonValue",
+    "StableId",
+    "Path",
+    "OverwritePolicy",
 }
 
 
@@ -767,7 +805,7 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
             visit(item.expression)
             return
         if isinstance(item, MemberAccessNode):
-            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo"}:
+            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo", "optimizer", "relation"}:
                 return
             visit(item.object)
             return
@@ -801,7 +839,6 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
 
 
 def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -> None:
-    global _CURRENT_FUNCTION
     _validate_ast_node(node)
     if node.return_type is not None:
         _resolve_type(node.return_type, symbols)
@@ -812,19 +849,14 @@ def _validate_function(node: FunctionDeclarationNode, symbols: dict[str, Any]) -
         )
         for parameter in node.parameters
     }
-    previous_function = _CURRENT_FUNCTION
-    _CURRENT_FUNCTION = node.name
-    try:
-        _validate_function_statements(
-            node.body,
-            symbols=symbols,
-            bindings=bindings,
-            allow_terminal_return=True,
-            loop_depth=0,
-            return_type=node.return_type,
-        )
-    finally:
-        _CURRENT_FUNCTION = previous_function
+    _validate_function_statements(
+        node.body,
+        symbols=symbols,
+        bindings=bindings,
+        allow_terminal_return=True,
+        loop_depth=0,
+        return_type=node.return_type,
+    )
     _validate_function_control_flow(node.body)
     if not _statement_list_terminates_with_return(node.body):
         raise SurfaceValidationError("FN-010 FCF-001 Not all execution paths return")
@@ -1550,7 +1582,7 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1589,6 +1621,30 @@ def _validate_calculation_expression(
                 try:
                     validate_tensor_call(value)
                 except TensorSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if optimizer_call_name(value) is not None:
+                try:
+                    validate_optimizer_call(value)
+                except OptimizerSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if relation_call_name(value) is not None:
+                try:
+                    validate_relation_call(value)
+                except RelationSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if string_call_name(value) is not None:
+                try:
+                    validate_string_call(value)
+                except StringSemanticError as error:
                     raise SurfaceValidationError(str(error)) from error
                 for argument in value.arguments:
                     visit(argument)
@@ -1645,11 +1701,78 @@ _RUO_METHOD_ARITY = {
     "save": (3, 3), "tensor_view": (2, 3), "status": (1, 1), "diagnostics": (1, 1),
 }
 
+_RUO_METHOD_TYPES: dict[str, tuple[tuple[str, ...], ...]] = {
+    "object_id": (("ReasonObject", "ReasonObjectSnapshot"),),
+    "snapshot": (("ReasonObject",),),
+    # A bound ReasonObject is accepted where a snapshot/transaction is
+    # expected for RUO-N2 source compatibility; runtime dispatch takes an
+    # immutable snapshot (or begins a transaction) at that boundary.
+    "resolve": (("ReasonObjectSnapshot", "ReasonObject"), ("StableId", "String")),
+    "query": (("ReasonObjectSnapshot", "ReasonObject"), ("ReasonQuery", "String", "Map")),
+    "begin": (("ReasonObjectSnapshot", "ReasonObject"),),
+    "apply": (("ReasonTransaction", "ReasonObject"), ("ReasonOperation", "String", "Map")),
+    "validate": (("ReasonTransaction", "ReasonObject"),),
+    "commit": (("ReasonTransaction", "ReasonObject"),),
+    "rollback": (("ReasonTransaction", "ReasonObject"),),
+    "select": (("ReasonObjectSnapshot", "ReasonObject"), ("ReasonSelector", "String", "Map")),
+    "materialize": (("ReasonObjectSnapshot", "ReasonObject"), ("ReasonSelector", "String", "Map")),
+    "project": (("ReasonObjectSnapshot", "ReasonObject"), ("ReasonProjectionProfile", "String", "Map")),
+    "save": (("ReasonObjectSnapshot", "ReasonObject"), ("Path", "String"), ("OverwritePolicy", "String")),
+    "tensor_view": (("ReasonObjectSnapshot", "ReasonObject"), ("StableId", "String"), ("ReasonSelector", "String", "Map")),
+    "status": (("ReasonValue", "Any"),),
+    "diagnostics": (("ReasonValue", "Any"),),
+}
+
+_RUO_OUTPUT_TYPES = {
+    "object_id": "StableId", "snapshot": "ReasonObjectSnapshot",
+    "resolve": "ReasonEntityRef", "query": "ReasonQueryResult",
+    "begin": "ReasonTransaction", "apply": "ReasonTransaction",
+    "validate": "ReasonTransactionResult", "commit": "ReasonTransactionResult",
+    "rollback": "ReasonTransactionResult", "select": "ReasonSelection",
+    "materialize": "ReasonSelection", "project": "ReasonProjection",
+    "save": "ReasonTransactionResult", "tensor_view": "ReasonTensorView",
+    "status": "ReasonStatus", "diagnostics": "ReasonDiagnosticSet",
+}
+
 
 def _ruo_call_name(value: CallExpressionNode) -> str | None:
     callee = value.callee
     if isinstance(callee, MemberAccessNode) and isinstance(callee.object, IdentifierNode) and callee.object.name == "ruo":
         return callee.member
+    return None
+
+
+_SCALAR_CAST_NAMES = {"float", "int"}
+
+
+def _scalar_cast_name(value: CallExpressionNode, symbols: dict[str, Any]) -> str | None:
+    callee = value.callee
+    if (
+        isinstance(callee, IdentifierNode)
+        and callee.name in _SCALAR_CAST_NAMES
+        and not isinstance(symbols.get(callee.name), FunctionDeclarationNode)
+    ):
+        return callee.name
+    return None
+
+
+_ASSERT_NAMES = {"assert", "assert_eq"}
+
+
+def _assert_call_name(value: CallExpressionNode, symbols: dict[str, Any]) -> str | None:
+    """Resolve a bare `assert(...)`/`assert_eq(...)` call, mirroring `_scalar_cast_name`.
+
+    Phase 3 ("実行型テスト機構"): both are reserved global builtins, not a
+    namespace, exactly like `float`/`int` -- and, like those, a same-named
+    user `fn` declaration shadows the builtin rather than being rejected.
+    """
+    callee = value.callee
+    if (
+        isinstance(callee, IdentifierNode)
+        and callee.name in _ASSERT_NAMES
+        and not isinstance(symbols.get(callee.name), FunctionDeclarationNode)
+    ):
+        return callee.name
     return None
 
 
@@ -1666,10 +1789,49 @@ def _array_call_name(value: CallExpressionNode) -> str | None:
 
 def _validate_array_call(value: CallExpressionNode) -> None:
     method = _array_call_name(value)
-    if method != "append":
+    if method not in ("append", "concat"):
         raise SurfaceValidationError("COLL-001 unknown array standard function")
     if len(value.arguments) != 2:
-        raise SurfaceValidationError("COLL-001 array.append argument count mismatch")
+        raise SurfaceValidationError(f"COLL-001 array.{method} argument count mismatch")
+
+
+def _string_call_type(
+    name: str, value: CallExpressionNode, symbols: dict[str, Any], bindings: dict[str, Any]
+) -> Any:
+    def argument_type(index: int) -> Any:
+        argument = value.arguments[index]
+        expr = argument.expression if isinstance(argument, ExpressionNode) else argument
+        return _expression_type(expr, symbols, bindings)
+
+    string_type = PrimitiveTypeNode(PrimitiveKind.STRING)
+    int_type = PrimitiveTypeNode(PrimitiveKind.INT)
+    if name == "string.concat":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.concat expects String")
+        _require_type_equal(string_type, argument_type(1), "STR-003 string.concat expects String")
+        return string_type
+    if name == "string.join":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.join separator must be String")
+        _require_type_equal(
+            ArrayTypeNode(string_type), argument_type(1), "STR-003 string.join values must be Array<String>"
+        )
+        return string_type
+    if name == "string.length":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.length expects String")
+        return int_type
+    if name == "string.from_int":
+        _require_type_equal(int_type, argument_type(0), "STR-003 string.from_int expects Int")
+        return string_type
+    if name == "string.from_float":
+        _require_type_equal(
+            PrimitiveTypeNode(PrimitiveKind.FLOAT), argument_type(0), "STR-003 string.from_float expects Float"
+        )
+        return string_type
+    if name == "string.slice":
+        _require_type_equal(string_type, argument_type(0), "STR-003 string.slice expects String")
+        _require_type_equal(int_type, argument_type(1), "STR-003 string.slice start must be Int")
+        _require_type_equal(int_type, argument_type(2), "STR-003 string.slice end must be Int")
+        return string_type
+    raise SurfaceValidationError(f"STR-001 unknown String function: {name}")
 
 
 def _validate_ruo_call(value: CallExpressionNode) -> None:
@@ -1799,6 +1961,8 @@ def _expression_type(
             GoalNode: StateKind.GOAL,
             ConstraintNode: StateKind.CONSTRAINT,
         }.get(type(declaration))
+        if isinstance(declaration, ReasonObjectBindingNode):
+            return NamedTypeNode("ReasonObject")
         return StateTypeNode(state_kind) if state_kind is not None else _UNKNOWN_TYPE
     if isinstance(value, QualifiedIdentifierNode):
         if _CURRENT_NAMESPACE is None:
@@ -1874,6 +2038,12 @@ def _expression_type(
             raise SurfaceValidationError(
                 "TYPE-V004 TYPE-001 mixed or non-numeric arithmetic invalid"
             )
+        if value.operator == BinaryOperator.DIVIDE:
+            # `/` always performs true division at runtime (see
+            # integrated_computation_runtime.py and _compile_time_binary),
+            # so Int / Int must be typed Float, not Int, to match the
+            # actual result (L-006).
+            return PrimitiveTypeNode(PrimitiveKind.FLOAT)
         return left
     if isinstance(value, ComparisonExpressionNode):
         left = _expression_type(value.left, symbols, bindings)
@@ -1955,6 +2125,25 @@ def _expression_type(
             return _UNKNOWN_TYPE
         raise SurfaceValidationError("CV5-7 index access requires collection type")
     if isinstance(value, CallExpressionNode):
+        ruo_method = _ruo_call_name(value)
+        if ruo_method is not None:
+            _validate_ruo_call(value)
+            expected_arguments = _RUO_METHOD_TYPES[ruo_method]
+            for index, (argument, accepted) in enumerate(zip(value.arguments, expected_arguments), 1):
+                argument_value = argument.expression if isinstance(argument, ExpressionNode) else argument
+                actual = _expression_type(argument_value, symbols, bindings)
+                actual_name = _type_name(actual)
+                if (
+                    "Any" not in accepted
+                    and actual is not _UNKNOWN_TYPE
+                    and actual_name not in accepted
+                    and not ("Map" in accepted and isinstance(actual, MapTypeNode))
+                ):
+                    raise SurfaceValidationError(
+                        f"RUO-N2-009 ruo.{ruo_method} argument {index} expects "
+                        f"{' or '.join(accepted)}, received {actual_name}"
+                    )
+            return NamedTypeNode(_RUO_OUTPUT_TYPES[ruo_method])
         if _array_call_name(value) == "append":
             if len(value.arguments) != 2:
                 raise SurfaceValidationError(
@@ -1984,6 +2173,35 @@ def _expression_type(
                 "COLL-003 array.append element type mismatch",
             )
             return collection_type
+        if _array_call_name(value) == "concat":
+            if len(value.arguments) != 2:
+                raise SurfaceValidationError(
+                    "COLL-001 array.concat argument count mismatch"
+                )
+            left_type = _expression_type(
+                value.arguments[0].expression
+                if isinstance(value.arguments[0], ExpressionNode)
+                else value.arguments[0],
+                symbols,
+                bindings,
+            )
+            right_type = _expression_type(
+                value.arguments[1].expression
+                if isinstance(value.arguments[1], ExpressionNode)
+                else value.arguments[1],
+                symbols,
+                bindings,
+            )
+            if not isinstance(left_type, ArrayTypeNode):
+                raise SurfaceValidationError(
+                    "COLL-002 array.concat first argument must be an array"
+                )
+            _require_type_equal(
+                left_type,
+                right_type,
+                "COLL-003 array.concat argument type mismatch",
+            )
+            return left_type
         if tensor_call_name(value) is not None:
             try:
                 validate_tensor_call(value)
@@ -2004,18 +2222,127 @@ def _expression_type(
                 return PrimitiveTypeNode(PrimitiveKind.INT)
             if tensor_function == "tensor.dtype":
                 return PrimitiveTypeNode(PrimitiveKind.STRING)
+            if tensor_function == "tensor.scalar":
+                # Tensor dtype is not represented in the surface type system.
+                # The runtime can therefore return an Int, Float, or Bool;
+                # preserve that uncertainty instead of incorrectly claiming
+                # that the result is a Tensor.
+                return _UNKNOWN_TYPE
             if tensor_function == "tensor.save":
                 return NamedTypeNode("TensorArtifactReceipt")
             return NamedTypeNode("Tensor")
+        if optimizer_call_name(value) is not None:
+            try:
+                validate_optimizer_call(value)
+            except OptimizerSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            return NamedTypeNode("Tensor")
+        relation_function = relation_call_name(value)
+        if relation_function is not None:
+            try:
+                validate_relation_call(value)
+            except RelationSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            if relation_function == "relation.count":
+                return PrimitiveTypeNode(PrimitiveKind.INT)
+            # filter_*/distinct_by/sort_by only ever select a subset of
+            # rows -- the result is always the same Array<Struct> type
+            # as the `rows` argument (see this module's docstring on why
+            # join/projection, which change the row shape, are out of
+            # scope instead of also landing here).
+            rows_type = _expression_type(
+                value.arguments[0].expression
+                if isinstance(value.arguments[0], ExpressionNode)
+                else value.arguments[0],
+                symbols,
+                bindings,
+            )
+            if not isinstance(rows_type, ArrayTypeNode):
+                raise SurfaceValidationError("REL-004 Relation function requires Array<Struct>")
+            return rows_type
+        string_function = string_call_name(value)
+        if string_function is not None:
+            try:
+                validate_string_call(value)
+            except StringSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            return _string_call_type(string_function, value, symbols, bindings)
         if vision_call_name(value) is not None:
             try:
                 validate_vision_call(value)
             except VisionSemanticError as error:
                 raise SurfaceValidationError(str(error)) from error
             return NamedTypeNode("VisionObservation" if vision_call_name(value) == "vision.infer" else "VisionBuildResult")
+        cast_name = _scalar_cast_name(value, symbols)
+        if cast_name is not None:
+            if len(value.arguments) != 1:
+                raise SurfaceValidationError(
+                    f"CAST-001 {cast_name}() expects exactly one argument"
+                )
+            argument = value.arguments[0]
+            argument_expression = (
+                argument.expression if isinstance(argument, ExpressionNode) else argument
+            )
+            argument_type = _expression_type(argument_expression, symbols, bindings)
+            numeric = {
+                PrimitiveTypeNode(PrimitiveKind.INT),
+                PrimitiveTypeNode(PrimitiveKind.FLOAT),
+            }
+            if argument_type is not _UNKNOWN_TYPE and argument_type not in numeric:
+                raise SurfaceValidationError(
+                    f"CAST-002 {cast_name}() argument must be Int or Float"
+                )
+            return PrimitiveTypeNode(
+                PrimitiveKind.FLOAT if cast_name == "float" else PrimitiveKind.INT
+            )
+        assert_name = _assert_call_name(value, symbols)
+        if assert_name is not None:
+            null_type = PrimitiveTypeNode(PrimitiveKind.NULL)
+            if assert_name == "assert":
+                if len(value.arguments) != 1:
+                    raise SurfaceValidationError(
+                        "TEST-ASSERT-002 assert() expects exactly one argument"
+                    )
+                condition_argument = value.arguments[0]
+                condition_expression = (
+                    condition_argument.expression
+                    if isinstance(condition_argument, ExpressionNode)
+                    else condition_argument
+                )
+                condition_type = _expression_type(condition_expression, symbols, bindings)
+                if condition_type is not _UNKNOWN_TYPE and condition_type != PrimitiveTypeNode(
+                    PrimitiveKind.BOOL
+                ):
+                    raise SurfaceValidationError(
+                        "TEST-ASSERT-003 assert() argument must be Bool"
+                    )
+                return null_type
+            if len(value.arguments) != 2:
+                raise SurfaceValidationError(
+                    "TEST-ASSERT-002 assert_eq() expects exactly two arguments"
+                )
+            actual_argument, expected_argument = value.arguments
+            actual_type = _expression_type(
+                actual_argument.expression
+                if isinstance(actual_argument, ExpressionNode)
+                else actual_argument,
+                symbols,
+                bindings,
+            )
+            expected_type = _expression_type(
+                expected_argument.expression
+                if isinstance(expected_argument, ExpressionNode)
+                else expected_argument,
+                symbols,
+                bindings,
+            )
+            _require_type_equal(
+                actual_type,
+                expected_type,
+                "TEST-ASSERT-003 assert_eq() arguments must have the same type",
+            )
+            return null_type
         if isinstance(value.callee, IdentifierNode):
-            if value.callee.name == _CURRENT_FUNCTION:
-                raise SurfaceValidationError("FN-007 recursive function calls are rejected")
             function = symbols.get(value.callee.name)
             if isinstance(function, FunctionDeclarationNode):
                 if len(value.arguments) != len(function.parameters):
@@ -2065,6 +2392,11 @@ def _require_compatible(
         )
     if isinstance(actual, OptionalTypeNode):
         raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
+    if expected is _UNKNOWN_TYPE:
+        # Untyped legacy bindings remain compatible with concrete values. The
+        # previous implementation only treated an unknown *actual* value as
+        # compatible, making compatibility asymmetric for reassignment.
+        return
     if isinstance(expected, ArrayTypeNode) and isinstance(actual, ArrayTypeNode):
         _require_type_equal(expected.element_type, actual.element_type, location)
         return

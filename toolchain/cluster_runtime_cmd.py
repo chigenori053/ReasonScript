@@ -8,6 +8,7 @@ artifact generation are implemented by `ClusterRuntime` in Rust.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,9 @@ def run(command: str, args: list[str], project_root: Path) -> int:
     source_path = _path(project_root, source)
     from scripts.reason_cli import _analyze_result
     bundle = _analyze_result(source_path, "normal")
+    computation_ir = _computation_ir(source_path)
+    if computation_ir is not None:
+        bundle["artifacts"]["computation_ir"] = computation_ir
     config_path = _option(args, "--config")
     config: dict[str, Any] | None = None
     if config_path is not None:
@@ -48,7 +52,8 @@ def run(command: str, args: list[str], project_root: Path) -> int:
         except (OSError, json.JSONDecodeError) as error:
             print(f"CRR-CFG-001: {error}")
             return 1
-    envelope = {"bundle": bundle, "config": config, "workers": _int_option(args, "--workers", 2)}
+    envelope = {"bundle": bundle, "config": config, "workers": _int_option(args, "--workers", 2),
+                "runtime": _runtime_context(project_root, source_path)}
     rust_args = [subcommand]
     artifacts = _option(args, "--artifacts-dir")
     if artifacts is not None:
@@ -71,6 +76,36 @@ def _invoke(project_root: Path, args: list[str], stdin: dict[str, Any] | None = 
         check=False,
     )
     return result.returncode
+
+
+def _computation_ir(source_path: Path) -> dict[str, Any] | None:
+    """Lower once in the coordinator; workers receive only frozen IR JSON."""
+    try:
+        from frontend.computation_ir import lower_program, validate_program
+        from frontend.computation_ir.optimizer import optimize_program
+        from frontend.language_surface.parser import parse
+        program = optimize_program(lower_program(parse(source_path.read_text(encoding="utf-8"))))
+        return program if not validate_program(program) else None
+    except (OSError, ValueError, SyntaxError):
+        return None
+
+
+def _runtime_context(project_root: Path, source_path: Path) -> dict[str, Any]:
+    name = "reason-runtime-host.exe" if os.name == "nt" else "reason-runtime-host"
+    home = os.environ.get("REASONSCRIPT_HOME")
+    candidates = ([Path(home) / "current" / "bin" / name] if home else []) + [
+        project_root / "bin" / name,
+        project_root / "ReasonRuntime" / "target" / "debug" / name,
+        project_root / "ReasonRuntime" / "target" / "release" / name,
+    ]
+    host = next((path for path in candidates if path.is_file()), None)
+    return {
+        "host": str(host) if host else None,
+        "resource_root": str(source_path.parent.resolve()),
+        "filesystem_read": False,
+        "filesystem_write": False,
+        "backend": "RuntimeReal",
+    }
 
 
 def _run_dynamic(args: list[str], project_root: Path) -> int:

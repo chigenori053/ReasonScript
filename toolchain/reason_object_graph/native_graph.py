@@ -122,7 +122,7 @@ def transact_native_graph_file(path: Path, proposal_path: Path, *, expected_grap
 
 def _native_binary(root: Path | None) -> Path:
     if root is not None:
-        candidate = root / "NativeReasonUnitRuntime" / "target" / "debug" / native_reasonunit_runtime_name()
+        candidate = root / "ReasonRuntime" / "target" / "debug" / native_reasonunit_runtime_name()
         if candidate.is_file():
             return candidate
     return resolve_native_reasonunit_runtime()

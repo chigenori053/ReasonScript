@@ -18,7 +18,7 @@ VISION_DISTRIBUTION_PROFILE = "reasonscript-vision-install-distribution/0.1"
 DISTRIBUTION_TARGETS = (
     "toolchain", "scripts", "schemas", "frontend", "runtime", "examples",
     "standard_library", "metadata", "playground", "conformance", "canonical_fixtures",
-    "VisionRuntime", "VisualizationRuntime", "NativeReasonUnitRuntime",
+    "VisualizationRuntime", "ReasonRuntime", "ClusterRuntime",
 )
 
 COMPONENTS = (
@@ -35,9 +35,11 @@ COMPONENTS = (
     ("conformance-core", "conformance"),
     ("canonical-fixtures", "canonical_fixtures"),
     ("ml-evaluation-visualization-v0.2", "runtime/visualization/evaluation"),
-    ("vision-runtime-v0.1", "VisionRuntime"),
+    ("vision-runtime-v0.1", "ReasonRuntime/crates/vision-core"),
     ("semantic-visualization-runtime-v0.1", "VisualizationRuntime"),
-    ("reasonunit-runtime-v1.0", "NativeReasonUnitRuntime"),
+    ("reasonunit-runtime-v1.0", "ReasonRuntime/crates/reason-object-core"),
+    ("runtime-host-v1.0", "ReasonRuntime"),
+    ("cluster-runtime-v0.2", "ClusterRuntime"),
 )
 
 EVALUATION_IMPORTS = (
@@ -66,9 +68,11 @@ EVALUATION_SCHEMAS = (
 INTEGRITY_ENTRY_POINTS = (
     "reason", "VERSION", "scripts/reason_cli.py", "toolchain/__main__.py",
     "playground/backend/main.py", "metadata/release_manifest.json",
-    "VisionRuntime/Cargo.toml", "frontend/vision/contracts.py",
+    "ReasonRuntime/crates/vision-core/Cargo.toml", "frontend/vision/contracts.py",
     "VisualizationRuntime/Cargo.toml",
-    "NativeReasonUnitRuntime/Cargo.toml",
+    "ReasonRuntime/crates/reason-object-core/Cargo.toml",
+    "ReasonRuntime/Cargo.toml",
+    "ClusterRuntime/Cargo.toml",
     "schemas/vision_observation.schema.json",
 )
 
@@ -127,14 +131,14 @@ def validate_staged_distribution(root: Path, repository_root: Path | None = None
             raise DistributionError("IF-DC-006", "Required ML Evaluation schema is missing.", "ml-evaluation", f"schemas/{schema}")
     vision_binary = _vision_binary(root)
     if vision_binary is None:
-        raise DistributionError("IF-DC-001", "Required VisionRuntime native executable is missing.", "vision-runtime", "bin/reason-vision")
+        raise DistributionError("IF-DC-001", "Required ReasonRuntime/crates/vision-core native executable is missing.", "vision-runtime", "bin/reason-vision")
     proc = subprocess.run([str(vision_binary), "verify-native"], cwd=tempfile.gettempdir(), text=True, capture_output=True)
     try:
         native = json.loads(proc.stdout)
     except json.JSONDecodeError as error:
-        raise DistributionError("IF-DC-003", "VisionRuntime native smoke output is invalid.", "vision-runtime", str(vision_binary)) from error
+        raise DistributionError("IF-DC-003", "ReasonRuntime/crates/vision-core native smoke output is invalid.", "vision-runtime", str(vision_binary)) from error
     if proc.returncode or native.get("ok") is not True or native.get("unsafe_blocks") != 0 or native.get("profile") != "reasonscript-vision-runtime/0.1":
-        raise DistributionError("IF-DC-003", "VisionRuntime native smoke validation failed.", "vision-runtime", str(vision_binary))
+        raise DistributionError("IF-DC-003", "ReasonRuntime/crates/vision-core native smoke validation failed.", "vision-runtime", str(vision_binary))
     if not (root / "schemas/vision_observation.schema.json").is_file():
         raise DistributionError("IF-DC-006", "Vision observation schema is missing.", "vision-runtime", "schemas/vision_observation.schema.json")
     payload["vision_runtime"] = {"path": str(vision_binary), "profile": native.get("profile"), "unsafe_blocks": 0}
@@ -190,6 +194,53 @@ def validate_staged_distribution(root: Path, repository_root: Path | None = None
         "profile": reasonunit_native.get("native_execution_provenance"),
         "unsafe_blocks": 0,
     }
+    runtime_host = _runtime_host_binary(root)
+    if runtime_host is None:
+        raise DistributionError(
+            "IF-DC-001",
+            "Required Rust Runtime Host executable is missing.",
+            "runtime-host",
+            "bin/reason-runtime-host",
+        )
+    proc = subprocess.run(
+        [str(runtime_host), "verify-native"],
+        cwd=tempfile.gettempdir(),
+        text=True,
+        capture_output=True,
+    )
+    try:
+        host_native = json.loads(proc.stdout)
+    except json.JSONDecodeError as error:
+        raise DistributionError(
+            "IF-DC-003", "Rust Runtime Host smoke output is invalid.",
+            "runtime-host", str(runtime_host),
+        ) from error
+    if (
+        proc.returncode
+        or host_native.get("ok") is not True
+        or host_native.get("unsafe_blocks") != 0
+        or host_native.get("profile") != "reasonscript-runtime-host/1.0"
+    ):
+        raise DistributionError(
+            "IF-DC-003", "Rust Runtime Host smoke validation failed.",
+            "runtime-host", str(runtime_host),
+        )
+    payload["runtime_host"] = {
+        "path": str(runtime_host),
+        "profile": host_native.get("profile"),
+        "unsafe_blocks": 0,
+    }
+    cluster_binary = _cluster_binary(root)
+    if cluster_binary is None:
+        raise DistributionError("IF-DC-001", "Required Rust Cluster Runtime executable is missing.", "cluster-runtime", "bin/reason-cluster")
+    proc = subprocess.run([str(cluster_binary), "verify-native"], cwd=tempfile.gettempdir(), text=True, capture_output=True)
+    try:
+        cluster_native = json.loads(proc.stdout)
+    except json.JSONDecodeError as error:
+        raise DistributionError("IF-DC-003", "Rust Cluster Runtime native smoke output is invalid.", "cluster-runtime", str(cluster_binary)) from error
+    if proc.returncode or cluster_native.get("ok") is not True or cluster_native.get("unsafe_blocks") != 0 or cluster_native.get("profile") != "reasonscript-cluster-runtime/0.2":
+        raise DistributionError("IF-DC-003", "Rust Cluster Runtime native smoke validation failed.", "cluster-runtime", str(cluster_binary))
+    payload["cluster_runtime"] = {"path": str(cluster_binary), "profile": cluster_native.get("profile"), "unsafe_blocks": 0}
     return payload
 
 
@@ -197,8 +248,8 @@ def _vision_binary(root: Path) -> Path | None:
     name = "reason-vision.exe" if os.name == "nt" else "reason-vision"
     candidates = (
         root / "bin" / name,
-        root / "VisionRuntime" / "target" / "release" / name,
-        root / "VisionRuntime" / "target" / "debug" / name,
+        root / "ReasonRuntime" / "target" / "release" / name,
+        root / "ReasonRuntime" / "target" / "debug" / name,
     )
     return next((path for path in candidates if path.is_file()), None)
 
@@ -211,8 +262,8 @@ def _reasonunit_binary(root: Path) -> Path | None:
     )
     candidates = (
         root / "bin" / name,
-        root / "NativeReasonUnitRuntime" / "target" / "release" / name,
-        root / "NativeReasonUnitRuntime" / "target" / "debug" / name,
+        root / "ReasonRuntime" / "target" / "release" / name,
+        root / "ReasonRuntime" / "target" / "debug" / name,
     )
     return next((path for path in candidates if path.is_file()), None)
 
@@ -220,6 +271,22 @@ def _reasonunit_binary(root: Path) -> Path | None:
 def _visualization_binary(root: Path) -> Path | None:
     name = "reason-visualization.exe" if os.name == "nt" else "reason-visualization"
     candidates = (root / "bin" / name, root / "VisualizationRuntime" / "target" / "release" / name, root / "VisualizationRuntime" / "target" / "debug" / name)
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def _runtime_host_binary(root: Path) -> Path | None:
+    name = "reason-runtime-host.exe" if os.name == "nt" else "reason-runtime-host"
+    candidates = (
+        root / "bin" / name,
+        root / "ReasonRuntime" / "target" / "release" / name,
+        root / "ReasonRuntime" / "target" / "debug" / name,
+    )
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def _cluster_binary(root: Path) -> Path | None:
+    name = "reason-cluster.exe" if os.name == "nt" else "reason-cluster"
+    candidates = (root / "bin" / name, root / "ClusterRuntime" / "target" / "release" / name, root / "ClusterRuntime" / "target" / "debug" / name)
     return next((path for path in candidates if path.is_file()), None)
 
 

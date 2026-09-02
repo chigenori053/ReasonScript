@@ -160,6 +160,8 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    # JSON output includes the runtime trace contract used by machine clients;
+    # human-readable runs collect it only when --trace is requested.
     result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace or args.json, allow_read=args.allow_read, allow_write=args.allow_write)
     if args.result_output and result.get("ok"):
         runtime_result = result.get("runtime_result")
@@ -167,6 +169,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             raise CliFileSystemError(
                 "--result-output requires an integrated numerical result"
             )
+        # The accepted Integrated Runtime Completeness v0.2 contract exposes
+        # only the calculation value through --result-output.  The complete
+        # runtime envelope remains available on stdout with --json or through
+        # --out.
         _write_result_file(Path(args.result_output), runtime_result["result"])
     if args.out:
         _write_out(Path(args.out), result)
@@ -417,62 +423,38 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
         result["trace"] = simulation.get("trace", []) if isinstance(simulation, dict) else []
     source = _read_source(path)
     if analyze["ok"] and _requires_integrated_runtime(source, analyze):
-        from frontend.integrated_computation_runtime import (
-            IntegratedRuntimeError,
-            LoopLimitError,
-            execute_program,
-        )
         from frontend.language_surface.parser import parse
-        from frontend.tensor import TensorError
+        from toolchain.runtime_dispatch import RustDispatchError, execute_rust_program
 
+        program = parse(source)
+        resource_root = _resolve_input_path(path).resolve().parent
+        result["artifacts"]["runtime_dispatch"] = {
+            "attempted": "rust_computation_vm",
+            "selected": "rust_computation_vm",
+        }
         try:
-            integrated = execute_program(parse(source), resource_root=_resolve_input_path(path).resolve().parent, filesystem_read=allow_read, filesystem_write=allow_write)
-            runtime_result = integrated.to_dict()
+            runtime_result = execute_rust_program(
+                program,
+                resource_root,
+                allow_read,
+                allow_write,
+                include_trace=include_trace,
+            )
             result["runtime_result"] = runtime_result
-            result["execution_mode"] = "integrated"
+            result["execution_mode"] = "integrated-rust"
             result["runtime_output"] = [runtime_result["result"]]
             result["goal_reached"] = True
             result["artifacts"]["runtime_result"] = runtime_result
             result["artifacts"]["tensor_metadata"] = runtime_result["tensor_metadata"]
             if include_trace:
-                result["trace"] = runtime_result["tensor_trace"] + runtime_result["loop_trace"] + runtime_result["vision_trace"]
-        except TensorError as error:
-            diagnostic = error.diagnostic.to_dict()
-            diagnostic.update({"stage": "runtime", "source_file": _display_path(path)})
-            result["ok"] = False
-            result["goal_reached"] = False
-            result["diagnostics"].append(diagnostic)
-        except LoopLimitError as error:
-            result["ok"] = False
-            result["goal_reached"] = False
-            result["diagnostics"].append({
-                "code": error.code,
-                "severity": "fatal",
-                "category": "runtime.loop",
-                "message": str(error),
-                "stage": "runtime",
-                "source_file": _display_path(path),
-            })
-        except IntegratedRuntimeError as error:
-            result["ok"] = False
-            result["goal_reached"] = False
-            result["execution_mode"] = "integrated"
-            result["diagnostics"].append({
-                "code": error.code,
-                "severity": "error",
-                "category": "runtime",
-                "message": str(error),
-                "stage": "runtime",
-                "source_file": _display_path(path),
-            })
-        except Exception as error:
-            from frontend.vision.runtime import VisionRuntimeError
-            if not isinstance(error, VisionRuntimeError):
-                raise
-            diagnostic = error.diagnostic()
+                result["trace"] = runtime_result["tensor_trace"] + runtime_result["loop_trace"] + runtime_result["vision_trace"] + runtime_result.get("reasoning_trace", [])
+        except RustDispatchError as error:
+            diagnostic = error.to_diagnostic()
             diagnostic["source_file"] = _display_path(path)
             result["ok"] = False
             result["goal_reached"] = False
+            result["execution_mode"] = "integrated-rust"
+            result["artifacts"]["runtime_dispatch"]["failure_reason"] = error.reason
             result["diagnostics"].append(diagnostic)
     return result
 

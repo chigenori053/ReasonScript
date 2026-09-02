@@ -20,7 +20,7 @@ query graph summary;
 
 
 def test_phase17_compiles_and_executes_read_only_reason_graph_source(tmp_path: Path) -> None:
-    build = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    build = subprocess.run(["cargo", "build", "--manifest-path", "ReasonRuntime/crates/reason-object-core/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert build.returncode == 0, build.stderr
     source_path = tmp_path / "probe.rsn"; graph_path = tmp_path / "graph.rgraph"
     source_path.write_text(SOURCE, encoding="utf-8"); write_graph(reference_graph(), graph_path)

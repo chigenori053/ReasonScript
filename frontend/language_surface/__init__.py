@@ -134,7 +134,7 @@ from .nodes import (
     to_json_value,
     type_from_json,
 )
-from .parser import SurfaceSyntaxError, parse
+from .parser import SurfaceSyntaxError, parse, parse_unresolved
 from .pattern_decision import (
     PatternDecisionBuilder,
     PatternDecisionIR,
@@ -310,6 +310,7 @@ __all__ = [
     "expression_from_json",
     "from_json_value",
     "parse",
+    "parse_unresolved",
     "parse_expression",
     "parse_pattern",
     "pattern_decision_from_json",

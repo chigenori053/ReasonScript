@@ -20,6 +20,11 @@ def main() -> int:
 
     command = args[0]
 
+    # Handle help before project discovery, source reads, or output creation.
+    if any(arg in {"--help", "-h"} for arg in args[1:]):
+        _command_usage(command)
+        return 0
+
     if command == "init":
         if len(args) < 2:
             print("Usage: reason init <project_name>")
@@ -51,6 +56,13 @@ def main() -> int:
         from toolchain.version_validation import command as version_validate_command
         return version_validate_command(args[1:], Path.cwd())
 
+    if command == "lsp":
+        if args[1:] not in ([], ["--stdio"]):
+            print("Usage: reason lsp")
+            return 1
+        from frontend.lsp.server import run_stdio
+        return run_stdio()
+
     project_root = Path.cwd()
     package = _package_arg(args[1:])
 
@@ -65,6 +77,21 @@ def main() -> int:
                     return run(["source-run", *args[1:]], project_root)
             except OSError:
                 pass
+            package_root = _package_root_for_source(source_path, project_root)
+            if package_root is not None and _requires_package_run(
+                package_root,
+                source_path,
+                entry=_option_arg(args[1:], "--entry"),
+            ):
+                from toolchain.run_cmd import run
+
+                return run(
+                    package_root,
+                    entry=_option_arg(args[1:], "--entry"),
+                    include_trace="--trace" in args[1:],
+                    filesystem_read="--allow-read" in args[1:],
+                    filesystem_write="--allow-write" in args[1:],
+                )
         from scripts.reason_cli import main as reason_main
         return reason_main(args)
 
@@ -78,11 +105,25 @@ def main() -> int:
 
     if command == "run":
         from toolchain.run_cmd import run
-        return run(project_root, package=package)
+        return run(
+            project_root,
+            package=package,
+            entry=_option_arg(args[1:], "--entry"),
+            include_trace="--trace" in args[1:],
+            filesystem_read="--allow-read" in args[1:],
+            filesystem_write="--allow-write" in args[1:],
+        )
 
     if command == "test":
         from toolchain.runner_cmd import run
-        return run(project_root, package=package)
+        return run(
+            project_root,
+            package=package,
+            compile_only="--compile-only" in args[1:],
+            output_format=_option_arg(args[1:], "--format") or "text",
+            filesystem_read="--allow-read" in args[1:],
+            filesystem_write="--allow-write" in args[1:],
+        )
 
     if command == "check":
         from toolchain.check_cmd import run
@@ -105,11 +146,27 @@ def main() -> int:
         return run(command, args[1:], project_root)
 
     if command == "ci":
-        from toolchain.ci_cmd import run
+        try:
+            from toolchain.ci_cmd import run
+        except ModuleNotFoundError as error:
+            print(_missing_dependency_message(error), file=sys.stderr)
+            return 1
         return run(command, args[1:], project_root)
 
     if command == "ci-entry":
         from toolchain.ci_entry_cmd import run
+        return run(command, args[1:], project_root)
+
+    if command == "tensor-manifest":
+        from toolchain.tensor_manifest_cmd import run
+        return run(command, args[1:], project_root)
+
+    if command == "runtime-manifest":
+        from toolchain.runtime_manifest_cmd import run
+        return run(command, args[1:], project_root)
+
+    if command == "computation-ir":
+        from toolchain.computation_ir_cmd import run
         return run(command, args[1:], project_root)
 
     if command == "project-validate":
@@ -189,6 +246,22 @@ def main() -> int:
     return 1
 
 
+def _missing_dependency_message(error: ModuleNotFoundError) -> str:
+    module = error.name or "a required module"
+    return (
+        f"Error:\n\nMissingDependency\n\n"
+        f"`reason ci` could not start because the Python module '{module}' is not "
+        f"installed in this interpreter ({sys.executable}).\n\n"
+        "`reason ci` requires the development dependencies, not just the runtime\n"
+        "package. Install them into the interpreter you invoke `reason` with:\n\n"
+        "  python3 -m pip install -r requirements-dev.txt\n\n"
+        "If you are running under a sandboxed or isolated interpreter (e.g. an\n"
+        "agent runner's own venv), either install requirements-dev.txt into that\n"
+        "venv, or invoke `reason` with the project's interpreter instead:\n\n"
+        "  /path/to/venv-with-requirements-dev/bin/python -m toolchain ci --json"
+    )
+
+
 def _usage() -> None:
     print("Usage: reason <command> [args]")
     print()
@@ -205,6 +278,7 @@ def _usage() -> None:
     print("  run           Execute the compiled program")
     print("  test          Run test suites")
     print("  check         Validate sources without building")
+    print("  lsp           Start the ReasonScript language server over stdio")
     print("  view          Browse .rsn source alongside its compiled representations")
     print("  workspace     Show workspace foundation summary")
     print("  summary       Show machine-readable project summary")
@@ -221,6 +295,9 @@ def _usage() -> None:
     print("  agent-report  Emit Agent Development Protocol report")
     print("  ci            Run the canonical CI Stabilization pipeline")
     print("  ci-entry      Validate the canonical CI entry point contract")
+    print("  tensor-manifest Emit/check the frozen Tensor function contract manifest")
+    print("  runtime-manifest Emit/check the frozen Runtime consolidation manifest")
+    print("  computation-ir Lower a .rsn file to reason-computation-ir/0.1 JSON")
     print("  project-validate Validate a standalone ReasonScript project")
     print("  phase1r-validate Generate and validate Phase 1R probes")
     print("  reasonunit-baseline Generate or validate the RUO-C0 compatibility baseline")
@@ -242,6 +319,11 @@ def _usage() -> None:
     print("  phase8-golden validate Run Phase 8 golden validation")
 
 
+def _command_usage(command: str) -> None:
+    print(f"Usage: reason {command} [args]")
+    print("Run 'reason help' for the full command list.")
+
+
 def _package_arg(args: list[str]) -> str | None:
     if "--package" not in args:
         return None
@@ -251,19 +333,61 @@ def _package_arg(args: list[str]) -> str | None:
     return args[index + 1]
 
 
+def _option_arg(args: list[str], option: str) -> str | None:
+    if option not in args:
+        return None
+    index = args.index(option)
+    return args[index + 1] if index + 1 < len(args) else None
+
+
 def _source_file_arg(args: list[str]) -> str | None:
     skip_next = False
     for arg in args:
         if skip_next:
             skip_next = False
             continue
-        if arg in {"--compiler-mode", "--out"}:
+        if arg in {
+            "--compiler-mode",
+            "--entry",
+            "--out",
+            "--package",
+            "--result-output",
+        }:
             skip_next = True
             continue
         if arg.startswith("--"):
             continue
         return arg if arg.endswith(".rsn") else None
     return None
+
+
+def _package_root_for_source(source_path: Path, cwd: Path) -> Path | None:
+    resolved = source_path if source_path.is_absolute() else cwd / source_path
+    if not resolved.is_file():
+        return None
+    for candidate in (resolved.parent, *resolved.parents):
+        if (candidate / "reason.toml").is_file():
+            return candidate
+    return None
+
+
+def _requires_package_run(
+    package_root: Path, source_path: Path, *, entry: str | None
+) -> bool:
+    """Keep standalone source behavior unless project context is required."""
+    if entry is not None:
+        return True
+    source_dir = package_root / "src"
+    if source_dir.is_dir() and sum(1 for _ in source_dir.rglob("*.rsn")) > 1:
+        return True
+    resolved = source_path if source_path.is_absolute() else Path.cwd() / source_path
+    try:
+        return any(
+            line.lstrip().startswith("import ")
+            for line in resolved.read_text(encoding="utf-8").splitlines()
+        )
+    except OSError:
+        return False
 
 
 if __name__ == "__main__":

@@ -20,35 +20,69 @@ from frontend.language_surface.nodes import (
     ComparisonOperator,
     ConstStatementNode,
     ContinueStatementNode,
+    DefaultPatternNode,
+    EnumDeclarationNode,
+    EnumValuePatternNode,
+    EnumVariantReferenceNode,
     ExpressionNode,
     ExpressionStatementNode,
     FieldAssignmentStatementNode,
     FloatLiteralNode,
     ForStatementNode,
     FunctionDeclarationNode,
+    GoalNode,
     IdentifierNode,
+    IdentifierPatternNode,
     IfStatementNode,
+    ImportNode,
     IndexAccessNode,
     IndexAssignmentStatementNode,
     IntegerLiteralNode,
     LetStatementNode,
+    LiteralPatternNode,
     LogicalExpressionNode,
     LogicalOperator,
     LoopStatementNode,
+    MatchStatementNode,
     MemberAccessNode,
     NoneLiteralNode,
     NullLiteralNode,
+    OptionalPatternNode,
+    OptionalValuePatternNode,
+    OrPatternNode,
     ParenthesizedExpressionNode,
     ProgramNode,
+    QualifiedIdentifierNode,
+    QualifiedPatternNode,
+    RangePatternNode,
+    ReasonGraphDeclarationNode,
+    ReasonObjectBindingNode,
     ResultStatementNode,
     ReturnStatementNode,
+    RuntimeCallExpressionNode,
+    SomeExpressionNode,
+    StateDeclarationNode,
+    ConstraintNode,
+    ExecutionPlanDeclarationNode,
     StringLiteralNode,
+    StructBindingPatternNode,
     StructLiteralNode,
+    StructPatternNode,
     UnaryExpressionNode,
     UnaryOperator,
     WhileStatementNode,
+    WildcardPatternNode,
 )
+from frontend.relation.integration import relation_call_name
+from frontend.string.integration import string_call_name
+from frontend.reason_object_runtime import (
+    ReasonObjectRuntimeError,
+    call_ruo,
+    load_reason_object,
+)
+from frontend.reasoning_reference import ReasoningReferenceError, call_reasoning
 from frontend.tensor.integration import LOWERINGS, tensor_call_name
+from frontend.tensor.optimizers import optimizer_call_name
 from frontend.tensor.runtime import TensorError, TensorRuntime, TensorValueRef
 from frontend.vision.integration import vision_call_name
 from frontend.vision.runtime import VisionRuntimeBridge
@@ -88,6 +122,297 @@ class RuntimeStruct:
     fields: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class RuntimeEnumValue:
+    """A resolved `EnumName.VariantName` reference (Phase 1 enum unification).
+
+    Distinct from a plain string so `Color.Red == "Red"` is a type error
+    the way `TYPE-V004`-style arithmetic mixing is, not an accidental true
+    -- equality/pattern matching only ever compares two `RuntimeEnumValue`s.
+    """
+
+    enum_name: str
+    variant_name: str
+
+
+@dataclass(frozen=True)
+class RuntimeOptionalValue:
+    """`some(x)` / `none` (Phase 1 optional unification).
+
+    Deliberately not the same value as ReasonScript `null`
+    (`NullLiteralNode`, which still evaluates to plain Python `None`): a
+    `none` is a tagged "absent" `RuntimeOptionalValue`, so
+    `none == null` is false and a `None`/`Some` match arm can't
+    accidentally catch an unrelated `null`.
+    """
+
+    has_value: bool
+    value: Any = None
+
+
+@dataclass
+class RuntimeFunction:
+    node: FunctionDeclarationNode
+    bindings: dict[str, "RuntimeFunction"]
+    globals: dict[str, Any] | None = None
+
+
+_RELATION_ARGUMENT_COUNTS: dict[str, int] = {
+    "relation.filter_eq": 3,
+    "relation.filter_ne": 3,
+    "relation.filter_gt": 3,
+    "relation.filter_gte": 3,
+    "relation.filter_lt": 3,
+    "relation.filter_lte": 3,
+    "relation.count": 1,
+    "relation.distinct_by": 2,
+    "relation.sort_by": 3,
+}
+
+_RELATION_COMPARISONS: dict[str, Any] = {
+    "relation.filter_eq": lambda a, b: a == b,
+    "relation.filter_ne": lambda a, b: a != b,
+    "relation.filter_gt": lambda a, b: a > b,
+    "relation.filter_gte": lambda a, b: a >= b,
+    "relation.filter_lt": lambda a, b: a < b,
+    "relation.filter_lte": lambda a, b: a <= b,
+}
+
+
+def _relation_rows(value: Any) -> list[RuntimeStruct]:
+    if not isinstance(value, list) or not all(isinstance(item, RuntimeStruct) for item in value):
+        raise IntegratedRuntimeError("REL-004", "Relation function requires Array<Struct>")
+    return value
+
+
+def _relation_field(row: RuntimeStruct, field: str) -> Any:
+    if field not in row.fields:
+        raise IntegratedRuntimeError("REL-005", f"unknown field {field} on {row.type_name}")
+    return row.fields[field]
+
+
+def _match_pattern(pattern: Any, value: Any) -> dict[str, Any] | None:
+    """Structurally matches `value` against a `Pattern` AST node.
+
+    Returns the bindings a successful match would introduce (possibly
+    empty), or `None` if `pattern` does not match `value`. Language-surface
+    validation (`_validate_*_match_exhaustiveness` in
+    `frontend.language_surface.validation`) already guarantees a `match`
+    statement is exhaustive before this ever runs, so callers only need to
+    handle "no arm matched" as a defensive fallback, not an expected case.
+    """
+    if isinstance(pattern, (WildcardPatternNode, DefaultPatternNode)):
+        return {}
+    if isinstance(pattern, IdentifierPatternNode):
+        return {pattern.name: value}
+    if isinstance(pattern, StructBindingPatternNode):
+        return {pattern.binding: value}
+    if isinstance(pattern, LiteralPatternNode):
+        literal = pattern.value
+        literal_value = None if isinstance(literal, NullLiteralNode) else literal.value
+        return {} if value == literal_value else None
+    if isinstance(pattern, RangePatternNode):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        lower = pattern.lower.value
+        upper = pattern.upper.value
+        lower_ok = value >= lower if pattern.lower_inclusive else value > lower
+        upper_ok = value <= upper if pattern.upper_inclusive else value < upper
+        return {} if lower_ok and upper_ok else None
+    if isinstance(pattern, EnumValuePatternNode):
+        matches = (
+            isinstance(value, RuntimeEnumValue)
+            and value.enum_name == pattern.enum_name
+            and value.variant_name == pattern.value_name
+        )
+        return {} if matches else None
+    if isinstance(pattern, QualifiedPatternNode):
+        matches = (
+            isinstance(value, RuntimeEnumValue)
+            and value.enum_name == pattern.namespace
+            and value.variant_name == pattern.identifier
+        )
+        return {} if matches else None
+    if isinstance(pattern, OptionalPatternNode):
+        if not isinstance(value, RuntimeOptionalValue):
+            return None
+        if pattern.kind == "Some":
+            if not value.has_value:
+                return None
+            return {pattern.binding: value.value} if pattern.binding is not None else {}
+        return {} if not value.has_value else None
+    if isinstance(pattern, OptionalValuePatternNode):
+        if not isinstance(value, RuntimeOptionalValue):
+            return None
+        if pattern.kind == "Some":
+            return _match_pattern(pattern.pattern, value.value) if value.has_value else None
+        return {} if not value.has_value else None
+    if isinstance(pattern, StructPatternNode):
+        if not isinstance(value, RuntimeStruct) or value.type_name != pattern.type_name:
+            return None
+        bindings: dict[str, Any] = {}
+        for field in pattern.fields:
+            if field.field_name not in value.fields:
+                return None
+            sub_bindings = _match_pattern(field.pattern, value.fields[field.field_name])
+            if sub_bindings is None:
+                return None
+            bindings.update(sub_bindings)
+        return bindings
+    if isinstance(pattern, OrPatternNode):
+        for alternative in pattern.alternatives:
+            bindings = _match_pattern(alternative, value)
+            if bindings is not None:
+                return bindings
+        return None
+    raise IntegratedRuntimeError("RT-MATCH-002", f"unsupported pattern: {type(pattern).__name__}")
+
+
+def call_relation(function_id: str, *args: Any) -> Any:
+    """Dispatch a `relation.*` function (Phase 8 "relational algebra core").
+
+    A plain module-level function, not a method on any runtime class:
+    every `relation.*` function is pure -- it reads `Array<Struct>`/field
+    values and returns a new plain Python value, with no Tensor backend,
+    autograd, or other persistent state involved (unlike
+    `TensorRuntime.call`/`call_optimizer`). Comparisons reuse Python's
+    native operators (`==`, `<`, ...), the same semantics
+    `ComparisonExpressionNode` already uses elsewhere in this module, so
+    a field comparison behaves identically to a plain `a < b` expression
+    -- including raising a `TypeError` for genuinely incomparable types,
+    normalized below into a diagnostic rather than left to leak raw.
+    """
+    if function_id not in _RELATION_ARGUMENT_COUNTS:
+        raise IntegratedRuntimeError("REL-001", f"unknown Relation function: {function_id}")
+    expected = _RELATION_ARGUMENT_COUNTS[function_id]
+    if len(args) != expected:
+        raise IntegratedRuntimeError(
+            "REL-002",
+            f"Relation function argument count mismatch: {function_id} expects {expected}",
+        )
+    if function_id == "relation.count":
+        return len(_relation_rows(args[0]))
+    if function_id in _RELATION_COMPARISONS:
+        rows, field, value = args
+        compare = _RELATION_COMPARISONS[function_id]
+        try:
+            return [row for row in _relation_rows(rows) if compare(_relation_field(row, field), value)]
+        except TypeError as error:
+            raise IntegratedRuntimeError("REL-006", f"Relation comparison is undefined: {error}") from error
+    if function_id == "relation.distinct_by":
+        rows, field = args
+        # A linear equality scan, not a hash set: `distinct_by` must
+        # accept any comparable field value (including Array/Struct
+        # field values, which aren't hashable), matching the Rust side
+        # (`relation_dispatch.rs`'s `distinct_by`, which never hashes
+        # either -- Value has no Hash impl, only PartialEq).
+        seen: list[Any] = []
+        result = []
+        for row in _relation_rows(rows):
+            key = _relation_field(row, field)
+            if key not in seen:
+                seen.append(key)
+                result.append(row)
+        return result
+    if function_id == "relation.sort_by":
+        rows, field, descending = args
+        if not isinstance(descending, bool):
+            raise IntegratedRuntimeError("REL-007", "Relation sort_by descending must be Bool")
+        try:
+            return sorted(
+                _relation_rows(rows),
+                key=lambda row: _relation_field(row, field),
+                reverse=descending,
+            )
+        except TypeError as error:
+            raise IntegratedRuntimeError("REL-006", f"Relation field is not orderable: {error}") from error
+    raise IntegratedRuntimeError("REL-001", f"unknown Relation function: {function_id}")
+
+
+_STRING_ARGUMENT_COUNTS: dict[str, int] = {
+    "string.concat": 2,
+    "string.join": 2,
+    "string.length": 1,
+    "string.from_int": 1,
+    "string.from_float": 1,
+    "string.slice": 3,
+}
+
+
+def _as_string(value: Any, function_id: str) -> str:
+    if isinstance(value, str):
+        return value
+    raise IntegratedRuntimeError("STR-003", f"{function_id} argument must be String")
+
+
+def _as_int(value: Any, function_id: str) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    raise IntegratedRuntimeError("STR-003", f"{function_id} argument must be Int")
+
+
+def format_float(value: float) -> str:
+    """Canonical `Float -> String` text, shared with the IR interpreter and
+    matched byte-for-byte by the Rust VM's `string_dispatch::from_float`.
+
+    Always includes a decimal point (`2.0`, not `2`) so a formatted Float
+    never looks like an Int. Deliberately scoped to the normal range: both
+    `repr()` here and Rust's `{}` Display use a shortest-round-trip digit
+    algorithm that agrees digit-for-digit for ordinary values, but Python
+    switches to scientific notation and Rust never does, so extreme
+    magnitudes (roughly outside 1e-4..1e16) are not guaranteed to format
+    identically between the two backends -- not a concern for this
+    minimal standard library, which has no other floating-point formatting
+    controls (precision, scientific notation, locale) to begin with.
+    """
+    text = repr(value)
+    return text if "." in text or "e" in text or "n" in text else f"{text}.0"
+
+
+def call_string(function_id: str, *args: Any) -> Any:
+    """Dispatch a `string.*` function (Phase 2 "String標準ライブラリ").
+
+    A plain module-level function, mirroring `call_relation`: every
+    `string.*` function is pure, with no Tensor backend or persistent
+    state involved.
+    """
+    if function_id not in _STRING_ARGUMENT_COUNTS:
+        raise IntegratedRuntimeError("STR-001", f"unknown String function: {function_id}")
+    expected = _STRING_ARGUMENT_COUNTS[function_id]
+    if len(args) != expected:
+        raise IntegratedRuntimeError(
+            "STR-002",
+            f"String function argument count mismatch: {function_id} expects {expected}",
+        )
+    if function_id == "string.concat":
+        a, b = args
+        return _as_string(a, function_id) + _as_string(b, function_id)
+    if function_id == "string.join":
+        separator, values = args
+        separator = _as_string(separator, function_id)
+        if not isinstance(values, list):
+            raise IntegratedRuntimeError("STR-003", "string.join second argument must be Array<String>")
+        return separator.join(_as_string(item, function_id) for item in values)
+    if function_id == "string.length":
+        return len(_as_string(args[0], function_id))
+    if function_id == "string.from_int":
+        return str(_as_int(args[0], function_id))
+    if function_id == "string.from_float":
+        value = args[0]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise IntegratedRuntimeError("STR-003", "string.from_float argument must be Float")
+        return format_float(float(value))
+    if function_id == "string.slice":
+        value, start, end = args
+        value = _as_string(value, function_id)
+        start = _as_int(start, function_id)
+        end = _as_int(end, function_id)
+        if start < 0 or end < start or end > len(value):
+            raise IntegratedRuntimeError("STR-004", f"string.slice bounds out of range: {start}..{end}")
+        return value[start:end]
+    raise IntegratedRuntimeError("STR-001", f"unknown String function: {function_id}")
+
+
 @dataclass
 class IntegratedComputationResult:
     value: Any
@@ -108,6 +433,7 @@ class IntegratedComputationResult:
             "tensor_trace": [_stable_trace(item) for item in self.runtime.trace],
             "loop_trace": list(self.loop_trace),
             "vision_trace": list(self.vision_runtime.trace) if self.vision_runtime is not None else [],
+            "reasoning_trace": list(getattr(self.runtime, "reasoning_trace", [])),
             "calculations": {
                 name: _plain(value, self.runtime)
                 for name, value in sorted(self.calculation_results.items())
@@ -127,19 +453,87 @@ def execute_program(
         filesystem_read=filesystem_read,
         filesystem_write=filesystem_write,
     )
+    runtime.reasoning_trace = []
     vision_runtime = VisionRuntimeBridge(resource_root or Path.cwd(), filesystem_read=filesystem_read, filesystem_write=filesystem_write)
     loop_trace: list[dict[str, Any]] = []
     calculations: dict[str, Any] = {}
-    for module in program.modules:
-        functions = {
-            item.name: item
-            for item in module.body
-            if isinstance(item, FunctionDeclarationNode)
+    object_root = (resource_root or Path.cwd()).resolve()
+    module_objects: dict[str, dict[str, Any]] = {}
+    # Flat and program-wide, like `RuntimeStruct.type_name`: every module
+    # sees every declared enum's namespace object below, so `Color.Red`
+    # resolves via the ordinary `MemberAccessNode` handling in
+    # `_expression` (env lookup of "Color" finds this dict, then plain
+    # dict-member lookup) without needing a dedicated AST node or a
+    # separate scope parameter threaded through every evaluator call.
+    enum_namespaces: dict[str, dict[str, RuntimeEnumValue]] = {
+        item.name: {
+            value.name: RuntimeEnumValue(item.name, value.name) for value in item.values
         }
+        for module in program.modules
+        for item in module.body
+        if isinstance(item, EnumDeclarationNode)
+    }
+    for module in program.modules:
+        loaded: dict[str, Any] = dict(enum_namespaces)
+        for item in module.body:
+            if isinstance(item, (
+                GoalNode,
+                StateDeclarationNode,
+                ConstraintNode,
+                ReasonGraphDeclarationNode,
+                ExecutionPlanDeclarationNode,
+            )):
+                loaded[item.name] = item.name
+            if not isinstance(item, ReasonObjectBindingNode):
+                continue
+            try:
+                loaded[item.name] = load_reason_object(
+                    object_root / item.source_path,
+                    object_root,
+                    filesystem_read=filesystem_read,
+                    filesystem_write=filesystem_write,
+                    expected_object_id=item.expected_object_id,
+                )
+            except ReasonObjectRuntimeError as error:
+                raise IntegratedRuntimeError(error.code, str(error)) from error
+        module_objects[module.name] = loaded
+    function_registry: dict[str, RuntimeFunction] = {}
+    package_prefix = f"{program.package.name}." if program.package is not None else ""
+    for module in program.modules:
+        for item in module.body:
+            if isinstance(item, FunctionDeclarationNode):
+                canonical = f"{package_prefix}{module.name}::{item.name}"
+                function_registry[canonical] = RuntimeFunction(item, {})
+
+    module_functions: dict[str, dict[str, RuntimeFunction]] = {}
+    for module in program.modules:
+        bindings = dict(function_registry)
+        for item in module.body:
+            if isinstance(item, FunctionDeclarationNode):
+                canonical = f"{package_prefix}{module.name}::{item.name}"
+                bindings[item.name] = function_registry[canonical]
+            elif isinstance(item, ImportNode) and item.resolution is not None:
+                for exposed_name in item.resolution.exposed_names:
+                    canonical = (
+                        f"{item.resolution.namespace}::"
+                        f"{item.resolution.symbol or exposed_name}"
+                    )
+                    if canonical in function_registry:
+                        bindings[exposed_name] = function_registry[canonical]
+        module_functions[module.name] = bindings
+
+    for canonical, function in function_registry.items():
+        module_namespace = canonical.rsplit("::", 1)[0]
+        module_name = module_namespace.rsplit(".", 1)[-1]
+        function.bindings = module_functions[module_name]
+        function.globals = module_objects[module_name]
+
+    for module in program.modules:
+        functions = module_functions[module.name]
         for calculation in (
             item for item in module.body if isinstance(item, CalculationNode)
         ):
-            env = dict(calculations)
+            env = {**module_objects[module.name], **calculations}
             try:
                 _statements(
                     calculation.body,
@@ -275,7 +669,54 @@ def _statements(
                     selected, env, runtime, trace, limit, scope, vision_runtime,
                     functions, max_call_depth, call_depth,
                 )
+        elif isinstance(statement, MatchStatementNode):
+            _match_statement(
+                statement, env, runtime, trace, limit, scope, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
         runtime.collect(env)
+
+
+def _match_statement(
+    statement: MatchStatementNode,
+    env: dict[str, Any],
+    runtime: TensorRuntime,
+    trace: list[dict[str, Any]],
+    limit: int,
+    scope: str,
+    vision_runtime: VisionRuntimeBridge,
+    functions: dict[str, FunctionDeclarationNode],
+    max_call_depth: int,
+    call_depth: int,
+) -> None:
+    subject = _expression(
+        statement.expression, env, runtime, vision_runtime,
+        functions, max_call_depth, call_depth,
+    )
+    for arm in statement.arms:
+        bindings = _match_pattern(arm.pattern.pattern, subject)
+        if bindings is None:
+            continue
+        previous: list[tuple[str, Any, bool]] = [
+            (name, env.get(name), name in env) for name in bindings
+        ]
+        env.update(bindings)
+        guard_ok = arm.guard is None or bool(_expression(
+            arm.guard, env, runtime, vision_runtime,
+            functions, max_call_depth, call_depth,
+        ))
+        if guard_ok:
+            _statements(
+                arm.body, env, runtime, trace, limit, scope, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            return
+        for name, old_value, existed in previous:
+            if existed:
+                env[name] = old_value
+            else:
+                del env[name]
+    raise IntegratedRuntimeError("RT-MATCH-001", "no match arm satisfied the value")
 
 
 def _while_loop(
@@ -366,8 +807,17 @@ def _expression(
     value = value.expression if isinstance(value, ExpressionNode) else value
     if isinstance(value, (IntegerLiteralNode, FloatLiteralNode, BooleanLiteralNode, StringLiteralNode)):
         return value.value
-    if isinstance(value, (NoneLiteralNode, NullLiteralNode)):
+    if isinstance(value, NullLiteralNode):
         return None
+    if isinstance(value, NoneLiteralNode):
+        return RuntimeOptionalValue(False)
+    if isinstance(value, SomeExpressionNode):
+        return RuntimeOptionalValue(True, _expression(
+            value.value, env, runtime, vision_runtime,
+            functions, max_call_depth, call_depth,
+        ))
+    if isinstance(value, EnumVariantReferenceNode):
+        return RuntimeEnumValue(value.enum_name, value.variant_name)
     if isinstance(value, IdentifierNode):
         if value.name not in env:
             raise IntegratedRuntimeError("RT-NAME-001", f"unknown runtime name: {value.name}")
@@ -411,6 +861,8 @@ def _expression(
             value.right, env, runtime, vision_runtime,
             functions, max_call_depth, call_depth,
         )
+        if value.operator in (BinaryOperator.DIVIDE, BinaryOperator.MODULO) and right == 0:
+            raise IntegratedRuntimeError("RT-ARITH-001", "division or modulo by zero")
         return {
             BinaryOperator.ADD: lambda: left + right,
             BinaryOperator.SUBTRACT: lambda: left - right,
@@ -473,12 +925,41 @@ def _expression(
                     f"unknown field {value.member} on {owner.type_name}",
                 )
             return owner.fields[value.member]
+        if isinstance(owner, dict) and value.member in owner:
+            return owner[value.member]
         if isinstance(owner, (list, tuple, dict)) and value.member == "length":
             return len(owner)
         raise IntegratedRuntimeError(
             "RT-FIELD-001", f"member access is unsupported: {value.member}"
         )
+    if isinstance(value, RuntimeCallExpressionNode):
+        argument = _expression(
+            value.arguments[0], env, runtime, vision_runtime,
+            functions, max_call_depth, call_depth,
+        )
+        try:
+            result, trace = call_reasoning(f"runtime.{value.method}", argument)
+        except ReasoningReferenceError as error:
+            raise IntegratedRuntimeError(error.code, str(error)) from error
+        runtime.reasoning_trace.append(trace)
+        return result
     if isinstance(value, CallExpressionNode):
+        if (
+            isinstance(value.callee, MemberAccessNode)
+            and isinstance(value.callee.object, IdentifierNode)
+            and value.callee.object.name == "ruo"
+        ):
+            arguments = [
+                _expression(
+                    argument, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for argument in value.arguments
+            ]
+            try:
+                return call_ruo(f"ruo.{value.callee.member}", *arguments)
+            except ReasonObjectRuntimeError as error:
+                raise IntegratedRuntimeError(error.code, str(error)) from error
         vision_function = vision_call_name(value)
         if vision_function is not None:
             arguments = [
@@ -513,6 +994,39 @@ def _expression(
                 }
             )
             return result
+        optimizer_function = optimizer_call_name(value)
+        if optimizer_function is not None:
+            arguments = [
+                _expression(
+                    argument, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for argument in value.arguments
+            ]
+            source_location = getattr(value, "_source_location", None)
+            return runtime.call_optimizer(
+                optimizer_function, *arguments, _source_location=source_location
+            )
+        relation_function = relation_call_name(value)
+        if relation_function is not None:
+            arguments = [
+                _expression(
+                    argument, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for argument in value.arguments
+            ]
+            return call_relation(relation_function, *arguments)
+        string_function = string_call_name(value)
+        if string_function is not None:
+            arguments = [
+                _expression(
+                    argument, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for argument in value.arguments
+            ]
+            return call_string(string_function, *arguments)
         if (
             isinstance(value.callee, MemberAccessNode)
             and isinstance(value.callee.object, IdentifierNode)
@@ -536,16 +1050,106 @@ def _expression(
                     "RT-CALL-002", "array.append first argument must be an array"
                 )
             return [*collection, copy.deepcopy(item)]
-        if isinstance(value.callee, IdentifierNode):
-            function_node = functions.get(value.callee.name)
-            if function_node is None:
+        if (
+            isinstance(value.callee, MemberAccessNode)
+            and isinstance(value.callee.object, IdentifierNode)
+            and value.callee.object.name == "array"
+            and value.callee.member == "concat"
+        ):
+            if len(value.arguments) != 2:
                 raise IntegratedRuntimeError(
-                    "RT-CALL-001", f"unknown runtime function: {value.callee.name}"
+                    "RT-CALL-006", "array.concat expects two arguments"
                 )
+            left = _expression(
+                value.arguments[0], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            right = _expression(
+                value.arguments[1], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            if not isinstance(left, list) or not isinstance(right, list):
+                raise IntegratedRuntimeError(
+                    "RT-CALL-006", "array.concat arguments must be arrays"
+                )
+            # Both sides are elements already living inside an array (unlike
+            # array.append's bare `item`, which needs a deep copy so the new
+            # array doesn't alias a plain local's value) -- a new list
+            # container with the same element identities, matching Rust's
+            # `Vec::clone()` (an `Rc`-bump per element, not a deep clone).
+            return [*left, *right]
+        if (
+            isinstance(value.callee, IdentifierNode)
+            and value.callee.name in {"float", "int"}
+            and value.callee.name not in functions
+        ):
+            if len(value.arguments) != 1:
+                raise IntegratedRuntimeError(
+                    "RT-CALL-002", f"{value.callee.name}() expects exactly one argument"
+                )
+            argument = _expression(
+                value.arguments[0], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            if isinstance(argument, bool) or not isinstance(argument, (int, float)):
+                raise IntegratedRuntimeError(
+                    "RT-CALL-005", f"{value.callee.name}() argument must be Int or Float"
+                )
+            return float(argument) if value.callee.name == "float" else int(argument)
+        if (
+            isinstance(value.callee, IdentifierNode)
+            and value.callee.name in {"assert", "assert_eq"}
+            and value.callee.name not in functions
+        ):
+            if value.callee.name == "assert":
+                if len(value.arguments) != 1:
+                    raise IntegratedRuntimeError(
+                        "RT-CALL-002", "assert() expects exactly one argument"
+                    )
+                condition = _expression(
+                    value.arguments[0], env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                if condition is not True:
+                    raise IntegratedRuntimeError("TEST-ASSERT-001", "assertion failed")
+                return None
+            if len(value.arguments) != 2:
+                raise IntegratedRuntimeError(
+                    "RT-CALL-002", "assert_eq() expects exactly two arguments"
+                )
+            actual = _expression(
+                value.arguments[0], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            expected = _expression(
+                value.arguments[1], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            if actual != expected:
+                raise IntegratedRuntimeError(
+                    "TEST-ASSERT-001",
+                    f"assertion failed: expected {expected!r}, got {actual!r}",
+                )
+            return None
+        if isinstance(value.callee, (IdentifierNode, QualifiedIdentifierNode)):
+            function_ref = (
+                functions.get(value.callee.name)
+                if isinstance(value.callee, IdentifierNode)
+                else functions.get(
+                    value.callee.resolved_name
+                    or "::".join((*value.callee.path, value.callee.symbol))
+                )
+            )
+            if function_ref is None:
+                raise IntegratedRuntimeError(
+                    "RT-CALL-001",
+                    f"unknown runtime function: {_callee_label(value.callee)}",
+                )
+            function_node = function_ref.node
             if len(value.arguments) != len(function_node.parameters):
                 raise IntegratedRuntimeError(
                     "RT-CALL-002",
-                    f"function argument count mismatch: {value.callee.name}",
+                    f"function argument count mismatch: {_callee_label(value.callee)}",
                 )
             if call_depth >= max_call_depth:
                 raise IntegratedRuntimeError(
@@ -559,10 +1163,11 @@ def _expression(
                 )
                 for argument in value.arguments
             ]
-            local_env = {
+            local_env = dict(function_ref.globals or {})
+            local_env.update({
                 _parameter_name(parameter): argument
                 for parameter, argument in zip(function_node.parameters, arguments)
-            }
+            })
             try:
                 with runtime.protect(env):
                     _statements(
@@ -573,7 +1178,7 @@ def _expression(
                         10_000,
                         f"fn.{function_node.name}",
                         vision_runtime,
-                        functions,
+                        function_ref.bindings,
                         max_call_depth,
                         call_depth + 1,
                     )
@@ -587,6 +1192,12 @@ def _expression(
 
 def _parameter_name(parameter: Any) -> str:
     return parameter["name"] if isinstance(parameter, dict) else str(parameter)
+
+
+def _callee_label(callee: IdentifierNode | QualifiedIdentifierNode) -> str:
+    if isinstance(callee, IdentifierNode):
+        return callee.name
+    return callee.resolved_name or "::".join((*callee.path, callee.symbol))
 
 
 def _index_value(collection: Any, index: Any, runtime: TensorRuntime) -> Any:
@@ -702,6 +1313,16 @@ def _plain(value: Any, runtime: TensorRuntime) -> Any:
             name: _plain(item, runtime)
             for name, item in sorted(value.fields.items())
         }
+    if isinstance(value, RuntimeEnumValue):
+        return {"enum_name": value.enum_name, "variant_name": value.variant_name}
+    if isinstance(value, RuntimeOptionalValue):
+        return (
+            {"optional": "some", "value": _plain(value.value, runtime)}
+            if value.has_value
+            else {"optional": "none"}
+        )
+    if hasattr(value, "to_runtime_value"):
+        return _plain(value.to_runtime_value(), runtime)
     if isinstance(value, dict):
         return {
             str(name): _plain(item, runtime)
@@ -720,6 +1341,16 @@ def _trace_plain(value: Any) -> Any:
             name: _trace_plain(item)
             for name, item in sorted(value.fields.items())
         }
+    if isinstance(value, RuntimeEnumValue):
+        return {"enum_name": value.enum_name, "variant_name": value.variant_name}
+    if isinstance(value, RuntimeOptionalValue):
+        return (
+            {"optional": "some", "value": _trace_plain(value.value)}
+            if value.has_value
+            else {"optional": "none"}
+        )
+    if hasattr(value, "to_runtime_value"):
+        return _trace_plain(value.to_runtime_value())
     if isinstance(value, dict):
         return {
             str(name): _trace_plain(item)

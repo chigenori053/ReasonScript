@@ -11,7 +11,7 @@ Provides language support for ReasonScript (`.rsn` files), including syntax high
 Install from a `.vsix` file:
 
 ```
-code --install-extension reasonscript-0.1.2.vsix
+code --install-extension reasonscript-0.1.7.vsix
 ```
 
 Or install from the VSCode Marketplace once published.
@@ -19,7 +19,7 @@ Or install from the VSCode Marketplace once published.
 ## Build
 
 ```
-npm install
+npm ci
 npm run compile
 ```
 
@@ -29,7 +29,8 @@ npm run compile
 npm run package
 ```
 
-Produces `reasonscript-0.1.2.vsix`.
+Produces `reasonscript-0.1.7.vsix`. The package command compiles the
+extension first, so the VSIX never relies on a stale `out/` directory.
 
 ## Run
 
@@ -44,7 +45,7 @@ Available commands (via Command Palette):
 
 ## Test
 
-Run the extension test suite:
+Run TypeScript validation:
 
 ```
 npm test
@@ -55,7 +56,7 @@ npm test
 Run type checking without emitting output:
 
 ```
-npx tsc --noEmit
+npm run check
 ```
 
 ## Workspace Support

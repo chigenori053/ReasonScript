@@ -159,6 +159,24 @@ _CURRENT_SOURCE_LINE: ContextVar[tuple[int, int, str] | None] = ContextVar(
 
 
 def parse(source: str) -> ProgramNode:
+    program = parse_unresolved(source)
+    source_locations = _source_location_index(program)
+    try:
+        program, _ = resolve_program(program)
+        _restore_source_locations(program, source_locations)
+        validate(program)
+    except (SurfaceValidationError, NamespaceResolutionError) as error:
+        raise SurfaceSyntaxError(str(error)) from error
+    return program
+
+
+def parse_unresolved(source: str) -> ProgramNode:
+    """Parse one source unit without requiring imported modules to be present.
+
+    Package compilation combines all returned units into one closed
+    :class:`ProgramNode` before namespace and type validation.  ``parse``
+    remains the closed-program entry point for standalone callers.
+    """
     try:
         tokenize(source)
     except ValueError as error:
@@ -175,15 +193,7 @@ def parse(source: str) -> ProgramNode:
             continue
         _reject_reserved_top_level_construct(cursor.current())
         modules.append(_parse_module(cursor))
-    program = ProgramNode(tuple(modules), package)
-    source_locations = _source_location_index(program)
-    try:
-        program, _ = resolve_program(program)
-        _restore_source_locations(program, source_locations)
-        validate(program)
-    except (SurfaceValidationError, NamespaceResolutionError) as error:
-        raise SurfaceSyntaxError(str(error)) from error
-    return program
+    return ProgramNode(tuple(modules), package)
 
 
 def _source_location_index(
@@ -249,22 +259,89 @@ def _reject_reserved_top_level_construct(line: str) -> None:
         raise SurfaceReservedConstructError(match.group(1))
 
 
+def _paren_events(line: str) -> list[tuple[str, int]]:
+    events: list[tuple[str, int]] = []
+    quote: str | None = None
+    escaped = False
+    for column, char in enumerate(line, start=1):
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+        if char in {'"', "'"}:
+            quote = char
+        elif char == "(":
+            events.append((char, column))
+        elif char == ")":
+            events.append((char, column))
+    return events
+
+
 def _logical_lines(
     source: str,
 ) -> tuple[list[str], list[tuple[int, int, str]]]:
     lines: list[str] = []
     locations: list[tuple[int, int, str]] = []
+    pending: str | None = None
+    pending_line = 0
+    pending_column = 1
+    paren_depth = 0
+    paren_openings: list[tuple[int, int]] = []
     for line_number, raw in enumerate(source.splitlines(), start=1):
         uncommented = _strip_line_comment(raw)
         line = uncommented.strip()
         if not line:
             continue
+        # A trailing backslash continues a Code statement on the next physical
+        # line. Parenthesized expressions also continue across newlines.
+        # Insert whitespace so tokens from adjacent lines never merge.
+        base_column = len(uncommented) - len(uncommented.lstrip()) + 1
+        if pending is not None:
+            line = f"{pending} {line}"
+        else:
+            pending_line, pending_column = line_number, base_column
+
+        for event, column in _paren_events(uncommented):
+            if event == "(":
+                paren_openings.append((line_number, column))
+            elif not paren_openings:
+                raise SurfaceSyntaxError(
+                    f"EX-V003 unbalanced parentheses: unexpected ')' at "
+                    f"{line_number}:{column}"
+                )
+            else:
+                paren_openings.pop()
+        paren_depth = len(paren_openings)
+
+        if line.endswith("\\") or paren_depth > 0:
+            if line.endswith("\\"):
+                pending = line[:-1].rstrip()
+            else:
+                pending = line
+            continue
+        effective_line_number = pending_line
+        effective_base_column = pending_column
+        pending = None
+        paren_depth = 0
         line = re.sub(r"}\s*(elif\b)", r"}\n\1", line)
         line = re.sub(r"}\s*(else\b)", r"}\n\1", line)
-        base_column = len(uncommented) - len(uncommented.lstrip()) + 1
         for part in (part.strip() for part in line.splitlines() if part.strip()):
             lines.append(part)
-            locations.append((line_number, base_column + line.find(part), part))
+            locations.append((effective_line_number, effective_base_column + max(line.find(part), 0), part))
+    if pending is not None:
+        if paren_depth > 0:
+            opening_line, opening_column = paren_openings[0]
+            raise SurfaceSyntaxError(
+                f"EX-V003 unbalanced parentheses: unclosed '(' starting at "
+                f"{opening_line}:{opening_column}"
+            )
+        raise SurfaceSyntaxError(
+            f"line continuation at {pending_line}:{pending_column} is missing a following line"
+        )
     return lines, locations
 
 

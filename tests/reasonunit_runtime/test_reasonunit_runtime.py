@@ -34,22 +34,22 @@ def test_t1_prerequisite_is_verified_and_required(tmp_path: Path) -> None:
 
 
 def test_native_core_build_and_unit_tests_pass() -> None:
-    completed = subprocess.run(["cargo", "test", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    completed = subprocess.run(["cargo", "test", "--manifest-path", "ReasonRuntime/crates/reason-object-core/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert completed.returncode == 0, completed.stderr
     # `cargo test` alone does not guarantee the `[[bin]]` target is built on a
     # fresh checkout; later tests load it directly from target/debug.
-    built = subprocess.run(["cargo", "build", "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
+    built = subprocess.run(["cargo", "build", "--manifest-path", "ReasonRuntime/crates/reason-object-core/Cargo.toml", "--offline", "--quiet"], cwd=ROOT, capture_output=True, text=True, check=False)
     assert built.returncode == 0, built.stderr
 
 
 def test_native_types_are_compiled_and_safe_rust() -> None:
-    source = (ROOT / "NativeReasonUnitRuntime/src/lib.rs").read_text(encoding="utf-8")
+    source = (ROOT / "ReasonRuntime/crates/reason-object-core/src/lib.rs").read_text(encoding="utf-8")
     assert all(name in source for name in NATIVE_TYPES)
     assert "unsafe {" not in source
 
 
 def test_native_loader_exposes_stable_sorted_ids(generated: Path) -> None:
-    binary = ROOT / "NativeReasonUnitRuntime/target/debug/reasonunit-runtime-native"
+    binary = ROOT / "ReasonRuntime/target/debug/reasonunit-runtime-native"
     result = json.loads(subprocess.run([str(binary), "load", str(generated / "fixtures/complete.ruo")], capture_output=True, text=True, check=True).stdout)
     assert result["ok"] and result["native_execution_provenance"] == PROFILE
     assert result["entity_ids"] == sorted(result["entity_ids"])
@@ -69,7 +69,7 @@ def test_python_writer_exponent_numbers_load_in_native_runtime(tmp_path: Path) -
     completed = subprocess.run(
         [
             "cargo", "run", "--offline", "--quiet",
-            "--manifest-path", "NativeReasonUnitRuntime/Cargo.toml",
+            "--manifest-path", "ReasonRuntime/crates/reason-object-core/Cargo.toml",
             "--bin", "reasonunit-runtime-native", "--", "load", str(target),
         ],
         cwd=ROOT,
@@ -87,7 +87,7 @@ def test_native_reader_rejects_tampered_raw_body(tmp_path: Path) -> None:
     write_file(reference_object(), target)
     payload = target.read_bytes().replace(b"universal", b"UniversaL", 1)
     target.write_bytes(payload)
-    binary = ROOT / "NativeReasonUnitRuntime/target/debug/reasonunit-runtime-native"
+    binary = ROOT / "ReasonRuntime/target/debug/reasonunit-runtime-native"
     completed = subprocess.run(
         [str(binary), "load", str(target)],
         capture_output=True,

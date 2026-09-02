@@ -1,0 +1,15 @@
+[package]
+name = "reasonscript-computation-ir"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "reason-computation-ir/0.1 decoder and basic-block VM (Phase 3 primitives, Phase 4 Tensor forward)."
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+reasonscript-tensor-core = { path = "../tensor-core" }
+reasonscript-native-reasonunit-runtime = { path = "../reason-object-core" }
+reasonscript-vision-runtime = { path = "../vision-core" }
+reasonscript-reasoning-core = { path = "../reasoning-core" }

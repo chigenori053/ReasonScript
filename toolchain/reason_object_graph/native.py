@@ -54,7 +54,7 @@ def project_native_ruo_file(path: Path, *, root: Path | None = None) -> dict[str
 def _native_binary(root: Path | None) -> Path:
     """Prefer the explicitly supplied source tree; distribution resolution is fallback."""
     if root is not None:
-        candidate = root / "NativeReasonUnitRuntime" / "target" / "debug" / native_reasonunit_runtime_name()
+        candidate = root / "ReasonRuntime" / "target" / "debug" / native_reasonunit_runtime_name()
         if candidate.is_file():
             return candidate
     return resolve_native_reasonunit_runtime()

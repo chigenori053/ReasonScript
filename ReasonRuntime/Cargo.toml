@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/reason-object-core",
+    "crates/vision-core",
+    "crates/tensor-core",
+    "crates/reasoning-core",
+    "crates/computation-ir",
+    "crates/runtime-cli",
+]

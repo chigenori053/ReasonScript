@@ -1,0 +1,31 @@
+module Issue9Regression {
+  fn LayerNorm(x: Tensor, gamma: Tensor, beta: Tensor) -> Tensor {
+    let mean = tensor.mean(x, [1], true)
+    let diff = tensor.subtract(x, mean)
+    let diff_sq = tensor.power(diff, 2.0)
+    let variance = tensor.mean(diff_sq, [1], true)
+    let std = tensor.sqrt(tensor.add(variance, 0.00001))
+    let normalized = tensor.divide(diff, std)
+    return tensor.add(tensor.multiply(normalized, gamma), beta)
+  }
+
+  calculation Answer {
+    let x = tensor.random_normal([16, 32], 0.0, 1.0, 42)
+    let gamma = tensor.ones([32], "f64")
+    let beta = tensor.zeros([32], "f64")
+    let wq = tensor.ones([32, 32], "f64")
+    let bias = tensor.zeros([16, 16], "f64")
+
+    let normed = LayerNorm(x, gamma, beta)
+    let q_full = tensor.linear(normed, wq)
+    let q = tensor.narrow(q_full, 1, 0, 16)
+    let k = tensor.transpose(q, 0, 1)
+    let scores = tensor.matmul(q, k)
+    let scaled = tensor.divide(scores, 4.0)
+    let biased = tensor.add(scaled, bias)
+    let weights = tensor.softmax(biased, 1)
+    let context = tensor.matmul(weights, q)
+
+    result = tensor.shape(context) == [16, 16]
+  }
+}

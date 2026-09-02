@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reasonscript"
-version = "0.5.4.6"
+version = "0.5.5.8"
 description = "ReasonScript CLI and runtime"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -19,12 +19,18 @@ viewer = ["windows-curses>=2.3; sys_platform == 'win32'"]
 full = ["matplotlib>=3.8,<4", "windows-curses>=2.3; sys_platform == 'win32'"]
 
 [tool.setuptools.packages.find]
-include = ["toolchain*", "runtime*"]
+include = ["toolchain*", "runtime*", "frontend*"]
 
 [tool.setuptools.package-data]
 toolchain = ["../VERSION", "../schemas/*.json", "../examples/**/*.rsn"]
 
 [tool.ruff.lint]
+select = [
+  "E4",
+  "E7",
+  "E9",
+  "F",
+]
 ignore = [
   "E402",
   "E701",

@@ -1,0 +1,62 @@
+{
+  "artifact_validation_passed": true,
+  "canonical_hashes": [
+    "ed85f1a7db956de92468afaf7ff4a8837bd076d4cbebe6b83316b77bac4fb2ae",
+    "ed85f1a7db956de92468afaf7ff4a8837bd076d4cbebe6b83316b77bac4fb2ae",
+    "ed85f1a7db956de92468afaf7ff4a8837bd076d4cbebe6b83316b77bac4fb2ae"
+  ],
+  "determinism_passed": true,
+  "diagnostics": [],
+  "golden_validation_passed": true,
+  "phases": [
+    {
+      "phase": "manifest_validation",
+      "status": "passed"
+    },
+    {
+      "count": 1,
+      "phase": "source_discovery",
+      "status": "passed"
+    },
+    {
+      "count": 1,
+      "phase": "source_check",
+      "status": "passed"
+    },
+    {
+      "phase": "semantic_validation",
+      "status": "passed"
+    },
+    {
+      "count": 1,
+      "phase": "runtime_execution",
+      "status": "passed"
+    },
+    {
+      "phase": "artifact_validation",
+      "status": "passed"
+    },
+    {
+      "phase": "golden_comparison",
+      "status": "passed"
+    },
+    {
+      "phase": "determinism_validation",
+      "repetitions": 3,
+      "status": "passed"
+    },
+    {
+      "phase": "project_local_tests",
+      "status": "passed"
+    }
+  ],
+  "project_root": "/Users/chigenori/development/ReasonScript/canonical_fixtures/issue_9_layernorm_attention",
+  "repository_workflow_required": false,
+  "runtime_cases_passed": 1,
+  "runtime_cases_total": 1,
+  "schema_version": "reasonscript-project-validation/0.1",
+  "sources_passed": 1,
+  "sources_total": 1,
+  "status": "passed",
+  "tests_passed": true
+}

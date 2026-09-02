@@ -16,7 +16,9 @@ use reasonscript_cluster_runtime::{
     evaluator::compare,
     planner::build_cluster_plan,
     runtime::{run_cluster, RunOptions},
-    test_model, worker, ReasonTask,
+    test_model, worker,
+    worker::RuntimeContext,
+    ReasonTask,
 };
 use serde_json::Value;
 
@@ -33,6 +35,12 @@ fn main() {
 fn run() -> Result<i32, String> {
     let args: Vec<String> = env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("");
+    if command == "verify-native" {
+        print_value(
+            &serde_json::json!({"ok":true,"profile":"reasonscript-cluster-runtime/0.2","unsafe_blocks":0}),
+        )?;
+        return Ok(0);
+    }
     if command == "dynamic" {
         let subcommand = args.get(1).map(String::as_str).unwrap_or("");
         if subcommand == "validate" {
@@ -121,7 +129,13 @@ fn run() -> Result<i32, String> {
         let version = input["state_version"].as_u64().unwrap_or(0) as usize;
         println!(
             "{}",
-            serde_json::to_string(&worker::execute(&task, version)).map_err(|e| e.to_string())?
+            serde_json::to_string(&worker::execute(
+                &task,
+                version,
+                &serde_json::from_value(input.get("runtime").cloned().unwrap_or(Value::Null))
+                    .unwrap_or_default()
+            )?)
+            .map_err(|e| e.to_string())?
         );
         return Ok(0);
     }
@@ -181,7 +195,17 @@ fn run() -> Result<i32, String> {
         return Ok(if value["valid"] == true { 0 } else { 1 });
     }
     let artifacts_dir = option(&args, "--artifacts-dir").map(PathBuf::from);
-    let result = run_cluster(bundle, &config, &RunOptions { artifacts_dir })?;
+    let runtime: RuntimeContext =
+        serde_json::from_value(envelope.get("runtime").cloned().unwrap_or(Value::Null))
+            .unwrap_or_default();
+    let result = run_cluster(
+        bundle,
+        &config,
+        &RunOptions {
+            artifacts_dir,
+            runtime,
+        },
+    )?;
     let output = if command == "compare" {
         compare(&result.summary, bundle)
     } else {

@@ -6,6 +6,27 @@ on:
     branches: [main]
 
 jobs:
+  vscode-extension:
+    name: Package VS Code extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+      - run: npm ci
+        working-directory: vscode-extension
+      - run: npm run check
+        working-directory: vscode-extension
+      - run: npm run package
+        working-directory: vscode-extension
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reasonscript-vsix
+          path: vscode-extension/reasonscript-*.vsix
+
   build:
     runs-on: ubuntu-latest
     steps:

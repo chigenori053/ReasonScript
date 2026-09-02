@@ -64,9 +64,13 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     assert "vision-runtime-v0.1" in ids
     assert "semantic-visualization-runtime-v0.1" in ids
     assert "reasonunit-runtime-v1.0" in ids
-    assert (home / "current/VisionRuntime/Cargo.toml").is_file()
-    assert (home / "current/NativeReasonUnitRuntime/Cargo.toml").is_file()
+    assert "runtime-host-v1.0" in ids
+    assert "cluster-runtime-v0.2" in ids
+    assert (home / "current/ReasonRuntime/crates/vision-core/Cargo.toml").is_file()
+    assert (home / "current/ReasonRuntime/crates/reason-object-core/Cargo.toml").is_file()
     assert (home / "current/VisualizationRuntime/Cargo.toml").is_file()
+    assert (home / "current/ReasonRuntime/Cargo.toml").is_file()
+    assert (home / "current/ClusterRuntime/Cargo.toml").is_file()
     assert (home / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
     assert (home / "current/bin" / ("reason-visualization.exe" if os.name == "nt" else "reason-visualization")).is_file()
     reasonunit_binary = home / "current/bin" / (
@@ -83,6 +87,19 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     )
     assert native_result.returncode == 0
     assert json.loads(native_result.stdout)["unsafe_blocks"] == 0
+    host_binary = home / "current/bin" / (
+        "reason-runtime-host.exe" if os.name == "nt" else "reason-runtime-host"
+    )
+    assert host_binary.is_file()
+    host_result = subprocess.run(
+        [str(host_binary), "verify-native"], cwd=tmp_path, text=True, capture_output=True
+    )
+    assert host_result.returncode == 0
+    assert json.loads(host_result.stdout)["profile"] == "reasonscript-runtime-host/1.0"
+    cluster_binary = home / "current/bin" / ("reason-cluster.exe" if os.name == "nt" else "reason-cluster")
+    cluster_result = subprocess.run([str(cluster_binary), "verify-native"], cwd=tmp_path, text=True, capture_output=True)
+    assert cluster_result.returncode == 0
+    assert json.loads(cluster_result.stdout)["profile"] == "reasonscript-cluster-runtime/0.2"
     for item in manifest["files"]:
         path = home / item["path"]
         assert hashlib.sha256(path.read_bytes()).hexdigest() == item["sha256"]
@@ -141,8 +158,8 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     package = Path(json.loads(result.stdout)["path"])
-    assert (package / "payload/VisionRuntime/Cargo.toml").is_file()
-    assert (package / "payload/NativeReasonUnitRuntime/Cargo.toml").is_file()
+    assert (package / "payload/ReasonRuntime/crates/vision-core/Cargo.toml").is_file()
+    assert (package / "payload/ReasonRuntime/crates/reason-object-core/Cargo.toml").is_file()
     assert (package / "payload/VisualizationRuntime/Cargo.toml").is_file()
     assert (package / "payload/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
     assert (package / "payload/bin" / ("reason-visualization.exe" if os.name == "nt" else "reason-visualization")).is_file()
@@ -154,7 +171,9 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     assert (package / "payload/bin" / reasonunit_name).is_file()
     manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
     assert "vision-runtime-v0.1" in {item["name"] for item in manifest["components"]}
-    assert manifest["package_version"] == "0.5.4.6"
+    assert manifest["package_version"] == (ROOT / "VERSION").read_text(
+        encoding="utf-8"
+    ).strip()
 
     fresh = tmp_path / "fresh-install"
     environment = os.environ.copy()
@@ -169,6 +188,9 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     )
     assert installed.returncode in {0, 1}, installed.stdout + installed.stderr
     report = json.loads(installed.stdout)
-    assert report["status"] == "success" and report["reason_version"] == "0.5.4.6"
+    assert report["status"] == "success"
+    assert report["reason_version"] == (ROOT / "VERSION").read_text(
+        encoding="utf-8"
+    ).strip()
     assert (fresh / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
     assert (fresh / "current/bin" / reasonunit_name).is_file()

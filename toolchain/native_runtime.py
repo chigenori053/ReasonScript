@@ -26,8 +26,8 @@ def native_reasonunit_runtime_candidates(
     name = native_reasonunit_runtime_name()
     return (
         distribution_root / "bin" / name,
-        distribution_root / "NativeReasonUnitRuntime" / "target" / "release" / name,
-        distribution_root / "NativeReasonUnitRuntime" / "target" / "debug" / name,
+        distribution_root / "ReasonRuntime" / "target" / "release" / name,
+        distribution_root / "ReasonRuntime" / "target" / "debug" / name,
     )
 
 

@@ -54,8 +54,10 @@ class VSCodeExtensionPhase1Tests(unittest.TestCase):
     def test_vsx1_004_lsp_startup(self):
         source = (EXT / "src" / "lsp" / "client.ts").read_text(encoding="utf-8")
 
-        self.assertIn("frontend.lsp", source)
-        self.assertIn("TransportKind.stdio", source)
+        self.assertIn("command: reasonExecutable()", source)
+        self.assertIn('args: ["lsp"]', source)
+        self.assertNotIn("frontend.lsp", source)
+        self.assertNotIn("TransportKind", source)
 
     def test_vsx1_005_diagnostics(self):
         server = ReasonScriptLanguageServer()

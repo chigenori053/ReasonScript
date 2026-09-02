@@ -1,0 +1,2151 @@
+//! Basic-block VM: executes `reason-computation-ir/0.1` Functions.
+//!
+//! Deliberately mirrors `frontend/computation_ir/interpreter.py`
+//! instruction-for-instruction (same block-walk loop, same per-block
+//! visit-count loop guard, same RT-* error codes). `call_tensor` is
+//! dispatched to `crate::tensor_dispatch`, which forwards to
+//! `reasonscript_tensor_core` for all 65 frozen Tensor Standard Functions,
+//! including autograd and Tensor trace/metadata collection.
+//! Vision and Reason Object calls are dispatched in-process to their Rust
+//! libraries; no per-operation subprocess bridge remains on this path.
+
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::path::{Component, Path, PathBuf};
+use std::rc::Rc;
+
+use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
+use crate::value::{from_json, to_json, RuntimeReasonObject, StructValue, Value};
+
+#[derive(Debug)]
+pub struct RuntimeError {
+    pub code: String,
+    pub message: String,
+    pub source_location: Option<serde_json::Value>,
+}
+
+impl RuntimeError {
+    pub fn new(code: &str, message: impl Into<String>) -> Self {
+        RuntimeError {
+            code: code.to_string(),
+            message: message.into(),
+            source_location: None,
+        }
+    }
+
+    fn with_source_location(mut self, source_location: Option<&serde_json::Value>) -> Self {
+        if self.source_location.is_none() {
+            self.source_location = source_location.cloned();
+        }
+        self
+    }
+}
+
+pub enum Outcome {
+    Result(Value),
+    Return(Value),
+    NoValue,
+}
+
+/// Compiler/runtime contract defaults (Phase 4, "制御された再帰"):
+/// overridable per request via `context.limits.max_call_depth` /
+/// `max_loop_iterations`, same mechanism as the Tensor policy limits.
+pub const DEFAULT_MAX_LOOP_ITERATIONS: u64 = 10_000;
+pub const DEFAULT_MAX_CALL_DEPTH: u32 = 128;
+
+pub struct Vm<'a> {
+    functions: HashMap<&'a str, &'a Function>,
+    max_loop_iterations: u64,
+    max_call_depth: u32,
+    tensors: RefCell<reasonscript_tensor_core::TensorStore>,
+    reason_objects: RefCell<HashMap<String, Value>>,
+    reasoning_bindings: HashMap<String, Value>,
+    loop_trace: RefCell<Vec<serde_json::Value>>,
+    loop_frames: RefCell<HashMap<String, (i64, serde_json::Value)>>,
+    trace_enabled: bool,
+    tensor_trace: RefCell<Vec<serde_json::Value>>,
+    vision_trace: RefCell<Vec<serde_json::Value>>,
+    reasoning_trace: RefCell<Vec<serde_json::Value>>,
+    resource_root: PathBuf,
+    filesystem_read: bool,
+    filesystem_write: bool,
+    backend: String,
+    active_frames: RefCell<Vec<Rc<RefCell<HashMap<String, Value>>>>>,
+    active_calculations: RefCell<Vec<Value>>,
+    temporary_roots: RefCell<Vec<Value>>,
+}
+
+struct FrameGuard<'a, 'v> {
+    vm: &'a Vm<'v>,
+}
+
+impl<'a, 'v> FrameGuard<'a, 'v> {
+    fn new(vm: &'a Vm<'v>, env: &Rc<RefCell<HashMap<String, Value>>>) -> Self {
+        vm.active_frames.borrow_mut().push(env.clone());
+        FrameGuard { vm }
+    }
+}
+
+impl<'a, 'v> Drop for FrameGuard<'a, 'v> {
+    fn drop(&mut self) {
+        self.vm.active_frames.borrow_mut().pop();
+    }
+}
+
+struct TempRootGuard<'a, 'v> {
+    vm: &'a Vm<'v>,
+    initial_len: usize,
+}
+
+impl<'a, 'v> TempRootGuard<'a, 'v> {
+    fn new(vm: &'a Vm<'v>) -> Self {
+        let initial_len = vm.temporary_roots.borrow().len();
+        TempRootGuard { vm, initial_len }
+    }
+}
+
+impl<'a, 'v> Drop for TempRootGuard<'a, 'v> {
+    fn drop(&mut self) {
+        self.vm
+            .temporary_roots
+            .borrow_mut()
+            .truncate(self.initial_len);
+    }
+}
+
+impl<'a> Vm<'a> {
+    pub fn new(program: &'a Program) -> Self {
+        Self::with_numeric_mode(
+            program,
+            reasonscript_tensor_core::NumericMode::CompatReference,
+        )
+    }
+
+    /// Phase 9: selects `NumericMode::NativeFast` (real `f32` rounding
+    /// plus the parallel/rayon op paths in `tensor_dispatch.rs`) instead
+    /// of the default `CompatReference`. See `NumericMode`'s own doc
+    /// comment for exactly what differs.
+    pub fn with_numeric_mode(
+        program: &'a Program,
+        numeric_mode: reasonscript_tensor_core::NumericMode,
+    ) -> Self {
+        Self::with_runtime_context(
+            program,
+            numeric_mode,
+            reasonscript_tensor_core::TensorPolicy::default(),
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            true,
+            true,
+            false,
+            "RuntimeReal".to_owned(),
+            DEFAULT_MAX_CALL_DEPTH,
+            DEFAULT_MAX_LOOP_ITERATIONS,
+        )
+    }
+
+    /// `max_call_depth`/`max_loop_iterations`: Phase 4 ("制御された再帰")
+    /// exposes both as part of the compiler/runtime contract (the
+    /// `reasonscript-runtime-request/1.0` protocol's `context.limits`,
+    /// same mechanism the Tensor policy limits already use), rather than
+    /// only ever being the hardcoded `DEFAULT_MAX_CALL_DEPTH`/
+    /// `DEFAULT_MAX_LOOP_ITERATIONS` every caller silently got before.
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_runtime_context(
+        program: &'a Program,
+        numeric_mode: reasonscript_tensor_core::NumericMode,
+        tensor_policy: reasonscript_tensor_core::TensorPolicy,
+        resource_root: PathBuf,
+        filesystem_read: bool,
+        filesystem_write: bool,
+        trace_enabled: bool,
+        backend: String,
+        max_call_depth: u32,
+        max_loop_iterations: u64,
+    ) -> Self {
+        let functions = program
+            .functions
+            .iter()
+            .map(|function| (function.id.as_str(), function))
+            .collect();
+        let mut tensors = reasonscript_tensor_core::TensorStore::with_numeric_mode(numeric_mode);
+        tensors.configure_context(
+            tensor_policy,
+            resource_root.clone(),
+            filesystem_read,
+            filesystem_write,
+        );
+        Vm {
+            functions,
+            max_loop_iterations,
+            max_call_depth,
+            tensors: RefCell::new(tensors),
+            reason_objects: RefCell::new(HashMap::new()),
+            reasoning_bindings: program
+                .reasoning_bindings
+                .iter()
+                .map(|(name, value)| (name.clone(), Value::String(Rc::from(value.as_str()))))
+                .collect(),
+            loop_trace: RefCell::new(Vec::new()),
+            loop_frames: RefCell::new(HashMap::new()),
+            trace_enabled,
+            tensor_trace: RefCell::new(Vec::new()),
+            vision_trace: RefCell::new(Vec::new()),
+            reasoning_trace: RefCell::new(Vec::new()),
+            resource_root,
+            filesystem_read,
+            filesystem_write,
+            backend,
+            active_frames: RefCell::new(Vec::new()),
+            active_calculations: RefCell::new(Vec::new()),
+            temporary_roots: RefCell::new(Vec::new()),
+        }
+    }
+
+    pub fn loop_trace(&self) -> Vec<serde_json::Value> {
+        self.loop_trace.borrow().clone()
+    }
+
+    pub fn tensor_trace(&self) -> Vec<serde_json::Value> {
+        self.tensor_trace.borrow().clone()
+    }
+
+    pub fn tensor_metadata(&self) -> Vec<serde_json::Value> {
+        self.tensors.borrow().metadata()
+    }
+
+    /// Serialize a calculation result for an explicit process boundary.
+    /// Normal host results retain lightweight tensor handles; cluster workers
+    /// opt into this representation so a coordinator can consume the actual
+    /// Tensor value after the worker process exits.
+    pub fn transport_value(&self, value: &Value) -> serde_json::Value {
+        match value {
+            Value::Tensor(id) => self.tensors.borrow().get(id).map_or_else(
+                |_| serde_json::json!({"tensor_id": id.as_ref()}),
+                |tensor| {
+                    serde_json::json!({
+                        "tensor_id": id.as_ref(),
+                        "shape": tensor.shape,
+                        "dtype": tensor.dtype.name(),
+                        "data": tensor.data,
+                    })
+                },
+            ),
+            Value::Array(items) => serde_json::Value::Array(
+                items
+                    .borrow()
+                    .iter()
+                    .map(|item| self.transport_value(item))
+                    .collect(),
+            ),
+            Value::Struct(value) => {
+                let fields = value
+                    .fields
+                    .borrow()
+                    .iter()
+                    .map(|(name, item)| (name.clone(), self.transport_value(item)))
+                    .collect::<serde_json::Map<_, _>>();
+                serde_json::json!({"type": value.type_name, "fields": fields})
+            }
+            _ => to_json(value),
+        }
+    }
+
+    pub fn vision_trace(&self) -> Vec<serde_json::Value> {
+        self.vision_trace.borrow().clone()
+    }
+
+    pub fn reasoning_trace(&self) -> Vec<serde_json::Value> {
+        self.reasoning_trace.borrow().clone()
+    }
+
+    /// Executes every calculation in program order, mirroring
+    /// `interpret_program`'s semantics: a calculation whose body falls
+    /// off the end without `result =` simply contributes nothing (not an
+    /// error), and each calculation's initial environment carries every
+    /// prior calculation's result under its own name (matching
+    /// `env = dict(calculations)` in both Python evaluators).
+    pub fn run_calculations(
+        &self,
+        program: &Program,
+    ) -> Result<Vec<(String, Value)>, RuntimeError> {
+        let mut object_bindings = HashMap::new();
+        if !program.reason_object_bindings.is_empty() && !self.filesystem_read {
+            return Err(RuntimeError::new(
+                "RUO-N2-007",
+                "filesystem_read capability is required",
+            ));
+        }
+        for binding in &program.reason_object_bindings {
+            let source = Path::new(&binding.source_path);
+            if source.is_absolute()
+                || source.components().any(|part| {
+                    matches!(
+                        part,
+                        Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                    )
+                })
+            {
+                return Err(RuntimeError::new(
+                    "RUO-N2-006",
+                    "Object path escapes resource root",
+                ));
+            }
+            let canonical_root = std::fs::canonicalize(&self.resource_root).map_err(|error| {
+                RuntimeError::new("RUO-N2-013", format!("Object load failed: {error}"))
+            })?;
+            let resolved = std::fs::canonicalize(canonical_root.join(source)).map_err(|error| {
+                RuntimeError::new("RUO-N2-013", format!("Object load failed: {error}"))
+            })?;
+            if !resolved.starts_with(&canonical_root) {
+                return Err(RuntimeError::new(
+                    "RUO-N2-006",
+                    "Object path escapes resource root",
+                ));
+            }
+            let object = reasonscript_native_reasonunit_runtime::load_ruo(&resolved)
+                .map_err(|error| RuntimeError::new(&error.code, error.message))?;
+            if let Some(expected) = &binding.expected_object_id {
+                if object.object_id.as_str() != expected {
+                    return Err(RuntimeError::new(
+                        "RUO-N2-013",
+                        "expected Object ID assertion failed",
+                    ));
+                }
+            }
+            object_bindings.insert(
+                binding.name.clone(),
+                Value::ReasonObject(Rc::new(RuntimeReasonObject {
+                    object: RefCell::new(object),
+                    source_path: resolved,
+                    resource_root: self.resource_root.clone(),
+                    filesystem_write: self.filesystem_write,
+                })),
+            );
+        }
+        *self.reason_objects.borrow_mut() = object_bindings;
+        let mut calculations: Vec<(String, Value)> = Vec::new();
+        self.active_calculations.borrow_mut().clear();
+        for calculation_id in &program.calculations {
+            let function = *self.functions.get(calculation_id.as_str()).ok_or_else(|| {
+                RuntimeError::new(
+                    "RT-CALL-001",
+                    format!("unknown calculation: {calculation_id}"),
+                )
+            })?;
+            let mut env_map: HashMap<String, Value> = calculations
+                .iter()
+                .map(|(name, value)| (name.clone(), value.clone()))
+                .collect();
+            env_map.extend(self.reasoning_bindings.clone());
+            env_map.extend(
+                self.reason_objects
+                    .borrow()
+                    .iter()
+                    .map(|(name, value)| (name.clone(), value.clone())),
+            );
+            let env = Rc::new(RefCell::new(env_map));
+            match self.run_function(function, &env, 0)? {
+                Outcome::Result(value) => {
+                    self.active_calculations.borrow_mut().push(value.clone());
+                    calculations.push((calculation_id.clone(), value));
+                }
+                Outcome::NoValue => {}
+                Outcome::Return(_) => {
+                    return Err(RuntimeError::new(
+                        "IR-EXEC-005",
+                        format!("calculation {calculation_id} used return instead of result"),
+                    ))
+                }
+            }
+            // A calculation boundary is not a tensor ownership boundary:
+            // optimizer/autograd state can still retain handles referenced by
+            // subsequent calculations.  The VM owns one fresh TensorStore per
+            // program run, so defer collection until that store is dropped.
+        }
+        Ok(calculations)
+    }
+
+    fn push_temporary_root(&self, value: Value) {
+        self.temporary_roots.borrow_mut().push(value);
+    }
+
+    fn run_function(
+        &self,
+        function: &Function,
+        env: &Rc<RefCell<HashMap<String, Value>>>,
+        call_depth: u32,
+    ) -> Result<Outcome, RuntimeError> {
+        let _frame_guard = FrameGuard::new(self, env);
+        let blocks: HashMap<&str, &Block> = function
+            .blocks
+            .iter()
+            .map(|block| (block.id.as_str(), block))
+            .collect();
+        let mut current = function.entry_block.as_str();
+        let mut visits: HashMap<String, u64> = HashMap::new();
+        loop {
+            let count = visits.entry(current.to_string()).or_insert(0);
+            *count += 1;
+            if *count > self.max_loop_iterations {
+                return Err(RuntimeError::new(
+                    "RT-LOOP-001",
+                    format!(
+                        "loop iteration limit exceeded: {}",
+                        self.max_loop_iterations
+                    ),
+                ));
+            }
+            let block = blocks.get(current).ok_or_else(|| {
+                RuntimeError::new("IR-EXEC-006", format!("unknown block: {current}"))
+            })?;
+            for instruction in &block.instructions {
+                self.execute_instruction(instruction, env, call_depth)?;
+                self.collect_tensors();
+            }
+            match &block.terminator {
+                Terminator::Jump { target } => {
+                    current = self.resolve_block_id(&blocks, target)?;
+                }
+                Terminator::Branch {
+                    condition,
+                    then,
+                    else_target,
+                } => {
+                    let condition_value = self.eval_expr(condition, env, call_depth)?;
+                    let taken = match condition_value {
+                        Value::Bool(value) => value,
+                        other => {
+                            return Err(RuntimeError::new(
+                                "IR-EXEC-007",
+                                format!("branch condition must be Bool, got {}", other.type_name()),
+                            ))
+                        }
+                    };
+                    current =
+                        self.resolve_block_id(&blocks, if taken { then } else { else_target })?;
+                }
+                Terminator::Result { value } => {
+                    return Ok(Outcome::Result(self.eval_expr(value, env, call_depth)?))
+                }
+                Terminator::Return { value } => {
+                    return Ok(Outcome::Return(self.eval_expr(value, env, call_depth)?))
+                }
+                Terminator::Trap { code, message } => {
+                    if code == "IR-NO-VALUE" {
+                        return Ok(Outcome::NoValue);
+                    }
+                    return Err(RuntimeError::new(code, message.clone()));
+                }
+                Terminator::Match { subject, arms } => {
+                    let subject_value = self.eval_expr(subject, env, call_depth)?;
+                    let mut matched_target: Option<&str> = None;
+                    for arm in arms {
+                        let Some(bindings) = match_pattern(&arm.pattern, &subject_value) else {
+                            continue;
+                        };
+                        let previous: Vec<(String, Option<Value>)> = {
+                            let mut env_mut = env.borrow_mut();
+                            bindings
+                                .into_iter()
+                                .map(|(name, value)| {
+                                    let old = env_mut.insert(name.clone(), value);
+                                    (name, old)
+                                })
+                                .collect()
+                        };
+                        let guard_ok = match &arm.guard {
+                            None => true,
+                            Some(guard_expr) => {
+                                match self.eval_expr(guard_expr, env, call_depth)? {
+                                    Value::Bool(value) => value,
+                                    other => {
+                                        return Err(RuntimeError::new(
+                                            "IR-EXEC-007",
+                                            format!(
+                                                "match guard must be Bool, got {}",
+                                                other.type_name()
+                                            ),
+                                        ))
+                                    }
+                                }
+                            }
+                        };
+                        if guard_ok {
+                            matched_target = Some(arm.target.as_str());
+                            break;
+                        }
+                        let mut env_mut = env.borrow_mut();
+                        for (name, old_value) in previous {
+                            match old_value {
+                                Some(value) => {
+                                    env_mut.insert(name, value);
+                                }
+                                None => {
+                                    env_mut.remove(&name);
+                                }
+                            }
+                        }
+                    }
+                    let Some(target) = matched_target else {
+                        return Err(RuntimeError::new(
+                            "RT-MATCH-001",
+                            "no match arm satisfied the value",
+                        ));
+                    };
+                    current = self.resolve_block_id(&blocks, target)?;
+                }
+            }
+        }
+    }
+
+    fn collect_tensors(&self) {
+        let mut roots = std::collections::HashSet::new();
+        let mut visited_arrays = std::collections::HashSet::new();
+        let mut visited_structs = std::collections::HashSet::new();
+
+        // 1. All bindings in all active frames (including suspended callers)
+        for frame in self.active_frames.borrow().iter() {
+            let env = frame.borrow();
+            for value in env.values() {
+                collect_tensor_ids(value, &mut roots, &mut visited_arrays, &mut visited_structs);
+            }
+        }
+
+        // 2. Retained prior calculation results
+        for value in self.active_calculations.borrow().iter() {
+            collect_tensor_ids(value, &mut roots, &mut visited_arrays, &mut visited_structs);
+        }
+
+        // 3. Temporary roots (in-progress arguments, return handoffs, intermediates)
+        for value in self.temporary_roots.borrow().iter() {
+            collect_tensor_ids(value, &mut roots, &mut visited_arrays, &mut visited_structs);
+        }
+
+        // 4. Bound reason objects and reasoning bindings
+        for value in self.reason_objects.borrow().values() {
+            collect_tensor_ids(value, &mut roots, &mut visited_arrays, &mut visited_structs);
+        }
+        for value in self.reasoning_bindings.values() {
+            collect_tensor_ids(value, &mut roots, &mut visited_arrays, &mut visited_structs);
+        }
+
+        self.tensors.borrow_mut().collect(&roots);
+    }
+
+    fn resolve_block_id<'b>(
+        &self,
+        blocks: &HashMap<&'b str, &'b Block>,
+        target: &'b str,
+    ) -> Result<&'b str, RuntimeError> {
+        if blocks.contains_key(target) {
+            Ok(target)
+        } else {
+            Err(RuntimeError::new(
+                "IR-EXEC-006",
+                format!("unknown block: {target}"),
+            ))
+        }
+    }
+
+    fn execute_instruction(
+        &self,
+        instruction: &Instruction,
+        env: &Rc<RefCell<HashMap<String, Value>>>,
+        call_depth: u32,
+    ) -> Result<(), RuntimeError> {
+        match instruction {
+            Instruction::TraceLoopStart { loop_id, counter } => {
+                let iteration = match env.borrow().get(counter) {
+                    Some(Value::Int(value)) => *value + 1,
+                    _ => {
+                        return Err(RuntimeError::new(
+                            "IR-EXEC-009",
+                            "loop trace counter is missing",
+                        ))
+                    }
+                };
+                env.borrow_mut()
+                    .insert(counter.clone(), Value::Int(iteration));
+                self.loop_frames
+                    .borrow_mut()
+                    .insert(loop_id.clone(), (iteration, trace_env(&env.borrow())));
+                Ok(())
+            }
+            Instruction::TraceLoopEnd {
+                loop_id,
+                break_triggered,
+                continue_triggered,
+            } => {
+                let Some((iteration, previous_state)) =
+                    self.loop_frames.borrow_mut().remove(loop_id)
+                else {
+                    return Err(RuntimeError::new(
+                        "IR-EXEC-009",
+                        "loop trace frame is missing",
+                    ));
+                };
+                self.loop_trace.borrow_mut().push(serde_json::json!({
+                    "loop_id": loop_id,
+                    "iteration": iteration,
+                    "condition": true,
+                    "previous_state": previous_state,
+                    "updated_state": trace_env(&env.borrow()),
+                    "break_triggered": break_triggered,
+                    "continue_triggered": continue_triggered,
+                }));
+                Ok(())
+            }
+            Instruction::Assign { target, expr } => {
+                let value = self.eval_expr(expr, env, call_depth)?;
+                env.borrow_mut().insert(target.clone(), value);
+                Ok(())
+            }
+            Instruction::Expr { expr } => {
+                self.eval_expr(expr, env, call_depth)?;
+                Ok(())
+            }
+            Instruction::IndexAssign {
+                collection,
+                index,
+                expr,
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let collection_value = self.eval_expr(collection, env, call_depth)?;
+                self.push_temporary_root(collection_value.clone());
+                let index_value = self.eval_expr(index, env, call_depth)?;
+                self.push_temporary_root(index_value.clone());
+                let new_value = self.eval_expr(expr, env, call_depth)?;
+                match collection_value {
+                    Value::Array(items) => {
+                        let index_int = match index_value {
+                            Value::Int(value) => value,
+                            _ => {
+                                return Err(RuntimeError::new(
+                                    "RT-INDEX-001",
+                                    "array index must be int",
+                                ))
+                            }
+                        };
+                        let mut items = items.borrow_mut();
+                        if index_int < 0 || index_int as usize >= items.len() {
+                            return Err(RuntimeError::new(
+                                "RT-INDEX-002",
+                                format!("index out of range: {index_int}"),
+                            ));
+                        }
+                        items[index_int as usize] = new_value;
+                        Ok(())
+                    }
+                    _ => Err(RuntimeError::new(
+                        "RT-INDEX-003",
+                        "value is not mutable by index",
+                    )),
+                }
+            }
+            Instruction::FieldAssign {
+                object,
+                member,
+                expr,
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let owner = self.eval_expr(object, env, call_depth)?;
+                self.push_temporary_root(owner.clone());
+                let new_value = self.eval_expr(expr, env, call_depth)?;
+                match owner {
+                    Value::Struct(struct_value) => {
+                        let mut fields = struct_value.fields.borrow_mut();
+                        if !fields.contains_key(member) {
+                            return Err(RuntimeError::new(
+                                "RT-FIELD-002",
+                                "invalid field assignment target",
+                            ));
+                        }
+                        fields.insert(member.clone(), new_value);
+                        Ok(())
+                    }
+                    _ => Err(RuntimeError::new(
+                        "RT-FIELD-002",
+                        "invalid field assignment target",
+                    )),
+                }
+            }
+        }
+    }
+
+    fn eval_expr(
+        &self,
+        expr: &Expr,
+        env: &Rc<RefCell<HashMap<String, Value>>>,
+        call_depth: u32,
+    ) -> Result<Value, RuntimeError> {
+        self.eval_expr_inner(expr, env, call_depth)
+            .map_err(|error| error.with_source_location(expr.source_span()))
+    }
+
+    fn eval_expr_inner(
+        &self,
+        expr: &Expr,
+        env: &Rc<RefCell<HashMap<String, Value>>>,
+        call_depth: u32,
+    ) -> Result<Value, RuntimeError> {
+        match expr {
+            Expr::Const { kind, value, .. } => const_value(kind, value),
+            Expr::Local { name, .. } => env.borrow().get(name).cloned().ok_or_else(|| {
+                RuntimeError::new("RT-NAME-001", format!("unknown runtime name: {name}"))
+            }),
+            Expr::Array { elements, .. } => {
+                let _guard = TempRootGuard::new(self);
+                let mut items = Vec::with_capacity(elements.len());
+                for element in elements {
+                    let val = self.eval_expr(element, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    items.push(val);
+                }
+                Ok(Value::Array(Rc::new(RefCell::new(items))))
+            }
+            Expr::Struct {
+                type_name, fields, ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let mut evaluated = HashMap::new();
+                for (name, field_expr) in fields {
+                    let val = self.eval_expr(field_expr, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    evaluated.insert(name.clone(), val);
+                }
+                Ok(Value::Struct(Rc::new(StructValue {
+                    type_name: type_name.clone(),
+                    fields: RefCell::new(evaluated),
+                })))
+            }
+            Expr::Unary {
+                operator, operand, ..
+            } => {
+                let value = self.eval_expr(operand, env, call_depth)?;
+                match (operator.as_str(), value) {
+                    ("Negate", Value::Int(v)) => Ok(Value::Int(-v)),
+                    ("Negate", Value::Float(v)) => Ok(Value::Float(-v)),
+                    ("Not", Value::Bool(v)) => Ok(Value::Bool(!v)),
+                    (op, other) => Err(RuntimeError::new(
+                        "RT-TYPE-001",
+                        format!("unary {op} is not defined for {}", other.type_name()),
+                    )),
+                }
+            }
+            Expr::Binary {
+                operator,
+                left,
+                right,
+                ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let left_value = self.eval_expr(left, env, call_depth)?;
+                self.push_temporary_root(left_value.clone());
+                let right_value = self.eval_expr(right, env, call_depth)?;
+                eval_binary(operator, left_value, right_value)
+            }
+            Expr::Comparison {
+                operator,
+                left,
+                right,
+                ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let left_value = self.eval_expr(left, env, call_depth)?;
+                self.push_temporary_root(left_value.clone());
+                let right_value = self.eval_expr(right, env, call_depth)?;
+                eval_comparison(operator, left_value, right_value)
+            }
+            Expr::Logical {
+                operator,
+                left,
+                right,
+                ..
+            } => {
+                let left_value = as_bool(self.eval_expr(left, env, call_depth)?)?;
+                if operator == "And" {
+                    if !left_value {
+                        return Ok(Value::Bool(false));
+                    }
+                } else if left_value {
+                    return Ok(Value::Bool(true));
+                }
+                let right_value = as_bool(self.eval_expr(right, env, call_depth)?)?;
+                Ok(Value::Bool(right_value))
+            }
+            Expr::Index {
+                collection, index, ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let collection_value = self.eval_expr(collection, env, call_depth)?;
+                self.push_temporary_root(collection_value.clone());
+                let index_value = self.eval_expr(index, env, call_depth)?;
+                index_value_lookup(collection_value, index_value)
+            }
+            Expr::Member { object, member, .. } => {
+                let owner = self.eval_expr(object, env, call_depth)?;
+                member_lookup(owner, member)
+            }
+            Expr::CallTensor {
+                function_id,
+                arguments,
+                source_span,
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
+                }
+                let result =
+                    crate::tensor_dispatch::call(function_id, values.clone(), &self.tensors)
+                        .map_err(|error| error.with_source_location(source_span.as_ref()))?;
+                if self.trace_enabled {
+                    let mut trace = self.tensor_trace.borrow_mut();
+                    let ordinal = trace.len() + 1;
+                    let inputs: Vec<_> = values
+                        .iter()
+                        .map(|value| tensor_trace_value(value, &self.tensors.borrow()))
+                        .collect();
+                    trace.push(serde_json::json!({
+                        "step_id": format!("step_{ordinal:04}"),
+                        "operation_type": "standard_function_call",
+                        "function_id": function_id,
+                        "inputs": inputs,
+                        "output": tensor_trace_value(&result, &self.tensors.borrow()),
+                        "status": "success",
+                        "diagnostics": [],
+                        "operation_id": format!("op_tensor_call_{ordinal:03}"),
+                        "semantic_operation": function_id,
+                        "lowered_operations": [function_id],
+                        "source_ref": source_span,
+                    }));
+                }
+                Ok(result)
+            }
+            Expr::CallVision {
+                function_id,
+                arguments,
+                ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
+                }
+                let (result, trace) = crate::vision_dispatch::call(
+                    function_id,
+                    &values,
+                    &self.resource_root,
+                    self.filesystem_read,
+                    self.filesystem_write,
+                )?;
+                if self.trace_enabled {
+                    self.vision_trace.borrow_mut().push(trace);
+                }
+                Ok(result)
+            }
+            Expr::CallRuo {
+                function_id,
+                arguments,
+                ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
+                }
+                crate::ruo_dispatch::call(function_id, values)
+            }
+            Expr::CallOptimizer {
+                function_id,
+                arguments,
+                source_span,
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
+                }
+                crate::optimizer_dispatch::call(function_id, values, &self.tensors)
+                    // Optimizer dispatch previously discarded the expression
+                    // span, making TSF-001 impossible to locate in source.
+                    .map_err(|error| {
+                        RuntimeError::new(
+                            &error.code,
+                            format!("{} (while executing {function_id})", error.message),
+                        )
+                        .with_source_location(source_span.as_ref())
+                    })
+            }
+            Expr::CallReasoning {
+                function_id,
+                arguments,
+                ..
+            } => {
+                let expression = arguments
+                    .first()
+                    .ok_or_else(|| RuntimeError::new("RV-5", "RuntimeCallArgumentCountMismatch"))?;
+                let argument = self.eval_expr(expression, env, call_depth)?;
+                let outcome = reasonscript_reasoning_core::execute(
+                    function_id,
+                    &to_json(&argument),
+                    &self.backend,
+                )
+                .map_err(|error| RuntimeError::new(&error.code, error.message))?;
+                if self.trace_enabled {
+                    self.reasoning_trace.borrow_mut().push(outcome.trace);
+                }
+                Ok(Value::Json(Rc::new(outcome.value)))
+            }
+            Expr::CallRelation {
+                function_id,
+                arguments,
+                ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
+                }
+                crate::relation_dispatch::call(function_id, values)
+            }
+            Expr::CallArrayAppend {
+                collection, item, ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let collection_value = self.eval_expr(collection, env, call_depth)?;
+                self.push_temporary_root(collection_value.clone());
+                let item_value = self.eval_expr(item, env, call_depth)?;
+                match collection_value {
+                    Value::Array(items) => {
+                        let mut new_items = items.borrow().clone();
+                        new_items.push(item_value.deep_clone());
+                        Ok(Value::Array(Rc::new(RefCell::new(new_items))))
+                    }
+                    other => Err(RuntimeError::new(
+                        "RT-CALL-002",
+                        format!(
+                            "array.append first argument must be an array, got {}",
+                            other.type_name()
+                        ),
+                    )),
+                }
+            }
+            Expr::CallArrayConcat { left, right, .. } => {
+                let _guard = TempRootGuard::new(self);
+                let left_value = self.eval_expr(left, env, call_depth)?;
+                self.push_temporary_root(left_value.clone());
+                let right_value = self.eval_expr(right, env, call_depth)?;
+                match (left_value, right_value) {
+                    (Value::Array(left_items), Value::Array(right_items)) => {
+                        let mut new_items = left_items.borrow().clone();
+                        new_items.extend(right_items.borrow().iter().cloned());
+                        Ok(Value::Array(Rc::new(RefCell::new(new_items))))
+                    }
+                    (left, right) => Err(RuntimeError::new(
+                        "RT-CALL-006",
+                        format!(
+                            "array.concat arguments must be arrays, got {} and {}",
+                            left.type_name(),
+                            right.type_name()
+                        ),
+                    )),
+                }
+            }
+            Expr::CallString {
+                function_id,
+                arguments,
+                ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
+                }
+                crate::string_dispatch::call(function_id, values)
+            }
+            Expr::CallCast { name, argument, .. } => {
+                let value = self.eval_expr(argument, env, call_depth)?;
+                let numeric = match value {
+                    Value::Int(v) => v as f64,
+                    Value::Float(v) => v,
+                    other => {
+                        return Err(RuntimeError::new(
+                            "RT-CALL-005",
+                            format!(
+                                "{name}() argument must be Int or Float, got {}",
+                                other.type_name()
+                            ),
+                        ))
+                    }
+                };
+                if name == "float" {
+                    Ok(Value::Float(numeric))
+                } else {
+                    Ok(Value::Int(numeric.trunc() as i64))
+                }
+            }
+            Expr::CallFunction {
+                name, arguments, ..
+            } => self.call_function(name, arguments, env, call_depth),
+            Expr::EnumValue {
+                enum_name,
+                variant_name,
+                ..
+            } => Ok(Value::Enum {
+                enum_name: Rc::from(enum_name.as_str()),
+                variant_name: Rc::from(variant_name.as_str()),
+            }),
+            Expr::OptionalSome { value, .. } => {
+                let inner = self.eval_expr(value, env, call_depth)?;
+                Ok(Value::Optional(Some(Box::new(inner))))
+            }
+            Expr::OptionalNone { .. } => Ok(Value::Optional(None)),
+            Expr::Assert { condition, .. } => {
+                match self.eval_expr(condition, env, call_depth)? {
+                    Value::Bool(true) => Ok(Value::Null),
+                    Value::Bool(false) => {
+                        Err(RuntimeError::new("TEST-ASSERT-001", "assertion failed"))
+                    }
+                    other => Err(RuntimeError::new(
+                        "RT-TYPE-001",
+                        format!("assert() argument must be Bool, got {}", other.type_name()),
+                    )),
+                }
+            }
+            Expr::AssertEq { actual, expected, .. } => {
+                let _guard = TempRootGuard::new(self);
+                let actual_value = self.eval_expr(actual, env, call_depth)?;
+                self.push_temporary_root(actual_value.clone());
+                let expected_value = self.eval_expr(expected, env, call_depth)?;
+                if actual_value == expected_value {
+                    Ok(Value::Null)
+                } else {
+                    Err(RuntimeError::new(
+                        "TEST-ASSERT-001",
+                        format!(
+                            "assertion failed: expected {expected_value}, got {actual_value}"
+                        ),
+                    ))
+                }
+            }
+        }
+    }
+
+    fn call_function(
+        &self,
+        name: &str,
+        argument_exprs: &[Expr],
+        env: &Rc<RefCell<HashMap<String, Value>>>,
+        call_depth: u32,
+    ) -> Result<Value, RuntimeError> {
+        let function_id = format!("fn.{name}");
+        let function = *self.functions.get(function_id.as_str()).ok_or_else(|| {
+            RuntimeError::new("RT-CALL-001", format!("unknown runtime function: {name}"))
+        })?;
+        if argument_exprs.len() != function.parameters.len() {
+            return Err(RuntimeError::new(
+                "RT-CALL-002",
+                format!("function argument count mismatch: {name}"),
+            ));
+        }
+        if call_depth >= self.max_call_depth {
+            return Err(RuntimeError::new(
+                "RT-CALL-003",
+                format!("function call depth exceeded: {}", self.max_call_depth),
+            ));
+        }
+        let _args_guard = TempRootGuard::new(self);
+        let mut arguments = Vec::with_capacity(argument_exprs.len());
+        for argument_expr in argument_exprs {
+            let val = self.eval_expr(argument_expr, env, call_depth)?;
+            self.push_temporary_root(val.clone());
+            arguments.push(val);
+        }
+        let mut local_env: HashMap<String, Value> = self.reason_objects.borrow().clone();
+        local_env.extend(self.reasoning_bindings.clone());
+        local_env.extend(function.parameters.iter().cloned().zip(arguments));
+        let local_env = Rc::new(RefCell::new(local_env));
+        let outcome = self.run_function(function, &local_env, call_depth + 1)?;
+        match outcome {
+            Outcome::Return(value) => {
+                self.push_temporary_root(value.clone());
+                Ok(value)
+            }
+            Outcome::NoValue => Err(RuntimeError::new(
+                "RT-CALL-004",
+                format!("function returned no value: {name}"),
+            )),
+            Outcome::Result(_) => Err(RuntimeError::new(
+                "IR-EXEC-005",
+                format!("function {name} used result instead of return"),
+            )),
+        }
+    }
+}
+
+fn trace_env(env: &HashMap<String, Value>) -> serde_json::Value {
+    let mut visible = std::collections::BTreeMap::new();
+    for (name, value) in env {
+        if name.starts_with("__for_") || name.starts_with("__trace_") || name.starts_with("__opt_")
+        {
+            continue;
+        }
+        visible.insert(name.clone(), to_json(value));
+    }
+    serde_json::to_value(visible).expect("trace environment is JSON-compatible")
+}
+
+fn tensor_trace_value(
+    value: &Value,
+    store: &reasonscript_tensor_core::TensorStore,
+) -> serde_json::Value {
+    match value {
+        Value::Tensor(id) => store
+            .tensor_info(id)
+            .unwrap_or_else(|| serde_json::json!({"tensor_id": id.as_ref()})),
+        Value::Array(items) => serde_json::Value::Array(
+            items
+                .borrow()
+                .iter()
+                .map(|item| tensor_trace_value(item, store))
+                .collect(),
+        ),
+        _ => to_json(value),
+    }
+}
+
+fn collect_tensor_ids(
+    value: &Value,
+    roots: &mut std::collections::HashSet<String>,
+    visited_arrays: &mut std::collections::HashSet<usize>,
+    visited_structs: &mut std::collections::HashSet<usize>,
+) {
+    match value {
+        Value::Tensor(id) => {
+            roots.insert(id.to_string());
+        }
+        Value::Array(items) => {
+            let ptr = Rc::as_ptr(items) as usize;
+            if visited_arrays.insert(ptr) {
+                for item in items.borrow().iter() {
+                    collect_tensor_ids(item, roots, visited_arrays, visited_structs);
+                }
+            }
+        }
+        Value::Struct(value) => {
+            let ptr = Rc::as_ptr(value) as usize;
+            if visited_structs.insert(ptr) {
+                for item in value.fields.borrow().values() {
+                    collect_tensor_ids(item, roots, visited_arrays, visited_structs);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn const_value(kind: &str, value: &serde_json::Value) -> Result<Value, RuntimeError> {
+    match kind {
+        "int" => value
+            .as_i64()
+            .map(Value::Int)
+            .ok_or_else(|| RuntimeError::new("IR-EXEC-008", "malformed int constant")),
+        "float" => value
+            .as_f64()
+            .map(Value::Float)
+            .ok_or_else(|| RuntimeError::new("IR-EXEC-008", "malformed float constant")),
+        "bool" => value
+            .as_bool()
+            .map(Value::Bool)
+            .ok_or_else(|| RuntimeError::new("IR-EXEC-008", "malformed bool constant")),
+        "string" => value
+            .as_str()
+            .map(|text| Value::String(Rc::from(text)))
+            .ok_or_else(|| RuntimeError::new("IR-EXEC-008", "malformed string constant")),
+        "null" => Ok(Value::Null),
+        other => Err(RuntimeError::new(
+            "IR-EXEC-008",
+            format!("unknown const kind: {other}"),
+        )),
+    }
+}
+
+/// Structurally matches `value` against a `match` terminator arm's
+/// `Pattern`. Returns the bindings a successful match would introduce
+/// (possibly empty), or `None` if `pattern` does not match `value`.
+/// Mirrors `_match_pattern_json` in `frontend/computation_ir/interpreter.py`
+/// -- the two must agree on every pattern kind for the Python-vs-Rust
+/// parity gate (`test_computation_ir_rust_parity.py`) to hold. Language
+/// surface validation already guarantees a `match` statement is
+/// exhaustive before this IR is ever produced, so a fully-exhausted arm
+/// list (the `RT-MATCH-001` case in the caller) is a defensive fallback,
+/// not an expected outcome.
+fn match_pattern(pattern: &Pattern, value: &Value) -> Option<Vec<(String, Value)>> {
+    match pattern {
+        Pattern::Wildcard => Some(Vec::new()),
+        Pattern::Binding { name } => Some(vec![(name.clone(), value.clone())]),
+        Pattern::Literal { value_kind, value: literal } => {
+            let literal_value = const_value(value_kind, literal).ok()?;
+            if &literal_value == value {
+                Some(Vec::new())
+            } else {
+                None
+            }
+        }
+        Pattern::Range {
+            lower,
+            upper,
+            lower_inclusive,
+            upper_inclusive,
+        } => {
+            let subject = match value {
+                Value::Int(v) => *v as f64,
+                Value::Float(v) => *v,
+                _ => return None,
+            };
+            let lower = lower.as_f64()?;
+            let upper = upper.as_f64()?;
+            let lower_ok = if *lower_inclusive {
+                subject >= lower
+            } else {
+                subject > lower
+            };
+            let upper_ok = if *upper_inclusive {
+                subject <= upper
+            } else {
+                subject < upper
+            };
+            if lower_ok && upper_ok {
+                Some(Vec::new())
+            } else {
+                None
+            }
+        }
+        Pattern::EnumValue {
+            enum_name,
+            variant_name,
+        } => match value {
+            Value::Enum {
+                enum_name: value_enum,
+                variant_name: value_variant,
+            } if value_enum.as_ref() == enum_name.as_str()
+                && value_variant.as_ref() == variant_name.as_str() =>
+            {
+                Some(Vec::new())
+            }
+            _ => None,
+        },
+        Pattern::OptionalSome { pattern } => match value {
+            Value::Optional(Some(inner)) => match_pattern(pattern, inner),
+            _ => None,
+        },
+        Pattern::OptionalNone => match value {
+            Value::Optional(None) => Some(Vec::new()),
+            _ => None,
+        },
+        Pattern::Struct { type_name, fields } => match value {
+            Value::Struct(struct_value) if &struct_value.type_name == type_name => {
+                let mut bindings = Vec::new();
+                let struct_fields = struct_value.fields.borrow();
+                for (field_name, field_pattern) in fields {
+                    let field_value = struct_fields.get(field_name)?;
+                    bindings.extend(match_pattern(field_pattern, field_value)?);
+                }
+                Some(bindings)
+            }
+            _ => None,
+        },
+        Pattern::Or { alternatives } => {
+            alternatives.iter().find_map(|alternative| match_pattern(alternative, value))
+        }
+    }
+}
+
+fn as_bool(value: Value) -> Result<bool, RuntimeError> {
+    match value {
+        Value::Bool(value) => Ok(value),
+        other => Err(RuntimeError::new(
+            "RT-TYPE-001",
+            format!("expected Bool, got {}", other.type_name()),
+        )),
+    }
+}
+
+fn eval_binary(operator: &str, left: Value, right: Value) -> Result<Value, RuntimeError> {
+    if matches!(operator, "Divide" | "Modulo") {
+        let is_zero = match &right {
+            Value::Int(0) => true,
+            Value::Float(value) => *value == 0.0,
+            _ => false,
+        };
+        if is_zero {
+            return Err(RuntimeError::new(
+                "RT-ARITH-001",
+                "division or modulo by zero",
+            ));
+        }
+    }
+    match (operator, left, right) {
+        ("Add", Value::Int(a), Value::Int(b)) => Ok(Value::Int(a + b)),
+        ("Add", Value::Float(a), Value::Float(b)) => Ok(Value::Float(a + b)),
+        ("Subtract", Value::Int(a), Value::Int(b)) => Ok(Value::Int(a - b)),
+        ("Subtract", Value::Float(a), Value::Float(b)) => Ok(Value::Float(a - b)),
+        ("Multiply", Value::Int(a), Value::Int(b)) => Ok(Value::Int(a * b)),
+        ("Multiply", Value::Float(a), Value::Float(b)) => Ok(Value::Float(a * b)),
+        // `/` always performs true division at runtime on the Python
+        // side (Int / Int -> Float too), matching the L-006 type-checker
+        // fix in frontend/language_surface/validation.py.
+        ("Divide", Value::Int(a), Value::Int(b)) => Ok(Value::Float(a as f64 / b as f64)),
+        ("Divide", Value::Float(a), Value::Float(b)) => Ok(Value::Float(a / b)),
+        // Python's `%` is floor-modulo (result takes the sign of the
+        // divisor), unlike Rust's `%` (truncating remainder, sign of the
+        // dividend) -- rem_euclid-with-sign-correction reproduces it.
+        ("Modulo", Value::Int(a), Value::Int(b)) => Ok(Value::Int(python_mod_i64(a, b))),
+        ("Modulo", Value::Float(a), Value::Float(b)) => Ok(Value::Float(python_mod_f64(a, b))),
+        (op, left, right) => Err(RuntimeError::new(
+            "RT-TYPE-001",
+            format!(
+                "{op} is not defined for {} and {}",
+                left.type_name(),
+                right.type_name()
+            ),
+        )),
+    }
+}
+
+fn python_mod_i64(a: i64, b: i64) -> i64 {
+    let remainder = a % b;
+    if remainder != 0 && (remainder < 0) != (b < 0) {
+        remainder + b
+    } else {
+        remainder
+    }
+}
+
+fn python_mod_f64(a: f64, b: f64) -> f64 {
+    let remainder = a % b;
+    if remainder != 0.0 && (remainder < 0.0) != (b < 0.0) {
+        remainder + b
+    } else {
+        remainder
+    }
+}
+
+pub(crate) fn eval_comparison(
+    operator: &str,
+    left: Value,
+    right: Value,
+) -> Result<Value, RuntimeError> {
+    if operator == "Equal" {
+        return Ok(Value::Bool(left == right));
+    }
+    if operator == "NotEqual" {
+        return Ok(Value::Bool(left != right));
+    }
+    let ordering = match (&left, &right) {
+        (Value::Int(a), Value::Int(b)) => a.partial_cmp(b),
+        (Value::Float(a), Value::Float(b)) => a.partial_cmp(b),
+        (Value::String(a), Value::String(b)) => a.partial_cmp(b),
+        _ => {
+            return Err(RuntimeError::new(
+                "RT-TYPE-001",
+                format!(
+                    "{operator} is not defined for {} and {}",
+                    left.type_name(),
+                    right.type_name()
+                ),
+            ))
+        }
+    };
+    let ordering = ordering.ok_or_else(|| {
+        RuntimeError::new("RT-TYPE-001", format!("{operator} comparison is undefined"))
+    })?;
+    let result = match operator {
+        "GreaterThan" => ordering.is_gt(),
+        "GreaterThanOrEqual" => ordering.is_ge(),
+        "LessThan" => ordering.is_lt(),
+        "LessThanOrEqual" => ordering.is_le(),
+        other => {
+            return Err(RuntimeError::new(
+                "IR-EXEC-009",
+                format!("unknown comparison operator: {other}"),
+            ))
+        }
+    };
+    Ok(Value::Bool(result))
+}
+
+fn index_value_lookup(collection: Value, index: Value) -> Result<Value, RuntimeError> {
+    match collection {
+        Value::Array(items) => {
+            let index_int = match index {
+                Value::Int(value) => value,
+                _ => return Err(RuntimeError::new("RT-INDEX-001", "array index must be int")),
+            };
+            let items = items.borrow();
+            if index_int < 0 || index_int as usize >= items.len() {
+                return Err(RuntimeError::new(
+                    "RT-INDEX-002",
+                    format!("index out of range: {index_int}"),
+                ));
+            }
+            Ok(items[index_int as usize].clone())
+        }
+        _ => Err(RuntimeError::new("RT-INDEX-003", "value is not indexable")),
+    }
+}
+
+fn member_lookup(owner: Value, member: &str) -> Result<Value, RuntimeError> {
+    match owner {
+        Value::Struct(struct_value) => struct_value
+            .fields
+            .borrow()
+            .get(member)
+            .cloned()
+            .ok_or_else(|| {
+                RuntimeError::new(
+                    "RT-FIELD-001",
+                    format!("unknown field {member} on {}", struct_value.type_name),
+                )
+            }),
+        Value::Array(items) if member == "length" => Ok(Value::Int(items.borrow().len() as i64)),
+        Value::Json(value) => value
+            .as_object()
+            .and_then(|values| values.get(member))
+            .cloned()
+            .map(from_json)
+            .ok_or_else(|| RuntimeError::new("RT-FIELD-001", format!("unknown field {member}"))),
+        other => Err(RuntimeError::new(
+            "RT-FIELD-001",
+            format!(
+                "member access is unsupported: {member} on {}",
+                other.type_name()
+            ),
+        )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ir::decode;
+
+    #[test]
+    fn python_mod_matches_python_floor_semantics() {
+        // Python: 7 % 3 == 1, -7 % 3 == 2, 7 % -3 == -2, -7 % -3 == -1
+        assert_eq!(python_mod_i64(7, 3), 1);
+        assert_eq!(python_mod_i64(-7, 3), 2);
+        assert_eq!(python_mod_i64(7, -3), -2);
+        assert_eq!(python_mod_i64(-7, -3), -1);
+    }
+
+    fn run(source: &str) -> Result<Vec<(String, Value)>, RuntimeError> {
+        let program = decode(source).expect("valid IR JSON");
+        let vm = Vm::new(&program);
+        vm.run_calculations(&program)
+    }
+
+    /// Like `run`, but executes on a thread with an explicit, large
+    /// stack, and returns JSON instead of `Value` -- needed only for the
+    /// deep-recursion tests below. `Value` holds `Rc`, which isn't
+    /// `Send`, so results can't cross a `thread::spawn`/`.join()`
+    /// boundary directly; converting to `serde_json::Value` (fully
+    /// owned, no `Rc`) inside the worker thread before it returns
+    /// sidesteps that.
+    ///
+    /// This exists because `cargo test`'s own per-test thread stack is
+    /// markedly smaller than a real process's main thread (how
+    /// `reason-runtime-host` is actually invoked, where the OS default
+    /// already comfortably covers `max_call_depth`'s 128-level default)
+    /// -- without it, `unbounded_recursion_stops_at_max_call_depth_with_rt_call_003`
+    /// below stack-overflows and aborts the whole test binary before the
+    /// depth check ever fires, instead of exercising it. `runtime-cli`'s
+    /// `main` defends against the same underlying risk in production the
+    /// same way (see its `run_main` wrapper) -- the depth check is only
+    /// the *actual*, deterministic limit if the executing thread has
+    /// enough native stack to reach it without overflowing first.
+    fn run_json_on_large_stack(source: &str) -> Result<serde_json::Value, String> {
+        const STACK_SIZE: usize = 64 * 1024 * 1024;
+        let source = source.to_string();
+        std::thread::Builder::new()
+            .stack_size(STACK_SIZE)
+            .spawn(move || -> Result<serde_json::Value, String> {
+                let results = run(&source).map_err(|error| error.code)?;
+                let mut map = serde_json::Map::new();
+                for (name, value) in results {
+                    map.insert(name, to_json(&value));
+                }
+                Ok(serde_json::Value::Object(map))
+            })
+            .expect("failed to spawn test worker thread")
+            .join()
+            .expect("test worker thread panicked")
+    }
+
+    #[test]
+    fn integer_division_by_int_is_float() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.1",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [{
+                    "id": "b1",
+                    "instructions": [],
+                    "terminator": {
+                        "kind": "result",
+                        "value": {
+                            "op": "binary", "operator": "Divide",
+                            "left": {"op": "const", "kind": "int", "value": 7},
+                            "right": {"op": "const", "kind": "int", "value": 2}
+                        }
+                    }
+                }]
+            }]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(results, vec![("Answer".to_string(), Value::Float(3.5))]);
+    }
+
+    #[test]
+    fn division_by_zero_reports_rt_arith_001() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.1",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [{
+                    "id": "b1",
+                    "instructions": [],
+                    "terminator": {
+                        "kind": "result",
+                        "value": {
+                            "op": "binary", "operator": "Divide",
+                            "left": {"op": "const", "kind": "int", "value": 1},
+                            "right": {"op": "const", "kind": "int", "value": 0}
+                        }
+                    }
+                }]
+            }]
+        }"#;
+        let error = run(ir).expect_err("must fail");
+        assert_eq!(error.code, "RT-ARITH-001");
+    }
+
+    #[test]
+    fn calculation_without_result_contributes_nothing() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.1",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [{
+                    "id": "b1",
+                    "instructions": [{
+                        "op": "assign", "target": "x",
+                        "expr": {"op": "const", "kind": "int", "value": 1}
+                    }],
+                    "terminator": {
+                        "kind": "trap", "code": "IR-NO-VALUE", "message": "no result"
+                    }
+                }]
+            }]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn tensor_softmax_executes_in_rust() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.1",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [{
+                    "id": "b1",
+                    "instructions": [],
+                    "terminator": {
+                        "kind": "result",
+                        "value": {
+                            "op": "call_tensor", "function_id": "tensor.to_array", "arguments": [{
+                                "op": "call_tensor", "function_id": "tensor.softmax", "arguments": [{
+                                    "op": "call_tensor", "function_id": "tensor.create", "arguments": [{
+                                        "op": "array", "elements": [
+                                            {"op": "const", "kind": "float", "value": 1.0},
+                                            {"op": "const", "kind": "float", "value": 2.0}
+                                        ]
+                                    }, {"op": "const", "kind": "string", "value": "f64"}]
+                                }]
+                            }]
+                        }
+                    }
+                }]
+            }]
+        }"#;
+        let results = run(ir).expect("softmax should execute");
+        let values = match &results[0].1 {
+            Value::Array(values) => values.borrow(),
+            _ => panic!("softmax array"),
+        };
+        let first = match values[0] {
+            Value::Float(value) => value,
+            _ => panic!("softmax float"),
+        };
+        assert!((first - 0.2689414213699951).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tensor_create_and_to_array_round_trip() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.1",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [{
+                    "id": "b1",
+                    "instructions": [{
+                        "op": "assign", "target": "a",
+                        "expr": {
+                            "op": "call_tensor", "function_id": "tensor.create",
+                            "arguments": [
+                                {"op": "array", "elements": [
+                                    {"op": "const", "kind": "float", "value": 1.0},
+                                    {"op": "const", "kind": "float", "value": 2.0}
+                                ]},
+                                {"op": "const", "kind": "string", "value": "f64"}
+                            ]
+                        }
+                    }],
+                    "terminator": {
+                        "kind": "result",
+                        "value": {
+                            "op": "call_tensor", "function_id": "tensor.to_array",
+                            "arguments": [{"op": "local", "name": "a"}]
+                        }
+                    }
+                }]
+            }]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(results.len(), 1);
+        match &results[0].1 {
+            Value::Array(items) => {
+                let items = items.borrow();
+                assert_eq!(items.len(), 2);
+                assert_eq!(items[0], Value::Float(1.0));
+                assert_eq!(items[1], Value::Float(2.0));
+            }
+            other => panic!("expected an array, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn array_index_out_of_range_reports_rt_index_002() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.1",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [{
+                    "id": "b1",
+                    "instructions": [],
+                    "terminator": {
+                        "kind": "result",
+                        "value": {
+                            "op": "index",
+                            "collection": {"op": "array", "elements": [
+                                {"op": "const", "kind": "int", "value": 1}
+                            ]},
+                            "index": {"op": "const", "kind": "int", "value": 5}
+                        }
+                    }
+                }]
+            }]
+        }"#;
+        let error = run(ir).expect_err("must fail");
+        assert_eq!(error.code, "RT-INDEX-002");
+    }
+
+    #[test]
+    fn caller_frame_tensor_survives_callee_collection() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.1",
+            "calculations": ["Answer"],
+            "functions": [
+                {
+                    "id": "fn.Callee",
+                    "parameters": ["x"],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [{
+                            "op": "assign", "target": "c",
+                            "expr": {
+                                "op": "call_tensor", "function_id": "tensor.add",
+                                "arguments": [
+                                    {"op": "local", "name": "x"},
+                                    {"op": "const", "kind": "float", "value": 10.0}
+                                ]
+                            }
+                        }],
+                        "terminator": {
+                            "kind": "return",
+                            "value": {"op": "local", "name": "c"}
+                        }
+                    }]
+                },
+                {
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [
+                            {
+                                "op": "assign", "target": "caller_tensor",
+                                "expr": {
+                                    "op": "call_tensor", "function_id": "tensor.create",
+                                    "arguments": [
+                                        {"op": "array", "elements": [
+                                            {"op": "const", "kind": "float", "value": 5.0}
+                                        ]},
+                                        {"op": "const", "kind": "string", "value": "f64"}
+                                    ]
+                                }
+                            },
+                            {
+                                "op": "assign", "target": "callee_res",
+                                "expr": {
+                                    "op": "call_function", "name": "Callee",
+                                    "arguments": [
+                                        {"op": "call_tensor", "function_id": "tensor.create",
+                                         "arguments": [
+                                             {"op": "array", "elements": [
+                                                 {"op": "const", "kind": "float", "value": 1.0}
+                                             ]},
+                                             {"op": "const", "kind": "string", "value": "f64"}
+                                         ]}
+                                    ]
+                                }
+                            },
+                            {
+                                "op": "assign", "target": "final_tensor",
+                                "expr": {
+                                    "op": "call_tensor", "function_id": "tensor.add",
+                                    "arguments": [
+                                        {"op": "local", "name": "caller_tensor"},
+                                        {"op": "local", "name": "callee_res"}
+                                    ]
+                                }
+                            }
+                        ],
+                        "terminator": {
+                            "kind": "result",
+                            "value": {
+                                "op": "call_tensor", "function_id": "tensor.to_array",
+                                "arguments": [{"op": "local", "name": "final_tensor"}]
+                            }
+                        }
+                    }]
+                }
+            ]
+        }"#;
+        let results = run(ir).expect("caller tensor must remain live");
+        assert_eq!(results.len(), 1);
+        match &results[0].1 {
+            Value::Array(items) => {
+                let items = items.borrow();
+                assert_eq!(items.len(), 1);
+                assert_eq!(items[0], Value::Float(16.0));
+            }
+            other => panic!("expected an array, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn enum_values_compare_by_name_not_by_string() {
+        assert_eq!(
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            },
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            }
+        );
+        assert_ne!(
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            },
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Blue")
+            }
+        );
+        assert_ne!(
+            Value::Enum {
+                enum_name: Rc::from("Color"),
+                variant_name: Rc::from("Red")
+            },
+            Value::String(Rc::from("Red"))
+        );
+    }
+
+    #[test]
+    fn match_dispatches_on_enum_value_falling_through_to_wildcard() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [
+                    {
+                        "id": "b1",
+                        "instructions": [{
+                            "op": "assign", "target": "color",
+                            "expr": {"op": "enum_value", "enum_name": "Color", "variant_name": "Green"}
+                        }],
+                        "terminator": {
+                            "kind": "match",
+                            "subject": {"op": "local", "name": "color"},
+                            "arms": [
+                                {
+                                    "pattern": {"kind": "enum_value", "enum_name": "Color", "variant_name": "Red"},
+                                    "guard": null,
+                                    "target": "b_red"
+                                },
+                                {
+                                    "pattern": {"kind": "wildcard"},
+                                    "guard": null,
+                                    "target": "b_default"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "id": "b_red",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": 1}}
+                    },
+                    {
+                        "id": "b_default",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": 0}}
+                    }
+                ]
+            }]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(results, vec![("Answer".to_string(), Value::Int(0))]);
+    }
+
+    #[test]
+    fn match_binds_optional_some_and_distinguishes_none_from_null() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Some", "None"],
+            "functions": [
+                {
+                    "id": "Some",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [
+                        {
+                            "id": "b1",
+                            "instructions": [{
+                                "op": "assign", "target": "value",
+                                "expr": {"op": "optional_some", "value": {"op": "const", "kind": "int", "value": 42}}
+                            }],
+                            "terminator": {
+                                "kind": "match",
+                                "subject": {"op": "local", "name": "value"},
+                                "arms": [
+                                    {
+                                        "pattern": {"kind": "optional_some", "pattern": {"kind": "binding", "name": "x"}},
+                                        "guard": null,
+                                        "target": "b_some"
+                                    },
+                                    {
+                                        "pattern": {"kind": "optional_none"},
+                                        "guard": null,
+                                        "target": "b_none"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "id": "b_some",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "local", "name": "x"}}
+                        },
+                        {
+                            "id": "b_none",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": -1}}
+                        }
+                    ]
+                },
+                {
+                    "id": "None",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [
+                        {
+                            "id": "b1",
+                            "instructions": [{
+                                "op": "assign", "target": "value",
+                                "expr": {"op": "optional_none"}
+                            }],
+                            "terminator": {
+                                "kind": "match",
+                                "subject": {"op": "local", "name": "value"},
+                                "arms": [
+                                    {
+                                        "pattern": {"kind": "optional_some", "pattern": {"kind": "binding", "name": "x"}},
+                                        "guard": null,
+                                        "target": "b_some"
+                                    },
+                                    {
+                                        "pattern": {"kind": "optional_none"},
+                                        "guard": null,
+                                        "target": "b_none"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "id": "b_some",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "local", "name": "x"}}
+                        },
+                        {
+                            "id": "b_none",
+                            "instructions": [],
+                            "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": -1}}
+                        }
+                    ]
+                }
+            ]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(
+            results,
+            vec![
+                ("Some".to_string(), Value::Int(42)),
+                ("None".to_string(), Value::Int(-1)),
+            ]
+        );
+    }
+
+    #[test]
+    fn match_guard_failure_rolls_back_pattern_bindings_before_trying_next_arm() {
+        // Both arms bind the subject to `x`; the first arm's guard is
+        // false, so its binding must be undone before the second arm's
+        // guard runs -- otherwise a stale `x` from the failed first arm
+        // could leak into the second arm's guard evaluation.
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [{
+                "id": "Answer",
+                "parameters": [],
+                "entry_block": "b1",
+                "blocks": [
+                    {
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "match",
+                            "subject": {"op": "const", "kind": "int", "value": 5},
+                            "arms": [
+                                {
+                                    "pattern": {"kind": "binding", "name": "x"},
+                                    "guard": {
+                                        "op": "comparison", "operator": "GreaterThan",
+                                        "left": {"op": "local", "name": "x"},
+                                        "right": {"op": "const", "kind": "int", "value": 10}
+                                    },
+                                    "target": "b_big"
+                                },
+                                {
+                                    "pattern": {"kind": "binding", "name": "x"},
+                                    "guard": null,
+                                    "target": "b_default"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "id": "b_big",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "const", "kind": "int", "value": 1}}
+                    },
+                    {
+                        "id": "b_default",
+                        "instructions": [],
+                        "terminator": {"kind": "result", "value": {"op": "local", "name": "x"}}
+                    }
+                ]
+            }]
+        }"#;
+        let results = run(ir).expect("no runtime error");
+        assert_eq!(results, vec![("Answer".to_string(), Value::Int(5))]);
+    }
+
+    #[test]
+    fn direct_self_recursion_computes_correctly() {
+        // Phase 4 ("制御された再帰"): a function calling itself is no
+        // longer rejected at the language-surface level (FN-007 removed)
+        // -- this proves the VM's own call-depth machinery (already
+        // present for ordinary nested calls) handles a self-referential
+        // `call_function` correctly, independent of the Python lowering
+        // pipeline.
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [
+                {
+                    "id": "fn.Factorial",
+                    "parameters": ["n"],
+                    "entry_block": "b1",
+                    "blocks": [
+                        {
+                            "id": "b1",
+                            "instructions": [],
+                            "terminator": {
+                                "kind": "branch",
+                                "condition": {
+                                    "op": "comparison", "operator": "LessThanOrEqual",
+                                    "left": {"op": "local", "name": "n"},
+                                    "right": {"op": "const", "kind": "int", "value": 1}
+                                },
+                                "then": "b_base",
+                                "else": "b_recurse"
+                            }
+                        },
+                        {
+                            "id": "b_base",
+                            "instructions": [],
+                            "terminator": {"kind": "return", "value": {"op": "const", "kind": "int", "value": 1}}
+                        },
+                        {
+                            "id": "b_recurse",
+                            "instructions": [],
+                            "terminator": {
+                                "kind": "return",
+                                "value": {
+                                    "op": "binary", "operator": "Multiply",
+                                    "left": {"op": "local", "name": "n"},
+                                    "right": {
+                                        "op": "call_function", "name": "Factorial",
+                                        "arguments": [{
+                                            "op": "binary", "operator": "Subtract",
+                                            "left": {"op": "local", "name": "n"},
+                                            "right": {"op": "const", "kind": "int", "value": 1}
+                                        }]
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "result",
+                            "value": {
+                                "op": "call_function", "name": "Factorial",
+                                "arguments": [{"op": "const", "kind": "int", "value": 5}]
+                            }
+                        }
+                    }]
+                }
+            ]
+        }"#;
+        let result = run_json_on_large_stack(ir).expect("no runtime error");
+        assert_eq!(result["Answer"], serde_json::json!(120));
+    }
+
+    #[test]
+    fn unbounded_recursion_stops_at_max_call_depth_with_rt_call_003() {
+        let ir = r#"{
+            "schema": "reason-computation-ir/0.2",
+            "calculations": ["Answer"],
+            "functions": [
+                {
+                    "id": "fn.Loop",
+                    "parameters": ["n"],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "return",
+                            "value": {
+                                "op": "call_function", "name": "Loop",
+                                "arguments": [{
+                                    "op": "binary", "operator": "Add",
+                                    "left": {"op": "local", "name": "n"},
+                                    "right": {"op": "const", "kind": "int", "value": 1}
+                                }]
+                            }
+                        }
+                    }]
+                },
+                {
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "b1",
+                    "blocks": [{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {
+                            "kind": "result",
+                            "value": {
+                                "op": "call_function", "name": "Loop",
+                                "arguments": [{"op": "const", "kind": "int", "value": 0}]
+                            }
+                        }
+                    }]
+                }
+            ]
+        }"#;
+        let error_code = run_json_on_large_stack(ir).expect_err("must fail");
+        assert_eq!(error_code, "RT-CALL-003");
+    }
+}

@@ -1,0 +1,9 @@
+[package]
+name = "issue_9_layernorm_attention"
+version = "0.1.0"
+
+[compiler]
+language_core = "0.5"
+
+[runtime]
+backend = "RuntimeReal"

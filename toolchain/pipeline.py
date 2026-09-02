@@ -8,7 +8,8 @@ from typing import Any
 
 from frontend.language_surface.integration import compile_program, project_program
 from frontend.language_surface.namespace import NamespaceResolutionError
-from frontend.language_surface.parser import SurfaceSyntaxError, parse
+from frontend.language_surface.nodes import ProgramNode
+from frontend.language_surface.parser import SurfaceSyntaxError, parse, parse_unresolved
 from frontend.language_surface.validation import SurfaceValidationError
 
 
@@ -26,9 +27,10 @@ class PipelineResult:
     reason_irs: tuple[dict[str, Any], ...]
 
     def metadata_for(self, ir: dict[str, Any]) -> dict[str, Any]:
+        ir_metadata = ir.get("metadata", {})
         return {
-            "package": ir.get("package"),
-            "module": ir.get("module"),
+            "package": ir.get("package", ir_metadata.get("package")),
+            "module": ir.get("module", ir_metadata.get("module")),
             "runtime_calls": ir.get("runtime_calls", []),
             "reasoning_declarations": ir.get("reasoning_declarations", {}),
         }
@@ -68,3 +70,54 @@ def validate_source(source: str, _path: Path) -> None:
         raise PipelineError("ValidationError", str(e)) from e
     except Exception as e:
         raise PipelineError("CompilerError", str(e)) from e
+
+
+def compile_package_sources(sources: list[tuple[str, Path]]) -> PipelineResult:
+    """Compile every source in a package as one closed module graph."""
+    program = _package_program(sources)
+    try:
+        reason_irs = compile_program(program)
+    except (SurfaceValidationError, NamespaceResolutionError) as e:
+        raise PipelineError("ValidationError", str(e)) from e
+    except Exception as e:
+        raise PipelineError("CompilerError", str(e)) from e
+    return PipelineResult(sources[0][1], program, reason_irs)
+
+
+def validate_package_sources(sources: list[tuple[str, Path]]) -> None:
+    """Validate every source in a package against the complete module graph."""
+    program = _package_program(sources)
+    try:
+        project_program(program)
+    except (SurfaceValidationError, NamespaceResolutionError) as e:
+        raise PipelineError("ValidationError", str(e)) from e
+    except Exception as e:
+        raise PipelineError("CompilerError", str(e)) from e
+
+
+def _package_program(sources: list[tuple[str, Path]]) -> ProgramNode:
+    if not sources:
+        raise PipelineError("SyntaxError", "package has no source files")
+    try:
+        units = [parse_unresolved(source) for source, _path in sources]
+        packages = {unit.package.name for unit in units if unit.package is not None}
+        if len(packages) > 1:
+            raise PipelineError(
+                "SyntaxError", "PV-2 package declaration conflicts across source files"
+            )
+        package = next((unit.package for unit in units if unit.package is not None), None)
+        program = ProgramNode(
+            tuple(module for unit in units for module in unit.modules), package
+        )
+        from frontend.language_surface.namespace import resolve_program
+        from frontend.language_surface.validation import validate
+
+        program, _ = resolve_program(program)
+        validate(program)
+        return program
+    except PipelineError:
+        raise
+    except SurfaceSyntaxError as e:
+        raise PipelineError("SyntaxError", str(e)) from e
+    except (SurfaceValidationError, NamespaceResolutionError) as e:
+        raise PipelineError("ValidationError", str(e)) from e

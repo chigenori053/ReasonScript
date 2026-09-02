@@ -30,6 +30,16 @@ export function commandCwd(): string | undefined {
   return detectWorkspaceRoot()?.fsPath;
 }
 
+export function isProjectWorkspace(): boolean {
+  const root = detectWorkspaceRoot();
+  return Boolean(
+    root && (
+      fs.existsSync(path.join(root.fsPath, "reason.toml")) ||
+      fs.existsSync(path.join(root.fsPath, "reason.workspace.toml"))
+    )
+  );
+}
+
 export function reasonExecutable(): string {
   // 1. VSCode 設定で明示指定されている場合はそれを優先
   const config = vscode.workspace.getConfiguration("reasonscript");
@@ -50,6 +60,27 @@ export function reasonExecutable(): string {
     const candidateInRoot = path.join(root.fsPath, "reason");
     if (fs.existsSync(candidateInRoot)) {
       return candidateInRoot;
+    }
+  }
+
+  // A single .rsn file can activate the extension without opening its parent
+  // folder as a VS Code workspace. In that case, find a checkout-local CLI
+  // from the active document before falling back to PATH.
+  const document = vscode.workspace.textDocuments.find(
+    (candidate) => candidate.languageId === "reasonscript" && candidate.uri.scheme === "file"
+  ) ?? vscode.window.activeTextEditor?.document;
+  if (document?.uri.scheme === "file") {
+    let current = path.dirname(document.uri.fsPath);
+    while (true) {
+      const candidate = path.join(current, "reason");
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
+        break;
+      }
+      current = parent;
     }
   }
 
