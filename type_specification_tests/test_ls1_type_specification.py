@@ -76,6 +76,7 @@ class LayerCExpressionTypingTests(unittest.TestCase):
     def test_c_001_arithmetic(self):
         calculation("let value: Int = 1 + 2\nresult = value", "Int")
         calculation("let value: Float = 1.0 + 2.0\nresult = value", "Float")
+        calculation("let value: Float = 1 + 2.0\nresult = value", "Float")
 
     def test_c_002_comparison(self):
         calculation("let value: Bool = 2 > 1\nresult = value", "Bool")
@@ -104,12 +105,6 @@ class LayerDInvalidTypeTests(unittest.TestCase):
             "let value = 1\nresult = value",
             "TYPE-V003",
             return_type="String",
-        )
-
-    def test_d_003_arithmetic_mismatch(self):
-        self.assert_type_error(
-            "let value = 1 + 2.0\nresult = value",
-            "TYPE-V004",
         )
 
     def test_d_004_logical_mismatch(self):
