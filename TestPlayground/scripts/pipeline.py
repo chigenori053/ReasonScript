@@ -92,7 +92,9 @@ def try_parse(source_text: str) -> ParseResult:
     except SurfaceSyntaxError:
         if "module " in source_text:
             raise
-    except Exception:
+    except (SurfaceSyntaxError, ParserError):
+        # Surface parser raised a known parse error; if the source looks like a module
+        # we propagate the error to the caller, otherwise fall back to phase2 parsing.
         if "module " in source_text:
             raise
     # Phase 2 parser has no comment support — strip // comments first
@@ -702,7 +704,7 @@ def cmd_semantic(source_file: str, fmt: str) -> int:
             else:
                 print(json.dumps(semantic_dict, indent=2))
         return 0
-    except Exception as e:
+    except (CompilerError, ParserError, SurfaceSyntaxError) as e:
         print(f"Semantic AST Error: {e}", file=sys.stderr)
         return 1
 
@@ -722,7 +724,7 @@ def cmd_ir(source_file: str, fmt: str) -> int:
         else:
             print(json.dumps(ir, indent=2))
         return 0
-    except (CompilerError, Exception) as e:
+    except (CompilerError, ParserError, SurfaceSyntaxError) as e:
         print(f"IR Error: {e}", file=sys.stderr)
         return 1
 
@@ -741,7 +743,7 @@ def cmd_validate(source_file: str, fmt: str) -> int:
             "status": "PASS",
             "message": f"syntax valid (mode={parse_result.mode})",
         })
-    except Exception as e:
+    except (SurfaceSyntaxError, ParserError) as e:
         checks.append({"name": "TV-1 Parse", "status": "FAIL", "message": str(e)})
         _report_validation(checks, fmt)
         return 1
@@ -762,7 +764,7 @@ def cmd_validate(source_file: str, fmt: str) -> int:
             "status": "PASS",
             "message": f"AST constructed ({decl_count} declaration(s))",
         })
-    except Exception as e:
+    except (SurfaceSyntaxError, ParserError, CompilerError) as e:
         checks.append({"name": "TV-2 AST", "status": "FAIL", "message": str(e)})
 
     # TV-3: Semantic AST
@@ -778,7 +780,7 @@ def cmd_validate(source_file: str, fmt: str) -> int:
             "message": "semantic constraints satisfied",
         })
         semantic_ok = True
-    except Exception as e:
+    except (CompilerError, SurfaceSyntaxError, ParserError) as e:
         checks.append({"name": "TV-3 Semantic", "status": "FAIL", "message": str(e)})
 
     # TV-4: Reason IR
@@ -794,7 +796,7 @@ def cmd_validate(source_file: str, fmt: str) -> int:
             "status": "PASS",
             "message": f"Reason IR generated ({ir_count} document(s))",
         })
-    except Exception as e:
+    except (CompilerError, SurfaceSyntaxError, ParserError) as e:
         checks.append({"name": "TV-4 IR", "status": "FAIL", "message": str(e)})
 
     _report_validation(checks, fmt)
@@ -838,7 +840,7 @@ def cmd_run(source_file: str, fmt: str) -> int:
                 )
             )
         return 0 if result["status"] == "success" else 1
-    except Exception as e:
+    except (CompilerError, SurfaceSyntaxError, ParserError, ValueError) as e:
         print(f"Run Error: {e}", file=sys.stderr)
         return 1
 
