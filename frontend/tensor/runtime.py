@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import product
 from pathlib import Path, PurePosixPath
-from typing import Any, Protocol
+from typing import Any, Mapping, Protocol
 
 from .operations import operation_signature
 
@@ -331,6 +331,15 @@ class TensorRuntime:
         self._grad_nodes: dict[str, _GradNode] = {}
         self._autograd_roots: set[str] = set()
         self._no_grad_depth = 0
+        self._classifications: dict[str, str] = {}
+        self._plan_values: dict[str, str] = {}
+        self._plan_ref_counts: dict[str, int] = {}
+        self.tensor_allocations = 0
+        self.tensor_releases = 0
+        self.peak_live_tensors = 0
+        self.live_memory_bytes = 0
+        self.peak_memory_bytes = 0
+        self._tensor_bytes: dict[str, int] = {}
         self.resource_root = (resource_root or Path.cwd()).resolve()
         self.filesystem_read = filesystem_read
         self.filesystem_write = filesystem_write
@@ -465,13 +474,66 @@ class TensorRuntime:
                 reachable.add(tensor_id)
         released = 0
         for tensor_id in tuple(self._refs):
-            if tensor_id not in reachable:
-                self.backend.release(tensor_id)
-                del self._refs[tensor_id]
-                self._requires_grad.discard(tensor_id)
-                self._parameters.discard(tensor_id)
+            if tensor_id not in reachable and self.release(tensor_id, reason="unreachable"):
                 released += 1
         return released
+
+    def execute_planned(self, operation: Mapping[str, Any], *args: Any, **kwargs: Any) -> Any:
+        function = operation.get("function")
+        if not isinstance(function, str):
+            raise TensorError("UER-TNS-002", "planned Tensor function is missing")
+        result = self.call(function, *args, **kwargs)
+        return self.complete_plan_operation(operation, result)
+
+    def complete_plan_operation(self, operation: Mapping[str, Any], result: Any) -> Any:
+        try:
+            step = int(operation["execution_order"])
+            output_ref = str(operation["output_ref"])
+            dependencies = tuple(str(item) for item in operation["dependencies"])
+            release_after = tuple(str(item) for item in operation["release_after"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise TensorError("UER-TNS-002", "invalid Tensor lifetime plan") from error
+        if isinstance(result, TensorValueRef):
+            self.classify(result, str(operation.get("lifecycle", "Intermediate")))
+            self._plan_values[output_ref] = result.tensor_id
+            self._plan_ref_counts[result.tensor_id] = int(operation.get("ref_count", 0))
+        for dependency in dependencies:
+            tensor_id = self._plan_values.get(dependency)
+            if tensor_id is None:
+                raise TensorError("UER-TNS-003", "Tensor lifetime dependency is unavailable", dependency=dependency, execution_order=step)
+            remaining = self._plan_ref_counts.get(tensor_id, 0) - 1
+            if remaining < 0:
+                raise TensorError("UER-TNS-004", "Tensor lifetime reference count underflow", tensor_id=tensor_id, execution_order=step)
+            self._plan_ref_counts[tensor_id] = remaining
+        for reference in release_after:
+            tensor_id = self._plan_values.get(reference)
+            if tensor_id is not None and self._plan_ref_counts.get(tensor_id, 0) == 0:
+                self.release(tensor_id, reason=f"last_use_step:{step}")
+        return result
+
+    def lifetime_metrics(self) -> dict[str, int]:
+        return {"tensor_allocations": self.tensor_allocations, "tensor_releases": self.tensor_releases, "live_tensors": len(self._refs), "peak_live_tensors": self.peak_live_tensors, "live_memory_bytes": self.live_memory_bytes, "peak_memory_bytes": self.peak_memory_bytes, "autograd_nodes": len(self._grad_nodes), "hard_limit": self.policy.max_live_tensors}
+
+    def classify(self, value: TensorValueRef, category: str) -> TensorValueRef:
+        if category not in {"Parameter", "Persistent", "Intermediate", "Temporary", "Observation", "Artifact"}:
+            raise TensorError("UER-TNS-001", "invalid Tensor lifecycle category", category=category)
+        self._tensor(value)
+        self._classifications[value.tensor_id] = category
+        return value
+
+    def release(self, value: TensorValueRef | str, *, reason: str = "last_use") -> bool:
+        tensor_id = value.tensor_id if isinstance(value, TensorValueRef) else value
+        if tensor_id not in self._refs or self._classifications.get(tensor_id) in {"Parameter", "Persistent", "Artifact"}:
+            return False
+        self.backend.release(tensor_id)
+        del self._refs[tensor_id]
+        self._classifications.pop(tensor_id, None)
+        self._requires_grad.discard(tensor_id)
+        self._parameters.discard(tensor_id)
+        self._plan_ref_counts.pop(tensor_id, None)
+        self.live_memory_bytes -= self._tensor_bytes.pop(tensor_id, 0)
+        self.tensor_releases += 1
+        return True
 
     @contextmanager
     def protect(self, *roots: Any):
@@ -556,6 +618,13 @@ class TensorRuntime:
             f"runtime://tensor/{tensor_id}",
         )
         self._refs[tensor_id] = ref
+        self._classifications[tensor_id] = "Temporary"
+        tensor_bytes = len(tensor.data) * DTYPE_BYTES[dtype]
+        self._tensor_bytes[tensor_id] = tensor_bytes
+        self.live_memory_bytes += tensor_bytes
+        self.peak_memory_bytes = max(self.peak_memory_bytes, self.live_memory_bytes)
+        self.tensor_allocations += 1
+        self.peak_live_tensors = max(self.peak_live_tensors, len(self._refs))
         return ref
 
     def _validate_shape(self, shape: tuple[int, ...], dtype: str) -> None:
@@ -953,7 +1022,7 @@ class TensorRuntime:
             payload = source.read_bytes()
         except OSError as error:
             raise TensorError("TIO-003", "Tensor file cannot be read") from error
-        return self._decode_tensor_file(payload)
+        return self.classify(self._decode_tensor_file(payload), "Artifact")
 
     def save(
         self, value: TensorValueRef, path: str, overwrite: bool = False
@@ -1478,7 +1547,7 @@ class TensorRuntime:
         result = self._new(tensor.shape, tensor.dtype, list(tensor.data))
         self._requires_grad.add(result.tensor_id)
         self._parameters.add(result.tensor_id)
-        return result
+        return self.classify(result, "Parameter")
 
     def detach(self, value: TensorValueRef) -> TensorValueRef:
         tensor = self._tensor(value)
