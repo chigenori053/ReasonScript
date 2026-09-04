@@ -16,7 +16,9 @@ use reasonscript_cluster_runtime::{
     evaluator::compare,
     planner::build_cluster_plan,
     runtime::{run_cluster, RunOptions},
-    test_model, worker,
+    test_model,
+    uera::build_uera_plan,
+    worker,
     worker::RuntimeContext,
     ReasonTask,
 };
@@ -35,6 +37,43 @@ fn main() {
 fn run() -> Result<i32, String> {
     let args: Vec<String> = env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("");
+    if command == "uera-plan" {
+        let envelope = read_stdin_json()?;
+        let execution_plan = envelope
+            .get("execution_plan")
+            .ok_or("CRR-UER-004: execution_plan is required")?;
+        let operation_ids: Vec<String> = serde_json::from_value(
+            envelope
+                .get("operation_ids")
+                .cloned()
+                .ok_or("CRR-UER-005: operation_ids are required")?,
+        )
+        .map_err(|error| format!("CRR-UER-005: {error}"))?;
+        let workers: Vec<String> = serde_json::from_value(
+            envelope
+                .get("workers")
+                .cloned()
+                .ok_or("CRR-UER-001: workers are required")?,
+        )
+        .map_err(|error| format!("CRR-UER-001: {error}"))?;
+        let available_workers: Vec<String> = envelope
+            .get("available_workers")
+            .cloned()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|error| format!("CRR-UER-003: {error}"))?
+            .unwrap_or_else(|| workers.clone());
+        let policy_version = envelope["policy_version"].as_str().unwrap_or("UERA-0.1");
+        let plan = build_uera_plan(
+            execution_plan,
+            &operation_ids,
+            &workers,
+            &available_workers,
+            policy_version,
+        )?;
+        print_value(&serde_json::to_value(plan).map_err(|error| error.to_string())?)?;
+        return Ok(0);
+    }
     if command == "verify-native" {
         print_value(
             &serde_json::json!({"ok":true,"profile":"reasonscript-cluster-runtime/0.2","unsafe_blocks":0}),
