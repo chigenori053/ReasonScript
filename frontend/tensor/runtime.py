@@ -474,7 +474,9 @@ class TensorRuntime:
                 reachable.add(tensor_id)
         released = 0
         for tensor_id in tuple(self._refs):
-            if tensor_id not in reachable and self.release(tensor_id, reason="unreachable"):
+            if tensor_id not in reachable and self.release(
+                tensor_id, reason="unreachable", force=True
+            ):
                 released += 1
         return released
 
@@ -521,9 +523,19 @@ class TensorRuntime:
         self._classifications[value.tensor_id] = category
         return value
 
-    def release(self, value: TensorValueRef | str, *, reason: str = "last_use") -> bool:
+    def release(
+        self,
+        value: TensorValueRef | str,
+        *,
+        reason: str = "last_use",
+        force: bool = False,
+    ) -> bool:
         tensor_id = value.tensor_id if isinstance(value, TensorValueRef) else value
-        if tensor_id not in self._refs or self._classifications.get(tensor_id) in {"Parameter", "Persistent", "Artifact"}:
+        if tensor_id not in self._refs or (
+            not force
+            and self._classifications.get(tensor_id)
+            in {"Parameter", "Persistent", "Artifact"}
+        ):
             return False
         self.backend.release(tensor_id)
         del self._refs[tensor_id]
