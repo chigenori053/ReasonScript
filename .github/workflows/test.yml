@@ -34,7 +34,7 @@ jobs:
         run: npm ci
       - name: Fetch Rust dependencies
         run: |
-          for manifest in ReasonRuntime/Cargo.toml apps/reasonscript-ide/src-tauri/Cargo.toml; do
+          for manifest in ReasonRuntime/Cargo.toml VisualizationRuntime/Cargo.toml apps/reasonscript-ide/src-tauri/Cargo.toml; do
             if [ -f "$manifest" ]; then
               cargo fetch --manifest-path "$manifest"
             fi

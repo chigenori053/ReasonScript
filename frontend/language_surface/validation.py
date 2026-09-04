@@ -110,6 +110,7 @@ from .nodes import (
     RangePatternNode,
     ReachStatementNode,
     ReasonGraphDeclarationNode,
+    ReasonGraphBindingNode,
     ReasonGraphTransitionNode,
     ReasonObjectBindingNode,
     ReasonObjectClauseSpanNode,
@@ -2033,17 +2034,18 @@ def _expression_type(
             PrimitiveTypeNode(PrimitiveKind.INT),
             PrimitiveTypeNode(PrimitiveKind.FLOAT),
         }
-        if left not in numeric or right not in numeric or left != right:
+        if left not in numeric or right not in numeric:
             raise SurfaceValidationError(
-                "TYPE-V004 TYPE-001 mixed or non-numeric arithmetic invalid"
+                "TYPE-V004 arithmetic operands must be Int or Float"
             )
-        if value.operator == BinaryOperator.DIVIDE:
-            # `/` always performs true division at runtime (see
-            # integrated_computation_runtime.py and _compile_time_binary),
-            # so Int / Int must be typed Float, not Int, to match the
-            # actual result (L-006).
+        # `/` uses true division, and any Float operand promotes the result.
+        if (
+            value.operator == BinaryOperator.DIVIDE
+            or left == PrimitiveTypeNode(PrimitiveKind.FLOAT)
+            or right == PrimitiveTypeNode(PrimitiveKind.FLOAT)
+        ):
             return PrimitiveTypeNode(PrimitiveKind.FLOAT)
-        return left
+        return PrimitiveTypeNode(PrimitiveKind.INT)
     if isinstance(value, ComparisonExpressionNode):
         left = _expression_type(value.left, symbols, bindings)
         right = _expression_type(value.right, symbols, bindings)

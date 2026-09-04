@@ -47,6 +47,18 @@ class DivideAlwaysFloatTests(unittest.TestCase):
         )
         validate(program)  # must not raise
 
+    def test_mixed_numeric_arithmetic_promotes_to_float(self):
+        program = parse(
+            """module NumericPromotion {
+  calculation Answer {
+    let result: Float = 2 + 0.5
+    result = result
+  }
+}
+"""
+        )
+        validate(program)  # must not raise
+
 
 class DivideAndModuloByZeroTests(unittest.TestCase):
     """`/` and `%` previously leaked a raw Python ZeroDivisionError instead

@@ -195,6 +195,14 @@ def _rust_test_steps() -> list[Step]:
     if _has("cargo"):
         for crate in RUST_TEST_CRATES:
             if (ROOT / crate / "Cargo.toml").exists():
+                if crate == "ReasonRuntime":
+                    steps.append(
+                        Step(
+                            "cargo:build:ReasonRuntime:reason-runtime-host",
+                            ["cargo", "build", "--bin", "reason-runtime-host"],
+                            ROOT / crate,
+                        )
+                    )
                 steps.append(Step(f"cargo:test:{crate}", ["cargo", "test"], ROOT / crate))
     return steps
 
