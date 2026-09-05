@@ -155,7 +155,9 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
 
     ast_payload = {
         "package": manifest.name,
-        "sources": [str(src_path.relative_to(project_root)) for src_path in sources],
+        # Build artifacts are portable JSON contracts, so paths use the
+        # repository-style separator on every host, including Windows.
+        "sources": [src_path.relative_to(project_root).as_posix() for src_path in sources],
     }
     for stale in ast_dir.glob("*.json"):
         stale.unlink()
