@@ -1,118 +1,101 @@
 # ReasonScript
 
-ReasonScript is a reasoning-first language for proofable AI workflows,
-deterministic execution, and rollback-safe systems. It compiles source
-through a deterministic pipeline — Surface AST, Semantic AST, Reason IR,
-and ExecutionPlan — into a validated, reproducible runtime result.
+ReasonScript is a reasoning-first language and runtime for deterministic,
+inspectable AI workflows. It compiles `.rsn` programs through a Surface AST,
+Semantic AST, Reason IR, and ExecutionPlan, then executes them with the native
+ReasonRuntime host.
 
-Current release: **v0.5.5.9**. See [`CHANGELOG.md`](CHANGELOG.md) for the
-detailed history and [`docs/roadmap.md`](docs/roadmap.md) for what's next.
-Use
-[`docs/installation/ReasonScript_v0_5_5_9_Installation.md`](docs/installation/ReasonScript_v0_5_5_9_Installation.md)
-for the official macOS arm64 package update procedure.
+## Release status
 
-## What it does
+The current release is **v0.5.5.9**.
 
-- **Deterministic execution** — every run produces a reproducible,
-  validated `ExecutionPlan` and `InferenceResult`.
-- **Reasoning artifacts** — `ReasoningModel`, `ReasoningEvaluationReport`,
-  and `ReasoningRuntimeResult` give an inspectable, versioned record of how
-  a result was reached.
-- **ReasonUnit Objects** — a canonical, portable object format (`RUO`) with
-  a native runtime type, CLI integration, and a migration path from legacy
-  formats.
-- **Cross-language DTO bindings** — Rust, Python, TypeScript, Go, and Java
-  bindings share one normative contract (`docs/specifications/Common_DTO_Specification_v0.1.md`).
-- **Visualization** — a Safe-Rust Semantic Visualization Runtime and
-  `reason view`, a terminal CodeViewer that correlates a `.rsn` source file
-  with its compiled Surface AST, Semantic AST, Reason IR, and ExecutionPlan
-  (interactive curses UI, `--json`/`--plain` output, and a file-tree browser).
-- **Cluster execution** — `reason cluster` plans, runs, simulates, verifies,
-  and compares Dynamic ReasonUnit cluster executions.
-- **Tooling** — a CLI (`reason`), an IDE (`apps/reasonscript-ide`), a VS
-  Code extension (`vscode-extension/`), and a browser playground
-  (`playground/`).
+- Language version: `0.7`
+- Runtime compatibility: `>=0.5.0,<0.6.0`
+- Source-install requirement: Python 3.11 or later, Git, and Rust/Cargo
+- Supported targets: macOS arm64/x86_64, Windows x86_64, and Linux x86_64
 
-`./reason ci` runs the full CI Stabilization pipeline (checkout, workspace,
-diagnostics, artifacts, golden corpus, agent protocol, DTO compatibility,
-and the repository-wide Rust and Python test platform, including regression
-tests).
+The release definition is available in
+[v0.5.5.9 Release Definition](docs/specifications/ReasonScript_v0_5_5_9_Release_Definition.md).
+For changes, see the [changelog](CHANGELOG.md). The macOS arm64 update
+procedure is documented in the
+[v0.5.5.9 installation guide](docs/installation/ReasonScript_v0_5_5_9_Installation.md).
 
-### Not yet implemented
+## Highlights
 
-See [`docs/roadmap.md`](docs/roadmap.md) for the full roadmap. Notably
-still open: full ReasonGraph/World viewers (only read-only groundwork
-exists today), package registry design, the LSP symbol index migration to
-compiler source spans, and the SDK public API manifest.
+- **Native deterministic runtime** — production calculations execute through
+  the Rust runtime host, with structured diagnostics and reproducible results.
+- **Language and standard library** — modules, typed calculations, enums,
+  `Optional`, pattern matching, strings, collections, bounded recursion, and
+  execution-based assertions.
+- **Tensor and optimization** — native Tensor operations, autograd,
+  `optimizer.*` functions, and deterministic numeric semantics.
+- **Reasoning and objects** — reasoning operations, ReasonUnit Objects (RUO),
+  ReasonGraph bindings, Vision integration, and cluster execution.
+- **Tooling** — the `reason` CLI, language server, CodeViewer, VS Code
+  extension, browser playground, schemas, artifacts, and conformance suites.
 
-## Installation
+## Install from source
 
-Platform-specific installers and requirements:
-
-- [Linux](docs/installation/linux.md)
-- [macOS](docs/installation/macos.md)
-- [Windows](docs/installation/windows.md)
-- [Uninstall](docs/installation/uninstall.md) /
-  [Troubleshooting](docs/installation/troubleshooting.md)
-
-For local development from source:
+Clone the repository and run the user-scoped installer:
 
 ```sh
-git clone git@github.com:chigenori053/ReasonScript.git
+git clone https://github.com/chigenori053/ReasonScript.git
 cd ReasonScript
-pip install -e .
+./scripts/install.sh --non-interactive
 ```
 
-## Quickstart
+Add `~/.reasonscript/bin` to your `PATH` if the installer reports that it is
+missing, then verify the installation:
 
 ```sh
-./reason ci --json
+reason --version
+reason doctor --json
+reason install-validate --json
+```
+
+Platform notes are available for [macOS](docs/installation/macos.md),
+[Windows](docs/installation/windows.md), and
+[Linux](docs/installation/linux.md). For local package updates, use the
+[v0.5.5.9 installation guide](docs/installation/ReasonScript_v0_5_5_9_Installation.md).
+
+## Quick start
+
+Run validation from a source checkout:
+
+```sh
+./reason version-validate --json
+./reason check examples/v0_8/reasoning_runtime/animal_isa.rsn --json
 ./reason reasoning-runtime run examples/v0_8/reasoning_runtime/animal_isa.rsn --json
 ```
 
-The full walkthrough, including generating and validating `ReasoningModel`
-and `ReasoningEvaluationReport` artifacts, is in the
-[v0.5 Quickstart guide](docs/guides/ReasonScript_v0_5_Quickstart.md). CLI
-usage is documented in the
-[CLI Reference](docs/reference/ReasonScript_v0_5_CLI_Reference.md).
+The canonical repository validation command is:
+
+```sh
+./reason ci --json
+```
+
+For the full command surface, run `reason help`.
 
 ## Documentation
 
-[`docs/README.md`](docs/README.md) is the full documentation index —
-language specifications, platform contracts, development guides, and
-release reports. Highlights:
+The [documentation index](docs/README.md) covers language specifications,
+runtime and platform contracts, development guides, and reports. Key references:
 
 - [Language Specification v0.1](docs/specifications/ReasonScript_Language_Specification_v0.1.md)
 - [Semantic Language Core v0.2](docs/specifications/ReasonScript_Semantic_Language_Core_v0.2.md)
-  (frozen 2026-06-15)
 - [Operational Semantics v0.1](docs/specifications/ReasonScript_Operational_Semantics_v0.1.md)
-- [Reason IR schema](schemas/reason_ir.schema.json), validated with:
-
-  ```sh
-  cargo run --manifest-path HybridRuntime/Cargo.toml \
-    --bin reason-ir-validator -- fixtures/valid/dog_to_animal.json
-  ```
-
-## Conformance
-
-The conformance framework under `conformance/` runs every validation layer
-and refreshes the certification report:
-
-```sh
-python3 conformance/run_conformance.py
-```
+- [Reason IR schema](schemas/reason_ir.schema.json)
+- [Runtime consolidation plan](docs/development/runtime_rust_consolidation_plan.md)
 
 ## Contributing
 
-Issues and pull requests are welcome. There is no formal contribution
-guide yet — for anything beyond a small fix, please open an issue first to
-discuss the change.
+Issues and pull requests are welcome. For changes larger than a small fix,
+please open an issue first so the scope and compatibility impact can be
+discussed. Run `./reason ci --json` before submitting a change.
 
 ## License
 
-ReasonScript is licensed under the
-[Apache License 2.0](LICENSE).
-
+ReasonScript is licensed under the [Apache License 2.0](LICENSE).
 The `vscode-extension/` package is separately MIT-licensed; see
-[`vscode-extension/LICENSE`](vscode-extension/LICENSE). Third-party
-dependencies retain their own licenses.
+[its license](vscode-extension/LICENSE). Third-party dependencies retain their
+own licenses.
