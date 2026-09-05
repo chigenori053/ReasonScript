@@ -10,7 +10,7 @@
   ],
   "schema": "reasonscript-agent-report/1.0",
   "status": "VALIDATED",
-  "task": "CI Test Alignment and Redundant Test Cleanup",
-  "tests_passed": 2321,
+  "task": "Issues #31, #37, and #38 Init and Manifest consistency remediation",
+  "tests_passed": 2343,
   "version": "1.0"
 }

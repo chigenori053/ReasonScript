@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from .manifest import Manifest, ManifestError
+from .source_selection import SourceSelectionError, package_sources
 from .workspace import (
     PackageGraphService,
     WorkspaceError,
@@ -74,15 +75,18 @@ def _run_package(
         print(f"Error:\n\n{e}")
         return 1
 
+    try:
+        sources = package_sources(project_root, manifest)
+    except SourceSelectionError as error:
+        print(f"Error:\n\n{error.code}\n\n{error}")
+        return 1
+    if not sources:
+        print("Error:\n\nNoSourceFiles\n\nsrc/ contains no .rsn files.")
+        return 1
+
     ir_dir = project_root / "target" / "ir"
     if not ir_dir.is_dir() or not any(ir_dir.glob("*.json")):
         print("Error:\n\nNoBuildArtifacts\n\nRun 'reason build' first.")
-        return 1
-
-    src_dir = project_root / "src"
-    sources = sorted(src_dir.rglob("*.rsn")) if src_dir.exists() else []
-    if not sources:
-        print("Error:\n\nNoSourceFiles\n\nsrc/ contains no .rsn files.")
         return 1
 
     computation_path = project_root / "target" / "computation_ir" / "package.json"

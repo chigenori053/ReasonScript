@@ -596,6 +596,91 @@ class TC1011MaxCallDepthContract(unittest.TestCase):
         self.assertEqual(payload["runtime_result"]["result"], 10)
 
 
+class TC1011ManifestConsistency(unittest.TestCase):
+    """TC1-011: reason init and Manifest contract consistency."""
+
+    def test_full_standard_manifest_no_warnings(self):
+        import warnings
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp)
+            toml = """\
+[package]
+name = "full_proj"
+identifier = "full_proj"
+version = "0.1.0"
+
+[project]
+name = "full_proj"
+version = "0.1.0"
+reason_version = ">=0.5.0"
+
+[source]
+entry = "src/main.rsn"
+
+[artifacts]
+directory = "artifacts"
+
+[compiler]
+language_core = "0.7"
+platform = "0.2"
+
+[runtime]
+backend = "RuntimeReal"
+"""
+            (p / "reason.toml").write_text(toml, encoding="utf-8")
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                m = Manifest.load(p)
+                self.assertEqual(len(w), 0, [str(item.message) for item in w])
+            self.assertEqual(m.name, "full_proj")
+            self.assertEqual(m.identifier, "full_proj")
+            self.assertEqual(m.source_entry, "src/main.rsn")
+            self.assertEqual(m.artifacts_directory, "artifacts")
+            self.assertEqual(m.project_name, "full_proj")
+            self.assertEqual(m.project_version, "0.1.0")
+            self.assertEqual(m.reason_version, ">=0.5.0")
+
+    def test_legacy_manifest_defaults(self):
+        import warnings
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp)
+            (p / "reason.toml").write_text(_REASON_TOML, encoding="utf-8")
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                m = Manifest.load(p)
+                self.assertEqual(len(w), 0, [str(item.message) for item in w])
+            self.assertEqual(m.name, "hello_world")
+            self.assertIsNone(m.identifier)
+            self.assertIsNone(m.source_entry)
+            self.assertEqual(m.artifacts_directory, "artifacts")
+            self.assertEqual(m.project_name, "hello_world")
+            self.assertEqual(m.project_version, "0.1.0")
+            self.assertIsNone(m.reason_version)
+
+    def test_missing_package_section_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp)
+            (p / "reason.toml").write_text("[compiler]\nlanguage_core=\"0.7\"\n", encoding="utf-8")
+            with self.assertRaises(ManifestError) as cm:
+                Manifest.load(p)
+            self.assertIn("[package]", str(cm.exception))
+
+    def test_invalid_source_entry_type_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp)
+            toml = """\
+[package]
+name = "p"
+version = "0.1.0"
+[source]
+entry = 123
+"""
+            (p / "reason.toml").write_text(toml, encoding="utf-8")
+            with self.assertRaises(ManifestError) as cm:
+                Manifest.load(p)
+            self.assertIn("source.entry must be a non-empty string", str(cm.exception))
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

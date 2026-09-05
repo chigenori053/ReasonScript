@@ -60,6 +60,19 @@ Platform notes are available for [macOS](docs/installation/macos.md),
 
 ## Quick start
 
+Create, build, and run a minimal project:
+
+```sh
+reason init my-project
+cd my-project
+reason build
+reason run
+```
+
+The generated template contains no calculation entry, so the initial run
+reports a successful runtime with an empty calculation result. Add a
+`calculation` before using `reason run --entry <module>::<calculation>`.
+
 Run validation from a source checkout:
 
 ```sh

@@ -12,6 +12,8 @@ from frontend.language_surface.nodes import CalculationNode
 from toolchain.pipeline import PipelineError, compile_package_sources
 from toolchain.runtime_dispatch import RustDispatchError, execute_rust_program
 from toolchain.artifacts import validate_artifact_directory
+from toolchain.manifest import Manifest, ManifestError
+from toolchain.source_selection import SourceSelectionError, package_sources
 
 SCHEMA_VERSION = "reasonscript-project-validation/0.1"
 
@@ -22,17 +24,21 @@ def validate_project(root: str | Path, *, repetitions: int = 3) -> dict[str, Any
     phases: list[dict[str, Any]] = []
 
     manifest_path = project_root / "reason.toml"
-    manifest = None
+    manifest: Manifest | None = None
     if not manifest_path.is_file():
         diagnostics.append(_diagnostic("PV-001", "Missing project manifest: reason.toml"))
     else:
         try:
-            manifest = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, tomllib.TOMLDecodeError) as error:
+            manifest = Manifest.load(project_root)
+        except (OSError, ManifestError, tomllib.TOMLDecodeError) as error:
             diagnostics.append(_diagnostic("PV-002", f"Invalid project manifest: {error}"))
     phases.append(_phase("manifest_validation", manifest is not None))
 
-    sources = sorted((project_root / "src").rglob("*.rsn")) if (project_root / "src").is_dir() else []
+    try:
+        sources = package_sources(project_root, manifest) if manifest is not None else []
+    except SourceSelectionError as error:
+        diagnostics.append(_diagnostic(error.code, str(error)))
+        sources = []
     if not sources:
         diagnostics.append(_diagnostic("PV-003", "No .rsn sources found in src/"))
     phases.append(_phase("source_discovery", bool(sources), count=len(sources)))
@@ -119,7 +125,9 @@ def validate_project(root: str | Path, *, repetitions: int = 3) -> dict[str, Any
     return report
 
 
-def _manifest_backend(manifest: dict[str, Any] | None) -> str:
+def _manifest_backend(manifest: Manifest | dict[str, Any] | None) -> str:
+    if isinstance(manifest, Manifest):
+        return manifest.backend
     if not isinstance(manifest, dict):
         return "RuntimeReal"
     runtime = manifest.get("runtime", {})

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .manifest import Manifest, ManifestError
 from .pipeline import PipelineError, compile_package_sources
+from .source_selection import SourceSelectionError, package_sources
 from .workspace import (
     PackageGraphService,
     WorkspaceError,
@@ -17,7 +18,12 @@ _CACHE_KEY_FILE = ".reason_build_cache"
 _BUILD_FORMAT_VERSION = "runtime-consolidation-phase2-uera8-optimizer"
 
 
-def _cache_key(project_root: Path, dependency_roots: tuple[Path, ...] = ()) -> str:
+def _cache_key(
+    project_root: Path,
+    dependency_roots: tuple[Path, ...] = (),
+    *,
+    project_sources: tuple[Path, ...] = (),
+) -> str:
     import hashlib
 
     h = hashlib.sha256()
@@ -27,7 +33,10 @@ def _cache_key(project_root: Path, dependency_roots: tuple[Path, ...] = ()) -> s
         if manifest_path.exists():
             h.update(str(manifest_path).encode("utf-8"))
             h.update(manifest_path.read_bytes())
-        for src in sorted((root / "src").rglob("*.rsn")):
+        sources = project_sources if root == project_root and project_sources else tuple(
+            sorted((root / "src").rglob("*.rsn"))
+        )
+        for src in sources:
             h.update(str(src).encode("utf-8"))
             h.update(src.read_bytes())
     return h.hexdigest()
@@ -82,18 +91,21 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
         print(f"Error:\n\n{e}")
         return 1
 
-    src_dir = project_root / "src"
-    if not src_dir.exists():
-        print("Error:\n\nSourceDirectoryMissing\n\nsrc/ not found.")
+    try:
+        sources = package_sources(project_root, manifest)
+    except SourceSelectionError as error:
+        print(f"Error:\n\n{error.code}\n\n{error}")
         return 1
-
-    sources = sorted(src_dir.rglob("*.rsn"))
     if not sources:
         print("Error:\n\nNoSourceFiles\n\nNo .rsn files found in src/.")
         return 1
 
     target = project_root / "target"
-    current_key = _cache_key(project_root, dependency_roots)
+    current_key = _cache_key(
+        project_root,
+        dependency_roots,
+        project_sources=tuple(sources),
+    )
     if _load_cache(target) == current_key:
         print("Nothing to build (up to date).")
         return 0
@@ -143,7 +155,9 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
 
     ast_payload = {
         "package": manifest.name,
-        "sources": [str(src_path.relative_to(project_root)) for src_path in sources],
+        # Build artifacts are portable JSON contracts, so paths use the
+        # repository-style separator on every host, including Windows.
+        "sources": [src_path.relative_to(project_root).as_posix() for src_path in sources],
     }
     for stale in ast_dir.glob("*.json"):
         stale.unlink()

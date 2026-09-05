@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .manifest import Manifest, ManifestError
 from .pipeline import PipelineError, validate_package_sources
+from .source_selection import SourceSelectionError, package_sources
 from .workspace import (
     PackageGraphService,
     WorkspaceError,
@@ -47,17 +48,16 @@ def run(project_root: Path, package: str | None = None) -> int:
 
 def _run_package(project_root: Path) -> int:
     try:
-        Manifest.load(project_root)
+        manifest = Manifest.load(project_root)
     except ManifestError as e:
         print(f"Error:\n\n{e}")
         return 1
 
-    src_dir = project_root / "src"
-    if not src_dir.exists():
-        print("Error:\n\nSourceDirectoryMissing\n\nsrc/ not found.")
+    try:
+        sources = package_sources(project_root, manifest)
+    except SourceSelectionError as error:
+        print(f"Error:\n\n{error.code}\n\n{error}")
         return 1
-
-    sources = sorted(src_dir.rglob("*.rsn"))
     if not sources:
         print("Error:\n\nNoSourceFiles\n\nNo .rsn files found in src/.")
         return 1

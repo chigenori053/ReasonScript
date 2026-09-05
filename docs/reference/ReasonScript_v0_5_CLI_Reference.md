@@ -150,3 +150,68 @@ in by installing the `viewer` or `full` extra (`pip install
 'reasonscript[viewer]'`). Without it, `reason view` still works — it falls
 back to the `--plain` rendering and prints a note to stderr instead of
 failing.
+
+## Project Management and Manifest Contract
+
+### Project Initialization (`reason init`)
+
+```sh
+reason init <project-name>
+```
+
+Initializes a standard ReasonScript project structure:
+
+- `.gitignore` (excludes `target/` and artifacts except `.gitkeep`)
+- `artifacts/.gitkeep`
+- `README.md`
+- `reason.toml` (canonical project manifest)
+- `src/main.rsn` (standard entry point)
+- `tests/sample_test.rsn` (standard unit test)
+
+### Project Manifest (`reason.toml`)
+
+Standard sections and keys in `reason.toml`:
+
+```toml
+[package]
+name = "my_project"
+version = "0.1.0"
+identifier = "my_project"      # normalized package identifier
+
+[project]
+name = "my_project"            # defaults to package.name
+version = "0.1.0"              # defaults to package.version
+reason_version = ">=0.5.0"     # compatible toolchain constraint
+
+[source]
+entry = "src/main.rsn"         # entry file (relative, within project root)
+
+[artifacts]
+directory = "artifacts"        # artifact output directory (relative, within project root)
+
+[compiler]
+language_core = "0.7"          # language core version
+platform = "0.2"               # platform version
+
+[runtime]
+backend = "RuntimeReal"        # "RuntimeReal" or "HybridRuntime"
+max_call_depth = 100           # optional positive integer recursion limit
+
+[dependencies]
+# package dependencies
+
+[capabilities]
+# capability declarations
+```
+
+`[source]` is optional for legacy manifests. When it is absent, `build`,
+`check`, `run`, and project validation recursively discover `src/**/*.rsn`
+without requiring `src/main.rsn`. When `[source]` is present, `entry` is
+required, must remain inside the project root, is compiled first, and does
+not exclude sibling modules under `src/`.
+
+#### Diagnostic Policy:
+- Truly unknown sections outside known tables (`package`, `project`, `source`, `artifacts`, `compiler`, `runtime`, `dependencies`, `capabilities`) emit `UserWarning: Unknown sections in reason.toml: <sections>`.
+- Unknown keys within known sections emit `UserWarning: Unknown keys in reason.toml [<section>]: <keys>`.
+- Missing required fields, type errors, or root-escaping paths in `source.entry` / `artifacts.directory` raise `ManifestError`.
+- A declared but missing `source.entry` produces `SourceEntryMissing` consistently across `build`, `check`, `run`, and project validation.
