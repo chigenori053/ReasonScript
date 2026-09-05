@@ -268,6 +268,8 @@ def test_explicit_missing_source_entry_is_rejected_consistently(
     assert "SourceEntryMissing" in capsys.readouterr().out
     assert build_cmd.run(tmp_path) == 1
     assert "SourceEntryMissing" in capsys.readouterr().out
+    assert run(tmp_path) == 1
+    assert "SourceEntryMissing" in capsys.readouterr().out
     report = validate_project(tmp_path)
     assert report["status"] == "failed"
     assert any(item["code"] == "SourceEntryMissing" for item in report["diagnostics"])
