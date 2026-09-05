@@ -38,7 +38,7 @@ VALIDATION_RULES = (
 def validate_repository(root: Path) -> dict[str, Any]:
     diagnostics = []
     if not _has_specification(root):
-        diagnostics.append(_diagnostic("AP-001", "Missing specification", file="docs/specifications"))
+        diagnostics.append(_diagnostic("AP-001", "Missing language reference", file="docs/language-reference.md"))
     if not _has_validation(root):
         diagnostics.append(_diagnostic("AP-002", "Missing validation", file="tests"))
     if not _has_artifacts(root):
@@ -50,7 +50,7 @@ def validate_repository(root: Path) -> dict[str, Any]:
         diagnostics.append(_diagnostic("AP-007", "Protocol violation", file="AGENTS.md"))
     diagnostics.extend(_artifact_diagnostics(root))
     if not _has_compatibility_record(root):
-        diagnostics.append(_diagnostic("AP-010", "Unrecorded compatibility change", file="docs/changelog"))
+        diagnostics.append(_diagnostic("AP-010", "Unrecorded compatibility change", file="CHANGELOG.md"))
     document = diagnostics_document(diagnostics)
     return {
         "schema": PROTOCOL_SCHEMA,
@@ -94,11 +94,7 @@ def render_json(value: dict[str, Any]) -> str:
 
 
 def _has_specification(root: Path) -> bool:
-    candidates = [
-        root / "docs" / "specifications" / "ReasonScript_Agent_Development_Protocol_v1_0.md",
-        root / "SPECIFICATIONS",
-    ]
-    return any(path.exists() for path in candidates)
+    return (root / "docs" / "language-reference.md").is_file()
 
 
 def _has_validation(root: Path) -> bool:
@@ -175,7 +171,7 @@ def _artifact_diagnostics(root: Path) -> list[dict[str, Any]]:
 
 
 def _has_compatibility_record(root: Path) -> bool:
-    return (root / "docs" / "changelog" / "phase7_5_agent_development_protocol.md").is_file()
+    return (root / "CHANGELOG.md").is_file()
 
 
 def _diagnostic(code: str, message: str, *, file: str) -> dict[str, Any]:

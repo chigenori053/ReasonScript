@@ -21,10 +21,10 @@ def _run_reason(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_ci_entry_specification_exists() -> None:
-    spec = REPO_ROOT / "docs" / "specifications" / "ReasonScript_CI_Entry_Point_v1_0.md"
+def test_ci_entry_policy_exists() -> None:
+    spec = REPO_ROOT / "AGENTS.md"
     assert spec.is_file()
-    assert "reasonscript-ci-entry/1.0" in spec.read_text(encoding="utf-8")
+    assert "Canonical CI Entry Point" in spec.read_text(encoding="utf-8")
 
 
 def test_agents_md_documents_canonical_entry_point() -> None:

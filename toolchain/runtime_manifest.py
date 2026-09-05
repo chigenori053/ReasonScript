@@ -17,7 +17,7 @@ from frontend.vision.contracts import public_registry as vision_public_registry
 
 
 MANIFEST_SCHEMA = "reasonscript-runtime-consolidation-manifest/1.0"
-DEFAULT_BASELINE_PATH = Path("docs/reports/runtime_consolidation_manifest.json")
+DEFAULT_BASELINE_PATH = Path("contracts/runtime_consolidation_manifest.json")
 
 RUST_TENSOR_FUNCTIONS = frozenset(
     """

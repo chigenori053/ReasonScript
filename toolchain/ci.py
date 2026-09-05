@@ -304,7 +304,7 @@ def _check_agent_protocol(root: Path) -> tuple[bool, list[Any], dict[str, Any] |
 def _check_compatibility() -> tuple[bool, list[Any], dict[str, Any] | None]:
     failures = [target for target, check in COMPATIBILITY_TARGETS.items() if not check()]
     if failures:
-        return False, [_ci_diag("CI-009", f"Compatibility failure: {', '.join(failures)}", file="docs/specifications")], None
+        return False, [_ci_diag("CI-009", f"Compatibility failure: {', '.join(failures)}", file="contracts")], None
     return True, [], {"targets": len(COMPATIBILITY_TARGETS)}
 
 

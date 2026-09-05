@@ -6,9 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_repository_stabilization_deliverables_exist():
     deliverables = [
-        "docs/specs/repository_stabilization_v1.md",
         "requirements-dev.txt",
-        "docs/reports/playground/playground_repository_stabilization_audit.md",
         "playground/audits/playground_repository_stabilization_matrix.json",
         "tests/repository",
         "tests/ci",
@@ -56,9 +54,9 @@ def test_repository_stabilization_matrix_is_consistent():
     }
 
 
-def test_frozen_language_surface_artifacts_remain_present():
+def test_public_language_reference_and_executable_matrix_remain_present():
     required = [
-        "docs/specs/reasonscript_language_surface_v0_5.md",
+        "docs/language-reference.md",
         "playground/audits/playground_language_surface_v0_5_matrix.json",
         "tests/compatibility/test_language_surface_v0_5.py",
     ]

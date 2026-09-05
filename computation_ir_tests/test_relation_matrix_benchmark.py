@@ -16,7 +16,7 @@ def test_relation_matrix_benchmark_preserves_result_and_meets_target():
 def test_committed_relation_matrix_report_records_passing_evidence():
     root = Path(__file__).resolve().parents[1]
     report = json.loads(
-        (root / "docs" / "reports" / "relation_matrix_optimization_benchmark.json").read_text(
+        (root / "benchmarks" / "relation_matrix_optimization_benchmark.json").read_text(
             encoding="utf-8"
         )
     )

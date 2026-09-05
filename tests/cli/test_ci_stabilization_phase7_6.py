@@ -27,12 +27,12 @@ def _run_reason(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_ci_specification_and_workflow_exist() -> None:
-    spec = REPO_ROOT / "docs" / "specifications" / "ReasonScript_CI_Stabilization_v1_0.md"
+def test_ci_policy_and_workflow_exist() -> None:
+    spec = REPO_ROOT / "AGENTS.md"
     workflow = REPO_ROOT / ".github" / "workflows" / "ci.yml"
     assert spec.is_file()
     assert workflow.is_file()
-    assert "reasonscript-ci/1.0" in spec.read_text(encoding="utf-8")
+    assert "CI Stabilization" in spec.read_text(encoding="utf-8")
 
 
 def test_agents_md_documents_ci_stabilization() -> None:
