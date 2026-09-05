@@ -26,15 +26,11 @@
     "SSV-1 v0.1-draft",
     "KEV-1 v0.1-draft"
   ],
-  "normative_specification": "docs/specifications/ReasonScript_Semantic_Language_Core_v0.2.md",
+  "normative_specification": "docs/language-reference.md",
   "validation_results": "release/semantic-language-v0.2/reports/release_validation_results.json",
   "release_gate": "release/semantic-language-v0.2/run_release_validation.py",
   "artifacts": [
-    "docs/specifications/ReasonScript_Semantic_Language_Core_v0.2.md",
-    "docs/specifications/SCV-1_Structural_Constraint_Validation_Specification_v0.1-draft.md",
-    "docs/specifications/Reasoning_Space_Specification_v0.1-draft.md",
-    "docs/specifications/SSV-1_Semantic_Simulation_Validation_Specification_v0.1-draft.md",
-    "docs/specifications/KEV-1_Knowledge_Emergence_Validation_Specification_v0.1-draft.md",
+    "docs/language-reference.md",
     "RuntimeReal/src/semantic_simulation.rs",
     "RuntimeReal/src/knowledge/mod.rs",
     "RuntimeReal/tests/semantic_language_v02_core_validation.rs"

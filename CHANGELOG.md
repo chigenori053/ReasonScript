@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.5.10] - 2026-09-05
+
+### Documentation
+- Replaced phase-oriented language specifications with one current,
+  implementation-aligned language reference and a standard-library index.
+- Added a concise Quickstart, installation index, contribution guide, and
+  coding-agent guide for the public repository.
+- Removed development specifications, implementation reports, and obsolete
+  version-specific installation guides from the public documentation tree.
+- Moved frozen Tensor and runtime manifests to `contracts/` and the relation
+  matrix benchmark evidence to `benchmarks/`.
+
+### Changed
+- Updated tests and release metadata to reference current public documentation
+  and machine contracts instead of deleted development records.
+- Removed a ReasonUnit validation dependency on a prose report; validation now
+  uses canonical machine-readable summaries.
+
 ## [0.5.5.9] - 2026-09-05
 
 ### Added

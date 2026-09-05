@@ -109,13 +109,7 @@ def test_module_and_model_generate_same_simulation_and_knowledge() -> None:
     )
 
 
-def test_language_layer_v0_6_b_specs_are_adopted() -> None:
-    base_spec = (ROOT / "docs/specs/reasonscript_language_layer_v0_6.md").read_text()
-    milestone_spec = (
-        ROOT / "docs/specs/reasonscript_language_layer_v0_6_b.md"
-    ).read_text()
+def test_module_model_equivalence_is_documented_for_users() -> None:
+    reference = (ROOT / "docs/language-reference.md").read_text()
 
-    assert "LL-001B" in base_spec
-    assert "Specification ID: reasonscript-language-layer/0.6-B" in milestone_spec
-    assert "module/model Equivalence" in milestone_spec
-    assert "L3-L6 must preserve semantic canonicality." in milestone_spec
+    assert "`model` is accepted as a source-level synonym for `module`" in reference

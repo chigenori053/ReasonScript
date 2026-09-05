@@ -1,42 +1,15 @@
 # ReasonScript
 
-ReasonScript is a reasoning-first language and runtime for deterministic,
-inspectable AI workflows. It compiles `.rsn` programs through a Surface AST,
-Semantic AST, Reason IR, and ExecutionPlan, then executes them with the native
-ReasonRuntime host.
+ReasonScript is a reasoning-first programming language and native runtime for
+deterministic, inspectable AI workflows. A `.rsn` source file is parsed and
+validated, lowered through semantic and computation IR, and executed by the
+Rust runtime host.
 
-## Release status
+Current release: **v0.5.5.10** (language core `0.7`).
 
-The current release is **v0.5.5.9**.
+## Install
 
-- Language version: `0.7`
-- Runtime compatibility: `>=0.5.0,<0.6.0`
-- Source-install requirement: Python 3.11 or later, Git, and Rust/Cargo
-- Supported targets: macOS arm64/x86_64, Windows x86_64, and Linux x86_64
-
-The release definition is available in
-[v0.5.5.9 Release Definition](docs/specifications/ReasonScript_v0_5_5_9_Release_Definition.md).
-For changes, see the [changelog](CHANGELOG.md). The macOS arm64 update
-procedure is documented in the
-[v0.5.5.9 installation guide](docs/installation/ReasonScript_v0_5_5_9_Installation.md).
-
-## Highlights
-
-- **Native deterministic runtime** — production calculations execute through
-  the Rust runtime host, with structured diagnostics and reproducible results.
-- **Language and standard library** — modules, typed calculations, enums,
-  `Optional`, pattern matching, strings, collections, bounded recursion, and
-  execution-based assertions.
-- **Tensor and optimization** — native Tensor operations, autograd,
-  `optimizer.*` functions, and deterministic numeric semantics.
-- **Reasoning and objects** — reasoning operations, ReasonUnit Objects (RUO),
-  ReasonGraph bindings, Vision integration, and cluster execution.
-- **Tooling** — the `reason` CLI, language server, CodeViewer, VS Code
-  extension, browser playground, schemas, artifacts, and conformance suites.
-
-## Install from source
-
-Clone the repository and run the user-scoped installer:
+Source installation requires Python 3.11+, Git, and Rust/Cargo.
 
 ```sh
 git clone https://github.com/chigenori053/ReasonScript.git
@@ -44,8 +17,7 @@ cd ReasonScript
 ./scripts/install.sh --non-interactive
 ```
 
-Add `~/.reasonscript/bin` to your `PATH` if the installer reports that it is
-missing, then verify the installation:
+Add `~/.reasonscript/bin` to `PATH` if requested, then verify the install:
 
 ```sh
 reason --version
@@ -53,14 +25,31 @@ reason doctor --json
 reason install-validate --json
 ```
 
-Platform notes are available for [macOS](docs/installation/macos.md),
-[Windows](docs/installation/windows.md), and
-[Linux](docs/installation/linux.md). For local package updates, use the
-[v0.5.5.9 installation guide](docs/installation/ReasonScript_v0_5_5_9_Installation.md).
+See the [installation guide](docs/installation/README.md) for macOS, Linux,
+Windows, updates, troubleshooting, and removal.
 
-## Quick start
+## Try the language
 
-Create, build, and run a minimal project:
+```reason
+module Hello {
+  fn Double(value: int) -> int {
+    return value * 2
+  }
+
+  calculation Answer -> int {
+    result = Double(21)
+  }
+}
+```
+
+Save this as `hello.rsn`, then run:
+
+```sh
+reason check hello.rsn
+reason run hello.rsn --json
+```
+
+To create a project instead:
 
 ```sh
 reason init my-project
@@ -69,46 +58,34 @@ reason build
 reason run
 ```
 
-The generated template contains no calculation entry, so the initial run
-reports a successful runtime with an empty calculation result. Add a
-`calculation` before using `reason run --entry <module>::<calculation>`.
+## Documentation
 
-Run validation from a source checkout:
+- [Documentation index](docs/README.md)
+- [Quickstart](docs/guides/quickstart.md)
+- [Language reference](docs/language-reference.md) — the human-readable
+  source-language contract
+- [Standard library](docs/standard-library.md)
+- [CLI reference](docs/reference/cli.md)
+- [ReasonUnit Objects](docs/reasonunit-object.md)
+- [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 
-```sh
-./reason version-validate --json
-./reason check examples/v0_8/reasoning_runtime/animal_isa.rsn --json
-./reason reasoning-runtime run examples/v0_8/reasoning_runtime/animal_isa.rsn --json
-```
+Machine-readable schemas live in [`schemas/`](schemas), and frozen runtime
+contract baselines live in [`contracts/`](contracts). Historical development
+plans, implementation reports, and validation narratives are intentionally not
+part of the public documentation set; Git history remains the source for that
+material.
 
-The canonical repository validation command is:
+## Validate a checkout
 
 ```sh
 ./reason ci --json
 ```
 
-For the full command surface, run `reason help`.
-
-## Documentation
-
-The [documentation index](docs/README.md) covers language specifications,
-runtime and platform contracts, development guides, and reports. Key references:
-
-- [Language Specification v0.1](docs/specifications/ReasonScript_Language_Specification_v0.1.md)
-- [Semantic Language Core v0.2](docs/specifications/ReasonScript_Semantic_Language_Core_v0.2.md)
-- [Operational Semantics v0.1](docs/specifications/ReasonScript_Operational_Semantics_v0.1.md)
-- [Reason IR schema](schemas/reason_ir.schema.json)
-- [Runtime consolidation plan](docs/development/runtime_rust_consolidation_plan.md)
-
-## Contributing
-
-Issues and pull requests are welcome. For changes larger than a small fix,
-please open an issue first so the scope and compatibility impact can be
-discussed. Run `./reason ci --json` before submitting a change.
+This is the canonical repository validation command used by contributors and
+coding agents.
 
 ## License
 
-ReasonScript is licensed under the [Apache License 2.0](LICENSE).
-The `vscode-extension/` package is separately MIT-licensed; see
-[its license](vscode-extension/LICENSE). Third-party dependencies retain their
-own licenses.
+ReasonScript is licensed under the [Apache License 2.0](LICENSE). The
+`vscode-extension/` package is separately MIT-licensed.

@@ -33,9 +33,6 @@
   "artifacts": [
     "schemas/reason_ir.schema.json",
     "frontend/schemas/ast.schema.json",
-    "docs/ReasonScript_ABI_Specification_v0.1.md",
-    "docs/Common_DTO_Specification_v0.1.md",
-    "docs/Parser_Validation_Specification_v0.1.md",
-    "docs/Compiler_Validation_Specification_v0.1.md"
+    "docs/language-reference.md"
   ]
 }

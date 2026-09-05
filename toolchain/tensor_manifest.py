@@ -15,7 +15,7 @@ from typing import Any
 from frontend.tensor.contracts import tensor_function_contracts
 
 MANIFEST_SCHEMA = "reasonscript-tensor-function-manifest/1.0"
-DEFAULT_BASELINE_PATH = Path("docs/reports/tensor_function_manifest.json")
+DEFAULT_BASELINE_PATH = Path("contracts/tensor_function_manifest.json")
 
 
 def stable_json(value: Any) -> str:

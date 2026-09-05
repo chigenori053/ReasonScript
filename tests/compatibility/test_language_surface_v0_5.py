@@ -21,10 +21,9 @@ def _pipeline(source: str):
 
 def test_language_surface_v0_5_deliverables_exist_and_matrix_passes():
     deliverables = [
-        "docs/specs/reasonscript_language_surface_v0_5.md",
+        "docs/language-reference.md",
         "CHANGELOG.md",
         "release/RELEASE_NOTES_v0_5.md",
-        "docs/reports/playground/playground_language_surface_v0_5_audit.md",
         "playground/audits/playground_language_surface_v0_5_matrix.json",
     ]
     for relative in deliverables:
@@ -100,19 +99,13 @@ def test_language_surface_v0_5_pattern_pipeline_is_deterministic():
     )
 
 
-def test_language_surface_v0_5_public_interface_freeze_is_documented():
-    spec = (ROOT / "docs/specs/reasonscript_language_surface_v0_5.md").read_text()
-    for interface in [
-        "reasonscript-language-surface/0.5",
-        "parser/0.5",
-        "reasonscript-ast/0.5",
-        "reason-ir/0.5",
-        "execution-plan/0.5",
+def test_current_language_surface_is_documented_for_users():
+    reference = (ROOT / "docs/language-reference.md").read_text()
+    for feature in [
+        "## Program structure",
+        "## Types",
+        "## Functions and calculations",
+        "### Pattern matching",
+        "## Built-in namespaces",
     ]:
-        assert interface in spec
-
-    assert "Pattern Alias" in spec
-    assert "Tuple Pattern" in spec
-    assert "Array Pattern" in spec
-    assert "Map Pattern" in spec
-    assert "v0.6" in spec
+        assert feature in reference

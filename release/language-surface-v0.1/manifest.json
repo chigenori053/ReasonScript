@@ -21,7 +21,7 @@
     "calculations",
     "type-annotations"
   ],
-  "normative_specification": "docs/specifications/ReasonScript_Language_Surface_v0.1_Release_Specification.md",
+  "normative_specification": "docs/language-reference.md",
   "validation_results": "release/language-surface-v0.1/reports/release_validation_results.json",
   "release_gate": "release/language-surface-v0.1/run_release_validation.py"
 }
