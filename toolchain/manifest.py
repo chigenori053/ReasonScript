@@ -24,6 +24,7 @@ class Manifest:
     language_core: str
     platform: str
     backend: str
+    source_entry: str | None = None
     # `None` means "use the Rust VM's own built-in default"
     # (`DEFAULT_MAX_CALL_DEPTH`) -- the default value itself is not
     # duplicated here, only whether the project overrides it (Phase 4,
@@ -52,7 +53,20 @@ class Manifest:
                 f"Unknown runtime backend '{backend}'. "
                 f"Supported: {', '.join(sorted(SUPPORTED_BACKENDS))}"
             )
-        known_sections = {"package", "compiler", "runtime", "dependencies", "capabilities"}
+        source = data.get("source", {})
+        if source is None:
+            source = {}
+        if not isinstance(source, dict):
+            raise ManifestError("source must be a table")
+        source_entry = source.get("entry")
+        if source_entry is not None and (
+            not isinstance(source_entry, str) or not source_entry.strip()
+        ):
+            raise ManifestError("source.entry must be a non-empty string")
+        known_sections = {
+            "package", "project", "source", "artifacts", "compiler",
+            "runtime", "dependencies", "capabilities",
+        }
         unknown = set(data.keys()) - known_sections
         if unknown:
             import warnings
@@ -69,6 +83,7 @@ class Manifest:
             language_core=compiler.get("language_core", "0.7"),
             platform=compiler.get("platform", "0.2"),
             backend=backend,
+            source_entry=source_entry,
             max_call_depth=max_call_depth,
             dependencies=dict(data.get("dependencies", {})),
         )

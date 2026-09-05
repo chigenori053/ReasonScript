@@ -31,6 +31,18 @@ The legacy Playground frontend (`playground/frontend`) was physically removed in
 
 ## ReasonScript CLI
 
+Package manifests may optionally declare a canonical source entry:
+
+```toml
+[source]
+entry = "src/main.rsn"
+```
+
+When present, the entry file must exist and is validated as the package's
+canonical source. The remaining `src/**/*.rsn` files are still compiled as
+the complete module graph. Manifests without `[source]` retain the legacy
+recursive multi-file discovery behavior.
+
 ```bash
 python3 scripts/dev.py reason check <file.rsn>
 python3 scripts/dev.py reason analyze <file.rsn>

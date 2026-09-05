@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from .manifest import Manifest, ManifestError
+from .source_selection import SourceSelectionError, package_sources
 from .workspace import (
     PackageGraphService,
     WorkspaceError,
@@ -80,7 +81,11 @@ def _run_package(
         return 1
 
     src_dir = project_root / "src"
-    sources = sorted(src_dir.rglob("*.rsn")) if src_dir.exists() else []
+    try:
+        sources = package_sources(project_root, manifest)
+    except SourceSelectionError as error:
+        print(f"Error:\n\n{error.code}\n\n{error}")
+        return 1
     if not sources:
         print("Error:\n\nNoSourceFiles\n\nsrc/ contains no .rsn files.")
         return 1

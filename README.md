@@ -60,7 +60,16 @@ Platform notes are available for [macOS](docs/installation/macos.md),
 
 ## Quick start
 
-Run validation from a source checkout:
+Create and run a minimal project:
+
+```sh
+reason init my-project
+cd my-project
+reason build
+reason run --entry main::run
+```
+
+For validation from a source checkout:
 
 ```sh
 ./reason version-validate --json

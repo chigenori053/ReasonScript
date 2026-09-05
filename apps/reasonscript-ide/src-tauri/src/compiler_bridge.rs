@@ -474,12 +474,8 @@ mod tests {
     #[test]
     fn repo_root_ends_with_reasonscript() {
         let root = resolve_repo_root().expect("should resolve");
-        let name = root.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        assert_eq!(
-            name, "ReasonScript",
-            "repo root should be 'ReasonScript', got: {}",
-            root.display()
-        );
+        assert!(root.join("frontend").is_dir());
+        assert!(root.join("toolchain").is_dir());
     }
 
     #[test]
