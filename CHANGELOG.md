@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.5.9] - 2026-09-05
+
+### Added
+- Integrated the merged numeric-semantics and tensor-lifecycle PRs.
+- Added deterministic numeric promotion across the language surface and
+  native runtime, including mixed numeric regression coverage.
+- Added deterministic release of unreachable protected Tensor lifecycles.
+- Added multiline parenthesized-expression support and stable transition IDs
+  for tooling consumers.
+
+### Fixed
+- Updated CI dependency preparation and streamlined redundant legacy checks.
+- Hardened the playground pipeline's exception handling.
+
 ## [0.5.5.8] - 2026-08-30
 
 ### Added
