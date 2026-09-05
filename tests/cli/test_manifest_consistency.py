@@ -124,6 +124,37 @@ class TestManifestConsistency(unittest.TestCase):
         self.assertEqual(res_build.returncode, 0, res_build.stderr)
         self.assertIn("Build succeeded. 1 file(s) compiled.", res_build.stdout)
 
+    def test_legacy_manifest_without_source_uses_recursive_discovery(self):
+        """Issue #37: legacy manifests do not require src/main.rsn."""
+        proj_path = self.tmp_path / "legacy-project"
+        (proj_path / "src").mkdir(parents=True)
+        (proj_path / "reason.toml").write_text(
+            """[package]
+name = "legacy-project"
+version = "0.1.0"
+
+[runtime]
+backend = "RuntimeReal"
+""",
+            encoding="utf-8",
+        )
+        (proj_path / "src" / "model.rsn").write_text(
+            """module Model {
+  calculation Value {
+    result = 42
+  }
+}
+""",
+            encoding="utf-8",
+        )
+
+        res_check = self._run_cli(["check"], cwd=proj_path)
+        self.assertEqual(res_check.returncode, 0, res_check.stderr)
+        self.assertIn("Check passed. 1 file(s) validated.", res_check.stdout)
+        res_build = self._run_cli(["build"], cwd=proj_path)
+        self.assertEqual(res_build.returncode, 0, res_build.stderr)
+        self.assertNotIn("SourceEntryMissing", res_build.stdout + res_build.stderr)
+
     def test_custom_artifacts_directory(self):
         """Custom artifacts.directory is respected by reason artifacts."""
         proj_name = "custom-artifacts-test"

@@ -204,8 +204,14 @@ max_call_depth = 100           # optional positive integer recursion limit
 # capability declarations
 ```
 
+`[source]` is optional for legacy manifests. When it is absent, `build`,
+`check`, `run`, and project validation recursively discover `src/**/*.rsn`
+without requiring `src/main.rsn`. When `[source]` is present, `entry` is
+required, must remain inside the project root, is compiled first, and does
+not exclude sibling modules under `src/`.
+
 #### Diagnostic Policy:
 - Truly unknown sections outside known tables (`package`, `project`, `source`, `artifacts`, `compiler`, `runtime`, `dependencies`, `capabilities`) emit `UserWarning: Unknown sections in reason.toml: <sections>`.
 - Unknown keys within known sections emit `UserWarning: Unknown keys in reason.toml [<section>]: <keys>`.
 - Missing required fields, type errors, or root-escaping paths in `source.entry` / `artifacts.directory` raise `ManifestError`.
-
+- A declared but missing `source.entry` produces `SourceEntryMissing` consistently across `build`, `check`, `run`, and project validation.

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .manifest import Manifest, ManifestError
 from .pipeline import PipelineError, compile_package_sources
+from .source_selection import SourceSelectionError, package_sources
 from .workspace import (
     PackageGraphService,
     WorkspaceError,
@@ -17,7 +18,12 @@ _CACHE_KEY_FILE = ".reason_build_cache"
 _BUILD_FORMAT_VERSION = "runtime-consolidation-phase2-uera8-optimizer"
 
 
-def _cache_key(project_root: Path, dependency_roots: tuple[Path, ...] = ()) -> str:
+def _cache_key(
+    project_root: Path,
+    dependency_roots: tuple[Path, ...] = (),
+    *,
+    project_sources: tuple[Path, ...] = (),
+) -> str:
     import hashlib
 
     h = hashlib.sha256()
@@ -27,7 +33,10 @@ def _cache_key(project_root: Path, dependency_roots: tuple[Path, ...] = ()) -> s
         if manifest_path.exists():
             h.update(str(manifest_path).encode("utf-8"))
             h.update(manifest_path.read_bytes())
-        for src in sorted((root / "src").rglob("*.rsn")):
+        sources = project_sources if root == project_root and project_sources else tuple(
+            sorted((root / "src").rglob("*.rsn"))
+        )
+        for src in sources:
             h.update(str(src).encode("utf-8"))
             h.update(src.read_bytes())
     return h.hexdigest()
@@ -82,24 +91,21 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
         print(f"Error:\n\n{e}")
         return 1
 
-    src_dir = project_root / "src"
-    entry_path = project_root / manifest.source_entry
-    if not entry_path.is_file():
-        if not src_dir.exists():
-            print("Error:\n\nSourceDirectoryMissing\n\nsrc/ not found.")
-            return 1
-        print(f"Error:\n\nSourceEntryMissing\n\nEntry file '{manifest.source_entry}' not found.")
+    try:
+        sources = package_sources(project_root, manifest)
+    except SourceSelectionError as error:
+        print(f"Error:\n\n{error.code}\n\n{error}")
         return 1
-
-    sources_set = set(src_dir.rglob("*.rsn")) if src_dir.exists() else set()
-    sources_set.add(entry_path)
-    sources = [entry_path, *sorted(sources_set - {entry_path})]
     if not sources:
         print("Error:\n\nNoSourceFiles\n\nNo .rsn files found in src/.")
         return 1
 
     target = project_root / "target"
-    current_key = _cache_key(project_root, dependency_roots)
+    current_key = _cache_key(
+        project_root,
+        dependency_roots,
+        project_sources=tuple(sources),
+    )
     if _load_cache(target) == current_key:
         print("Nothing to build (up to date).")
         return 0

@@ -48,16 +48,19 @@ def native_runtime_host() -> Path:
     return binary
 
 
-def _write_project(root: Path, *, with_calculation: bool = True) -> None:
+def _write_project(
+    root: Path, *, with_calculation: bool = True, source_entry: str | None = None
+) -> None:
     (root / "src").mkdir(parents=True)
+    source_section = f'\n[source]\nentry = "{source_entry}"\n' if source_entry else ""
     (root / "reason.toml").write_text(
-        """[package]
+        f"""[package]
 name = "cross-run"
 version = "0.1.0"
 
 [runtime]
 backend = "RuntimeReal"
-""",
+{source_section}""",
         encoding="utf-8",
     )
     (root / "src" / "model.rsn").write_text(
@@ -215,3 +218,56 @@ def test_build_removes_stale_ir_from_deleted_module(tmp_path: Path) -> None:
     train.write_text(train.read_text(encoding="utf-8") + "\n", encoding="utf-8")
     assert build_cmd.run(tmp_path) == 0
     assert not stale.exists()
+
+
+def test_explicit_source_entry_is_first_and_keeps_complete_module_graph(
+    tmp_path: Path, capsys, native_runtime_host: Path
+) -> None:
+    _write_project(tmp_path, source_entry="src/train.rsn")
+
+    assert check_cmd.run(tmp_path) == 0
+    capsys.readouterr()
+    assert build_cmd.run(tmp_path) == 0
+    capsys.readouterr()
+    assert run(tmp_path, entry="Train::Main") == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["runtime_result"]["result"] == 42
+    ast_payload = json.loads((tmp_path / "target/ast/package.json").read_text())
+    assert ast_payload["sources"] == ["src/train.rsn", "src/model.rsn"]
+
+
+def test_explicit_entry_outside_src_is_included_and_cached(
+    tmp_path: Path, capsys, native_runtime_host: Path
+) -> None:
+    _write_project(tmp_path, source_entry="entry.rsn")
+    (tmp_path / "entry.rsn").write_text(
+        (tmp_path / "src/train.rsn").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (tmp_path / "src/train.rsn").unlink()
+
+    assert build_cmd.run(tmp_path) == 0
+    capsys.readouterr()
+    ast_payload = json.loads((tmp_path / "target/ast/package.json").read_text())
+    assert ast_payload["sources"] == ["entry.rsn", "src/model.rsn"]
+
+    (tmp_path / "entry.rsn").write_text(
+        (tmp_path / "entry.rsn").read_text(encoding="utf-8").replace("Score(21)", "Score(22)"),
+        encoding="utf-8",
+    )
+    assert build_cmd.run(tmp_path) == 0
+    assert "Build succeeded" in capsys.readouterr().out
+
+
+def test_explicit_missing_source_entry_is_rejected_consistently(
+    tmp_path: Path, capsys
+) -> None:
+    _write_project(tmp_path, source_entry="src/missing.rsn")
+
+    assert check_cmd.run(tmp_path) == 1
+    assert "SourceEntryMissing" in capsys.readouterr().out
+    assert build_cmd.run(tmp_path) == 1
+    assert "SourceEntryMissing" in capsys.readouterr().out
+    report = validate_project(tmp_path)
+    assert report["status"] == "failed"
+    assert any(item["code"] == "SourceEntryMissing" for item in report["diagnostics"])

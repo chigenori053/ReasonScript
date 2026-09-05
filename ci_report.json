@@ -15,35 +15,35 @@
       "metadata": {
         "python_version": "3.14.0",
         "version_validation": {
-          "canonical_version": "0.5.5.8",
+          "canonical_version": "0.5.5.9",
           "checks": [
             {
-              "actual": "0.5.5.8",
-              "expected": "0.5.5.8",
+              "actual": "0.5.5.9",
+              "expected": "0.5.5.9",
               "id": "VER-001",
               "status": "pass"
             },
             {
-              "actual": "0.5.5.8",
-              "expected": "0.5.5.8",
+              "actual": "0.5.5.9",
+              "expected": "0.5.5.9",
               "id": "VER-002",
               "status": "pass"
             },
             {
-              "actual": "0.5.5.8",
-              "expected": "0.5.5.8",
+              "actual": "0.5.5.9",
+              "expected": "0.5.5.9",
               "id": "VER-003",
               "status": "pass"
             },
             {
-              "actual": "0.5.5.8",
-              "expected": "0.5.5.8",
+              "actual": "0.5.5.9",
+              "expected": "0.5.5.9",
               "id": "VER-004",
               "status": "pass"
             },
             {
-              "actual": "0.5.5.8",
-              "expected": "0.5.5.8",
+              "actual": "0.5.5.9",
+              "expected": "0.5.5.9",
               "id": "VER-005",
               "status": "pass"
             },
@@ -120,7 +120,7 @@
       "diagnostics": [],
       "id": "tests",
       "metadata": {
-        "tests_passed": 2321
+        "tests_passed": 2343
       },
       "status": "PASS"
     }

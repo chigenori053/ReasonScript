@@ -651,7 +651,7 @@ backend = "RuntimeReal"
                 self.assertEqual(len(w), 0, [str(item.message) for item in w])
             self.assertEqual(m.name, "hello_world")
             self.assertIsNone(m.identifier)
-            self.assertEqual(m.source_entry, "src/main.rsn")
+            self.assertIsNone(m.source_entry)
             self.assertEqual(m.artifacts_directory, "artifacts")
             self.assertEqual(m.project_name, "hello_world")
             self.assertEqual(m.project_version, "0.1.0")

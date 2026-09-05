@@ -1,0 +1,39 @@
+name: Init and Manifest Compatibility
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  manifest-contract:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            os: ubuntu-latest
+          - target: macos-arm64
+            os: macos-15
+          - target: macos-x86_64
+            os: macos-15-intel
+          - target: windows-x86_64
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Build native runtime host
+        run: cargo build --manifest-path ReasonRuntime/Cargo.toml --bin reason-runtime-host
+      - name: Validate init and Manifest contracts
+        run: >-
+          python -m pytest
+          tests/cli/test_manifest_consistency.py
+          tests/test_multifile_package_regression.py
+          tests/installation/test_manifest_distribution_parity.py

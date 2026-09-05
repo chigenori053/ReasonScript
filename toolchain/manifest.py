@@ -56,7 +56,10 @@ class Manifest:
     project_name: str | None = None
     project_version: str | None = None
     reason_version: str | None = None
-    source_entry: str = "src/main.rsn"
+    # ``None`` preserves the legacy manifest contract: projects that do not
+    # declare [source] discover every src/**/*.rsn file without requiring a
+    # conventional src/main.rsn entry.
+    source_entry: str | None = None
     artifacts_directory: str = "artifacts"
     capabilities: dict[str, object] = field(default_factory=dict)
 
@@ -132,22 +135,24 @@ class Manifest:
             raise ManifestError("project.reason_version must be a non-empty string")
 
         # Validate [source]
+        source_declared = "source" in data
         source = data.get("source", {})
         if not isinstance(source, dict):
             raise ManifestError("[source] must be a table")
-        source_entry = source.get("entry", "src/main.rsn")
-        if not isinstance(source_entry, str) or not source_entry.strip():
-            raise ManifestError("source.entry must be a non-empty string")
-        source_path = Path(source_entry)
-        if source_path.is_absolute():
-            raise ManifestError("source.entry cannot be an absolute path")
-        resolved_source = (project_root / source_path).resolve()
         proj_root_resolved = project_root.resolve()
-        if (
-            resolved_source != proj_root_resolved
-            and proj_root_resolved not in resolved_source.parents
-        ):
-            raise ManifestError("source.entry cannot escape project root")
+        source_entry = source.get("entry")
+        if source_declared:
+            if not isinstance(source_entry, str) or not source_entry.strip():
+                raise ManifestError("source.entry must be a non-empty string")
+            source_path = Path(source_entry)
+            if source_path.is_absolute():
+                raise ManifestError("source.entry cannot be an absolute path")
+            resolved_source = (project_root / source_path).resolve()
+            if (
+                resolved_source != proj_root_resolved
+                and proj_root_resolved not in resolved_source.parents
+            ):
+                raise ManifestError("source.entry cannot escape project root")
 
         # Validate [artifacts]
         artifacts = data.get("artifacts", {})
@@ -219,4 +224,3 @@ class Manifest:
             artifacts_directory=artifacts_directory,
             capabilities=dict(capabilities),
         )
-
