@@ -15,35 +15,35 @@
       "metadata": {
         "python_version": "3.14.0",
         "version_validation": {
-          "canonical_version": "0.5.2",
+          "canonical_version": "0.5.5.8",
           "checks": [
             {
-              "actual": "0.5.2",
-              "expected": "0.5.2",
+              "actual": "0.5.5.8",
+              "expected": "0.5.5.8",
               "id": "VER-001",
               "status": "pass"
             },
             {
-              "actual": "0.5.2",
-              "expected": "0.5.2",
+              "actual": "0.5.5.8",
+              "expected": "0.5.5.8",
               "id": "VER-002",
               "status": "pass"
             },
             {
-              "actual": "0.5.2",
-              "expected": "0.5.2",
+              "actual": "0.5.5.8",
+              "expected": "0.5.5.8",
               "id": "VER-003",
               "status": "pass"
             },
             {
-              "actual": "0.5.2",
-              "expected": "0.5.2",
+              "actual": "0.5.5.8",
+              "expected": "0.5.5.8",
               "id": "VER-004",
               "status": "pass"
             },
             {
-              "actual": "0.5.2",
-              "expected": "0.5.2",
+              "actual": "0.5.5.8",
+              "expected": "0.5.5.8",
               "id": "VER-005",
               "status": "pass"
             },
@@ -94,12 +94,8 @@
       "id": "golden",
       "metadata": {
         "failed": 0,
+        "golden_diagnostics": [],
         "passed": 2,
-        "phase8_golden_validation": {
-          "scenarios": 6,
-          "status": "PASS",
-          "target": "reasonscript-phase8-golden-validation/1.0"
-        },
         "schema": "reasonscript-golden-summary/1.0",
         "skipped": 0,
         "total": 2,
@@ -116,7 +112,7 @@
       "diagnostics": [],
       "id": "compatibility",
       "metadata": {
-        "targets": 17
+        "targets": 19
       },
       "status": "PASS"
     },
@@ -124,7 +120,7 @@
       "diagnostics": [],
       "id": "tests",
       "metadata": {
-        "tests_passed": 1085
+        "tests_passed": 2321
       },
       "status": "PASS"
     }

@@ -80,7 +80,11 @@ def _run_package(
         return 1
 
     src_dir = project_root / "src"
-    sources = sorted(src_dir.rglob("*.rsn")) if src_dir.exists() else []
+    entry_path = project_root / manifest.source_entry
+    sources_set = set(src_dir.rglob("*.rsn")) if src_dir.exists() else set()
+    if entry_path.is_file():
+        sources_set.add(entry_path)
+    sources = sorted(sources_set)
     if not sources:
         print("Error:\n\nNoSourceFiles\n\nsrc/ contains no .rsn files.")
         return 1

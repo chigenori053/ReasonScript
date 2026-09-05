@@ -47,17 +47,23 @@ def run(project_root: Path, package: str | None = None) -> int:
 
 def _run_package(project_root: Path) -> int:
     try:
-        Manifest.load(project_root)
+        manifest = Manifest.load(project_root)
     except ManifestError as e:
         print(f"Error:\n\n{e}")
         return 1
 
     src_dir = project_root / "src"
-    if not src_dir.exists():
-        print("Error:\n\nSourceDirectoryMissing\n\nsrc/ not found.")
+    entry_path = project_root / manifest.source_entry
+    if not entry_path.is_file():
+        if not src_dir.exists():
+            print("Error:\n\nSourceDirectoryMissing\n\nsrc/ not found.")
+            return 1
+        print(f"Error:\n\nSourceEntryMissing\n\nEntry file '{manifest.source_entry}' not found.")
         return 1
 
-    sources = sorted(src_dir.rglob("*.rsn"))
+    sources_set = set(src_dir.rglob("*.rsn")) if src_dir.exists() else set()
+    sources_set.add(entry_path)
+    sources = [entry_path, *sorted(sources_set - {entry_path})]
     if not sources:
         print("Error:\n\nNoSourceFiles\n\nNo .rsn files found in src/.")
         return 1

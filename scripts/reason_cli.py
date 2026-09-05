@@ -23,6 +23,7 @@ from toolchain.artifacts import validate_artifact_directory
 from toolchain.diagnostics import render_diagnostics
 from toolchain.golden import run_corpus, update_corpus, validate_corpus
 from toolchain.golden import stable_json as golden_stable_json
+from toolchain.manifest import Manifest, ManifestError
 from toolchain.workspace_cmd import run as run_workspace_command
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -203,14 +204,12 @@ def _artifact_output(source: Path, explicit: str | None) -> Path:
         return (Path.cwd() / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
     if project_root is None:
         return (Path.cwd() / "artifacts").resolve()
-    manifest = tomllib.loads((project_root / "reason.toml").read_text(encoding="utf-8"))
-    configured = manifest.get("artifacts", {}).get("directory", "artifacts")
-    if not isinstance(configured, str) or not configured.strip():
-        raise ValueError("artifact directory configuration must be a non-empty string")
-    output = (project_root / configured).resolve()
-    if output != project_root and project_root not in output.parents:
-        raise ValueError("artifact output escaped project root")
-    if output == source:
+    try:
+        manifest = Manifest.load(project_root)
+    except ManifestError as exc:
+        raise ValueError(str(exc)) from exc
+    output = (project_root / manifest.artifacts_directory).resolve()
+    if output == source.resolve():
         raise ValueError("artifact output conflicts with source file")
     return output
 
