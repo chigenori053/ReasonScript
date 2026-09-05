@@ -29,6 +29,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements-dev.txt
+      - name: Fetch install-time Rust dependencies
+        shell: bash
+        run: |
+          cargo fetch --locked --manifest-path ReasonRuntime/Cargo.toml
+          cargo fetch --locked --manifest-path ClusterRuntime/Cargo.toml
+          cargo fetch --locked --manifest-path VisualizationRuntime/Cargo.toml
       - name: Build native runtime host
         run: cargo build --manifest-path ReasonRuntime/Cargo.toml --bin reason-runtime-host
       - name: Validate init and Manifest contracts
