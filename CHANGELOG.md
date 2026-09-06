@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.5.12] - 2026-09-07
+
+- Repackaged the validated v0.5.5 line as the canonical macOS arm64 release.
+- Preserved language core `0.7`, Install Foundation `1.1`, and runtime compatibility `>=0.5.0,<0.6.0`.
+
 ## [0.5.5.11] - 2026-09-06
 
 - Packaged the completed RS-DXLI-001 developer experience and language identity work for local installation.
