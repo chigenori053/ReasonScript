@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.5.11] - 2026-09-06
+
+- Packaged the completed RS-DXLI-001 developer experience and language identity work for local installation.
+- Preserved the language core `0.7` and runtime compatibility range `>=0.5.0,<0.6.0`.
+- Included the shared diagnostic/compiler frontend, unified CLI and standard output APIs, LSP and VS Code integration, migration command, canonical samples, and OSS release acceptance coverage.
+
 ## [0.5.5.10] - 2026-09-05
 
 - [RS-DXLI-13] Established OSS handwritten developer experience integrated acceptance and compatibility verification (#51):

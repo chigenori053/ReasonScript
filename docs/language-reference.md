@@ -1,7 +1,7 @@
 # ReasonScript language reference
 
 This is the canonical human-readable reference for the source language shipped
-with ReasonScript v0.5.5.10 (language core `0.7`). It documents accepted `.rsn`
+with ReasonScript v0.5.5.11 (language core `0.7`). It documents accepted `.rsn`
 syntax and observable execution behavior, not compiler implementation phases.
 
 > **Language Identity & Disambiguation**: ReasonScript is an independent reasoning-first programming language designed for AI workflows, state-space exploration, and formal reasoning. It is **not affiliated with, derived from, or compatible with ReScript, Reason, or ReasonML**. Functions are declared using the standard `fn` keyword (`fn name(params) -> ReturnType { ... }`), and source files use the `.rsn` extension.
