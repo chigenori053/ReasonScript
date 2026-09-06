@@ -22,6 +22,7 @@ def run(
     include_trace: bool = False,
     filesystem_read: bool = False,
     filesystem_write: bool = False,
+    auto_build: bool = False,
 ) -> int:
     try:
         workspace = PackageGraphService().discover(project_root)
@@ -45,6 +46,7 @@ def run(
             include_trace=include_trace,
             filesystem_read=filesystem_read,
             filesystem_write=filesystem_write,
+            auto_build=auto_build,
         )
 
     if package is not None and package != workspace.default_package.name:
@@ -57,6 +59,7 @@ def run(
         include_trace=include_trace,
         filesystem_read=filesystem_read,
         filesystem_write=filesystem_write,
+        auto_build=auto_build,
     )
 
 
@@ -68,6 +71,7 @@ def _run_package(
     include_trace: bool = False,
     filesystem_read: bool = False,
     filesystem_write: bool = False,
+    auto_build: bool = False,
 ) -> int:
     try:
         manifest = Manifest.load(project_root)
@@ -85,11 +89,22 @@ def _run_package(
         return 1
 
     ir_dir = project_root / "target" / "ir"
+    computation_path = project_root / "target" / "computation_ir" / "package.json"
+    if auto_build and (not ir_dir.is_dir() or not any(ir_dir.glob("*.json")) or not computation_path.is_file()):
+        import contextlib
+        import io
+        from toolchain.build_cmd import run as build_package
+        build_buffer = io.StringIO()
+        with contextlib.redirect_stdout(build_buffer):
+            build_code = build_package(project_root, package=workspace_package)
+        if build_code != 0:
+            print(build_buffer.getvalue(), end="")
+            return 2
+
     if not ir_dir.is_dir() or not any(ir_dir.glob("*.json")):
         print("Error:\n\nNoBuildArtifacts\n\nRun 'reason build' first.")
         return 1
 
-    computation_path = project_root / "target" / "computation_ir" / "package.json"
     if not computation_path.is_file():
         support_path = project_root / "target" / "runtime" / "runtime_support.json"
         try:
@@ -145,12 +160,29 @@ def _run_package(
         return 2
 
     calculations = runtime_result["calculations"]
+    selected_entry_name: str | None = None
     if entry is not None:
         entry_name = entry.rsplit("::", 1)[-1].rsplit(".", 1)[-1]
         if entry_name not in calculations:
-            print(f"Error:\n\nUnknownEntry\n\nNo calculation named: {entry}")
+            available = ("\n\nAvailable calculations:\n" + "\n".join(f"  - {name}" for name in sorted(calculations.keys()))) if calculations else ""
+            print(f"Error:\n\nUnknownEntry\n\nNo calculation named: {entry}{available}")
             return 1
-        runtime_result["result"] = calculations[entry_name]
+        selected_entry_name = entry_name
+    elif calculations:
+        # Deterministic entry resolution: single calculation or preferred Main/main
+        if len(calculations) == 1:
+            selected_entry_name = next(iter(calculations.keys()))
+        elif "Main" in calculations:
+            selected_entry_name = "Main"
+        elif "main" in calculations:
+            selected_entry_name = "main"
+        else:
+            available = "\n".join(f"  - {name}" for name in sorted(calculations.keys()))
+            print(f"Error:\n\nAmbiguousEntry\n\nMultiple executable calculations found. Please specify an entry with 'reason run <entry>':\n{available}")
+            return 1
+
+    if selected_entry_name is not None:
+        runtime_result["result"] = calculations[selected_entry_name]
 
     result = {
         "status": "success",
@@ -163,9 +195,8 @@ def _run_package(
             "attempted": "rust_computation_vm",
             "selected": "rust_computation_vm",
         },
+        "entry": entry if entry is not None else selected_entry_name,
     }
-    if entry is not None:
-        result["entry"] = entry
     if include_trace:
         result["trace"] = (
             runtime_result["tensor_trace"]

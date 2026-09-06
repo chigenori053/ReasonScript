@@ -42,6 +42,17 @@ const client_1 = require("./lsp/client");
 const packageGraph_1 = require("./workspace/packageGraph");
 const workspace_1 = require("./workspace/workspace");
 let client;
+async function stopLanguageServer() {
+    if (client) {
+        try {
+            await client.stop();
+        }
+        catch {
+            // Ignore errors on shutdown
+        }
+        client = undefined;
+    }
+}
 async function activate(context) {
     console.log("[ReasonScript] activate start");
     const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -52,8 +63,48 @@ async function activate(context) {
     context.subscriptions.push(outputChannel);
     (0, toolchain_1.registerToolchainCommands)(context, statusBar);
     (0, tasks_1.registerTaskProvider)(context);
+    // Register restartServer command
+    context.subscriptions.push(vscode.commands.registerCommand("reasonscript.restartServer", async () => {
+        outputChannel.appendLine("Restarting ReasonScript Language Server...");
+        statusBar.text = "ReasonScript: Restarting LSP...";
+        await stopLanguageServer();
+        try {
+            client = (0, client_1.createLanguageClient)(context);
+            context.subscriptions.push(client);
+            await client.start();
+            statusBar.text = "ReasonScript LSP Online";
+            outputChannel.appendLine("Language server restarted successfully.");
+            vscode.window.showInformationMessage("ReasonScript Language Server restarted.");
+        }
+        catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            statusBar.text = "ReasonScript LSP Offline";
+            outputChannel.appendLine(`Language server restart failed:\n${msg}`);
+            vscode.window.showErrorMessage(`ReasonScript Language Server failed to restart: ${msg}`, "Open Settings").then((selection) => {
+                if (selection === "Open Settings") {
+                    vscode.commands.executeCommand("workbench.action.openSettings", "reasonscript");
+                }
+            });
+        }
+    }));
     console.log("[ReasonScript] commands registered");
-    outputChannel.appendLine("Starting language server...");
+    outputChannel.appendLine("Starting language server (reason lsp --stdio)...");
+    const resolved = (0, workspace_1.resolveReasonExecutable)();
+    outputChannel.appendLine(`Resolved ReasonScript executable: ${resolved.path} (source: ${resolved.source}, exists: ${resolved.exists})`);
+    if (!resolved.exists) {
+        statusBar.text = "ReasonScript: No Executable";
+        outputChannel.appendLine("ReasonScript executable not found.");
+        vscode.window
+            .showErrorMessage(`ReasonScript executable not found (${resolved.path}). Please configure 'reasonscript.executablePath' or install ReasonScript to your PATH.`, "Open Settings", "View Output")
+            .then((selection) => {
+            if (selection === "Open Settings") {
+                vscode.commands.executeCommand("workbench.action.openSettings", "reasonscript.executablePath");
+            }
+            else if (selection === "View Output") {
+                outputChannel.show(true);
+            }
+        });
+    }
     try {
         console.log("[ReasonScript] lsp startup");
         client = (0, client_1.createLanguageClient)(context);
@@ -67,7 +118,19 @@ async function activate(context) {
         statusBar.text = "ReasonScript LSP Offline";
         outputChannel.appendLine(`Language server unavailable:\n${msg}`);
         outputChannel.appendLine("Toolchain commands remain available.");
-        vscode.window.showWarningMessage(`ReasonScript: Language server unavailable. ${msg}`);
+        vscode.window
+            .showWarningMessage(`ReasonScript: Language server unavailable. ${msg}`, "Restart Server", "Open Settings", "View Output")
+            .then((selection) => {
+            if (selection === "Restart Server") {
+                vscode.commands.executeCommand("reasonscript.restartServer");
+            }
+            else if (selection === "Open Settings") {
+                vscode.commands.executeCommand("workbench.action.openSettings", "reasonscript");
+            }
+            else if (selection === "View Output") {
+                outputChannel.show(true);
+            }
+        });
     }
     const workspaceRoot = (0, workspace_1.detectWorkspaceRoot)();
     if (workspaceRoot) {
@@ -80,9 +143,6 @@ async function activate(context) {
     console.log("[ReasonScript] activate complete");
 }
 async function deactivate() {
-    if (client) {
-        await client.stop();
-        client = undefined;
-    }
+    await stopLanguageServer();
 }
 //# sourceMappingURL=extension.js.map

@@ -82,6 +82,7 @@ from frontend.string.integration import string_call_name
 from frontend.tensor.integration import tensor_call_name
 from frontend.tensor.optimizers import optimizer_call_name
 from frontend.vision.integration import vision_call_name
+from frontend.console.integration import console_call_name
 
 from .schema import SCHEMA
 
@@ -761,6 +762,15 @@ def _lower_expression(value: Any, declared_functions: _Scope) -> dict[str, Any]:
             "member": value.member,
         })
     if isinstance(value, RuntimeCallExpressionNode):
+        if value.kind == RuntimeCallKind.PRINT:
+            return spanned({
+                "op": "call_console",
+                "function_id": "Console.log",
+                "arguments": [
+                    _lower_expression(argument, declared_functions)
+                    for argument in value.arguments
+                ],
+            })
         function_id = {
             RuntimeCallKind.SEARCH: "runtime.search",
             RuntimeCallKind.SIMULATION: "runtime.simulate",
@@ -828,6 +838,14 @@ def _lower_call(value: CallExpressionNode, declared_functions: _Scope) -> dict[s
         return {
             "op": "call_string",
             "function_id": string_function,
+            "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
+        }
+    console_function = console_call_name(value)
+    if console_function is not None:
+        fn_id = "Console.log" if console_function == "print" else console_function
+        return {
+            "op": "call_console",
+            "function_id": fn_id,
             "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
         }
     if (

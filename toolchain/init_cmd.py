@@ -33,18 +33,26 @@ backend = "RuntimeReal"
 
 _MAIN_RSN = """\
 package {name}
-module main {{
-    fn run(goal) {{
-        return goal
+
+model Main {{
+    pub fn Greeting() -> string {{
+        return "Hello from ReasonScript!"
+    }}
+
+    calculation Main {{
+        result = Greeting()
     }}
 }}
 """
 
 _SAMPLE_TEST_RSN = """\
 package {name}
-module sample_test {{
-    fn run(goal) {{
-        return goal
+
+model SampleTest {{
+    import {name}.Main
+
+    calculation TestGreeting {{
+        result = Main::Greeting() == "Hello from ReasonScript!"
     }}
 }}
 """

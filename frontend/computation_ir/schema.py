@@ -56,6 +56,7 @@ EXPRESSION_OPS = (
     "call_array_append",
     "call_array_concat",
     "call_string",
+    "call_console",
     "call_function",
     "call_cast",
     "enum_value",

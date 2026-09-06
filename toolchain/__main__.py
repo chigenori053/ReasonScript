@@ -63,6 +63,18 @@ def main() -> int:
         from frontend.lsp.server import run_stdio
         return run_stdio()
 
+    if command == "migrate":
+        if len(args) < 2 or args[1] not in {"extensions"}:
+            print("Usage: reason migrate extensions [options] [path]")
+            print()
+            print("Run 'reason migrate extensions --help' for options.")
+            return 1
+        if any(arg in {"--help", "-h"} for arg in args[2:]):
+            _command_usage("migrate extensions")
+            return 0
+        from toolchain.migrate_extensions_cmd import run
+        return run(args[2:], Path.cwd())
+
     project_root = Path.cwd()
     package = _package_arg(args[1:])
 
@@ -88,6 +100,7 @@ def main() -> int:
                 return run(
                     package_root,
                     entry=_option_arg(args[1:], "--entry"),
+                    auto_build=True,
                     include_trace="--trace" in args[1:],
                     filesystem_read="--allow-read" in args[1:],
                     filesystem_write="--allow-write" in args[1:],
@@ -105,10 +118,14 @@ def main() -> int:
 
     if command == "run":
         from toolchain.run_cmd import run
+        entry_val = _option_arg(args[1:], "--entry")
+        if entry_val is None:
+            entry_val = _positional_entry_arg(args[1:])
         return run(
             project_root,
             package=package,
-            entry=_option_arg(args[1:], "--entry"),
+            entry=entry_val,
+            auto_build=True,
             include_trace="--trace" in args[1:],
             filesystem_read="--allow-read" in args[1:],
             filesystem_write="--allow-write" in args[1:],
@@ -127,7 +144,8 @@ def main() -> int:
 
     if command == "check":
         from toolchain.check_cmd import run
-        return run(project_root, package=package)
+        diagnostic_format = _option_arg(args[1:], "--diagnostic-format") or ("json" if "--json" in args[1:] else "text")
+        return run(project_root, package=package, diagnostic_format=diagnostic_format)
 
     if command in {"workspace", "summary", "index", "scan"}:
         from toolchain.workspace_cmd import run
@@ -290,7 +308,8 @@ def _usage() -> None:
     print("  manifest      Show generated artifact manifest")
     print("  golden        Run the Golden Test Corpus")
     print("  test-golden   Run the Golden Test Corpus")
-    print("  golden-summary Show Golden Test Corpus summary")
+    print("  lsp           Start the ReasonScript Language Server (LSP)")
+    print("  migrate       Migrate legacy source extensions to canonical .rsn")
     print("  agent-protocol Validate Agent Development Protocol rules")
     print("  agent-report  Emit Agent Development Protocol report")
     print("  ci            Run the canonical CI Stabilization pipeline")
@@ -320,8 +339,102 @@ def _usage() -> None:
 
 
 def _command_usage(command: str) -> None:
+    if command == "run":
+        print("Usage: reason run [<source.rsn> | <entry>] [options]")
+        print()
+        print("Execute a ReasonScript program or project.")
+        print()
+        print("Arguments:")
+        print("  <source.rsn>       Directly run a standalone .rsn source file")
+        print("  <entry>            Run a specific calculation or module entry in project mode")
+        print()
+        print("Options:")
+        print("  --entry <entry>    Specify calculation entry point (e.g. Main or Module::Calc)")
+        print("  --package <pkg>    Target a specific workspace package")
+        print("  --trace            Include execution trace diagnostics")
+        print("  --allow-read       Grant read permissions to runtime resource root")
+        print("  --allow-write      Grant write permissions to runtime resource root")
+        print("  --json             Emit execution results and traces in machine-readable JSON")
+        print("  -h, --help         Show this help message")
+        return
+    if command == "build":
+        print("Usage: reason build [options]")
+        print()
+        print("Compile ReasonScript source files into IR and runtime artifacts.")
+        print()
+        print("Options:")
+        print("  --package <pkg>    Build a specific package in the workspace")
+        print("  -h, --help         Show this help message")
+        return
+    if command == "check":
+        print("Usage: reason check [<source.rsn>] [options]")
+        print()
+        print("Validate ReasonScript syntax, names, and types without executing.")
+        print()
+        print("Options:")
+        print("  --package <pkg>    Check a specific package in the workspace")
+        print("  --diagnostic-format <text|json>  Format diagnostics as human-readable text or JSON")
+        print("  -h, --help         Show this help message")
+        return
+    if command == "init":
+        print("Usage: reason init <project_name> [options]")
+        print()
+        print("Initialize a new ReasonScript project with canonical model and calculation.")
+        print()
+        print("Options:")
+        print("  --template <name>  Template name (default: minimal)")
+        print("  -h, --help         Show this help message")
+        return
+    if command == "lsp":
+        print("Usage: reason lsp [--stdio]")
+        print()
+        print("Start the ReasonScript Language Server over stdio for editor integrations.")
+        print()
+        print("Options:")
+        print("  --stdio            Use stdio transport (JSON-RPC 2.0)")
+        print("  -h, --help         Show this help message")
+        return
+    if command in {"migrate", "migrate extensions"}:
+        print("Usage: reason migrate extensions [options] [path]")
+        print()
+        print("Safely and deterministically migrate legacy source extensions (.re, .res, etc.) to .rsn.")
+        print()
+        print("Arguments:")
+        print("  [path]             Target directory or file to migrate (defaults to current working directory)")
+        print()
+        print("Options:")
+        print("  --check, --dry-run Report planned migrations, conflicts, and diagnostics without modifying files")
+        print("  --path <path>      Explicitly specify target path")
+        print("  --json             Emit structured migration report in JSON format")
+        print("  -h, --help         Show this help message")
+        return
     print(f"Usage: reason {command} [args]")
     print("Run 'reason help' for the full command list.")
+
+
+def _positional_entry_arg(args: list[str]) -> str | None:
+    skip_next = False
+    for arg in args:
+        if skip_next:
+            skip_next = False
+            continue
+        if arg in {
+            "--compiler-mode",
+            "--diagnostic-format",
+            "--entry",
+            "--format",
+            "--out",
+            "--package",
+            "--result-output",
+            "--template",
+        }:
+            skip_next = True
+            continue
+        if arg.startswith("-"):
+            continue
+        if not arg.endswith(".rsn"):
+            return arg
+    return None
 
 
 def _package_arg(args: list[str]) -> str | None:
@@ -348,6 +461,7 @@ def _source_file_arg(args: list[str]) -> str | None:
             continue
         if arg in {
             "--compiler-mode",
+            "--diagnostic-format",
             "--entry",
             "--out",
             "--package",

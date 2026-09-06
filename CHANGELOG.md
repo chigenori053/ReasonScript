@@ -2,6 +2,91 @@
 
 ## [0.5.5.10] - 2026-09-05
 
+- [RS-DXLI-13] Established OSS handwritten developer experience integrated acceptance and compatibility verification (#51):
+  - Formulated comprehensive 10-point release gate acceptance matrix (`docs/reference/release_acceptance.md`) in bilingual English and Japanese covering zero-config workflows, scope isolation, diagnostics, CLI/LSP parity, LSP navigation/editing, standard output API, multi-entry resolution, artifact non-regression, and execution determinism.
+  - Implemented end-to-end integration acceptance test suite (`tests/integration/test_oss_handwritten_acceptance.py`) automating validation of all 10 release gate criteria (ACC-01 through ACC-10).
+  - Confirmed Early Alpha OSS distribution readiness with zero regressions across canonical CI and workspace contracts.
+
+- [RS-DXLI-12] Implemented LSP Phase 2 code exploration, completion, and editing features (#52):
+  - Added Workspace Symbols (`workspace/symbol`) with case-insensitive query filtering and LSP `SymbolKind` integer mapping across all open documents and built-in APIs.
+  - Implemented Find References (`textDocument/references`) accurately resolving references across open documents and workspace while filtering out line and block comments.
+  - Implemented Signature Help (`textDocument/signatureHelp`) displaying parameter lists, active parameter tracking, and documentation for user-defined functions and built-in runtime/vision APIs.
+  - Implemented Semantic Tokens (`textDocument/semanticTokens/full`) producing standard 5-element relative delta encodings for keywords, types, functions, variables, strings, numbers, and comments.
+  - Implemented Rename Symbol (`textDocument/prepareRename` & `textDocument/rename`) with token range validation, collision detection, reserved keyword protection, and multi-file `WorkspaceEdit` generation.
+  - Implemented Document Formatting (`textDocument/formatting`) providing 4-space indentation, operator/brace spacing normalization, and idempotent edits with resilient fallback on malformed syntax.
+  - Handled Cancellation (`$/cancelRequest`) gracefully without server termination or errors.
+  - Added comprehensive test suite (`tests/lsp/test_lsp_phase2_features.py`) and updated CLI documentation (`docs/reference/cli.md`).
+
+- [RS-DXLI-10] Implemented LSP Document Symbols, rich Hover, and Go to Definition navigation (#53):
+  - Added hierarchical `textDocument/documentSymbol` provider returning nested symbol trees for models, modules, functions, calculations, structs, enums, consts, states, transitions, relations, and goals.
+  - Implemented resilient fallback parsing to stably preserve symbol hierarchy even during mid-edit syntax errors or incomplete blocks.
+  - Enhanced `textDocument/hover` with markdown-formatted signatures, visibility, type annotations, preceding doc-comments (`///`), and local variable/parameter inspection.
+  - Upgraded `textDocument/definition` with multi-tier resolution: local bindings (parameters, let/const), same-model declarations, qualified member access (`Model.Member`), and cross-file public symbols.
+  - Added comprehensive LSP navigation test suite (`tests/lsp/test_lsp_phase1_navigation.py`).
+
+- [RS-DXLI-11] Safe migration command for legacy source extensions (#50):
+  - Implemented `reason migrate extensions` CLI command to safely rename legacy source extensions (`.re`, `.rei`, `.res`, `.resi`, `.reason`, `.rscript`) to `.rsn`.
+  - Added `--check` (and `--dry-run`) inspection mode to report planned migrations, collisions, and diagnostics without modifying files.
+  - Enforced strict conflict protection: never overwrites existing `.rsn` files, and rejects many-to-one or case-insensitive target collisions with diagnostic `SRC-0004`.
+  - Safely rejected symlinks with diagnostic `SRC-0005` to prevent unintended modification of external resources.
+  - Implemented atomic execution with automatic reverse rollback upon unexpected file system or I/O failure.
+  - Automatically updated legacy source references (e.g. `entry = "src/main.re"`) in `reason.toml`.
+  - Provided structured JSON output (`--json`) and standardized exit codes (0 for success, 1 for conflicts/unsupported, 2 for I/O errors).
+
+- [RS-DXLI-08] Unified reason run and CLI operations into cohesive developer experience (#49):
+  - Updated canonical project template (`reason init`) with executable `model Main` and `calculation Main`, ensuring instant out-of-the-box runnability.
+  - Implemented automatic on-demand build during `reason run` when compilation artifacts are missing.
+  - Added deterministic entry resolution: automatically selects single calculation or prioritizes `Main`/`main`, and avoids implicit guesswork when ambiguous by printing candidate lists.
+  - Supported positional calculation entry argument (`reason run <entry>`) alongside `--entry`, reporting available calculations on `UnknownEntry`.
+  - Audited CLI command help with detailed subcommand usage and consistent exit codes (0 for success, 1 for user/entry error, 2 for build/runtime failure).
+
+- [RS-DXLI-06] Integrated VS Code extension as dedicated .rsn LSP client (#48):
+  - Fixed document selector to language `reasonscript`, scheme `file`, and pattern `**/*.rsn`, strictly eliminating overlap with `.re`/`.rei`/`.res`/`.resi`.
+  - Automatically launches `reason lsp --stdio` on opening `.rsn` documents without requiring manual configuration.
+  - Implemented `reasonscript.restartServer` command ("ReasonScript: Restart Language Server") for manual LSP lifecycle control.
+  - Enhanced executable discovery across VS Code settings, workspace root, standalone document parents, and PATH, displaying actionable notifications with "Open Settings" on failure.
+  - Added robust server crash handling (`CloseHandlerResult`) alerting users with "Restart Server" and "Open Settings" actions upon unexpected disconnection.
+  - Updated extension packaging, README, and automated regression contract tests.
+
+- [RS-DXLI-07] Defined and implemented ReasonScript standard output API (#47):
+  - Defined canonical `Console.log`, `Console.info`, `Console.warn`, `Console.error` and convenience `print` standard output APIs.
+  - Implemented deterministic output stream routing: `stdout` for `print`/`Console.log`/`Console.info`, and `stderr` for `Console.warn`/`Console.error`.
+  - Implemented deterministic stringification across both Python reference interpreter and Rust production runtime (`ReasonRuntime`).
+  - Added strict rejection of unsupported JavaScript APIs (`Js.*`) with diagnostic code `NAM-2004` and actionable QuickFix candidates to `Console.log` and `print`.
+  - Captured `console_output` events in runtime host IPC payload and `--json` execution envelope, decoupling console output streams from JSON protocol communications.
+- [RS-DXLI-09] Documented language identity, official samples, and unified CLI workflows (#46):
+  - Published explicit language identity and disambiguation notice across `README.md`, `docs/README.md`, `docs/guides/quickstart.md`, and `docs/language-reference.md`, establishing ReasonScript as an independent reasoning-first language not affiliated with or derived from ReScript, Reason, or ReasonML.
+  - Added verified canonical `.rsn` samples in `examples/` (`01_hello_world.rsn`, `02_arithmetic.rsn`, `03_branching.rsn`) utilizing standard `model`, `fn`, and `calculation` constructs.
+  - Aligned the core project workflow (`reason init` -> `reason check` -> `reason build` -> `reason run --json`) across README and Quickstart documentation.
+  - Unified all documentation code fences to ```reasonscript```.
+  - Updated VS Code extension package metadata (`vscode-extension/package.json`) to emphasize reasoning-oriented AI workflows.
+- [RS-DXLI-05] Refreshed VS Code / LSP diagnostics, completions, hover, and definition jump (#45):
+  - Implemented real-time diagnostic push notifications (`textDocument/publishDiagnostics`) on file open and change.
+  - Added LSP `CodeAction` provider (`textDocument/codeAction`) converting diagnostic `fix_candidates` into executable `WorkspaceEdit` objects for instant QuickFixes.
+  - Refreshed completion engine with context-aware member completion on trailing dots (`runtime.`, `vision.`) and detailed Markdown documentation.
+  - Upgraded hover tooltips to rich syntax-highlighted Markdown blocks with declarations, signatures, modules, and visibility.
+  - Enhanced definition resolution for local and cross-module symbols.
+- [RS-DXLI-03] Added title, help, and actionable fix candidates to diagnostics (#44):
+  - Enriched diagnostics with structured `DiagnosticFix` models (`title`, `description`, `edits`, `priority`) and `help` guidance across compiler phases.
+  - Implemented smart fix generators for reserved top-level constructs (`world`/`system`/`component` -> `model`/`module`), invalid package semicolons, unterminated strings, and typo resolution using identifier proximity.
+  - Enhanced human-readable CLI renderer (`render_diagnostics`) to display `= help:` and `= suggested fix:` blocks with formatted replacement code.
+  - Attached remediation payloads (`fix_candidates` and `help`) to LSP diagnostic `data` fields to power editor QuickFix / CodeAction workflows.
+- [RS-DXLI-01] Unified error code hierarchy and established Diagnostic Registry (#43):
+  - Added `DiagnosticDefinition` and centralized `DiagnosticRegistry` (`toolchain/diagnostics.py`) cataloging standard diagnostic codes across all 10 canonical categories (`CLI`, `SRC`, `PRJ`, `LEX`, `PAR`, `NAM`, `TYP`, `BLD`, `RUN`, `ICE`).
+  - Added automatic title, help, and category resolution in `diagnostic_from_parts` based on registry definitions.
+  - Implemented backward compatibility alias resolution (e.g., mapping `LL-002`, `PV-1`, `PV-4`, `NS-001`, `FN-005` to canonical codes).
+  - Enhanced `validate_diagnostic_registry` with default catalog self-validation against duplicate codes, invalid severities, and unknown categories.
+- [RS-DXLI-04] Established shared Compiler Frontend API for CLI and LSP (#42):
+  - Created `frontend/compiler_frontend.py` providing `FrontendRequest` and `FrontendResult` for deterministic in-memory and file analysis.
+  - Unified pipeline stages across `lexer` -> `parser` -> `name_resolution` -> `type_check` -> `completed`.
+  - Implemented panic / exception isolation returning `ICE-0001` (Internal Compiler Error) diagnostics to prevent host crashes.
+  - Integrated `CompilerFrontend` into LSP analyzer (`ReasonScriptLanguageServer._analyze`), guaranteeing complete parity of diagnostic code, severity, source range, and message between CLI and LSP.
+- [RS-DXLI-02] Implemented common Diagnostic model with Source Span and JSON contract (#41):
+  - Defined standard classification categories and prefixes: `CLI`, `SRC`, `PRJ`, `LEX`, `PAR`, `NAM`, `TYP`, `BLD`, `RUN`, `ICE`.
+  - Modeled `SourcePosition`, `SourceSpan` (half-open `[start, end)`), `title`, `help`, `fixes` (fix candidates), and compiler/runtime versions.
+  - Added JSON Schema `schemas/diagnostics.schema.json` adhering to `reasonscript-diagnostics/1.0`.
+  - Added `--diagnostic-format json` to `reason check` for single files and workspaces, generating deterministic diagnostic documents from the same Diagnostic objects as human-readable output.
+
 ### Documentation
 - Replaced phase-oriented language specifications with one current,
   implementation-aligned language reference and a standard-library index.

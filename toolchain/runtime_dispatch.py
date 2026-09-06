@@ -127,6 +127,8 @@ def execute_rust_ir(
         "schema_version": "reasonscript-integrated-runtime/0.1",
         "status": "success",
         "result": result_value,
+        "calculations": calculations,
+        "console_output": getattr(outcome, "console_output", []),
         "tensor_metadata": outcome.metadata.get("tensor_metadata", []),
         "tensor_trace": outcome.metadata.get("tensor_trace", []),
         "loop_trace": outcome.metadata.get("loop_trace", []),
@@ -139,7 +141,6 @@ def execute_rust_ir(
             "message": "native runtime trace was omitted for unsupported operations: " + ", ".join(trace_unsupported),
             "operations": list(trace_unsupported),
         }] if trace_unsupported else []),
-        "calculations": calculations,
     }
 
 

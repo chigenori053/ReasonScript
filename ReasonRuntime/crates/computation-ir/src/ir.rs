@@ -297,6 +297,13 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
+    #[serde(rename = "call_console")]
+    CallConsole {
+        function_id: String,
+        arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "call_function")]
     CallFunction {
         name: String,
@@ -366,6 +373,7 @@ impl Expr {
             | Expr::CallArrayAppend { source_span, .. }
             | Expr::CallArrayConcat { source_span, .. }
             | Expr::CallString { source_span, .. }
+            | Expr::CallConsole { source_span, .. }
             | Expr::CallFunction { source_span, .. }
             | Expr::CallCast { source_span, .. }
             | Expr::EnumValue { source_span, .. }

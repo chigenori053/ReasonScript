@@ -1,0 +1,13 @@
+model Branching {
+  fn Grade(score: int) -> string {
+    if score >= 60 {
+      return "Pass"
+    } else {
+      return "Fail"
+    }
+  }
+
+  calculation Evaluation {
+    result = Grade(85)
+  }
+}

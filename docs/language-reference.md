@@ -4,13 +4,15 @@ This is the canonical human-readable reference for the source language shipped
 with ReasonScript v0.5.5.10 (language core `0.7`). It documents accepted `.rsn`
 syntax and observable execution behavior, not compiler implementation phases.
 
+> **Language Identity & Disambiguation**: ReasonScript is an independent reasoning-first programming language designed for AI workflows, state-space exploration, and formal reasoning. It is **not affiliated with, derived from, or compatible with ReScript, Reason, or ReasonML**. Functions are declared using the standard `fn` keyword (`fn name(params) -> ReturnType { ... }`), and source files use the `.rsn` extension.
+
 ## Program structure
 
 A source unit contains an optional package declaration followed by one or more
 modules. `model` is accepted as a source-level synonym for `module`; both lower
 to the same semantics.
 
-```reason
+```reasonscript
 package demo
 
 module Geometry {
@@ -25,7 +27,7 @@ model Planning {
 Names start with a letter or underscore and continue with letters, digits, or
 underscores. Imports use dotted module names and may have a local alias:
 
-```reason
+```reasonscript
 import tools.geometry
 import tools.statistics as stats
 ```
@@ -38,7 +40,7 @@ top-level declarations.
 
 ## A complete small program
 
-```reason
+```reasonscript
 module Scores {
   struct Student {
     name: string
@@ -93,7 +95,7 @@ Composite types are:
 Type annotations are required on typed function parameters and may be used on
 bindings, function results, and calculations:
 
-```reason
+```reasonscript
 let attempts: int = 3
 const ratio: float = 0.5
 
@@ -112,7 +114,7 @@ shadows the built-in cast.
 
 ## Literals and expressions
 
-```reason
+```reasonscript
 42
 -7
 3.14
@@ -132,7 +134,7 @@ Student { name: "Ada", score: 91 }
 Multiline sets and maps are supported in binding, `return`, and `result`
 positions:
 
-```reason
+```reasonscript
 let tags: set<string> = set {
   "stable"
   "native"
@@ -148,7 +150,7 @@ Arrays, maps, and tuples support indexing where their type permits it. Structs
 support field access. Assignments may update a mutable binding, field, or
 index:
 
-```reason
+```reasonscript
 value = value + 1
 student.score = 100
 values[0] = 100
@@ -173,7 +175,7 @@ precedence. `/` always produces a `float`, including for two integer operands.
 
 Calls, member access, and indexing bind more tightly than these operators:
 
-```reason
+```reasonscript
 Normalize(rows[0].score)
 tensor.mean(values, 0, false)
 tools.math::Average(values)
@@ -187,7 +189,7 @@ namespace call.
 `let` creates a local binding that may be assigned again. `const` creates an
 immutable value. A module-level constant is visible throughout its module.
 
-```reason
+```reasonscript
 const Threshold: int = 60
 
 calculation Passed -> bool {
@@ -203,7 +205,7 @@ modifiers are only valid at module scope.
 
 ## Structs and enums
 
-```reason
+```reasonscript
 export struct Point {
   x: float
   y: float
@@ -224,7 +226,7 @@ Every struct field requires a type. Enum variants are referenced as
 
 ## Functions and calculations
 
-```reason
+```reasonscript
 fn DistanceSquared(x: float, y: float) -> float {
   return x * x + y * y
 }
@@ -244,7 +246,7 @@ cycles are rejected.
 
 ### Conditions
 
-```reason
+```reasonscript
 if score >= 90 {
   result = "A"
 } elif score >= 80 {
@@ -258,7 +260,7 @@ Conditions must be Boolean. `else` is optional.
 
 ### Loops
 
-```reason
+```reasonscript
 for item in values {
   total = total + item
 }
@@ -280,7 +282,7 @@ limits turn accidental infinite execution into a structured diagnostic.
 
 ### Pattern matching
 
-```reason
+```reasonscript
 match value {
   0 => return "zero"
   1..9 => return "digit"
@@ -296,7 +298,7 @@ Supported patterns include literals, enum variants, identifiers, `_`,
 `some(pattern)`, `none`, struct patterns, and alternatives separated by `|`.
 A `when` guard is evaluated after its pattern matches.
 
-```reason
+```reasonscript
 match point {
   Point { x: 0, y } => return y
   Point { x, y: 0 } | Point { x: 0, y } => return 0
@@ -312,7 +314,7 @@ compatible set of names.
 
 The language also has declarative reasoning constructs:
 
-```reason
+```reasonscript
 module Route {
   state Start
   state Finish

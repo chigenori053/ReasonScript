@@ -58,8 +58,9 @@ from frontend.language_surface.nodes import (
     ReasonGraphDeclarationNode,
     ReasonObjectBindingNode,
     ResultStatementNode,
-    ReturnStatementNode,
     RuntimeCallExpressionNode,
+    RuntimeCallKind,
+    ReturnStatementNode,
     SomeExpressionNode,
     StateDeclarationNode,
     ConstraintNode,
@@ -75,6 +76,7 @@ from frontend.language_surface.nodes import (
 )
 from frontend.relation.integration import relation_call_name
 from frontend.string.integration import string_call_name
+from frontend.console.integration import console_call_name
 from frontend.reason_object_runtime import (
     ReasonObjectRuntimeError,
     call_ruo,
@@ -933,6 +935,20 @@ def _expression(
             "RT-FIELD-001", f"member access is unsupported: {value.member}"
         )
     if isinstance(value, RuntimeCallExpressionNode):
+        if value.kind == RuntimeCallKind.PRINT:
+            import sys
+            from frontend.computation_ir.interpreter import _format_console_value
+            arguments = [
+                _expression(
+                    arg, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for arg in value.arguments
+            ]
+            line = " ".join(_format_console_value(arg) for arg in arguments)
+            sys.stdout.write(line + "\n")
+            sys.stdout.flush()
+            return None
         argument = _expression(
             value.arguments[0], env, runtime, vision_runtime,
             functions, max_call_depth, call_depth,
@@ -1027,6 +1043,23 @@ def _expression(
                 for argument in value.arguments
             ]
             return call_string(string_function, *arguments)
+        console_function = console_call_name(value)
+        if console_function is not None:
+            import sys
+            from frontend.computation_ir.interpreter import _format_console_value
+            arguments = [
+                _expression(
+                    argument, env, runtime, vision_runtime,
+                    functions, max_call_depth, call_depth,
+                )
+                for argument in value.arguments
+            ]
+            is_stderr = console_function in ("Console.warn", "Console.error")
+            stream = sys.stderr if is_stderr else sys.stdout
+            line = " ".join(_format_console_value(arg) for arg in arguments)
+            stream.write(line + "\n")
+            stream.flush()
+            return None
         if (
             isinstance(value.callee, MemberAccessNode)
             and isinstance(value.callee.object, IdentifierNode)

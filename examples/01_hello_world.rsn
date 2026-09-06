@@ -1,0 +1,9 @@
+model Hello {
+  fn Message() -> string {
+    return "Hello, World!"
+  }
+
+  calculation Greeting {
+    result = Message()
+  }
+}

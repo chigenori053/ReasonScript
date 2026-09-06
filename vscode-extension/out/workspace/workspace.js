@@ -36,6 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.detectWorkspaceRoot = detectWorkspaceRoot;
 exports.commandCwd = commandCwd;
 exports.isProjectWorkspace = isProjectWorkspace;
+exports.findOnPath = findOnPath;
+exports.resolveReasonExecutable = resolveReasonExecutable;
 exports.reasonExecutable = reasonExecutable;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -71,37 +73,55 @@ function isProjectWorkspace() {
     return Boolean(root && (fs.existsSync(path.join(root.fsPath, "reason.toml")) ||
         fs.existsSync(path.join(root.fsPath, "reason.workspace.toml"))));
 }
-function reasonExecutable() {
+function findOnPath(binaryName) {
+    const envPath = process.env.PATH ?? "";
+    const extensions = process.platform === "win32" ? [".exe", ".bat", ".cmd", ""] : [""];
+    for (const dir of envPath.split(path.delimiter)) {
+        if (!dir) {
+            continue;
+        }
+        for (const ext of extensions) {
+            const fullPath = path.join(dir, binaryName + ext);
+            try {
+                if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+                    return fullPath;
+                }
+            }
+            catch {
+                // Ignore file access errors on PATH entries
+            }
+        }
+    }
+    return undefined;
+}
+function resolveReasonExecutable() {
     // 1. VSCode 設定で明示指定されている場合はそれを優先
     const config = vscode.workspace.getConfiguration("reasonscript");
     const configured = config.get("executablePath", "").trim();
     if (configured) {
-        return configured;
+        const exists = fs.existsSync(configured);
+        return { path: configured, exists, source: "config" };
     }
-    // 2. ワークスペースルートの隣にある `reason` スクリプトを探す
-    //    例: /path/to/ReasonScript/reason
+    // 2. ワークスペースルートまたはその親にある `reason` スクリプトを探す
     const root = detectWorkspaceRoot();
     if (root) {
-        const candidate = path.join(root.fsPath, "..", "reason");
-        if (fs.existsSync(candidate)) {
-            return candidate;
+        const candidateParent = path.join(root.fsPath, "..", "reason");
+        if (fs.existsSync(candidateParent)) {
+            return { path: candidateParent, exists: true, source: "workspace" };
         }
-        // ワークスペース自体のルートも確認
         const candidateInRoot = path.join(root.fsPath, "reason");
         if (fs.existsSync(candidateInRoot)) {
-            return candidateInRoot;
+            return { path: candidateInRoot, exists: true, source: "workspace" };
         }
     }
-    // A single .rsn file can activate the extension without opening its parent
-    // folder as a VS Code workspace. In that case, find a checkout-local CLI
-    // from the active document before falling back to PATH.
+    // 3. 単一 .rsn ファイルのアクティブドキュメント親階層から探索
     const document = vscode.workspace.textDocuments.find((candidate) => candidate.languageId === "reasonscript" && candidate.uri.scheme === "file") ?? vscode.window.activeTextEditor?.document;
     if (document?.uri.scheme === "file") {
         let current = path.dirname(document.uri.fsPath);
         while (true) {
             const candidate = path.join(current, "reason");
             if (fs.existsSync(candidate)) {
-                return candidate;
+                return { path: candidate, exists: true, source: "document" };
             }
             const parent = path.dirname(current);
             if (parent === current) {
@@ -110,7 +130,15 @@ function reasonExecutable() {
             current = parent;
         }
     }
-    // 3. PATH フォールバック（システムにインストール済みの場合）
-    return process.platform === "win32" ? "reason.bat" : "reason";
+    // 4. PATH フォールバック
+    const defaultBinary = process.platform === "win32" ? "reason.bat" : "reason";
+    const pathLocation = findOnPath(defaultBinary);
+    if (pathLocation) {
+        return { path: pathLocation, exists: true, source: "path" };
+    }
+    return { path: defaultBinary, exists: false, source: "path" };
+}
+function reasonExecutable() {
+    return resolveReasonExecutable().path;
 }
 //# sourceMappingURL=workspace.js.map

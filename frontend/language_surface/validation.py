@@ -32,6 +32,12 @@ from frontend.vision.integration import (
     validate_vision_call,
     vision_call_name,
 )
+from frontend.console.integration import (
+    ConsoleSemanticError,
+    console_call_name,
+    is_unsupported_js_call,
+    validate_console_call,
+)
 
 from .expressions import MAX_PATTERN_DEPTH, ExpressionSyntaxError, parse_expression
 from .namespace import ModuleNamespace, NamespaceResolutionError, resolve_program
@@ -1582,7 +1588,11 @@ def _validate_calculation_expression(
         elif isinstance(value, SomeExpressionNode):
             visit(value.value)
         elif isinstance(value, MemberAccessNode):
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name == "Js":
+                raise SurfaceValidationError(
+                    "NAM-2004 ReasonScript does not support JavaScript runtime APIs such as Js.*. Use 'Console.log' or 'print' instead."
+                )
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation", "Console"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1658,6 +1668,18 @@ def _validate_calculation_expression(
                 try:
                     validate_vision_call(value)
                 except VisionSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
+                return
+            if is_unsupported_js_call(value):
+                raise SurfaceValidationError(
+                    "NAM-2004 ReasonScript does not support JavaScript runtime APIs such as Js.*. Use 'Console.log' or 'print' instead."
+                )
+            if console_call_name(value) is not None:
+                try:
+                    validate_console_call(value)
+                except ConsoleSemanticError as error:
                     raise SurfaceValidationError(str(error)) from error
                 for argument in value.arguments:
                     visit(argument)
@@ -1855,16 +1877,19 @@ def _validate_runtime_call(value: RuntimeCallExpressionNode) -> None:
     }
     if supported.get(value.method) != value.kind:
         raise SurfaceValidationError("RV-4 UnknownRuntimeMethod")
-    expected_arguments = {
-        RuntimeCallKind.INPUT: 0,
-        RuntimeCallKind.PRINT: 1,
-        RuntimeCallKind.SEARCH: 1,
-        RuntimeCallKind.SIMULATION: 1,
-        RuntimeCallKind.PREDICTION: 1,
-        RuntimeCallKind.PLANNING: 1,
-    }[value.kind]
-    if len(value.arguments) != expected_arguments:
-        raise SurfaceValidationError("RV-5 RuntimeCallArgumentCountMismatch")
+    if value.kind == RuntimeCallKind.PRINT:
+        if len(value.arguments) < 1:
+            raise SurfaceValidationError("RV-5 RuntimeCallArgumentCountMismatch")
+    else:
+        expected_arguments = {
+            RuntimeCallKind.INPUT: 0,
+            RuntimeCallKind.SEARCH: 1,
+            RuntimeCallKind.SIMULATION: 1,
+            RuntimeCallKind.PREDICTION: 1,
+            RuntimeCallKind.PLANNING: 1,
+        }[value.kind]
+        if len(value.arguments) != expected_arguments:
+            raise SurfaceValidationError("RV-5 RuntimeCallArgumentCountMismatch")
 
 
 def _validate_runtime_reasoning_argument(
@@ -2274,6 +2299,16 @@ def _expression_type(
             except VisionSemanticError as error:
                 raise SurfaceValidationError(str(error)) from error
             return NamedTypeNode("VisionObservation" if vision_call_name(value) == "vision.infer" else "VisionBuildResult")
+        console_function = console_call_name(value)
+        if console_function is not None:
+            try:
+                validate_console_call(value)
+            except ConsoleSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
+            for argument in value.arguments:
+                arg_expr = argument.expression if isinstance(argument, ExpressionNode) else argument
+                _expression_type(arg_expr, symbols, bindings)
+            return PrimitiveTypeNode(PrimitiveKind.NULL)
         cast_name = _scalar_cast_name(value, symbols)
         if cast_name is not None:
             if len(value.arguments) != 1:

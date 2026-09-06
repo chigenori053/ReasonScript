@@ -40,18 +40,30 @@ const node_1 = require("vscode-languageclient/node");
 const workspace_1 = require("../workspace/workspace");
 function createLanguageClient(context) {
     const workspaceRoot = (0, workspace_1.detectWorkspaceRoot)();
+    const resolved = (0, workspace_1.resolveReasonExecutable)();
+    // Determine working directory: prefer workspace root, then document dir, then extension path
+    let cwd = workspaceRoot?.fsPath;
+    if (!cwd) {
+        const document = vscode.workspace.textDocuments.find((candidate) => candidate.languageId === "reasonscript" && candidate.uri.scheme === "file") ?? vscode.window.activeTextEditor?.document;
+        if (document?.uri.scheme === "file") {
+            cwd = path.dirname(document.uri.fsPath);
+        }
+        else {
+            cwd = context.extensionPath;
+        }
+    }
+    // Launch the language server via reasonExecutable() (args: ["lsp"] with --stdio)
     const serverOptions = {
-        // Use the public CLI instead of importing a checkout-local Python module.
-        // This works for both a source checkout and an installed ReasonScript
-        // distribution, where the extension cannot rely on PYTHONPATH.
         command: (0, workspace_1.reasonExecutable)(),
-        args: ["lsp"],
+        args: ["lsp", "--stdio"],
         options: {
-            cwd: workspaceRoot?.fsPath ?? context.extensionPath
+            cwd
         }
     };
     const clientOptions = {
-        documentSelector: [{ scheme: "file", language: "reasonscript" }],
+        documentSelector: [
+            { scheme: "file", language: "reasonscript", pattern: "**/*.rsn" }
+        ],
         synchronize: {
             fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{rsn,toml}")
         },
@@ -61,7 +73,28 @@ function createLanguageClient(context) {
                 name: path.basename(workspaceRoot.fsPath),
                 index: 0
             }
-            : undefined
+            : undefined,
+        errorHandler: {
+            error: (_error, _message, count) => {
+                if (count && count <= 3) {
+                    return { action: node_1.ErrorAction.Continue };
+                }
+                return { action: node_1.ErrorAction.Shutdown };
+            },
+            closed: () => {
+                vscode.window
+                    .showErrorMessage("ReasonScript Language Server stopped unexpectedly.", "Restart Server", "Open Settings")
+                    .then((selection) => {
+                    if (selection === "Restart Server") {
+                        vscode.commands.executeCommand("reasonscript.restartServer");
+                    }
+                    else if (selection === "Open Settings") {
+                        vscode.commands.executeCommand("workbench.action.openSettings", "reasonscript");
+                    }
+                });
+                return { action: node_1.CloseAction.DoNotRestart, handled: true };
+            }
+        }
     };
     return new node_1.LanguageClient("reasonscriptLanguageServer", "ReasonScript Language Server", serverOptions, clientOptions);
 }

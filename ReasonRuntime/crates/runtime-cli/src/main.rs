@@ -98,6 +98,7 @@ fn run_legacy(source: &str) -> ExitCode {
             let payload = serde_json::json!({
                 "ok": true,
                 "calculation_results": results,
+                "console_output": vm.console_events(),
             });
             println!("{payload}");
             ExitCode::SUCCESS
@@ -292,6 +293,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                     "ok": true,
                     "execution_mode": "rust",
                     "calculation_results": results,
+                    "console_output": vm.console_events(),
                     "diagnostics": [],
                     "metadata": {
                         "host_profile": HOST_PROFILE,
@@ -301,6 +303,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "vision_trace": vision_trace,
                         "reasoning_trace": reasoning_trace,
                         "tensor_metadata": tensor_metadata,
+                        "console_output": vm.console_events(),
                         "reason_object_metadata": [],
                     },
                 })
