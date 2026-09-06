@@ -1,7 +1,7 @@
 {
   "name": "reasonscript",
   "displayName": "ReasonScript",
-  "description": "Official ReasonScript editor integration.",
+  "description": "Official editor integration for ReasonScript, an independent reasoning-first programming language for deterministic AI workflows.",
   "version": "0.1.7",
   "publisher": "reasonscript",
   "private": true,
@@ -17,7 +17,10 @@
   "keywords": [
     "reasonscript",
     "reasoning",
-    "language"
+    "programming-language",
+    "ai",
+    "deterministic",
+    "inspectable-ai"
   ],
   "engines": {
     "vscode": "^1.85.0"
@@ -32,7 +35,8 @@
     "onCommand:reasonscript.build",
     "onCommand:reasonscript.run",
     "onCommand:reasonscript.test",
-    "onCommand:reasonscript.check"
+    "onCommand:reasonscript.check",
+    "onCommand:reasonscript.restartServer"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -72,6 +76,10 @@
       {
         "command": "reasonscript.check",
         "title": "ReasonScript: Check"
+      },
+      {
+        "command": "reasonscript.restartServer",
+        "title": "ReasonScript: Restart Language Server"
       }
     ],
     "configuration": {

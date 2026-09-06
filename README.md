@@ -5,6 +5,8 @@ deterministic, inspectable AI workflows. A `.rsn` source file is parsed and
 validated, lowered through semantic and computation IR, and executed by the
 Rust runtime host.
 
+> **Note on Language Identity**: ReasonScript is an independent programming language. It is **not affiliated with, derived from, or compatible with ReScript, Reason, or ReasonML**. ReasonScript programs use `.rsn` source files, the canonical `reason` CLI tool, and native syntax constructs (`model`, `module`, `fn`, `calculation`, `goal`, `state`).
+
 Current release: **v0.5.5.10** (language core `0.7`).
 
 ## Install
@@ -30,32 +32,46 @@ Windows, updates, troubleshooting, and removal.
 
 ## Try the language
 
-```reason
-module Hello {
-  fn Double(value: int) -> int {
-    return value * 2
+```reasonscript
+model Hello {
+  fn Message() -> string {
+    return "Hello, World!"
   }
 
-  calculation Answer -> int {
-    result = Double(21)
+  calculation Greeting {
+    result = Message()
   }
 }
 ```
 
-Save this as `hello.rsn`, then run:
+Save this as `hello.rsn`, then check and run:
 
 ```sh
 reason check hello.rsn
 reason run hello.rsn --json
 ```
 
-To create a project instead:
+The output will confirm successful execution and display the calculated result:
+```json
+{
+  "runtime_result": {
+    "calculations": {
+      "Greeting": "Hello, World!"
+    },
+    "result": "Hello, World!",
+    "status": "success"
+  }
+}
+```
+
+To create and run a project workspace instead:
 
 ```sh
 reason init my-project
 cd my-project
+reason check
 reason build
-reason run
+reason run --json
 ```
 
 ## Documentation

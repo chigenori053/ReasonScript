@@ -400,6 +400,16 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
     if op == "call_string":
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         return call_string(node["function_id"], *arguments)
+    if op == "call_console":
+        import sys
+        arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
+        function_id = node["function_id"]
+        is_stderr = function_id in ("Console.warn", "Console.error")
+        stream = sys.stderr if is_stderr else sys.stdout
+        line = " ".join(_format_console_value(arg) for arg in arguments)
+        stream.write(line + "\n")
+        stream.flush()
+        return None
     if op == "call_vision":
         arguments = [_eval_expr(argument, env, ctx, call_depth) for argument in node["arguments"]]
         return ctx.vision_runtime.call(node["function_id"], *arguments)
@@ -474,3 +484,29 @@ def _call_function(
     except _IRNoValue:
         raise IntegratedRuntimeError("RT-CALL-004", f"function returned no value: {name}") from None
     raise IRExecutionError("IR-EXEC-004", f"function block fell through without a terminator: {name}")
+
+
+def _format_console_value(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        text = str(value)
+        if "." in text or "e" in text or "inf" in text:
+            return text
+        return f"{text}.0"
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "[" + ", ".join(_format_console_value(item) for item in value) + "]"
+    if isinstance(value, RuntimeStruct):
+        parts = [f"{k}: {_format_console_value(v)}" for k, v in sorted(value.fields.items())]
+        return "{" + ", ".join(parts) + "}"
+    if isinstance(value, RuntimeEnumValue):
+        return f"{value.enum_name}.{value.variant_name}"
+    if isinstance(value, RuntimeOptionalValue):
+        return f"Some({_format_console_value(value.value)})" if value.has_value else "None"
+    return str(value)

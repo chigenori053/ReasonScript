@@ -49,13 +49,14 @@ def find_binary() -> Path | None:
 
 
 class RustRunResult:
-    def __init__(self, ok: bool, calculation_results: dict[str, Any] | None, error_code: str | None, error_message: str | None, metadata: dict[str, Any] | None = None, diagnostic: dict[str, Any] | None = None):
+    def __init__(self, ok: bool, calculation_results: dict[str, Any] | None, error_code: str | None, error_message: str | None, metadata: dict[str, Any] | None = None, diagnostic: dict[str, Any] | None = None, console_output: list[dict[str, Any]] | None = None):
         self.ok = ok
         self.calculation_results = calculation_results
         self.error_code = error_code
         self.error_message = error_message
         self.metadata = metadata or {}
         self.diagnostic = diagnostic
+        self.console_output = console_output or []
 
 
 def run_ir(
@@ -104,9 +105,10 @@ def run_ir(
         cwd=str(cwd) if cwd is not None else None,
     )
     payload = json.loads(completed.stdout)
+    console_output = payload.get("console_output") or payload.get("metadata", {}).get("console_output") or []
     if payload.get("ok"):
         return RustRunResult(
-            True, payload["calculation_results"], None, None, payload.get("metadata")
+            True, payload["calculation_results"], None, None, payload.get("metadata"), None, console_output
         )
     diagnostics = payload.get("diagnostics", [])
     diagnostic = diagnostics[0] if diagnostics else {}
@@ -117,4 +119,5 @@ def run_ir(
         diagnostic.get("message", payload.get("error_message")),
         payload.get("metadata"),
         diagnostic,
+        console_output,
     )

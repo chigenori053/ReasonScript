@@ -69,6 +69,8 @@ def _build_parser() -> argparse.ArgumentParser:
         sub.add_argument("--compiler-mode", choices=["normal", "strict", "default"], default="normal")
         if name in {"check", "analyze", "run"}:
             sub.add_argument("--json", action="store_true")
+        if name == "check":
+            sub.add_argument("--diagnostic-format", choices=["text", "json"], default=None)
         if name in {"analyze", "run", "artifacts", "export"}:
             sub.add_argument("--out")
         if name == "run":
@@ -142,7 +144,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def cmd_check(args: argparse.Namespace) -> int:
     result = _check_result(Path(args.file), args.compiler_mode)
-    if args.json:
+    diag_format = getattr(args, "diagnostic_format", None)
+    if diag_format == "json":
+        from toolchain.diagnostics import diagnostics_document
+        doc = diagnostics_document(result["diagnostics"])
+        print(stable_json(doc), end="")
+    elif args.json:
         print(stable_json(result), end="")
     else:
         _print_check(result)
@@ -180,6 +187,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.json:
         print(stable_json(result), end="")
     else:
+        for event in result.get("console_output", []):
+            stream = sys.stderr if event.get("stream") == "stderr" else sys.stdout
+            print(event.get("message", ""), file=stream)
         _print_run(result)
     return 0 if result["ok"] else 1
 
@@ -440,6 +450,7 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
                 include_trace=include_trace,
             )
             result["runtime_result"] = runtime_result
+            result["console_output"] = runtime_result.get("console_output", [])
             result["execution_mode"] = "integrated-rust"
             result["runtime_output"] = [runtime_result["result"]]
             result["goal_reached"] = True
@@ -559,7 +570,7 @@ def _cli_diagnostics(diagnostics: list[dict[str, Any]], path: Path) -> list[dict
         message = item.get("message", "Unknown diagnostic")
         if code and isinstance(message, str) and message.startswith(f"{code} "):
             message = message[len(str(code)) + 1:]
-        result.append({
+        diag_dict: dict[str, Any] = {
             "severity": item.get("severity", "error"),
             "code": code,
             "message": message,
@@ -568,7 +579,11 @@ def _cli_diagnostics(diagnostics: list[dict[str, Any]], path: Path) -> list[dict
             "line": item.get("line"),
             "column": item.get("column"),
             "evidence": item.get("evidence"),
-        })
+        }
+        for key in ("title", "help", "span", "location", "fix", "fix_candidates", "related_locations", "uri"):
+            if key in item:
+                diag_dict[key] = item[key]
+        result.append(diag_dict)
     return result
 
 

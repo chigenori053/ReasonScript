@@ -4,6 +4,8 @@ This directory contains the documentation needed to learn, use, and contribute
 to ReasonScript. It describes the current implementation; design proposals and
 phase-completion reports are kept in Git history instead of the public docs.
 
+> **Language Identity & Disambiguation**: ReasonScript is an independent reasoning-first programming language. It is **not affiliated with, derived from, or compatible with ReScript, Reason, or ReasonML**. ReasonScript code is written in `.rsn` files and compiled/executed via the native `reason` toolchain.
+
 ## Start here
 
 - [Quickstart](guides/quickstart.md) — install, create a project, and run a

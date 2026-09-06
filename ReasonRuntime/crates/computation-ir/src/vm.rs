@@ -66,6 +66,7 @@ pub struct Vm<'a> {
     tensor_trace: RefCell<Vec<serde_json::Value>>,
     vision_trace: RefCell<Vec<serde_json::Value>>,
     reasoning_trace: RefCell<Vec<serde_json::Value>>,
+    console_events: RefCell<Vec<crate::console_dispatch::ConsoleEvent>>,
     resource_root: PathBuf,
     filesystem_read: bool,
     filesystem_write: bool,
@@ -191,6 +192,7 @@ impl<'a> Vm<'a> {
             tensor_trace: RefCell::new(Vec::new()),
             vision_trace: RefCell::new(Vec::new()),
             reasoning_trace: RefCell::new(Vec::new()),
+            console_events: RefCell::new(Vec::new()),
             resource_root,
             filesystem_read,
             filesystem_write,
@@ -256,6 +258,10 @@ impl<'a> Vm<'a> {
 
     pub fn reasoning_trace(&self) -> Vec<serde_json::Value> {
         self.reasoning_trace.borrow().clone()
+    }
+
+    pub fn console_events(&self) -> Vec<crate::console_dispatch::ConsoleEvent> {
+        self.console_events.borrow().clone()
     }
 
     /// Executes every calculation in program order, mirroring
@@ -975,6 +981,20 @@ impl<'a> Vm<'a> {
                     values.push(val);
                 }
                 crate::string_dispatch::call(function_id, values)
+            }
+            Expr::CallConsole {
+                function_id,
+                arguments,
+                ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
+                }
+                crate::console_dispatch::dispatch(function_id, &values, &self.console_events)
             }
             Expr::CallCast { name, argument, .. } => {
                 let value = self.eval_expr(argument, env, call_depth)?;

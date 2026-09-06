@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.org/schemas/diagnostics/1.0",
+  "title": "ReasonScript Diagnostics Document 1.0",
+  "type": "object",
+  "required": [
+    "version",
+    "schema",
+    "diagnostics"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "schema": {
+      "type": "string",
+      "const": "reasonscript-diagnostics/1.0"
+    },
+    "compiler_version": {
+      "type": "string"
+    },
+    "runtime_version": {
+      "type": "string"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "position": {
+      "type": "object",
+      "required": [
+        "line",
+        "column"
+      ],
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "span": {
+      "type": "object",
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/position"
+        },
+        "end": {
+          "$ref": "#/$defs/position"
+        }
+      },
+      "additionalProperties": false
+    },
+    "location": {
+      "type": "object",
+      "required": [
+        "file"
+      ],
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "column": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "length": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "uri": {
+          "type": "string"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        },
+        "start": {
+          "$ref": "#/$defs/position"
+        },
+        "end": {
+          "$ref": "#/$defs/position"
+        }
+      },
+      "additionalProperties": true
+    },
+    "fix": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "replacement": {
+          "type": "string"
+        },
+        "span": {
+          "$ref": "#/$defs/span"
+        }
+      },
+      "additionalProperties": true
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": [
+        "code",
+        "severity",
+        "category",
+        "message",
+        "location"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\\d+[A-Z0-9-]*$"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "ERROR",
+            "WARNING",
+            "INFO",
+            "HINT"
+          ]
+        },
+        "category": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/location"
+        },
+        "related_locations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/location"
+          }
+        },
+        "fix": {
+          "$ref": "#/$defs/fix"
+        },
+        "fix_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fix"
+          }
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

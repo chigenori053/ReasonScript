@@ -5,6 +5,7 @@
 //! `frontend/computation_ir/` for the Python side this is validated
 //! against.
 
+pub mod console_dispatch;
 pub mod ir;
 pub mod optimizer_dispatch;
 pub mod relation_dispatch;
@@ -15,6 +16,7 @@ pub mod value;
 pub mod vision_dispatch;
 pub mod vm;
 
+pub use console_dispatch::ConsoleEvent;
 pub use ir::{decode, Program, SCHEMA};
 pub use reasonscript_tensor_core::{NumericMode, TensorPolicy};
 pub use value::{from_json, to_json, Value};

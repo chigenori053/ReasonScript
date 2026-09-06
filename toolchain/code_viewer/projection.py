@@ -25,11 +25,11 @@ from frontend.language_surface.namespace import NamespaceResolutionError
 from frontend.language_surface.nodes import to_json_value as surface_to_json_value
 from frontend.language_surface.parser import SurfaceSyntaxError, parse
 from frontend.language_surface.validation import SurfaceValidationError
-from frontend.lsp.model import Diagnostic, DiagnosticSeverity, Location, point_range
+from frontend.lsp.model import DiagnosticSeverity, Location, point_range
 
 from . import stages as _stages
 from .anchors import scan_anchors
-from .model import SCHEMA, Stage, StageView, TokenSpan, ViewerDocument
+from .model import SCHEMA, Diagnostic, Stage, StageView, TokenSpan, ViewerDocument
 
 
 class ProjectionError(Exception):

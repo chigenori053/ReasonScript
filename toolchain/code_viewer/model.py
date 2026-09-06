@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
-from frontend.lsp.model import Diagnostic
+from frontend.lsp.model import DiagnosticSeverity, Location
 
 from .filetree import FileTreeNode
 
@@ -24,6 +24,16 @@ class Stage(str, Enum):
     SEMANTIC = "semantic"
     IR = "ir"
     PLAN = "plan"
+
+
+@dataclass(frozen=True)
+class Diagnostic:
+    """Frozen CodeViewer diagnostic contract without LSP-only extension data."""
+
+    severity: DiagnosticSeverity
+    code: str
+    message: str
+    location: Location
 
 
 @dataclass(frozen=True)

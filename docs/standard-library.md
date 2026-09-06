@@ -101,6 +101,37 @@ string.slice(value, start, end)
 
 String calls are pure and positional.
 
+## Console & Standard Output (標準出力 API)
+
+ReasonScript provides native standard output APIs independent of any JavaScript or host environment. JavaScript runtime APIs such as `Js.log` are strictly unsupported and rejected with diagnostic `NAM-2004`.
+
+ReasonScript はホスト環境に依存しないネイティブな標準出力 API を提供します。`Js.log` 等の JavaScript 固有 API はサポートされておらず、使用時は `NAM-2004` エラーとなります。
+
+### APIs
+
+| API | Stream | Description (English) | 説明 (日本語) |
+| --- | --- | --- | --- |
+| `print(value, ...)` | `stdout` | Convenience output function | 初心者向けの簡易標準出力 API |
+| `Console.log(value, ...)` | `stdout` | Standard informational log message | 標準情報ログ出力 |
+| `Console.info(value, ...)` | `stdout` | Informational message | 通知・情報メッセージ出力 |
+| `Console.warn(value, ...)` | `stderr` | Warning diagnostic message | 警告メッセージ出力 |
+| `Console.error(value, ...)` | `stderr` | Error diagnostic message | エラーメッセージ出力 |
+
+### Stringification & Determinism (決定論的文字列化)
+
+Values passed to standard output APIs are deterministically formatted across both Python reference and Rust production runtimes:
+- `Null`: `"null"`
+- `Bool`: `"true"` or `"false"`
+- `Int`: decimal integer format (e.g. `42`)
+- `Float`: floating-point representation with decimal point (e.g. `3.14`, `1.0`)
+- `String`: raw string without surrounding quotes
+- `Array`: comma-separated items in brackets (e.g. `[1, 2, 3]`)
+- `Struct`: alphabetically sorted keys in braces (e.g. `{a: 1, b: 2}`)
+- `Enum`: `EnumName.VariantName`
+- `Optional`: `Some(...)` or `None`
+
+Multiple arguments are joined with a space and ended with a newline (`\n`).
+
 ## Vision and ReasonUnit Objects
 
 `vision.infer` and `vision.build_ruo` execute in the native host and can produce
