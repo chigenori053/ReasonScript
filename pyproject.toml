@@ -21,10 +21,11 @@ viewer = ["windows-curses>=2.3; sys_platform == 'win32'"]
 full = ["matplotlib>=3.8,<4", "fastapi>=0.110,<1", "uvicorn>=0.29,<1", "windows-curses>=2.3; sys_platform == 'win32'"]
 
 [tool.setuptools.packages.find]
-include = ["toolchain*", "runtime*", "frontend*", "playground*"]
+include = ["toolchain*", "runtime*", "frontend*", "playground*", "conformance*", "sdk*"]
 
 [tool.setuptools.package-data]
 toolchain = ["../VERSION", "../schemas/*.json", "../examples/**/*.rsn"]
+frontend = ["schemas/*.json"]
 
 [tool.ruff.lint]
 select = [
