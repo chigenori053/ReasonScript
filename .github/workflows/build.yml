@@ -25,7 +25,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: reasonscript-vsix
-          path: vscode-extension/reasonscript-*.vsix
+          path: vscode-extension/reasonscript-0.1.7.vsix
 
   build:
     runs-on: ubuntu-latest

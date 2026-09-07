@@ -42,7 +42,7 @@ jobs:
             VERSION
             docs
             golden
-            vscode-extension/reasonscript-*.vsix
+            vscode-extension/reasonscript-0.1.7.vsix
             release/${{ github.ref_name }}/reasonscript-*.zip
             release/${{ github.ref_name }}/reasonscript-*.sha256
             release/${{ github.ref_name }}/reasonscript-*.manifest.json
@@ -54,4 +54,4 @@ jobs:
             release/${{ github.ref_name }}/reasonscript-*.zip
             release/${{ github.ref_name }}/reasonscript-*.sha256
             release/${{ github.ref_name }}/reasonscript-*.manifest.json
-            vscode-extension/reasonscript-*.vsix
+            vscode-extension/reasonscript-0.1.7.vsix
