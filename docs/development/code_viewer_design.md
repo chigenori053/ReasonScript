@@ -975,7 +975,7 @@ state = _apply_pending_open(state)   # 新規追加、1行
 `_render_help`/`_render_diagnostics`と同型）:
 
 ```
-File Tree — /Users/chigenori/ReasonScriptProjects/VisonWorldModel
+File Tree — /path/to/VisionWorldModel
 
 ▾ models/
 ▸   hydrogen.rsn

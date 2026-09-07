@@ -35,3 +35,17 @@ runtime compatibility baselines are in [`contracts/`](../contracts).
 
 If prose and executable behavior disagree, treat it as a bug: open an issue
 with a minimal `.rsn` example and the output of `reason --version`.
+
+## Historical engineering records
+
+The following directories are retained for traceability and are not current
+product specifications:
+
+- `development/`: implementation decisions and design records
+- `changelog/`: phase-specific change records
+- `releases/`: earlier release scope and milestone records
+- `validation/`: validation reports captured at a point in time
+
+These records can mention older versions, incomplete platform certification,
+or superseded plans. Current behavior is defined by the references in “Start
+here”, the executable schemas, and the test suite.

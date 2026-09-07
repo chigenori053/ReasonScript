@@ -6,6 +6,18 @@ Source installation requires Python 3.11 or newer, Git, and Rust/Cargo. The
 installer is user-scoped and does not require administrator access on macOS or
 Linux.
 
+## Platform support
+
+| Platform | v0.5.5.12 distribution status | Installation path |
+| --- | --- | --- |
+| macOS Apple Silicon (`arm64`) | Official prebuilt package | GitHub Release ZIP or source |
+| Linux | No official prebuilt package; exercised by repository CI | Source only |
+| Windows 11 | No official package; device certification pending | Experimental source installer |
+
+Only the macOS arm64 ZIP attached to the v0.5.5.12 GitHub Release is a
+certified prebuilt distribution. Source-install instructions for other
+platforms do not imply release-package certification.
+
 ## macOS and Linux
 
 ```sh
@@ -20,7 +32,7 @@ installer asks you to do so. A custom installation root can be selected with
 
 Platform notes: [macOS](macos.md) and [Linux](linux.md).
 
-## Windows 11
+## Windows 11 (experimental)
 
 From PowerShell:
 

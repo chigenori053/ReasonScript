@@ -35,8 +35,8 @@ reason doctor --json
 reason install-validate --json
 ```
 
-See the [installation guide](docs/installation/README.md) for macOS, Linux,
-Windows, updates, troubleshooting, and removal.
+See the [installation guide](docs/installation/README.md) for the platform
+support matrix, source installation, updates, troubleshooting, and removal.
 
 ## Try the language
 
@@ -92,13 +92,16 @@ reason run --json
 - [CLI reference](docs/reference/cli.md)
 - [ReasonUnit Objects](docs/reasonunit-object.md)
 - [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
 - [Changelog](CHANGELOG.md)
 
 Machine-readable schemas live in [`schemas/`](schemas), and frozen runtime
-contract baselines live in [`contracts/`](contracts). Historical development
-plans, implementation reports, and validation narratives are intentionally not
-part of the public documentation set; Git history remains the source for that
-material.
+contract baselines live in [`contracts/`](contracts). Documents under
+`docs/development`, `docs/changelog`, `docs/releases`, and `docs/validation`
+are non-normative engineering records; they may describe older releases. Use
+the language, standard-library, CLI, and installation references above for
+current behavior.
 
 ## Validate a checkout
 
