@@ -94,6 +94,8 @@ RUST_CRATES = [
     "TestPlayground",
     "apps/reasonscript-ide/src-tauri",
     "ReasonRuntime",
+    "ClusterRuntime",
+    "VisualizationRuntime",
 ]
 
 RUST_TEST_CRATES = [
