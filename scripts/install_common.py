@@ -61,7 +61,7 @@ def install(prefix: Path, json_output: bool) -> int:
         for name in DISTRIBUTION_TARGETS:
             source = ROOT / name
             shutil.copytree(source, temp / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".venv", "node_modules", ".git", "target"))
-        for name in ("reason", "VERSION", "pyproject.toml"):
+        for name in ("reason", "VERSION", "pyproject.toml", "LICENSE"):
             if (ROOT / name).is_file():
                 shutil.copy2(ROOT / name, temp / name)
         runtime_launcher = temp / "bin/reason-runtime"

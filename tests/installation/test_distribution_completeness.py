@@ -158,6 +158,7 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     package = Path(json.loads(result.stdout)["path"])
+    assert (package / "payload/LICENSE").is_file()
     assert (package / "payload/ReasonRuntime/crates/vision-core/Cargo.toml").is_file()
     assert (package / "payload/ReasonRuntime/crates/reason-object-core/Cargo.toml").is_file()
     assert (package / "payload/VisualizationRuntime/Cargo.toml").is_file()

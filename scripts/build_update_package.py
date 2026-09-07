@@ -89,7 +89,7 @@ def _write_payload(package: Path, target_platform: str) -> Path:
     )
     for name in DISTRIBUTION_TARGETS:
         shutil.copytree(ROOT / name, payload / name, ignore=ignored)
-    for name in ("reason", "VERSION", "pyproject.toml"):
+    for name in ("reason", "VERSION", "pyproject.toml", "LICENSE"):
         shutil.copy2(ROOT / name, payload / name)
     runtime_launcher = payload / "bin/reason-runtime"
     runtime_launcher.parent.mkdir()

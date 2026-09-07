@@ -5,10 +5,7 @@
   "language_version": "0.7",
   "minimum_python": "3.11",
   "supported_platforms": [
-    "macos-arm64",
-    "macos-x86_64",
-    "windows-x86_64",
-    "linux-x86_64"
+    "macos-arm64"
   ],
   "components": [
     {"id": "cli", "source": "reason", "required": true},

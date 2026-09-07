@@ -66,7 +66,7 @@ EVALUATION_SCHEMAS = (
     "roc_curve.schema.json", "rule_evaluation.schema.json",
 )
 INTEGRITY_ENTRY_POINTS = (
-    "reason", "VERSION", "scripts/reason_cli.py", "toolchain/__main__.py",
+    "reason", "VERSION", "LICENSE", "scripts/reason_cli.py", "toolchain/__main__.py",
     "playground/backend/main.py", "metadata/release_manifest.json",
     "ReasonRuntime/crates/vision-core/Cargo.toml", "frontend/vision/contracts.py",
     "VisualizationRuntime/Cargo.toml",

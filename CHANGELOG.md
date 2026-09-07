@@ -4,6 +4,8 @@
 
 - Repackaged the validated v0.5.5 line as the canonical macOS arm64 release.
 - Preserved language core `0.7`, Install Foundation `1.1`, and runtime compatibility `>=0.5.0,<0.6.0`.
+- Limited the binary support declaration to the shipped macOS arm64 target and included the Apache-2.0 license in the package.
+- Added a tag-driven GitHub Release path and complete Python package dependency metadata.
 
 ## [0.5.5.11] - 2026-09-06
 

@@ -1,5 +1,9 @@
 # Installing on macOS
 
+The V0.5.5.12 prebuilt package supports Apple Silicon (`arm64`). Download the
+ZIP and SHA-256 sidecar from the GitHub Release, verify them with `shasum -a 256
+-c`, then pass the ZIP to `reason update --package`.
+
 Source installation requires Python 3.11 or newer, Git, and Rust/Cargo to build
 the native ReasonRuntime/crates/vision-core. Run `./scripts/install.sh --non-interactive`; then add
 `~/.reasonscript/bin` to `PATH`. A custom root can be selected with `--prefix`

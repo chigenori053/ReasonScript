@@ -9,17 +9,19 @@ description = "ReasonScript CLI and runtime"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
+dependencies = ["pydantic>=2,<3"]
 
 [project.scripts]
 reason = "toolchain.__main__:main"
 
 [project.optional-dependencies]
 visualization = ["matplotlib>=3.8,<4"]
+playground = ["fastapi>=0.110,<1", "uvicorn>=0.29,<1"]
 viewer = ["windows-curses>=2.3; sys_platform == 'win32'"]
-full = ["matplotlib>=3.8,<4", "windows-curses>=2.3; sys_platform == 'win32'"]
+full = ["matplotlib>=3.8,<4", "fastapi>=0.110,<1", "uvicorn>=0.29,<1", "windows-curses>=2.3; sys_platform == 'win32'"]
 
 [tool.setuptools.packages.find]
-include = ["toolchain*", "runtime*", "frontend*"]
+include = ["toolchain*", "runtime*", "frontend*", "playground*"]
 
 [tool.setuptools.package-data]
 toolchain = ["../VERSION", "../schemas/*.json", "../examples/**/*.rsn"]
