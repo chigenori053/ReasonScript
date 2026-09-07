@@ -1,10 +1,10 @@
 {
   "build": {
-    "source_date_epoch": 1788768000,
-    "timestamp_utc": "2026-09-07T08:00:00Z"
+    "source_date_epoch": 1788765077,
+    "timestamp_utc": "2026-09-07T07:11:17Z"
   },
   "builder": {
-    "implementation_sha256": "a9348443adeb42218ee630264373e74c6a97beda2f0c11f5d1288dc04e58c44c",
+    "implementation_sha256": "6681743a1de6877f9df9f92f207a0a4314b4afcb7026759d4844080d64346235",
     "name": "build_update_package.py",
     "runtime": "python",
     "runtime_version": "3.14.0",
@@ -155,6 +155,12 @@
         "path": "payload/ClusterRuntime/tests/dynamic_reason_unit.rs",
         "sha256": "ceeead204b44e3f745989390fc0651c2fe64fe36b37c5f142a6d8f19f2f2fddb",
         "size_bytes": 1939
+      },
+      {
+        "executable": false,
+        "path": "payload/LICENSE",
+        "sha256": "6578ffe4aed9082a5c1daf1442b8ef40883db80d151dda6a7bc9e1aacb76ab70",
+        "size_bytes": 11350
       },
       {
         "executable": false,
@@ -1917,8 +1923,8 @@
       {
         "executable": false,
         "path": "payload/metadata/release_manifest.json",
-        "sha256": "96f0bf396255559aae9a75b33cb95427fb0f61a6a764b283c66fbf24782f91eb",
-        "size_bytes": 1696
+        "sha256": "05e85a0b5fd14e31814e675e772dce5922ec438224777ea37fbc252aa2348b84",
+        "size_bytes": 1634
       },
       {
         "executable": false,
@@ -2013,8 +2019,8 @@
       {
         "executable": false,
         "path": "payload/pyproject.toml",
-        "sha256": "e67a86fa4dca7381236739c129211ed291b822c444cdb3ea384576803918ac35",
-        "size_bytes": 846
+        "sha256": "136babf2449da042f8c4fb31588e1d8cc139eb1d311d16525d648e5863ab58e0",
+        "size_bytes": 991
       },
       {
         "executable": true,
@@ -2673,8 +2679,8 @@
       {
         "executable": false,
         "path": "payload/scripts/build_update_package.py",
-        "sha256": "a9348443adeb42218ee630264373e74c6a97beda2f0c11f5d1288dc04e58c44c",
-        "size_bytes": 16726
+        "sha256": "6681743a1de6877f9df9f92f207a0a4314b4afcb7026759d4844080d64346235",
+        "size_bytes": 16737
       },
       {
         "executable": false,
@@ -2703,8 +2709,8 @@
       {
         "executable": true,
         "path": "payload/scripts/install_common.py",
-        "sha256": "8f0de63468bf6aa4e3c51f3243191f0d76929eb55722797d0832b70b05952524",
-        "size_bytes": 16453
+        "sha256": "ceab03fc1d81ce5fe129ae97f2ccdd08922eec7b340d01c3f27e684efb6466ed",
+        "size_bytes": 16464
       },
       {
         "executable": false,
@@ -2925,8 +2931,8 @@
       {
         "executable": false,
         "path": "payload/toolchain/distribution_validation.py",
-        "sha256": "b09034c313b1a532ea8b9155f9617932c9215f046b416d1c12104383278b2e82",
-        "size_bytes": 16297
+        "sha256": "5acc5517a04fb7479aa8d323f3cf851a495f3cc00ec05af866b408d1c7673b0c",
+        "size_bytes": 16308
       },
       {
         "executable": false,
@@ -3470,12 +3476,12 @@
       }
     ],
     "hash_algorithm": "sha256",
-    "payload_sha256": "ea285513a826fa8bc23320f1f3344375ae6e1e83d74b5c7b96fd5b5a93e4c7ba"
+    "payload_sha256": "b65ab7f550a5f54afdf3b818e3429acc9927fac4390b1565264fa8ab61108e54"
   },
   "package_class": "release",
   "package_id": "reasonscript-0.5.5.12-macos-arm64",
   "release": {
-    "expected_commit": "d2bb82294af01ecb3728df0d95e854c98dacff6d",
+    "expected_commit": "c6c8c854d7e1a78b3855ebc1432df808447b1c3d",
     "expected_version": "0.5.5.12"
   },
   "repository": {
@@ -3484,8 +3490,8 @@
   },
   "schema_version": "reasonscript-update-package-manifest/1.0",
   "source_commit": {
-    "sha": "d2bb82294af01ecb3728df0d95e854c98dacff6d",
-    "short_sha": "d2bb822"
+    "sha": "c6c8c854d7e1a78b3855ebc1432df808447b1c3d",
+    "short_sha": "c6c8c85"
   },
   "source_tree": {
     "dirty": false,
