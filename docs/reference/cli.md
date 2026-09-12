@@ -316,6 +316,7 @@ platform = "0.2"               # platform version
 [runtime]
 backend = "RuntimeReal"        # "RuntimeReal" or "HybridRuntime"
 max_call_depth = 100           # optional positive integer recursion limit
+max_loop_iterations = 100000   # optional positive integer; default 10000 block visits per call
 
 [dependencies]
 # package dependencies

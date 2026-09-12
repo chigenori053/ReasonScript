@@ -38,6 +38,7 @@ def execute_rust_program(
     backend: str = "RuntimeReal",
     include_trace: bool = False,
     max_call_depth: int | None = None,
+    max_loop_iterations: int | None = None,
 ) -> dict[str, Any]:
     from frontend.computation_ir import LoweringError, lower_program
     from frontend.computation_ir.optimizer import optimize_program
@@ -58,6 +59,7 @@ def execute_rust_program(
         backend=backend,
         include_trace=include_trace,
         max_call_depth=max_call_depth,
+        max_loop_iterations=max_loop_iterations,
     )
 
 
@@ -70,6 +72,7 @@ def execute_rust_ir(
     backend: str = "RuntimeReal",
     include_trace: bool = False,
     max_call_depth: int | None = None,
+    max_loop_iterations: int | None = None,
 ) -> dict[str, Any]:
     from frontend.computation_ir.rust_bridge import find_binary, run_ir
 
@@ -95,8 +98,12 @@ def execute_rust_ir(
     # request entirely, so the Rust host falls back to its own
     # DEFAULT_MAX_CALL_DEPTH -- the default value itself isn't duplicated
     # here, only whether the caller (ultimately, `reason.toml`'s
-    # `[runtime] max_call_depth`) overrides it.
-    limits = {"max_call_depth": max_call_depth} if max_call_depth is not None else {}
+    # `[runtime] max_call_depth` / `max_loop_iterations`) overrides it.
+    limits = {
+        key: value
+        for key, value in (("max_call_depth", max_call_depth), ("max_loop_iterations", max_loop_iterations))
+        if value is not None
+    }
     try:
         outcome = run_ir(
             ir_document,

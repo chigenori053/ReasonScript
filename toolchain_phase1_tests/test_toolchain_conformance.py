@@ -595,6 +595,23 @@ class TC1011MaxCallDepthContract(unittest.TestCase):
         payload = json.loads(stdout.getvalue())
         self.assertEqual(payload["runtime_result"]["result"], 10)
 
+    def test_reason_run_stops_at_a_configured_max_loop_iterations(self):
+        # L-010: the loop limit is configurable the same way.
+        _setup_recursive_project(self.tmp, max_call_depth=None)
+        with (self.tmp / "reason.toml").open("a", encoding="utf-8") as toml:
+            toml.write("max_loop_iterations = 5\n")
+        (self.tmp / "src" / "main.rsn").write_text(
+            "module DepthTest {\n  calculation Main {\n    let i = 0\n"
+            "    while i < 10 {\n      i = i + 1\n    }\n    result = i\n  }\n}\n",
+            encoding="utf-8",
+        )
+        build_run(self.tmp)
+        stdout = io.StringIO()
+        with redirect_stdout(stdout):
+            rc = run_run(self.tmp)
+        self.assertEqual(rc, 2)
+        self.assertEqual(json.loads(stdout.getvalue())["diagnostics"][0]["code"], "RT-LOOP-001")
+
 
 class TC1011ManifestConsistency(unittest.TestCase):
     """TC1-011: reason init and Manifest contract consistency."""
