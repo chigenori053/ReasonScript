@@ -21,7 +21,7 @@ def _load_toolchain_version() -> str:
             return version_file.read_text(encoding="utf-8").strip()
     except Exception:
         pass
-    return "0.5.5.12"
+    return "0.5.5.13"
 
 
 COMPILER_VERSION = _load_toolchain_version()

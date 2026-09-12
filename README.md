@@ -7,16 +7,16 @@ Rust runtime host.
 
 > **Note on Language Identity**: ReasonScript is an independent programming language. It is **not affiliated with, derived from, or compatible with ReScript, Reason, or ReasonML**. ReasonScript programs use `.rsn` source files, the canonical `reason` CLI tool, and native syntax constructs (`model`, `module`, `fn`, `calculation`, `goal`, `state`).
 
-Current release: **v0.5.5.12** (language core `0.7`).
+Current release: **v0.5.5.13** (language core `0.7`).
 
 ## Install
 
-The prebuilt V0.5.5.12 package supports macOS arm64. Download the ZIP and its
-SHA-256 sidecar from the [V0.5.5.12 GitHub Release](https://github.com/chigenori053/ReasonScript/releases/tag/v0.5.5.12), verify it, and install or update it with:
+The prebuilt V0.5.5.13 package supports macOS arm64. Download the ZIP and its
+SHA-256 sidecar from the [V0.5.5.13 GitHub Release](https://github.com/chigenori053/ReasonScript/releases/tag/v0.5.5.13), verify it, and install or update it with:
 
 ```sh
-shasum -a 256 -c reasonscript-0.5.5.12-macos-arm64.zip.sha256
-reason update --package reasonscript-0.5.5.12-macos-arm64.zip
+shasum -a 256 -c reasonscript-0.5.5.13-macos-arm64.zip.sha256
+reason update --package reasonscript-0.5.5.13-macos-arm64.zip
 ```
 
 Source installation requires Python 3.11+, Git, and Rust/Cargo.
