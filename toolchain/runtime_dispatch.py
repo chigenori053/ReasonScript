@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -115,6 +116,13 @@ def execute_rust_ir(
             trace_enabled=trace_enabled,
             limits=limits,
         )
+    except subprocess.TimeoutExpired as error:
+        raise RustDispatchError(
+            "rust_bridge_timeout",
+            "RTH-TIMEOUT-001",
+            f"native runtime host timed out after {error.timeout:g} seconds; "
+            "raise REASONSCRIPT_RUNTIME_TIMEOUT to allow longer runs",
+        ) from error
     except (OSError, ValueError) as error:
         raise RustDispatchError(
             "rust_bridge_error",
