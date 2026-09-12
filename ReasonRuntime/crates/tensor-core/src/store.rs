@@ -140,6 +140,10 @@ impl TensorStore {
         })
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.refs.is_empty()
+    }
+
     pub fn collect(&mut self, roots: &std::collections::HashSet<String>) -> usize {
         let mut reachable = self.autograd.live_tensor_ids();
         reachable.extend(roots.iter().cloned());

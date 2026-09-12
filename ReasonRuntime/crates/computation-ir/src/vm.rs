@@ -505,6 +505,11 @@ impl<'a> Vm<'a> {
     }
 
     fn collect_tensors(&self) {
+        // ponytail: tensor programs still walk every root per instruction;
+        // collect only after tensor-creating ops if that profiles hot.
+        if self.tensors.borrow().is_empty() {
+            return;
+        }
         let mut roots = std::collections::HashSet::new();
         let mut visited_arrays = std::collections::HashSet::new();
         let mut visited_structs = std::collections::HashSet::new();
@@ -572,6 +577,10 @@ impl<'a> Vm<'a> {
                 };
                 env.borrow_mut()
                     .insert(counter.clone(), Value::Int(iteration));
+                // Snapshotting the whole env per iteration is O(state size).
+                if !self.trace_enabled {
+                    return Ok(());
+                }
                 self.loop_frames
                     .borrow_mut()
                     .insert(loop_id.clone(), (iteration, trace_env(&env.borrow())));
@@ -582,6 +591,9 @@ impl<'a> Vm<'a> {
                 break_triggered,
                 continue_triggered,
             } => {
+                if !self.trace_enabled {
+                    return Ok(());
+                }
                 let Some((iteration, previous_state)) =
                     self.loop_frames.borrow_mut().remove(loop_id)
                 else {
