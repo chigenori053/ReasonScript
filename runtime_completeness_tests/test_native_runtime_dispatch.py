@@ -266,6 +266,16 @@ class RustFirstDispatchTests(unittest.TestCase):
         self.assertEqual(result["execution_mode"], "integrated-rust")
         self.assertEqual(result["runtime_output"], [[6.0, 8.0]])
 
+    def test_host_timeout_is_a_structured_diagnostic(self):
+        # L-009: TimeoutExpired used to escape as a traceback.
+        from toolchain.runtime_dispatch import RustDispatchError, execute_rust_ir
+
+        ir = {"schema": "reason-computation-ir/0.1", "functions": [], "calculations": []}
+        with mock.patch.dict("os.environ", {"REASONSCRIPT_RUNTIME_TIMEOUT": "0.000001"}):
+            with self.assertRaises(RustDispatchError) as raised:
+                execute_rust_ir(ir, Path.cwd(), False, False)
+        self.assertEqual(raised.exception.code, "RTH-TIMEOUT-001")
+
 
 if __name__ == "__main__":
     unittest.main()

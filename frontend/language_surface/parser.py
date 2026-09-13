@@ -552,13 +552,7 @@ def _collect_simple_statement(cursor: _Cursor) -> str:
 
 
 def _expression_delimiter_balance(line: str) -> int:
-    balance = 0
-    for char in line:
-        if char in "([{":
-            balance += 1
-        elif char in ")]}":
-            balance -= 1
-    return balance
+    return _brace_delta(line, "([{", ")]}")
 
 
 def _parse_simple(line: str, *, context: str):
@@ -947,7 +941,7 @@ def _collect_function_signature(cursor: _Cursor) -> str:
 
 
 def _parenthesis_balance(line: str) -> int:
-    return line.count("(") - line.count(")")
+    return _brace_delta(line, "(", ")")
 
 
 def _parse_for(cursor: _Cursor, *, context: str) -> ForStatementNode:
@@ -1090,7 +1084,7 @@ def _complete_struct_pattern_arm(cursor: _Cursor, parts: list[str]) -> str:
     raise SurfaceSyntaxError("SP-002 NP-003 missing closing brace")
 
 
-def _brace_delta(line: str) -> int:
+def _brace_delta(line: str, opening: str = "{", closing: str = "}") -> int:
     depth = 0
     in_string: str | None = None
     escaped = False
@@ -1106,9 +1100,9 @@ def _brace_delta(line: str) -> int:
         if char in {'"', "'"}:
             in_string = char
             continue
-        if char == "{":
+        if char in opening:
             depth += 1
-        elif char == "}":
+        elif char in closing:
             depth -= 1
     return depth
 

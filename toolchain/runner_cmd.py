@@ -170,6 +170,7 @@ def _collect_package(
                 filesystem_write,
                 backend=manifest.backend,
                 max_call_depth=manifest.max_call_depth,
+                max_loop_iterations=manifest.max_loop_iterations,
             )
         except RustDispatchError as error:
             if error.reason in _INFRASTRUCTURE_REASONS:

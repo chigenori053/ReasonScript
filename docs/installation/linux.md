@@ -1,6 +1,6 @@
 # Installing on Linux
 
-ReasonScript v0.5.5.12 does not provide an official Linux binary package.
+ReasonScript v0.5.5.13 does not provide an official Linux binary package.
 Linux is exercised by repository CI, and installation is currently supported
 from source only.
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.5.13] - 2026-09-13
+
+- Fixed multi-line statement collection treating `(`, `[`, `{` inside string literals as delimiters.
+- String literals now decode `\n`, `\t`, `\r`, and `\0`; unknown escapes keep their backslash.
+- Removed per-iteration environment snapshots when loop trace is disabled, and skipped tensor collection when no tensors are live; array/struct reads no longer scale with state size.
+- Added `[runtime] max_loop_iterations` to `reason.toml`.
+- Native runtime host timeouts now report `RTH-TIMEOUT-001`; `REASONSCRIPT_RUNTIME_TIMEOUT` overrides the 30-second default.
+
 ## [0.5.5.12] - 2026-09-07
 
 - Repackaged the validated v0.5.5 line as the canonical macOS arm64 release.

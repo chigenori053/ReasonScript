@@ -1,6 +1,6 @@
 # Installing on Windows 11
 
-Windows support is experimental in ReasonScript v0.5.5.12. No official Windows
+Windows support is experimental in ReasonScript v0.5.5.13. No official Windows
 package is published, and clean-device certification remains pending.
 
 Source installation requires Python 3.11 or newer, Git, and Rust/Cargo. From

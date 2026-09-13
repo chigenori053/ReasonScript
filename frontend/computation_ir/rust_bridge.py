@@ -101,7 +101,7 @@ def run_ir(
         input=json.dumps(request),
         text=True,
         capture_output=True,
-        timeout=30,
+        timeout=float(os.environ.get("REASONSCRIPT_RUNTIME_TIMEOUT", "30")),
         cwd=str(cwd) if cwd is not None else None,
     )
     payload = json.loads(completed.stdout)
