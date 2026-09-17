@@ -46,8 +46,8 @@ Example JSON response:
 {
   "version": "1.0",
   "schema": "reasonscript-diagnostics/1.0",
-  "compiler_version": "0.5.5.12",
-  "runtime_version": "0.5.5.12",
+  "compiler_version": "0.5.5.13",
+  "runtime_version": "0.5.5.13",
   "diagnostics": [
     {
       "id": "diag-00000001",

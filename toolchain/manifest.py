@@ -30,7 +30,7 @@ KNOWN_SECTION_KEYS = {
     "source": {"entry"},
     "artifacts": {"directory"},
     "compiler": {"language_core", "platform"},
-    "runtime": {"backend", "max_call_depth"},
+    "runtime": {"backend", "max_call_depth", "max_loop_iterations"},
 }
 
 
@@ -51,6 +51,7 @@ class Manifest:
     # "制御された再帰": max_call_depth as part of the compiler/runtime
     # contract, the same way `backend` already is).
     max_call_depth: int | None = None
+    max_loop_iterations: int | None = None
     dependencies: dict[str, object] = field(default_factory=dict)
     identifier: str | None = None
     project_name: str | None = None
@@ -192,13 +193,14 @@ class Manifest:
                 f"Unknown runtime backend '{backend}'. "
                 f"Supported: {', '.join(sorted(SUPPORTED_BACKENDS))}"
             )
-        max_call_depth = runtime.get("max_call_depth")
-        if max_call_depth is not None and (
-            isinstance(max_call_depth, bool)
-            or not isinstance(max_call_depth, int)
-            or max_call_depth < 1
-        ):
-            raise ManifestError("runtime.max_call_depth must be a positive integer")
+        for limit_key in ("max_call_depth", "max_loop_iterations"):
+            limit_value = runtime.get(limit_key)
+            if limit_value is not None and (
+                isinstance(limit_value, bool)
+                or not isinstance(limit_value, int)
+                or limit_value < 1
+            ):
+                raise ManifestError(f"runtime.{limit_key} must be a positive integer")
 
         # Validate [dependencies] & [capabilities]
         dependencies = data.get("dependencies", {})
@@ -214,7 +216,8 @@ class Manifest:
             language_core=language_core,
             platform=platform,
             backend=backend,
-            max_call_depth=max_call_depth,
+            max_call_depth=runtime.get("max_call_depth"),
+            max_loop_iterations=runtime.get("max_loop_iterations"),
             dependencies=dict(dependencies),
             identifier=pkg_identifier,
             project_name=proj_name,

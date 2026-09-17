@@ -69,3 +69,12 @@ def test_loop_trace_matches_ast_python_ir_and_rust(source: str):
     assert rust.ok
     assert python_ir_trace == ast_trace
     assert rust.metadata["loop_trace"] == ast_trace
+
+
+@pytest.mark.skipif(HOST is None, reason="reason-runtime-host binary not built")
+def test_rust_loop_trace_is_skipped_when_trace_disabled():
+    # L-011: per-iteration env snapshots made every step O(state size).
+    source = "module M {\n  calculation C {\n    let i = 0\n    while i < 3 {\n      i = i + 1\n    }\n    result = i\n  }\n}\n"
+    rust = run_ir(lower_program(parse(source)), binary=HOST)
+    assert rust.ok and rust.calculation_results == {"C": 3}
+    assert rust.metadata["loop_trace"] == []

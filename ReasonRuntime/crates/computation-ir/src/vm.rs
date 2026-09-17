@@ -747,7 +747,8 @@ impl<'a> Vm<'a> {
     }
 
     fn collect_tensors(&self) {
-        // Scalar/relation-only programs have no tensor roots to collect.
+        // ponytail: tensor programs still walk every root per instruction;
+        // collect only after tensor-creating ops if that profiles hot.
         if self.tensors.borrow().is_empty() {
             return;
         }

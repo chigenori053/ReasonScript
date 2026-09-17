@@ -8,13 +8,13 @@ Linux.
 
 ## Platform support
 
-| Platform | v0.5.5.12 distribution status | Installation path |
+| Platform | v0.5.5.13 distribution status | Installation path |
 | --- | --- | --- |
 | macOS Apple Silicon (`arm64`) | Official prebuilt package | GitHub Release ZIP or source |
 | Linux | No official prebuilt package; exercised by repository CI | Source only |
 | Windows 11 | No official package; device certification pending | Experimental source installer |
 
-Only the macOS arm64 ZIP attached to the v0.5.5.12 GitHub Release is a
+Only the macOS arm64 ZIP attached to the v0.5.5.13 GitHub Release is a
 certified prebuilt distribution. Source-install instructions for other
 platforms do not imply release-package certification.
 

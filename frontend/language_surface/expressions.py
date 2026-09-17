@@ -775,7 +775,9 @@ def _relation_callee_name(callee: Expression) -> str | None:
     return None
 
 
+_STRING_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "0": "\0", "\\": "\\", '"': '"', "'": "'"}
+
+
 def _decode_string(source: str) -> str:
-    quote = source[0]
-    body = source[1:-1]
-    return body.replace(f"\\{quote}", quote).replace("\\\\", "\\")
+    # Unknown escapes (e.g. Windows paths) keep their backslash.
+    return re.sub(r"\\(.)", lambda m: _STRING_ESCAPES.get(m.group(1), m.group(0)), source[1:-1])

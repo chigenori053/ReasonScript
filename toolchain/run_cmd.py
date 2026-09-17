@@ -159,6 +159,7 @@ def _run_package(
             include_trace=include_trace,
             max_call_depth=manifest.max_call_depth,
             trace_config=trace_config,
+            max_loop_iterations=manifest.max_loop_iterations,
         )
     except RustDispatchError as error:
         print(json.dumps({"status": "failure", "diagnostics": [error.to_diagnostic()]}, indent=2))
