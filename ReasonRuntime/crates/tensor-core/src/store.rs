@@ -95,10 +95,6 @@ impl TensorStore {
         self.numeric_mode
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.refs.is_empty()
-    }
-
     pub fn configure_context(
         &mut self,
         policy: TensorPolicy,
