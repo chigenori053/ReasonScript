@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.5.5.15] - 2026-09-17
 
 - Added Rust-native `relation.filter(rows, predicate)`, transient array builders,
   and semantic reasoning events, including automatic candidate-pruning events.
@@ -11,6 +11,9 @@
   and do not execute these new APIs.
 - Extended the native runtime request and regenerated the runtime capability
   manifest for the intentional addition of Rust-only collection/event APIs.
+- Packaged the Rust relation/state improvements with the v0.5.5.13 fixes for
+  the macOS arm64 distribution; retained language core `0.7`, Install Foundation
+  `1.1`, and runtime compatibility `>=0.5.0,<0.6.0`.
 
 ## [0.5.5.13] - 2026-09-13
 
