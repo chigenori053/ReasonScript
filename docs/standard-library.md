@@ -75,6 +75,7 @@ All arguments are positional. There is no mutable optimizer-handle API.
 Relation functions operate on `Array<Struct>`. Field names are strings.
 
 ```text
+relation.filter(rows, predicate)
 relation.filter_eq(rows, field, value)
 relation.filter_ne(rows, field, value)
 relation.filter_gt(rows, field, value)
@@ -87,6 +88,79 @@ relation.sort_by(rows, field, descending)
 ```
 
 Calls are positional and return new values without mutating the input rows.
+
+`relation.filter` evaluates a pure Boolean expression once per row. The single
+unbound name used as the root of a field access binds the current row (`row`
+and `candidate` are conventional names). Other names capture the current local
+values, parameters, or state fields. A predicate without a field access uses
+`row`. Captures are read when the filter runs, including variables updated
+earlier in execution.
+
+```reasonscript
+let factor = 3
+let kept = relation.filter(candidates, candidate.value % factor != 0)
+factor = 5
+kept = relation.filter(kept, row.value > minimum && row.value % factor != 0)
+```
+
+Predicates support arithmetic, comparisons, Boolean operators, field access,
+and indexing. Calls, I/O, and mutation are rejected (`REL-PRED-002`); the result
+must be Boolean (`REL-PRED-003`). Filtering scans the source once, allocates one
+output vector, and retains row references in source order. A successful pruning
+operation emits one `CANDIDATE_PRUNED` semantic event with the removed source
+indices and before/after counts. A filter that removes no rows emits no event.
+The fixed comparison functions remain available with their existing behavior.
+
+## Array builders
+
+Use a transient builder for bulk construction:
+
+```reasonscript
+let builder = array.builder()
+while value < limit {
+  builder.append(Candidate { value: value })
+  value = value + 1
+}
+let candidates = builder.finish()
+```
+
+`append(item)` snapshots the item, matching `array.append`'s item ownership
+semantics. It grows one vector with amortized constant-time append (excluding
+the size of the item), and `finish()` transfers that vector without copying it.
+Element types are inferred from appends and must agree. Builder aliases share
+one lifetime: after any alias finishes, subsequent append/finish calls fail
+with `COLL-005`. A builder is an opaque transient handle in traces; its visible
+state is its length and finished status. Its finished Array is traced normally.
+
+Ordinary `array.append` retains its existing copy semantics. Repeated full
+filters still cost the sum of all scanned rows; use bulk pruning when a meaningful
+new condition is learned, rather than filtering once to remove every tested row.
+
+## Semantic reasoning events
+
+```reasonscript
+reasoning.event("HYPOTHESIS_VERIFIED", "factor", evidence)
+reasoning.event("TERMINATION_INFERRED", "complete", remaining)
+```
+
+`reasoning.event(type, subject, evidence)` returns the semantic step number.
+Each call is one meaningful operation, independent of loop iterations or VM
+instructions. Subjects and evidence may be ordinary values, including structs.
+Supported types are `REASON_STATE_CREATED`, `RU_ACTIVATED`,
+`CANDIDATE_GENERATED`, `CANDIDATE_PRUNED`, `HYPOTHESIS_CREATED`,
+`HYPOTHESIS_VERIFIED`, `HYPOTHESIS_REJECTED`, `EVIDENCE_ADDED`,
+`STATE_TRANSITION`, `GOAL_UPDATED`, and `TERMINATION_INFERRED`.
+Unknown types fail with `REASON-EVENT-001`.
+
+The minimal API assigns monotonically increasing state revisions and leaves
+`source_ru` null. Automatic pruning events use the same step sequence. Events
+appear in `reasoning_trace`; `runtime_metrics` separately reports loop iterations,
+semantic steps, builder appends, scanned rows, and trace bytes. Disabling trace
+retains semantic counters but records no payloads. Disabling semantic events in
+the runtime request returns step `0` and emits no semantic events.
+
+These new collection and event APIs execute in the native Rust host. The Python
+interpreters retain their earlier reference API surface.
 
 ## String
 

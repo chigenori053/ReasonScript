@@ -23,6 +23,7 @@ def run(
     filesystem_read: bool = False,
     filesystem_write: bool = False,
     auto_build: bool = False,
+    trace_config: dict | None = None,
 ) -> int:
     try:
         workspace = PackageGraphService().discover(project_root)
@@ -47,6 +48,7 @@ def run(
             filesystem_read=filesystem_read,
             filesystem_write=filesystem_write,
             auto_build=auto_build,
+            trace_config=trace_config,
         )
 
     if package is not None and package != workspace.default_package.name:
@@ -60,6 +62,7 @@ def run(
         filesystem_read=filesystem_read,
         filesystem_write=filesystem_write,
         auto_build=auto_build,
+        trace_config=trace_config,
     )
 
 
@@ -72,6 +75,7 @@ def _run_package(
     filesystem_read: bool = False,
     filesystem_write: bool = False,
     auto_build: bool = False,
+    trace_config: dict | None = None,
 ) -> int:
     try:
         manifest = Manifest.load(project_root)
@@ -154,6 +158,7 @@ def _run_package(
             backend=manifest.backend,
             include_trace=include_trace,
             max_call_depth=manifest.max_call_depth,
+            trace_config=trace_config,
         )
     except RustDispatchError as error:
         print(json.dumps({"status": "failure", "diagnostics": [error.to_diagnostic()]}, indent=2))

@@ -38,6 +38,7 @@ def execute_rust_program(
     backend: str = "RuntimeReal",
     include_trace: bool = False,
     max_call_depth: int | None = None,
+    trace_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     from frontend.computation_ir import LoweringError, lower_program
     from frontend.computation_ir.optimizer import optimize_program
@@ -58,6 +59,7 @@ def execute_rust_program(
         backend=backend,
         include_trace=include_trace,
         max_call_depth=max_call_depth,
+        trace_config=trace_config,
     )
 
 
@@ -70,6 +72,7 @@ def execute_rust_ir(
     backend: str = "RuntimeReal",
     include_trace: bool = False,
     max_call_depth: int | None = None,
+    trace_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     from frontend.computation_ir.rust_bridge import find_binary, run_ir
 
@@ -106,6 +109,7 @@ def execute_rust_ir(
             filesystem_write=filesystem_write,
             backend=backend,
             trace_enabled=trace_enabled,
+            **({"trace_config": trace_config} if trace_config is not None and not trace_unsupported else {}),
             limits=limits,
         )
     except (OSError, ValueError) as error:
@@ -134,7 +138,8 @@ def execute_rust_ir(
         "loop_trace": outcome.metadata.get("loop_trace", []),
         "vision_trace": outcome.metadata.get("vision_trace", []),
         "reasoning_trace": outcome.metadata.get("reasoning_trace", []),
-        "trace_diagnostics": ([{
+        "runtime_metrics": outcome.metadata.get("runtime_metrics", {}),
+        "trace_diagnostics": outcome.metadata.get("trace_diagnostics", []) + ([{
             "code": "RTH-TRACE-001",
             "severity": "warning",
             "category": "runtime.trace",

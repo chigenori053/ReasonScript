@@ -68,6 +68,8 @@ def run_ir(
     filesystem_write: bool = True,
     backend: str = "RuntimeReal",
     trace_enabled: bool = False,
+    trace_config: dict[str, Any] | None = None,
+    semantic_events: bool = True,
     limits: dict[str, int] | None = None,
 ) -> RustRunResult:
     resolved = binary or find_binary()
@@ -91,7 +93,8 @@ def run_ir(
                 "network": False,
             },
             "limits": limits or {},
-            "trace": {"enabled": trace_enabled},
+            "trace": {"enabled": trace_enabled, **(trace_config or {})},
+            "reasoning": {"semantic_events": semantic_events},
             "numeric_mode": os.environ.get("REASONSCRIPT_NUMERIC_MODE", "compat-reference"),
             "backend": backend,
         },

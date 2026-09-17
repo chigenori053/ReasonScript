@@ -9,12 +9,13 @@
 //! Vision and Reason Object calls are dispatched in-process to their Rust
 //! libraries; no per-operation subprocess bridge remains on this path.
 
-use std::cell::RefCell;
-use std::collections::HashMap;
+use std::cell::{Cell, RefCell};
+use std::collections::{HashMap, VecDeque};
 use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
 use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
+use crate::state_trace::{TraceConfig, TraceMode, TraceState};
 use crate::value::{from_json, to_json, RuntimeReasonObject, StructValue, Value};
 
 #[derive(Debug)]
@@ -61,8 +62,20 @@ pub struct Vm<'a> {
     reason_objects: RefCell<HashMap<String, Value>>,
     reasoning_bindings: HashMap<String, Value>,
     loop_trace: RefCell<Vec<serde_json::Value>>,
-    loop_frames: RefCell<HashMap<String, (i64, serde_json::Value)>>,
+    loop_frames: RefCell<HashMap<String, Vec<(i64, serde_json::Value)>>>,
     trace_enabled: bool,
+    trace_config: TraceConfig,
+    trace_states: RefCell<Vec<Option<TraceState>>>,
+    trace_bytes: Cell<usize>,
+    trace_suppressed: Cell<bool>,
+    trace_event_id: Cell<u64>,
+    trace_frame_id: Cell<u64>,
+    sampled_tail: RefCell<VecDeque<(serde_json::Value, usize)>>,
+    semantic_events: bool,
+    semantic_steps: Cell<u64>,
+    loop_iterations: Cell<u64>,
+    builder_appends: Cell<u64>,
+    relation_rows_scanned: Cell<u64>,
     tensor_trace: RefCell<Vec<serde_json::Value>>,
     vision_trace: RefCell<Vec<serde_json::Value>>,
     reasoning_trace: RefCell<Vec<serde_json::Value>>,
@@ -78,18 +91,33 @@ pub struct Vm<'a> {
 
 struct FrameGuard<'a, 'v> {
     vm: &'a Vm<'v>,
+    traced: bool,
 }
 
 impl<'a, 'v> FrameGuard<'a, 'v> {
-    fn new(vm: &'a Vm<'v>, env: &Rc<RefCell<HashMap<String, Value>>>) -> Self {
+    fn new(vm: &'a Vm<'v>, env: &Rc<RefCell<HashMap<String, Value>>>, traceable: bool) -> Self {
         vm.active_frames.borrow_mut().push(env.clone());
-        FrameGuard { vm }
+        let traced = matches!(vm.trace_config.mode, TraceMode::Delta | TraceMode::Sampled)
+            && !vm.trace_suppressed.get();
+        if traced && traceable {
+            let mut state = TraceState::new(&env.borrow());
+            let id = vm.trace_frame_id.get() + 1;
+            vm.trace_frame_id.set(id);
+            state.frame_id = id;
+            vm.trace_states.borrow_mut().push(Some(state));
+        } else if traced {
+            vm.trace_states.borrow_mut().push(None);
+        }
+        FrameGuard { vm, traced }
     }
 }
 
 impl<'a, 'v> Drop for FrameGuard<'a, 'v> {
     fn drop(&mut self) {
         self.vm.active_frames.borrow_mut().pop();
+        if self.traced {
+            self.vm.trace_states.borrow_mut().pop();
+        }
     }
 }
 
@@ -189,6 +217,25 @@ impl<'a> Vm<'a> {
             loop_trace: RefCell::new(Vec::new()),
             loop_frames: RefCell::new(HashMap::new()),
             trace_enabled,
+            trace_config: TraceConfig {
+                mode: if trace_enabled {
+                    TraceMode::Delta
+                } else {
+                    TraceMode::Off
+                },
+                ..TraceConfig::default()
+            },
+            trace_states: RefCell::new(Vec::new()),
+            trace_bytes: Cell::new(0),
+            trace_suppressed: Cell::new(false),
+            trace_event_id: Cell::new(0),
+            trace_frame_id: Cell::new(0),
+            sampled_tail: RefCell::new(VecDeque::new()),
+            semantic_events: true,
+            semantic_steps: Cell::new(0),
+            loop_iterations: Cell::new(0),
+            builder_appends: Cell::new(0),
+            relation_rows_scanned: Cell::new(0),
             tensor_trace: RefCell::new(Vec::new()),
             vision_trace: RefCell::new(Vec::new()),
             reasoning_trace: RefCell::new(Vec::new()),
@@ -204,7 +251,187 @@ impl<'a> Vm<'a> {
     }
 
     pub fn loop_trace(&self) -> Vec<serde_json::Value> {
-        self.loop_trace.borrow().clone()
+        let mut result = self.loop_trace.borrow().clone();
+        if self.trace_config.mode == TraceMode::Sampled {
+            result.extend(
+                self.sampled_tail
+                    .borrow()
+                    .iter()
+                    .map(|(event, _)| event.clone()),
+            );
+            result.sort_by_key(|event| event["event_id"].as_u64().unwrap_or(0));
+            result.dedup_by_key(|event| event["event_id"].as_u64().unwrap_or(0));
+        }
+        result
+    }
+
+    pub fn configure_trace(&mut self, config: TraceConfig, semantic_events: bool) {
+        self.trace_enabled = config.mode != TraceMode::Off;
+        self.trace_config = config;
+        self.semantic_events = semantic_events;
+    }
+
+    pub fn trace_diagnostics(&self) -> Vec<serde_json::Value> {
+        if self.trace_suppressed.get() {
+            vec![
+                serde_json::json!({"code": "TRACE-BUDGET-001", "severity": "warning", "category": "runtime.trace", "message": "trace size budget exceeded; further trace recording was disabled; execution continued"}),
+            ]
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn runtime_metrics(&self) -> serde_json::Value {
+        serde_json::json!({
+            "loop_iterations": self.loop_iterations.get(),
+            "semantic_reasoning_steps": self.semantic_steps.get(),
+            "builder_appends": self.builder_appends.get(),
+            "builder_full_copies": 0,
+            "relation_rows_scanned": self.relation_rows_scanned.get(),
+            "trace_bytes": self.trace_bytes.get(),
+            "trace_mode": format!("{:?}", self.trace_config.mode).to_lowercase(),
+        })
+    }
+
+    fn reserve_trace(&self, event: &serde_json::Value) -> Option<usize> {
+        if !self.trace_enabled || self.trace_suppressed.get() {
+            return None;
+        }
+        let bytes = serde_json::to_vec(event).ok()?.len();
+        if bytes
+            > self
+                .trace_config
+                .max_bytes
+                .saturating_sub(self.trace_bytes.get())
+        {
+            self.trace_suppressed.set(true);
+            return None;
+        }
+        self.trace_bytes.set(self.trace_bytes.get() + bytes);
+        Some(bytes)
+    }
+
+    fn trace_assign(&self, name: &str, old: Option<&Value>, value: &Value) {
+        if self.trace_suppressed.get() {
+            return;
+        }
+        if let Some(state) = self
+            .trace_states
+            .borrow_mut()
+            .last_mut()
+            .and_then(Option::as_mut)
+        {
+            state.assign(name, old, value);
+        }
+    }
+
+    fn trace_mutation(&self, owner: &Value, suffix: &[String], old: Option<&Value>, value: &Value) {
+        if self.trace_suppressed.get() {
+            return;
+        }
+        for state in self.trace_states.borrow_mut().iter_mut().flatten() {
+            state.mutation(owner, suffix, old, value);
+        }
+    }
+
+    fn semantic_event(
+        &self,
+        event_type: &str,
+        subject: serde_json::Value,
+        evidence: serde_json::Value,
+        affected: serde_json::Value,
+        metadata: serde_json::Value,
+    ) -> Result<Value, RuntimeError> {
+        const TYPES: &[&str] = &[
+            "REASON_STATE_CREATED",
+            "RU_ACTIVATED",
+            "CANDIDATE_GENERATED",
+            "CANDIDATE_PRUNED",
+            "HYPOTHESIS_CREATED",
+            "HYPOTHESIS_VERIFIED",
+            "HYPOTHESIS_REJECTED",
+            "EVIDENCE_ADDED",
+            "STATE_TRANSITION",
+            "GOAL_UPDATED",
+            "TERMINATION_INFERRED",
+        ];
+        if !TYPES.contains(&event_type) {
+            return Err(RuntimeError::new(
+                "REASON-EVENT-001",
+                format!("invalid reasoning event: {event_type}"),
+            ));
+        }
+        if !self.semantic_events {
+            return Ok(Value::Int(0));
+        }
+        let step = self.semantic_steps.get() + 1;
+        self.semantic_steps.set(step);
+        if !self.trace_enabled || self.trace_suppressed.get() {
+            return Ok(Value::Int(step as i64));
+        }
+        let event = serde_json::json!({
+            "event_id": format!("reason-event-{step}"),
+            "reasoning_step_id": step,
+            "event_type": event_type,
+            "source_ru": null,
+            "state_revision": step,
+            "subject": subject,
+            "evidence": evidence,
+            "affected_entities": affected,
+            "metadata": metadata,
+        });
+        if self.reserve_trace(&event).is_some() {
+            self.reasoning_trace.borrow_mut().push(event);
+        }
+        Ok(Value::Int(step as i64))
+    }
+
+    fn retain_state_event(&self, event: serde_json::Value) {
+        if self.trace_config.mode == TraceMode::Sampled {
+            let id = event["event_id"].as_u64().unwrap_or(0);
+            let selected = id <= 100 || id % 100 == 0;
+            let mut tail = self.sampled_tail.borrow_mut();
+            if tail.len() == 100 {
+                if let Some((_, size)) = tail.pop_front() {
+                    self.trace_bytes
+                        .set(self.trace_bytes.get().saturating_sub(size));
+                }
+            }
+            if let Some(size) = self.reserve_trace(&event) {
+                if selected {
+                    tail.push_back((event.clone(), 0));
+                    self.loop_trace.borrow_mut().push(event);
+                } else {
+                    tail.push_back((event, size));
+                }
+            }
+        } else if self.reserve_trace(&event).is_some() {
+            self.loop_trace.borrow_mut().push(event);
+        }
+    }
+
+    fn finish_trace(&self) -> Result<(), RuntimeError> {
+        if self.trace_suppressed.get() {
+            return Ok(());
+        }
+        let mut states = self.trace_states.borrow_mut();
+        if let Some(state) = states.last_mut().and_then(Option::as_mut) {
+            if let Some(mut event) = state.finish() {
+                let id = self.trace_event_id.get() + 1;
+                self.trace_event_id.set(id);
+                event["event_id"] = serde_json::json!(id);
+                event["step_id"] = serde_json::json!(id);
+                state.previous_event_id = Some(id);
+                if self.trace_config.checkpoint_interval > 0
+                    && id % self.trace_config.checkpoint_interval == 0
+                {
+                    event["checkpoint"] = state.checkpoint();
+                }
+                drop(states);
+                self.retain_state_event(event);
+            }
+        }
+        Ok(())
     }
 
     pub fn tensor_trace(&self) -> Vec<serde_json::Value> {
@@ -381,7 +608,13 @@ impl<'a> Vm<'a> {
         env: &Rc<RefCell<HashMap<String, Value>>>,
         call_depth: u32,
     ) -> Result<Outcome, RuntimeError> {
-        let _frame_guard = FrameGuard::new(self, env);
+        let traceable = function.blocks.iter().any(|block| {
+            block
+                .instructions
+                .iter()
+                .any(|instruction| matches!(instruction, Instruction::TraceLoopStart { .. }))
+        });
+        let _frame_guard = FrameGuard::new(self, env, traceable);
         let blocks: HashMap<&str, &Block> = function
             .blocks
             .iter()
@@ -431,10 +664,14 @@ impl<'a> Vm<'a> {
                         self.resolve_block_id(&blocks, if taken { then } else { else_target })?;
                 }
                 Terminator::Result { value } => {
-                    return Ok(Outcome::Result(self.eval_expr(value, env, call_depth)?))
+                    let value = self.eval_expr(value, env, call_depth)?;
+                    self.finish_trace()?;
+                    return Ok(Outcome::Result(value));
                 }
                 Terminator::Return { value } => {
-                    return Ok(Outcome::Return(self.eval_expr(value, env, call_depth)?))
+                    let value = self.eval_expr(value, env, call_depth)?;
+                    self.finish_trace()?;
+                    return Ok(Outcome::Return(value));
                 }
                 Terminator::Trap { code, message } => {
                     if code == "IR-NO-VALUE" {
@@ -477,6 +714,11 @@ impl<'a> Vm<'a> {
                             }
                         };
                         if guard_ok {
+                            for (name, old) in &previous {
+                                if let Some(value) = env.borrow().get(name) {
+                                    self.trace_assign(name, old.as_ref(), value);
+                                }
+                            }
                             matched_target = Some(arm.target.as_str());
                             break;
                         }
@@ -505,6 +747,10 @@ impl<'a> Vm<'a> {
     }
 
     fn collect_tensors(&self) {
+        // Scalar/relation-only programs have no tensor roots to collect.
+        if self.tensors.borrow().is_empty() {
+            return;
+        }
         let mut roots = std::collections::HashSet::new();
         let mut visited_arrays = std::collections::HashSet::new();
         let mut visited_structs = std::collections::HashSet::new();
@@ -572,9 +818,30 @@ impl<'a> Vm<'a> {
                 };
                 env.borrow_mut()
                     .insert(counter.clone(), Value::Int(iteration));
-                self.loop_frames
-                    .borrow_mut()
-                    .insert(loop_id.clone(), (iteration, trace_env(&env.borrow())));
+                self.loop_iterations.set(self.loop_iterations.get() + 1);
+                if !self.trace_suppressed.get() {
+                    match self.trace_config.mode {
+                        TraceMode::Off => {}
+                        TraceMode::Full => {
+                            let key = format!("{}:{loop_id}", self.active_frames.borrow().len());
+                            self.loop_frames
+                                .borrow_mut()
+                                .entry(key)
+                                .or_default()
+                                .push((iteration, trace_env(&env.borrow())));
+                        }
+                        _ => {
+                            if let Some(state) = self
+                                .trace_states
+                                .borrow_mut()
+                                .last_mut()
+                                .and_then(Option::as_mut)
+                            {
+                                state.begin(loop_id, iteration);
+                            }
+                        }
+                    }
+                }
                 Ok(())
             }
             Instruction::TraceLoopEnd {
@@ -582,27 +849,55 @@ impl<'a> Vm<'a> {
                 break_triggered,
                 continue_triggered,
             } => {
-                let Some((iteration, previous_state)) =
-                    self.loop_frames.borrow_mut().remove(loop_id)
-                else {
-                    return Err(RuntimeError::new(
-                        "IR-EXEC-009",
-                        "loop trace frame is missing",
-                    ));
-                };
-                self.loop_trace.borrow_mut().push(serde_json::json!({
-                    "loop_id": loop_id,
-                    "iteration": iteration,
-                    "condition": true,
-                    "previous_state": previous_state,
-                    "updated_state": trace_env(&env.borrow()),
-                    "break_triggered": break_triggered,
-                    "continue_triggered": continue_triggered,
-                }));
+                if self.trace_config.mode == TraceMode::Off || self.trace_suppressed.get() {
+                    return Ok(());
+                }
+                if self.trace_config.mode == TraceMode::Full {
+                    let key = format!("{}:{loop_id}", self.active_frames.borrow().len());
+                    let (iteration, previous_state) = self
+                        .loop_frames
+                        .borrow_mut()
+                        .get_mut(&key)
+                        .and_then(Vec::pop)
+                        .ok_or_else(|| {
+                            RuntimeError::new("IR-EXEC-009", "loop trace frame is missing")
+                        })?;
+                    let event = serde_json::json!({
+                        "loop_id": loop_id, "iteration": iteration, "condition": true,
+                        "previous_state": previous_state, "updated_state": trace_env(&env.borrow()),
+                        "break_triggered": break_triggered, "continue_triggered": continue_triggered,
+                    });
+                    if self.reserve_trace(&event).is_some() {
+                        self.loop_trace.borrow_mut().push(event);
+                    }
+                } else {
+                    let id = self.trace_event_id.get() + 1;
+                    self.trace_event_id.set(id);
+                    let mut states = self.trace_states.borrow_mut();
+                    let state = states.last_mut().and_then(Option::as_mut).ok_or_else(|| {
+                        RuntimeError::new("TRACE-DELTA-001", "trace state is missing")
+                    })?;
+                    let first = state.previous_event_id.is_none();
+                    let mut event = state.end(loop_id)?;
+                    event["event_id"] = serde_json::json!(id);
+                    state.previous_event_id = Some(id);
+                    event["step_id"] = serde_json::json!(id);
+                    event["break_triggered"] = serde_json::json!(break_triggered);
+                    event["continue_triggered"] = serde_json::json!(continue_triggered);
+                    if first
+                        || (self.trace_config.checkpoint_interval > 0
+                            && id % self.trace_config.checkpoint_interval == 0)
+                    {
+                        event["checkpoint"] = state.checkpoint();
+                    }
+                    drop(states);
+                    self.retain_state_event(event);
+                }
                 Ok(())
             }
             Instruction::Assign { target, expr } => {
                 let value = self.eval_expr(expr, env, call_depth)?;
+                self.trace_assign(target, env.borrow().get(target), &value);
                 env.borrow_mut().insert(target.clone(), value);
                 Ok(())
             }
@@ -621,7 +916,7 @@ impl<'a> Vm<'a> {
                 let index_value = self.eval_expr(index, env, call_depth)?;
                 self.push_temporary_root(index_value.clone());
                 let new_value = self.eval_expr(expr, env, call_depth)?;
-                match collection_value {
+                match &collection_value {
                     Value::Array(items) => {
                         let index_int = match index_value {
                             Value::Int(value) => value,
@@ -632,14 +927,19 @@ impl<'a> Vm<'a> {
                                 ))
                             }
                         };
-                        let mut items = items.borrow_mut();
-                        if index_int < 0 || index_int as usize >= items.len() {
+                        if index_int < 0 || index_int as usize >= items.borrow().len() {
                             return Err(RuntimeError::new(
                                 "RT-INDEX-002",
                                 format!("index out of range: {index_int}"),
                             ));
                         }
-                        items[index_int as usize] = new_value;
+                        self.trace_mutation(
+                            &collection_value,
+                            &[index_int.to_string()],
+                            Some(&items.borrow()[index_int as usize]),
+                            &new_value,
+                        );
+                        items.borrow_mut()[index_int as usize] = new_value;
                         Ok(())
                     }
                     _ => Err(RuntimeError::new(
@@ -657,16 +957,24 @@ impl<'a> Vm<'a> {
                 let owner = self.eval_expr(object, env, call_depth)?;
                 self.push_temporary_root(owner.clone());
                 let new_value = self.eval_expr(expr, env, call_depth)?;
-                match owner {
+                match &owner {
                     Value::Struct(struct_value) => {
-                        let mut fields = struct_value.fields.borrow_mut();
-                        if !fields.contains_key(member) {
+                        if !struct_value.fields.borrow().contains_key(member) {
                             return Err(RuntimeError::new(
                                 "RT-FIELD-002",
                                 "invalid field assignment target",
                             ));
                         }
-                        fields.insert(member.clone(), new_value);
+                        self.trace_mutation(
+                            &owner,
+                            &["fields".to_owned(), member.clone()],
+                            struct_value.fields.borrow().get(member),
+                            &new_value,
+                        );
+                        struct_value
+                            .fields
+                            .borrow_mut()
+                            .insert(member.clone(), new_value);
                         Ok(())
                     }
                     _ => Err(RuntimeError::new(
@@ -807,14 +1115,14 @@ impl<'a> Vm<'a> {
                 let result =
                     crate::tensor_dispatch::call(function_id, values.clone(), &self.tensors)
                         .map_err(|error| error.with_source_location(source_span.as_ref()))?;
-                if self.trace_enabled {
+                if self.trace_enabled && !self.trace_suppressed.get() {
                     let mut trace = self.tensor_trace.borrow_mut();
                     let ordinal = trace.len() + 1;
                     let inputs: Vec<_> = values
                         .iter()
                         .map(|value| tensor_trace_value(value, &self.tensors.borrow()))
                         .collect();
-                    trace.push(serde_json::json!({
+                    let event = serde_json::json!({
                         "step_id": format!("step_{ordinal:04}"),
                         "operation_type": "standard_function_call",
                         "function_id": function_id,
@@ -826,7 +1134,10 @@ impl<'a> Vm<'a> {
                         "semantic_operation": function_id,
                         "lowered_operations": [function_id],
                         "source_ref": source_span,
-                    }));
+                    });
+                    if self.reserve_trace(&event).is_some() {
+                        trace.push(event);
+                    }
                 }
                 Ok(result)
             }
@@ -849,7 +1160,7 @@ impl<'a> Vm<'a> {
                     self.filesystem_read,
                     self.filesystem_write,
                 )?;
-                if self.trace_enabled {
+                if self.reserve_trace(&trace).is_some() {
                     self.vision_trace.borrow_mut().push(trace);
                 }
                 Ok(result)
@@ -866,7 +1177,18 @@ impl<'a> Vm<'a> {
                     self.push_temporary_root(val.clone());
                     values.push(val);
                 }
-                crate::ruo_dispatch::call(function_id, values)
+                let result = crate::ruo_dispatch::call(function_id, values.clone())?;
+                for value in &values {
+                    if matches!(value, Value::ReasonObject(_) | Value::ReasonTransaction(_)) {
+                        self.trace_mutation(value, &[], None, value);
+                    }
+                    if let Value::ReasonTransaction(transaction) = value {
+                        let owner =
+                            Value::ReasonObject(transaction.borrow().snapshot.owner.clone());
+                        self.trace_mutation(&owner, &[], None, &owner);
+                    }
+                }
+                Ok(result)
             }
             Expr::CallOptimizer {
                 function_id,
@@ -906,7 +1228,7 @@ impl<'a> Vm<'a> {
                     &self.backend,
                 )
                 .map_err(|error| RuntimeError::new(&error.code, error.message))?;
-                if self.trace_enabled {
+                if self.reserve_trace(&outcome.trace).is_some() {
                     self.reasoning_trace.borrow_mut().push(outcome.trace);
                 }
                 Ok(Value::Json(Rc::new(outcome.value)))
@@ -924,6 +1246,157 @@ impl<'a> Vm<'a> {
                     values.push(val);
                 }
                 crate::relation_dispatch::call(function_id, values)
+            }
+            Expr::RelationFilter {
+                source,
+                binding,
+                predicate,
+                ..
+            } => {
+                validate_predicate(predicate)?;
+                let source = self.eval_expr(source, env, call_depth)?;
+                let Value::Array(rows) = source else {
+                    return Err(RuntimeError::new(
+                        "REL-004",
+                        "Relation function requires Array<Struct>",
+                    ));
+                };
+                let scoped = Rc::new(RefCell::new(env.borrow().clone()));
+                let rows = rows.borrow();
+                let mut kept = Vec::with_capacity(rows.len());
+                let mut removed = Vec::new();
+                for (index, row) in rows.iter().enumerate() {
+                    if !matches!(row, Value::Struct(_)) {
+                        return Err(RuntimeError::new(
+                            "REL-004",
+                            "Relation function requires Array<Struct>",
+                        ));
+                    }
+                    scoped.borrow_mut().insert(binding.clone(), row.clone());
+                    self.relation_rows_scanned
+                        .set(self.relation_rows_scanned.get() + 1);
+                    match self.eval_expr(predicate, &scoped, call_depth)? {
+                        Value::Bool(true) => kept.push(row.clone()),
+                        Value::Bool(false) => removed.push(index),
+                        _ => {
+                            return Err(RuntimeError::new(
+                                "REL-PRED-003",
+                                "relation predicate must return Bool",
+                            ))
+                        }
+                    }
+                }
+                if !removed.is_empty() {
+                    self.semantic_event("CANDIDATE_PRUNED", serde_json::json!(binding), serde_json::Value::Null,
+                        serde_json::json!(removed), serde_json::json!({"before_count": rows.len(), "after_count": kept.len(), "removed_count": removed.len()}))?;
+                }
+                Ok(Value::Array(Rc::new(RefCell::new(kept))))
+            }
+            Expr::ArrayBuilder { .. } => Ok(Value::ArrayBuilder(Rc::new(RefCell::new(
+                crate::value::ArrayBuilder {
+                    items: Some(Vec::new()),
+                },
+            )))),
+            Expr::CallArrayBuilder {
+                builder,
+                method,
+                arguments,
+                ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let owner = self.eval_expr(builder, env, call_depth)?;
+                self.push_temporary_root(owner.clone());
+                let Value::ArrayBuilder(builder) = &owner else {
+                    return Err(RuntimeError::new(
+                        "COLL-004",
+                        "builder method requires an ArrayBuilder",
+                    ));
+                };
+                if builder.borrow().items.is_none() {
+                    return Err(RuntimeError::new(
+                        "COLL-005",
+                        "ArrayBuilder has already been finished",
+                    ));
+                }
+                match (method.as_str(), arguments.as_slice()) {
+                    ("append", [item]) => {
+                        let value = self.eval_expr(item, env, call_depth)?.deep_clone();
+                        // Evaluating the item can finish an alias of this builder.
+                        let length = builder
+                            .borrow()
+                            .items
+                            .as_ref()
+                            .ok_or_else(|| {
+                                RuntimeError::new(
+                                    "COLL-005",
+                                    "ArrayBuilder has already been finished",
+                                )
+                            })?
+                            .len()
+                            + 1;
+                        self.trace_mutation(
+                            &owner,
+                            &["array_builder".to_owned(), "length".to_owned()],
+                            None,
+                            &Value::Int(length as i64),
+                        );
+                        builder.borrow_mut().items.as_mut().unwrap().push(value);
+                        self.builder_appends.set(self.builder_appends.get() + 1);
+                        Ok(Value::Null)
+                    }
+                    ("finish", []) => {
+                        self.trace_mutation(
+                            &owner,
+                            &["array_builder".to_owned(), "length".to_owned()],
+                            None,
+                            &Value::Int(0),
+                        );
+                        self.trace_mutation(
+                            &owner,
+                            &["array_builder".to_owned(), "finished".to_owned()],
+                            None,
+                            &Value::Bool(true),
+                        );
+                        let items = builder.borrow_mut().items.take().unwrap();
+                        Ok(Value::Array(Rc::new(RefCell::new(items))))
+                    }
+                    _ => Err(RuntimeError::new(
+                        "COLL-001",
+                        "invalid builder method or argument count",
+                    )),
+                }
+            }
+            Expr::CallSemanticEvent {
+                function_id,
+                arguments,
+                ..
+            } => {
+                if function_id != "reasoning.event" || arguments.len() != 3 {
+                    return Err(RuntimeError::new(
+                        "REASON-EVENT-001",
+                        "reasoning.event expects type, subject, evidence",
+                    ));
+                }
+                let _guard = TempRootGuard::new(self);
+                let mut values = Vec::with_capacity(3);
+                for argument in arguments {
+                    let value = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(value.clone());
+                    values.push(value);
+                }
+                let Value::String(event_type) = &values[0] else {
+                    return Err(RuntimeError::new(
+                        "REASON-EVENT-001",
+                        "event type must be a string",
+                    ));
+                };
+                self.semantic_event(
+                    event_type,
+                    to_json(&values[1]),
+                    to_json(&values[2]),
+                    serde_json::json!([]),
+                    serde_json::json!({}),
+                )
             }
             Expr::CallArrayAppend {
                 collection, item, ..
@@ -1033,19 +1506,17 @@ impl<'a> Vm<'a> {
                 Ok(Value::Optional(Some(Box::new(inner))))
             }
             Expr::OptionalNone { .. } => Ok(Value::Optional(None)),
-            Expr::Assert { condition, .. } => {
-                match self.eval_expr(condition, env, call_depth)? {
-                    Value::Bool(true) => Ok(Value::Null),
-                    Value::Bool(false) => {
-                        Err(RuntimeError::new("TEST-ASSERT-001", "assertion failed"))
-                    }
-                    other => Err(RuntimeError::new(
-                        "RT-TYPE-001",
-                        format!("assert() argument must be Bool, got {}", other.type_name()),
-                    )),
-                }
-            }
-            Expr::AssertEq { actual, expected, .. } => {
+            Expr::Assert { condition, .. } => match self.eval_expr(condition, env, call_depth)? {
+                Value::Bool(true) => Ok(Value::Null),
+                Value::Bool(false) => Err(RuntimeError::new("TEST-ASSERT-001", "assertion failed")),
+                other => Err(RuntimeError::new(
+                    "RT-TYPE-001",
+                    format!("assert() argument must be Bool, got {}", other.type_name()),
+                )),
+            },
+            Expr::AssertEq {
+                actual, expected, ..
+            } => {
                 let _guard = TempRootGuard::new(self);
                 let actual_value = self.eval_expr(actual, env, call_depth)?;
                 self.push_temporary_root(actual_value.clone());
@@ -1055,9 +1526,7 @@ impl<'a> Vm<'a> {
                 } else {
                     Err(RuntimeError::new(
                         "TEST-ASSERT-001",
-                        format!(
-                            "assertion failed: expected {expected_value}, got {actual_value}"
-                        ),
+                        format!("assertion failed: expected {expected_value}, got {actual_value}"),
                     ))
                 }
             }
@@ -1165,6 +1634,19 @@ fn collect_tensor_ids(
                 }
             }
         }
+        Value::ArrayBuilder(builder) => {
+            let ptr = Rc::as_ptr(builder) as usize;
+            if visited_arrays.insert(ptr) {
+                if let Some(items) = &builder.borrow().items {
+                    for item in items {
+                        collect_tensor_ids(item, roots, visited_arrays, visited_structs);
+                    }
+                }
+            }
+        }
+        Value::Optional(Some(value)) => {
+            collect_tensor_ids(value, roots, visited_arrays, visited_structs);
+        }
         Value::Struct(value) => {
             let ptr = Rc::as_ptr(value) as usize;
             if visited_structs.insert(ptr) {
@@ -1174,6 +1656,30 @@ fn collect_tensor_ids(
             }
         }
         _ => {}
+    }
+}
+
+fn validate_predicate(expression: &Expr) -> Result<(), RuntimeError> {
+    match expression {
+        Expr::Const { .. } | Expr::Local { .. } => Ok(()),
+        Expr::Unary { operand, .. } => validate_predicate(operand),
+        Expr::Binary { left, right, .. }
+        | Expr::Comparison { left, right, .. }
+        | Expr::Logical { left, right, .. } => {
+            validate_predicate(left)?;
+            validate_predicate(right)
+        }
+        Expr::Member { object, .. } => validate_predicate(object),
+        Expr::Index {
+            collection, index, ..
+        } => {
+            validate_predicate(collection)?;
+            validate_predicate(index)
+        }
+        _ => Err(RuntimeError::new(
+            "REL-PRED-002",
+            "calls and side effects are not allowed in a relation predicate",
+        )),
     }
 }
 
@@ -1217,7 +1723,10 @@ fn match_pattern(pattern: &Pattern, value: &Value) -> Option<Vec<(String, Value)
     match pattern {
         Pattern::Wildcard => Some(Vec::new()),
         Pattern::Binding { name } => Some(vec![(name.clone(), value.clone())]),
-        Pattern::Literal { value_kind, value: literal } => {
+        Pattern::Literal {
+            value_kind,
+            value: literal,
+        } => {
             let literal_value = const_value(value_kind, literal).ok()?;
             if &literal_value == value {
                 Some(Vec::new())
@@ -1288,9 +1797,9 @@ fn match_pattern(pattern: &Pattern, value: &Value) -> Option<Vec<(String, Value)
             }
             _ => None,
         },
-        Pattern::Or { alternatives } => {
-            alternatives.iter().find_map(|alternative| match_pattern(alternative, value))
-        }
+        Pattern::Or { alternatives } => alternatives
+            .iter()
+            .find_map(|alternative| match_pattern(alternative, value)),
     }
 }
 

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/semantic_reasoning_event.schema.json",
+  "title": "ReasonScript Semantic Reasoning Event 1.0",
+  "type": "object",
+  "required": ["event_id", "reasoning_step_id", "event_type", "source_ru", "state_revision", "subject", "evidence", "affected_entities", "metadata"],
+  "properties": {
+    "event_id": {"type": "string", "pattern": "^reason-event-[1-9][0-9]*$"},
+    "reasoning_step_id": {"type": "integer", "minimum": 1},
+    "event_type": {"enum": ["REASON_STATE_CREATED", "RU_ACTIVATED", "CANDIDATE_GENERATED", "CANDIDATE_PRUNED", "HYPOTHESIS_CREATED", "HYPOTHESIS_VERIFIED", "HYPOTHESIS_REJECTED", "EVIDENCE_ADDED", "STATE_TRANSITION", "GOAL_UPDATED", "TERMINATION_INFERRED"]},
+    "source_ru": {"type": ["string", "null"]},
+    "state_revision": {"type": "integer", "minimum": 1},
+    "subject": {},
+    "evidence": {},
+    "affected_entities": {"type": "array"},
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": false
+}

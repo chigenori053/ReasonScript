@@ -44,7 +44,7 @@ RUST_RUO_FUNCTIONS = frozenset(RUO_FUNCTIONS)
 RELATION_FUNCTIONS = tuple(
     f"relation.{name}"
     for name in (
-        "filter_eq", "filter_ne", "filter_gt", "filter_gte", "filter_lt",
+        "filter", "filter_eq", "filter_ne", "filter_gt", "filter_gte", "filter_lt",
         "filter_lte", "count", "distinct_by", "sort_by",
     )
 )
@@ -56,7 +56,7 @@ OPTIMIZER_FUNCTIONS = tuple(
     )
 )
 REASONING_FUNCTIONS = (
-    "runtime.search", "runtime.simulate", "runtime.predict", "runtime.plan"
+    "runtime.search", "runtime.simulate", "runtime.predict", "runtime.plan", "reasoning.event"
 )
 
 
@@ -93,7 +93,7 @@ def build_manifest() -> dict[str, Any]:
             for name in optimizer_names
         ],
         "relation": [
-            _operation(name, python=True, rust=True, fallback=None)
+            _operation(name, python=name != "relation.filter", rust=True, fallback=None)
             for name in RELATION_FUNCTIONS
         ],
         "ruo": [
@@ -110,8 +110,12 @@ def build_manifest() -> dict[str, Any]:
             for name in vision_names
         ],
         "reasoning": [
-            _operation(name, python=True, rust=True, fallback=None)
+            _operation(name, python=name != "reasoning.event", rust=True, fallback=None)
             for name in REASONING_FUNCTIONS
+        ],
+        "array": [
+            _operation(name, python=name in {"array.append", "array.concat"}, rust=True, fallback=None)
+            for name in ("array.append", "array.concat", "array.builder", "ArrayBuilder.append", "ArrayBuilder.finish")
         ],
     }
 

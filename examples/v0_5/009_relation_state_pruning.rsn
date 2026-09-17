@@ -1,0 +1,21 @@
+module CandidatePruning {
+  struct Candidate {
+    value: int
+  }
+
+  calculation Answer -> int {
+    let builder = array.builder()
+    let value = 1
+    while value <= 100 {
+      builder.append(Candidate { value: value })
+      value = value + 1
+    }
+    let candidates = builder.finish()
+    let factor = 3
+    let remaining = relation.filter(candidates, candidate.value % factor != 0)
+    factor = 5
+    remaining = relation.filter(remaining, row.value % factor != 0)
+    reasoning.event("TERMINATION_INFERRED", "candidate pruning", remaining.length)
+    result = relation.count(remaining)
+  }
+}

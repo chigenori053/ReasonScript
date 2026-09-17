@@ -12,7 +12,7 @@ handle (map/set literals and reason_object graph queries) raise
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from typing import Any
 
 from frontend.language_surface.nodes import (
@@ -77,7 +77,7 @@ from frontend.language_surface.nodes import (
     WhileStatementNode,
     WildcardPatternNode,
 )
-from frontend.relation.integration import relation_call_name
+from frontend.relation.integration import predicate_binding, relation_call_name
 from frontend.string.integration import string_call_name
 from frontend.tensor.integration import tensor_call_name
 from frontend.tensor.optimizers import optimizer_call_name
@@ -112,6 +112,7 @@ class _Scope:
 
     functions: dict[str, str]
     enums: dict[str, frozenset[str]]
+    bindings: frozenset[str] = frozenset()
 
 
 def lower_program(program: ProgramNode) -> dict[str, Any]:
@@ -200,6 +201,22 @@ def _lower_function(
     body: tuple[Any, ...],
     scope: _Scope,
 ) -> dict[str, Any]:
+    names = set(scope.bindings) | {_parameter_name(parameter) for parameter in parameters}
+
+    def collect(value: Any) -> None:
+        if isinstance(value, (LetStatementNode, ConstStatementNode)):
+            names.add(value.identifier)
+        if isinstance(value, ForStatementNode):
+            names.add(value.iterator)
+        if is_dataclass(value):
+            for member in fields(value):
+                collect(getattr(value, member.name))
+        elif isinstance(value, tuple):
+            for item in value:
+                collect(item)
+
+    collect(body)
+    scope = replace(scope, bindings=frozenset(names))
     trace_scope = (
         f"fn.{function_id.rsplit('::', 1)[-1]}"
         if function_id.startswith("fn.")
@@ -828,6 +845,15 @@ def _lower_call(value: CallExpressionNode, declared_functions: _Scope) -> dict[s
         }
     relation_function = relation_call_name(value)
     if relation_function is not None:
+        if relation_function == "relation.filter":
+            if len(value.arguments) != 2:
+                raise LoweringError("REL-PRED-001", "relation.filter expects two arguments")
+            return {
+                "op": "relation_filter",
+                "source": _lower_expression(value.arguments[0], declared_functions),
+                "binding": predicate_binding(value.arguments[1], declared_functions.bindings),
+                "predicate": _lower_expression(value.arguments[1], declared_functions),
+            }
         return {
             "op": "call_relation",
             "function_id": relation_function,
@@ -848,6 +874,25 @@ def _lower_call(value: CallExpressionNode, declared_functions: _Scope) -> dict[s
             "function_id": fn_id,
             "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
         }
+    if isinstance(value.callee, MemberAccessNode):
+        callee = value.callee
+        if isinstance(callee.object, IdentifierNode) and callee.object.name == "reasoning":
+            return {
+                "op": "call_semantic_event",
+                "function_id": f"reasoning.{callee.member}",
+                "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
+            }
+        if isinstance(callee.object, IdentifierNode) and callee.object.name == "array" and callee.member == "builder":
+            return {"op": "array_builder"}
+        if callee.member in {"append", "finish"} and not (
+            isinstance(callee.object, IdentifierNode) and callee.object.name == "array"
+        ):
+            return {
+                "op": "call_array_builder",
+                "method": callee.member,
+                "builder": _lower_expression(callee.object, declared_functions),
+                "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
+            }
     if (
         isinstance(value.callee, MemberAccessNode)
         and isinstance(value.callee.object, IdentifierNode)

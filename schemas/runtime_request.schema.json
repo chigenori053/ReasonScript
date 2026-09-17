@@ -27,11 +27,21 @@
         "trace": {
           "type": "object",
           "required": ["enabled"],
-          "properties": {"enabled": {"type": "boolean"}},
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "mode": {"enum": ["off", "delta", "full", "sampled"]},
+            "checkpoint_interval": {"type": "integer", "minimum": 0},
+            "max_bytes": {"type": "integer", "minimum": 0}
+          },
           "additionalProperties": false
         },
         "numeric_mode": {"enum": ["compat-reference", "native-fast"]},
-        "backend": {"enum": ["RuntimeReal", "HybridRuntime"]}
+        "backend": {"enum": ["RuntimeReal", "HybridRuntime"]},
+        "reasoning": {
+          "type": "object",
+          "properties": {"semantic_events": {"type": "boolean"}},
+          "additionalProperties": false
+        }
       },
       "additionalProperties": false
     }

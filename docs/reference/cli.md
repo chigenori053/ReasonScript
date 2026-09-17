@@ -83,6 +83,54 @@ Executes a standalone source file or a package project.
 
 
 
+## Native execution traces
+
+```sh
+./reason run program.rsn --json --trace=delta
+./reason run program.rsn --trace=off
+./reason run program.rsn --json --trace=full
+./reason run program.rsn --json --trace=sampled
+./reason run program.rsn --trace=delta --trace-checkpoint-interval 100 --trace-max-bytes 104857600
+```
+
+Delta is the default; bare `--trace` also selects delta. It records changed paths
+instead of complete before/after states for every iteration. Full mode retains
+the previous `previous_state` / `updated_state` loop-snapshot interface. Sampled
+mode retains the first 100 events, every 100th event, and the final 100 events;
+gaps are intentional and are not a complete replay log. Off records no trace
+payloads.
+
+The default checkpoint interval is 1,000 events, and the first event in each
+function frame includes a checkpoint. An interval of `0` disables subsequent
+periodic checkpoints. Checkpoints represent the resulting visible state of the
+event. Delta paths are JSON Pointers and changes use ordered `add`, `remove`, or
+`replace` operations; container creation/removal uses empty containers followed
+by child edits. A `state_finalize` event flushes writes after the last loop.
+`frame_id` identifies each function frame, and `parent_event_id` connects its
+previous recorded event. Hashes describe visible serialized values, including
+opaque handle representations, rather than opaque Tensor/builder payloads.
+
+State hashes use `sha256-xor-leaves/1`: hash compact JSON `[path_segments, value]`
+for every scalar and container marker, XOR those 32-byte hashes, then SHA-256 the
+accumulator. Object markers are `{"object":true}` and Array markers are
+`{"array_length":N}`. Root bindings are separate paths; there is no outer root
+object marker. This allows a write to update the hash without rescanning a
+large unrelated Array. Hashes are deterministic state fingerprints, not
+authentication tokens.
+
+The default trace budget is 104,857,600 bytes across retained state, Tensor,
+Vision, and reasoning event payloads, measured as compact JSON. If exceeded,
+recording stops with warning `TRACE-BUDGET-001` in `trace_diagnostics`; execution
+continues. Outer CLI/result envelopes may repeat those payloads and are not
+included in the budget. The native request accepts these settings in
+`context.trace` (`mode`, `checkpoint_interval`, `max_bytes`); an explicit mode
+takes precedence over the legacy `enabled` flag.
+
+Machine interfaces are defined by `schemas/state_delta_trace.schema.json`,
+`schemas/semantic_reasoning_event.schema.json`, and
+`schemas/runtime_request.schema.json`. A runnable example is
+`examples/v0_5/009_relation_state_pruning.rsn`.
+
 ## Phase 8 Golden Validation
 
 ```sh

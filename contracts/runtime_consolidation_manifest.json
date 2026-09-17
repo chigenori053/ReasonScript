@@ -27,6 +27,38 @@
   },
   "fallback_reasons": [],
   "namespaces": {
+    "array": [
+      {
+        "name": "array.append",
+        "production_fallback": null,
+        "python": "reference_only",
+        "rust": "implemented"
+      },
+      {
+        "name": "array.concat",
+        "production_fallback": null,
+        "python": "reference_only",
+        "rust": "implemented"
+      },
+      {
+        "name": "array.builder",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      },
+      {
+        "name": "ArrayBuilder.append",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      },
+      {
+        "name": "ArrayBuilder.finish",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      }
+    ],
     "optimizer": [
       {
         "name": "optimizer.adam",
@@ -95,9 +127,21 @@
         "production_fallback": null,
         "python": "reference_only",
         "rust": "implemented"
+      },
+      {
+        "name": "reasoning.event",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
       }
     ],
     "relation": [
+      {
+        "name": "relation.filter",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      },
       {
         "name": "relation.filter_eq",
         "production_fallback": null,

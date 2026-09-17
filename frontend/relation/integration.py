@@ -28,22 +28,22 @@ select a subset of *rows*, never change a row's *shape*, so the result
 type is always identical to the input's `Array<Struct>` type -- no
 synthetic type needed.
 
-Every filter/sort function takes a `field` argument that must be a
-string literal (ReasonScript has no closures/lambdas -- there is no way
-to pass an arbitrary predicate, so field name + comparison value is the
-only expressible criterion, mirroring how `tensor.softmax(input, axis)`
-already takes an axis as a plain literal rather than a function).
+Fixed comparison filters and sorting take string-literal field names.
+`relation.filter` instead takes a pure expression with one implicit row
+binding; the native Rust VM evaluates it using current captured values.
 """
 
 from __future__ import annotations
 
+from dataclasses import fields, is_dataclass
 from typing import Any
 
-from frontend.language_surface.nodes import CallExpressionNode, ExpressionNode, IdentifierNode, MemberAccessNode
+from frontend.language_surface.nodes import CallExpressionNode, ExpressionNode, IdentifierNode, MemberAccessNode, RuntimeCallExpressionNode
 from frontend.tensor.integration import _UNKNOWN, _literal
 
 # name -> exact argument count.
 RELATION_SIGNATURES: dict[str, int] = {
+    "relation.filter": 2,  # rows, pure expression with an implicit row binding
     "relation.filter_eq": 3,  # rows, field, value
     "relation.filter_ne": 3,
     "relation.filter_gt": 3,
@@ -54,6 +54,38 @@ RELATION_SIGNATURES: dict[str, int] = {
     "relation.distinct_by": 2,  # rows, field
     "relation.sort_by": 3,  # rows, field, descending
 }
+
+
+def predicate_binding(expression: Any, available: set[str] | frozenset[str] = frozenset()) -> str:
+    """The single unbound field-access root names the current row.
+
+    `row` is the conventional binding for a constant predicate. Captures are
+    ordinary names in the surrounding scope; no lambda syntax is needed.
+    """
+    roots: set[str] = set()
+
+    def visit(value: Any) -> None:
+        if isinstance(value, (CallExpressionNode, RuntimeCallExpressionNode)):
+            raise RelationSemanticError("REL-PRED-002", "calls are not allowed in a relation predicate")
+        if isinstance(value, MemberAccessNode):
+            root = value.object
+            while isinstance(root, MemberAccessNode):
+                root = root.object
+            if isinstance(root, IdentifierNode) and root.name not in available:
+                roots.add(root.name)
+        if is_dataclass(value):
+            for field in fields(value):
+                child = getattr(value, field.name)
+                if isinstance(child, tuple):
+                    for item in child:
+                        visit(item)
+                elif is_dataclass(child):
+                    visit(child)
+
+    visit(expression)
+    if len(roots) > 1:
+        raise RelationSemanticError("REL-PRED-001", "predicate must have a single row binding")
+    return next(iter(roots), "row")
 
 # Argument positions (0-indexed) that must be a string literal field name.
 _FIELD_ARGUMENT_POSITIONS: dict[str, int] = {

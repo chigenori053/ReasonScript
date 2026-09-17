@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Added Rust-native `relation.filter(rows, predicate)`, transient array builders,
+  and semantic reasoning events, including automatic candidate-pruning events.
+- Changed native execution traces to incremental delta events by default, with
+  configurable checkpoints, sampling, and a byte budget. `--trace=full` retains
+  the previous loop-snapshot format; fixed comparison Relation APIs retain their
+  existing behavior. The Python interpreters remain reference implementations
+  and do not execute these new APIs.
+- Extended the native runtime request and regenerated the runtime capability
+  manifest for the intentional addition of Rust-only collection/event APIs.
+
 ## [0.5.5.12] - 2026-09-07
 
 - Repackaged the validated v0.5.5 line as the canonical macOS arm64 release.

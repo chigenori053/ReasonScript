@@ -44,11 +44,10 @@ pub fn call(function_id: &str, args: Vec<Value>) -> VResult {
     }
 }
 
-fn rows(value: Value) -> Result<Vec<Value>, RuntimeError> {
+fn rows(value: Value) -> Result<std::rc::Rc<std::cell::RefCell<Vec<Value>>>, RuntimeError> {
     match value {
         Value::Array(items) => {
-            let items = items.borrow();
-            for item in items.iter() {
+            for item in items.borrow().iter() {
                 if !matches!(item, Value::Struct(_)) {
                     return Err(RuntimeError::new(
                         "REL-004",
@@ -56,7 +55,7 @@ fn rows(value: Value) -> Result<Vec<Value>, RuntimeError> {
                     ));
                 }
             }
-            Ok(items.clone())
+            Ok(items)
         }
         other => Err(RuntimeError::new(
             "REL-004",
@@ -105,7 +104,8 @@ fn as_string(value: &Value) -> Result<String, RuntimeError> {
 
 fn count(mut args: Vec<Value>) -> VResult {
     let rows = rows(args.remove(0))?;
-    Ok(Value::Int(rows.len() as i64))
+    let count = rows.borrow().len() as i64;
+    Ok(Value::Int(count))
 }
 
 fn filter_compare(comparison_name: &str, mut args: Vec<Value>) -> VResult {
@@ -121,8 +121,9 @@ fn filter_compare(comparison_name: &str, mut args: Vec<Value>) -> VResult {
     let target_value = args.remove(2);
     let field_name = as_string(&args.remove(1))?;
     let rows = rows(args.remove(0))?;
-    let mut kept = Vec::new();
-    for row in rows {
+    let rows = rows.borrow();
+    let mut kept = Vec::with_capacity(rows.len());
+    for row in rows.iter() {
         let field_value = field(&row, &field_name)?;
         let matched = match eval_comparison(operator, field_value, target_value.clone()) {
             Ok(Value::Bool(value)) => value,
@@ -135,7 +136,7 @@ fn filter_compare(comparison_name: &str, mut args: Vec<Value>) -> VResult {
             }
         };
         if matched {
-            kept.push(row);
+            kept.push(row.clone());
         }
     }
     Ok(Value::Array(std::rc::Rc::new(std::cell::RefCell::new(
@@ -146,13 +147,14 @@ fn filter_compare(comparison_name: &str, mut args: Vec<Value>) -> VResult {
 fn distinct_by(mut args: Vec<Value>) -> VResult {
     let field_name = as_string(&args.remove(1))?;
     let rows = rows(args.remove(0))?;
+    let rows = rows.borrow();
     let mut seen: Vec<Value> = Vec::new();
     let mut kept = Vec::new();
-    for row in rows {
+    for row in rows.iter() {
         let key = field(&row, &field_name)?;
         if !seen.contains(&key) {
             seen.push(key);
-            kept.push(row);
+            kept.push(row.clone());
         }
     }
     Ok(Value::Array(std::rc::Rc::new(std::cell::RefCell::new(
@@ -174,7 +176,7 @@ fn sort_by(mut args: Vec<Value>) -> VResult {
         }
     };
     let field_name = as_string(&args.remove(1))?;
-    let mut rows = rows(args.remove(0))?;
+    let mut rows = rows(args.remove(0))?.borrow().clone();
     let mut sort_error: Option<RuntimeError> = None;
     rows.sort_by(|left, right| {
         if sort_error.is_some() {

@@ -21,6 +21,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::process::ExitCode;
 
+use reasonscript_computation_ir::state_trace::{TraceConfig, TraceMode};
 use reasonscript_computation_ir::{
     decode, to_json, NumericMode, TensorPolicy, Vm, DEFAULT_MAX_CALL_DEPTH,
     DEFAULT_MAX_LOOP_ITERATIONS,
@@ -213,8 +214,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         "max_saved_tensor_bytes",
         tensor_policy.max_saved_tensor_bytes,
     );
-    let max_call_depth =
-        limit(limits, "max_call_depth", DEFAULT_MAX_CALL_DEPTH as usize) as u32;
+    let max_call_depth = limit(limits, "max_call_depth", DEFAULT_MAX_CALL_DEPTH as usize) as u32;
     let max_loop_iterations = limit(
         limits,
         "max_loop_iterations",
@@ -232,10 +232,11 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         .get("filesystem_write")
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false);
-    let trace_enabled = request
-        .pointer("/context/trace/enabled")
-        .and_then(serde_json::Value::as_bool)
-        .unwrap_or(false);
+    let trace_config = match TraceConfig::from_json(&request["context"]["trace"]) {
+        Ok(config) => config,
+        Err(error) => return fail_runtime_request(request_id, &error),
+    };
+    let trace_enabled = trace_config.mode != TraceMode::Off;
     let transport_tensors = request
         .pointer("/context/transport_tensors")
         .and_then(serde_json::Value::as_bool)
@@ -251,7 +252,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         .and_then(serde_json::Value::as_str)
         .unwrap_or("RuntimeReal")
         .to_owned();
-    let vm = Vm::with_runtime_context(
+    let mut vm = Vm::with_runtime_context(
         &program,
         numeric_mode,
         tensor_policy,
@@ -263,6 +264,11 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         max_call_depth,
         max_loop_iterations,
     );
+    let semantic_events = request
+        .pointer("/context/reasoning/semantic_events")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(true);
+    vm.configure_trace(trace_config, semantic_events);
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let loop_trace = vm.loop_trace();
@@ -305,6 +311,8 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "tensor_metadata": tensor_metadata,
                         "console_output": vm.console_events(),
                         "reason_object_metadata": [],
+                        "trace_diagnostics": vm.trace_diagnostics(),
+                        "runtime_metrics": vm.runtime_metrics(),
                     },
                 })
             );

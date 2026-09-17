@@ -20,6 +20,7 @@ from frontend.tensor.optimizers import (
 from frontend.relation.integration import (
     RelationSemanticError,
     relation_call_name,
+    predicate_binding,
     validate_relation_call,
 )
 from frontend.string.integration import (
@@ -1592,7 +1593,7 @@ def _validate_calculation_expression(
                 raise SurfaceValidationError(
                     "NAM-2004 ReasonScript does not support JavaScript runtime APIs such as Js.*. Use 'Console.log' or 'print' instead."
                 )
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation", "Console"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation", "reasoning", "Console"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1648,8 +1649,22 @@ def _validate_calculation_expression(
                     validate_relation_call(value)
                 except RelationSemanticError as error:
                     raise SurfaceValidationError(str(error)) from error
-                for argument in value.arguments:
-                    visit(argument)
+                if relation_call_name(value) == "relation.filter":
+                    visit(value.arguments[0])
+                    row_type = _expression_type(value.arguments[0], symbols, bindings)
+                    if not isinstance(row_type, ArrayTypeNode):
+                        raise SurfaceValidationError("REL-004 Relation function requires Array<Struct>")
+                    try:
+                        name = predicate_binding(value.arguments[1], set(bindings) | set(symbols))
+                    except RelationSemanticError as error:
+                        raise SurfaceValidationError(str(error)) from error
+                    scoped = dict(bindings)
+                    scoped[name] = _Binding(row_type.element_type, mutable=False)
+                    predicate = value.arguments[1]
+                    _validate_calculation_expression(predicate if isinstance(predicate, ExpressionNode) else ExpressionNode(predicate), symbols, scoped)
+                else:
+                    for argument in value.arguments:
+                        visit(argument)
                 return
             if string_call_name(value) is not None:
                 try:
@@ -1811,9 +1826,9 @@ def _array_call_name(value: CallExpressionNode) -> str | None:
 
 def _validate_array_call(value: CallExpressionNode) -> None:
     method = _array_call_name(value)
-    if method not in ("append", "concat"):
+    if method not in ("append", "concat", "builder"):
         raise SurfaceValidationError("COLL-001 unknown array standard function")
-    if len(value.arguments) != 2:
+    if len(value.arguments) != (0 if method == "builder" else 2):
         raise SurfaceValidationError(f"COLL-001 array.{method} argument count mismatch")
 
 
@@ -1936,11 +1951,18 @@ def _validate_runtime_reasoning_argument(
 _UNKNOWN_TYPE = object()
 
 
+@dataclass
+class _BuilderType:
+    element_type: Any = _UNKNOWN_TYPE
+
+
 def _expression_type(
     value: Any,
     symbols: dict[str, Any],
     bindings: dict[str, Any],
 ) -> Any:
+    if isinstance(value, ExpressionNode):
+        return _expression_type(value.expression, symbols, bindings)
     if isinstance(value, IntegerLiteralNode):
         return PrimitiveTypeNode(PrimitiveKind.INT)
     if isinstance(value, FloatLiteralNode):
@@ -2151,6 +2173,34 @@ def _expression_type(
             return _UNKNOWN_TYPE
         raise SurfaceValidationError("CV5-7 index access requires collection type")
     if isinstance(value, CallExpressionNode):
+        callee = value.callee
+        if isinstance(callee, MemberAccessNode):
+            if isinstance(callee.object, IdentifierNode) and callee.object.name == "reasoning":
+                if callee.member != "event" or len(value.arguments) != 3:
+                    raise SurfaceValidationError("REASON-EVENT-001 reasoning.event expects type, subject, evidence")
+                for argument in value.arguments:
+                    _expression_type(argument, symbols, bindings)
+                event_type = _expression_type(value.arguments[0], symbols, bindings)
+                if event_type != PrimitiveTypeNode(PrimitiveKind.STRING):
+                    raise SurfaceValidationError("REASON-EVENT-001 event type must be a string")
+                return PrimitiveTypeNode(PrimitiveKind.INT)
+            if _array_call_name(value) == "builder":
+                _validate_array_call(value)
+                return _BuilderType()
+            if callee.member in {"append", "finish"} and _array_call_name(value) is None:
+                builder_type = _expression_type(callee.object, symbols, bindings)
+                if not isinstance(builder_type, _BuilderType):
+                    raise SurfaceValidationError("COLL-004 builder method requires an ArrayBuilder")
+                if len(value.arguments) != (1 if callee.member == "append" else 0):
+                    raise SurfaceValidationError("COLL-001 builder method argument count mismatch")
+                if callee.member == "finish":
+                    return ArrayTypeNode(builder_type.element_type)
+                item_type = _expression_type(value.arguments[0], symbols, bindings)
+                if builder_type.element_type is _UNKNOWN_TYPE:
+                    builder_type.element_type = item_type
+                else:
+                    _require_type_equal(builder_type.element_type, item_type, "COLL-003 builder element type mismatch")
+                return PrimitiveTypeNode(PrimitiveKind.NULL)
         ruo_method = _ruo_call_name(value)
         if ruo_method is not None:
             _validate_ruo_call(value)
@@ -2285,6 +2335,16 @@ def _expression_type(
             )
             if not isinstance(rows_type, ArrayTypeNode):
                 raise SurfaceValidationError("REL-004 Relation function requires Array<Struct>")
+            if relation_function == "relation.filter":
+                try:
+                    name = predicate_binding(value.arguments[1], set(bindings) | set(symbols))
+                except RelationSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                scoped = dict(bindings)
+                scoped[name] = _Binding(rows_type.element_type, mutable=False)
+                predicate_type = _expression_type(value.arguments[1], symbols, scoped)
+                if predicate_type != PrimitiveTypeNode(PrimitiveKind.BOOL):
+                    raise SurfaceValidationError("REL-PRED-003 relation predicate must return Bool")
             return rows_type
         string_function = string_call_name(value)
         if string_function is not None:

@@ -269,6 +269,34 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
+    #[serde(rename = "relation_filter")]
+    RelationFilter {
+        source: Box<Expr>,
+        binding: String,
+        predicate: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
+    #[serde(rename = "array_builder")]
+    ArrayBuilder {
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
+    #[serde(rename = "call_array_builder")]
+    CallArrayBuilder {
+        builder: Box<Expr>,
+        method: String,
+        arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
+    #[serde(rename = "call_semantic_event")]
+    CallSemanticEvent {
+        function_id: String,
+        arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "call_reasoning")]
     CallReasoning {
         function_id: String,
@@ -369,6 +397,10 @@ impl Expr {
             | Expr::CallRuo { source_span, .. }
             | Expr::CallOptimizer { source_span, .. }
             | Expr::CallRelation { source_span, .. }
+            | Expr::RelationFilter { source_span, .. }
+            | Expr::ArrayBuilder { source_span, .. }
+            | Expr::CallArrayBuilder { source_span, .. }
+            | Expr::CallSemanticEvent { source_span, .. }
             | Expr::CallReasoning { source_span, .. }
             | Expr::CallArrayAppend { source_span, .. }
             | Expr::CallArrayConcat { source_span, .. }

@@ -43,6 +43,11 @@ pub struct RuntimeReasonTransaction {
     pub closed: bool,
 }
 
+#[derive(Debug, Default)]
+pub struct ArrayBuilder {
+    pub items: Option<Vec<Value>>,
+}
+
 #[derive(Clone, Debug)]
 pub enum Value {
     Null,
@@ -51,6 +56,7 @@ pub enum Value {
     Float(f64),
     String(Rc<str>),
     Array(Rc<RefCell<Vec<Value>>>),
+    ArrayBuilder(Rc<RefCell<ArrayBuilder>>),
     Struct(Rc<StructValue>),
     /// A resolved `EnumName.VariantName` reference (Phase 1 enum
     /// unification). Distinct from `String` so `Color.Red == "Red"` is a
@@ -116,6 +122,7 @@ impl Value {
             Value::Float(_) => "Float",
             Value::String(_) => "String",
             Value::Array(_) => "Array",
+            Value::ArrayBuilder(_) => "ArrayBuilder",
             Value::Struct(_) => "Struct",
             Value::Enum { .. } => "Enum",
             Value::Optional(_) => "Optional",
@@ -137,6 +144,7 @@ impl PartialEq for Value {
             (Value::Float(a), Value::Float(b)) => a == b,
             (Value::String(a), Value::String(b)) => a == b,
             (Value::Array(a), Value::Array(b)) => *a.borrow() == *b.borrow(),
+            (Value::ArrayBuilder(a), Value::ArrayBuilder(b)) => Rc::ptr_eq(a, b),
             (Value::Struct(a), Value::Struct(b)) => {
                 a.type_name == b.type_name && *a.fields.borrow() == *b.fields.borrow()
             }
@@ -183,6 +191,7 @@ impl fmt::Display for Value {
             Value::Float(value) => write!(f, "{value}"),
             Value::String(value) => write!(f, "{value}"),
             Value::Array(_) => write!(f, "<array>"),
+            Value::ArrayBuilder(_) => write!(f, "<array_builder>"),
             Value::Struct(value) => write!(f, "<struct {}>", value.type_name),
             Value::Enum {
                 enum_name,
@@ -222,6 +231,15 @@ pub fn to_json(value: &Value) -> serde_json::Value {
         Value::String(value) => serde_json::Value::String(value.to_string()),
         Value::Array(items) => {
             serde_json::Value::Array(items.borrow().iter().map(to_json).collect())
+        }
+        // A builder is an opaque transient handle, not an Array snapshot.
+        // Its contents become an ordinary Array only when finish transfers them.
+        Value::ArrayBuilder(builder) => {
+            let builder = builder.borrow();
+            serde_json::json!({"array_builder": {
+                "length": builder.items.as_ref().map_or(0, Vec::len),
+                "finished": builder.items.is_none(),
+            }})
         }
         Value::Struct(value) => {
             let mut map = serde_json::Map::new();

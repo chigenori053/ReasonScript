@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/state_delta_trace.schema.json",
+  "title": "ReasonScript State Delta Trace Event 1.0",
+  "type": "object",
+  "required": ["event_id", "parent_event_id", "frame_id", "step_id", "previous_state_hash", "changes", "resulting_state_hash"],
+  "properties": {
+    "event_id": {"type": "integer", "minimum": 1},
+    "parent_event_id": {"type": ["integer", "null"], "minimum": 1},
+    "frame_id": {"type": "integer", "minimum": 1},
+    "step_id": {"type": "integer", "minimum": 1},
+    "loop_id": {"type": "string"},
+    "iteration": {"type": "integer", "minimum": 1},
+    "condition": {"type": "boolean"},
+    "break_triggered": {"type": "boolean"},
+    "continue_triggered": {"type": "boolean"},
+    "operation": {"const": "state_finalize"},
+    "previous_state_hash": {"type": "string", "pattern": "^sha256-xor-leaves/1:[a-f0-9]{64}$"},
+    "resulting_state_hash": {"type": "string", "pattern": "^sha256-xor-leaves/1:[a-f0-9]{64}$"},
+    "checkpoint": {"type": "object"},
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["operation", "path", "old", "new"],
+        "properties": {
+          "operation": {"enum": ["add", "remove", "replace"]},
+          "path": {"type": "string", "pattern": "^/"},
+          "old": {},
+          "new": {}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

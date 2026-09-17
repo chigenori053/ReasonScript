@@ -5,9 +5,9 @@
 //! - Console.warn, Console.error -> stderr
 //! - Deterministic stringification across Python and Rust runtimes.
 
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use serde::{Deserialize, Serialize};
 
 use crate::value::Value;
 use crate::vm::RuntimeError;
@@ -21,11 +21,7 @@ pub struct ConsoleEvent {
 
 type VResult = Result<Value, RuntimeError>;
 
-pub fn dispatch(
-    function_id: &str,
-    args: &[Value],
-    events: &RefCell<Vec<ConsoleEvent>>,
-) -> VResult {
+pub fn dispatch(function_id: &str, args: &[Value], events: &RefCell<Vec<ConsoleEvent>>) -> VResult {
     let (stream, level) = match function_id {
         "print" => ("stdout", "print"),
         "Console.log" => ("stdout", "log"),
@@ -54,6 +50,7 @@ pub fn dispatch(
 
 pub fn format_console_value(value: &Value) -> String {
     match value {
+        Value::ArrayBuilder(_) => "<array_builder>".to_owned(),
         Value::Null => "null".to_string(),
         Value::Bool(b) => {
             if *b {
@@ -97,7 +94,10 @@ pub fn format_console_value(value: &Value) -> String {
             format!("<reason_object {}>", obj.object.borrow().object_id.as_str())
         }
         Value::ReasonObjectSnapshot(snap) => {
-            format!("<reason_object_snapshot {}>", snap.object.object_id.as_str())
+            format!(
+                "<reason_object_snapshot {}>",
+                snap.object.object_id.as_str()
+            )
         }
         Value::ReasonTransaction(_) => "<reason_transaction>".to_string(),
         Value::Json(j) => format!("{j}"),

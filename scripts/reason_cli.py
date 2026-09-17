@@ -74,7 +74,9 @@ def _build_parser() -> argparse.ArgumentParser:
         if name in {"analyze", "run", "artifacts", "export"}:
             sub.add_argument("--out")
         if name == "run":
-            sub.add_argument("--trace", action="store_true")
+            sub.add_argument("--trace", nargs="?", const="delta", choices=["off", "delta", "full", "sampled"], default=None)
+            sub.add_argument("--trace-checkpoint-interval", type=int)
+            sub.add_argument("--trace-max-bytes", type=int)
             sub.add_argument("--allow-read", action="store_true")
             sub.add_argument("--allow-write", action="store_true")
             sub.add_argument("--result-output")
@@ -168,9 +170,15 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    # JSON output includes the runtime trace contract used by machine clients;
-    # human-readable runs collect it only when --trace is requested.
-    result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace or args.json, allow_read=args.allow_read, allow_write=args.allow_write)
+    # Delta is the native trace default; --trace=off avoids payload recording.
+    trace_config = {"mode": args.trace or "delta"}
+    for name in ("checkpoint_interval", "max_bytes"):
+        value = getattr(args, f"trace_{name}", None)
+        if value is not None:
+            if value < 0:
+                raise CliFileSystemError(f"--trace-{name.replace('_', '-')} must be nonnegative")
+            trace_config[name] = value
+    result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace != "off", allow_read=args.allow_read, allow_write=args.allow_write, trace_config=trace_config)
     if args.result_output and result.get("ok"):
         runtime_result = result.get("runtime_result")
         if not isinstance(runtime_result, dict) or "result" not in runtime_result:
@@ -409,7 +417,7 @@ def _analyze_result(path: Path, compiler_mode: str) -> dict[str, Any]:
     }
 
 
-def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_read: bool = False, allow_write: bool = False) -> dict[str, Any]:
+def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_read: bool = False, allow_write: bool = False, trace_config: dict[str, Any] | None = None) -> dict[str, Any]:
     analyze = _analyze_result(path, compiler_mode)
     simulation = analyze["artifacts"].get("simulation") if isinstance(analyze.get("artifacts"), dict) else {}
     knowledge = analyze["artifacts"].get("knowledge") if isinstance(analyze.get("artifacts"), dict) else {}
@@ -448,6 +456,7 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
                 allow_read,
                 allow_write,
                 include_trace=include_trace,
+                **({"trace_config": trace_config} if trace_config is not None else {}),
             )
             result["runtime_result"] = runtime_result
             result["console_output"] = runtime_result.get("console_output", [])

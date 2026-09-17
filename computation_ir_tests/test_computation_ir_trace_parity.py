@@ -65,7 +65,7 @@ def test_loop_trace_matches_ast_python_ir_and_rust(source: str):
     ir = lower_program(program)
     ast_trace = execute_program(program, resource_root=Path.cwd()).to_dict()["loop_trace"]
     python_ir_trace = interpret_program(ir, resource_root=Path.cwd()).to_dict()["loop_trace"]
-    rust = run_ir(ir, binary=HOST, trace_enabled=True)
+    rust = run_ir(ir, binary=HOST, trace_enabled=True, trace_config={"mode": "full"})
     assert rust.ok
     assert python_ir_trace == ast_trace
     assert rust.metadata["loop_trace"] == ast_trace

@@ -276,6 +276,10 @@ def _expr_is_pure_function_body(
         "call_ruo",
         "call_optimizer",
         "call_relation",
+        "relation_filter",
+        "array_builder",
+        "call_array_builder",
+        "call_semantic_event",
         "call_reasoning",
         "call_array_append",
         "call_array_concat",
@@ -799,6 +803,21 @@ def _eliminate_dead_locals(
 
 def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
     op = expr.get("op")
+    if op == "relation_filter":
+        _collect_reads(expr["source"], out)
+        captures: set[str] = set()
+        _collect_reads(expr["predicate"], captures)
+        out.update(captures - {expr["binding"]})
+        return
+    if op == "call_array_builder":
+        _collect_reads(expr["builder"], out)
+        for argument in expr["arguments"]:
+            _collect_reads(argument, out)
+        return
+    if op == "call_semantic_event":
+        for argument in expr["arguments"]:
+            _collect_reads(argument, out)
+        return
     if op == "local":
         out.add(expr["name"])
         return
@@ -856,6 +875,8 @@ _IMPURE_FUNCTION_IDS = {"tensor.load", "tensor.save"}
 
 def _is_side_effect_free(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
+    if op in {"relation_filter", "array_builder", "call_array_builder", "call_semantic_event"}:
+        return False
     if op == "call_tensor":
         if expr["function_id"] in _IMPURE_FUNCTION_IDS:
             return False
@@ -943,10 +964,16 @@ def _local_cse(instructions: list[dict[str, Any]]) -> tuple[list[dict[str, Any]]
     result: list[dict[str, Any]] = []
     for instruction in instructions:
         if instruction["op"] != "assign":
+            if instruction["op"] in {"field_assign", "index_assign"} or (
+                instruction["op"] == "expr" and not _is_side_effect_free(instruction["expr"])
+            ):
+                available.clear()
             result.append(instruction)
             continue
         target = instruction["target"]
         expr = instruction["expr"]
+        if not _is_side_effect_free(expr):
+            available.clear()
 
         stale_keys = [key for key, (cached_expr, _) in available.items() if _reads_name(cached_expr, target)]
         for key in stale_keys:
@@ -975,6 +1002,8 @@ def _reads_name(expr: dict[str, Any], name: str) -> bool:
 
 def _is_cse_eligible(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
+    if op in {"relation_filter", "array_builder", "call_array_builder", "call_semantic_event"}:
+        return False
     if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function", "call_array_append", "call_array_concat", "assert", "assert_eq"):
         return False  # never dedupe calls: see module docstring
     if op == "const" or op == "local":

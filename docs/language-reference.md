@@ -357,6 +357,8 @@ ambient behavior:
 - `optimizer.*` — pure SGD, Momentum, Adam, and AdamW update functions.
 - `relation.*` — filtering, counting, sorting, and deduplication over arrays of
   structs.
+- `array.builder()` — transient bulk array construction with `append` and `finish`.
+- `reasoning.event` — semantic reasoning steps and evidence.
 - `string.*` — string operations.
 - `vision.*` — deterministic Vision runtime integration.
 - `ruo.*` — ReasonUnit Object inspection, snapshots, queries, and transactions.
@@ -384,6 +386,12 @@ Execution is deterministic for the same source, inputs, capabilities, and
 runtime configuration. Array and struct assignments preserve reference/alias
 semantics. Tensor values are opaque handles; convert them explicitly with
 `tensor.scalar` or `tensor.to_array` when a plain result is needed.
+
+Native traces default to delta mode. Loop boundaries flush changed paths and
+incremental state hashes; checkpoints periodically retain a full visible state.
+Changes between loops and after the final loop are included in the journal.
+`reason run --trace=full` selects the earlier loop-snapshot format. Semantic
+reasoning steps are measured separately from loop iterations.
 
 ## Compatibility and known limits
 

@@ -101,7 +101,8 @@ def main() -> int:
                     package_root,
                     entry=_option_arg(args[1:], "--entry"),
                     auto_build=True,
-                    include_trace="--trace" in args[1:],
+                    include_trace=_trace_config(args[1:])["mode"] != "off",
+                    trace_config=_trace_config(args[1:]),
                     filesystem_read="--allow-read" in args[1:],
                     filesystem_write="--allow-write" in args[1:],
                 )
@@ -126,7 +127,8 @@ def main() -> int:
             package=package,
             entry=entry_val,
             auto_build=True,
-            include_trace="--trace" in args[1:],
+            include_trace=_trace_config(args[1:])["mode"] != "off",
+            trace_config=_trace_config(args[1:]),
             filesystem_read="--allow-read" in args[1:],
             filesystem_write="--allow-write" in args[1:],
         )
@@ -351,7 +353,7 @@ def _command_usage(command: str) -> None:
         print("Options:")
         print("  --entry <entry>    Specify calculation entry point (e.g. Main or Module::Calc)")
         print("  --package <pkg>    Target a specific workspace package")
-        print("  --trace            Include execution trace diagnostics")
+        print("  --trace=MODE       off, delta (default), full, or sampled")
         print("  --allow-read       Grant read permissions to runtime resource root")
         print("  --allow-write      Grant write permissions to runtime resource root")
         print("  --json             Emit execution results and traces in machine-readable JSON")
@@ -412,6 +414,15 @@ def _command_usage(command: str) -> None:
     print("Run 'reason help' for the full command list.")
 
 
+def _trace_config(args: list[str]) -> dict:
+    config = {"mode": next((arg.split("=", 1)[1] for arg in args if arg.startswith("--trace=")), "delta")}
+    for name in ("checkpoint_interval", "max_bytes"):
+        value = _option_arg(args, f"--trace-{name.replace('_', '-')}")
+        if value is not None:
+            config[name] = int(value)
+    return config
+
+
 def _positional_entry_arg(args: list[str]) -> str | None:
     skip_next = False
     for arg in args:
@@ -427,6 +438,8 @@ def _positional_entry_arg(args: list[str]) -> str | None:
             "--package",
             "--result-output",
             "--template",
+            "--trace-checkpoint-interval",
+            "--trace-max-bytes",
         }:
             skip_next = True
             continue
@@ -466,6 +479,8 @@ def _source_file_arg(args: list[str]) -> str | None:
             "--out",
             "--package",
             "--result-output",
+            "--trace-checkpoint-interval",
+            "--trace-max-bytes",
         }:
             skip_next = True
             continue

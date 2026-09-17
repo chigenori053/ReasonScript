@@ -112,9 +112,14 @@ def _validate_expression(where: str, node: Any) -> list[str]:
     if not isinstance(node, dict) or node.get("op") not in EXPRESSION_OPS:
         return [f"{where}: invalid expression node: {node!r}"]
     errors: list[str] = []
-    for key in ("left", "right", "operand", "collection", "index", "object", "argument"):
+    for key in ("left", "right", "operand", "collection", "index", "object", "argument", "source", "predicate", "builder"):
         if key in node:
             errors.extend(_validate_expression(where, node[key]))
+    if node["op"] == "relation_filter" and (
+        not isinstance(node.get("binding"), str) or not node["binding"]
+        or "source" not in node or "predicate" not in node
+    ):
+        errors.append(f"{where}: relation_filter requires source, binding, and predicate")
     if node["op"] == "optional_some" and "value" in node:
         errors.extend(_validate_expression(where, node["value"]))
     for key in ("elements", "arguments"):

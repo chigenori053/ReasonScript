@@ -20,5 +20,5 @@ def test_reason_examples_validates_v0_5_corpus() -> None:
     payload = json.loads(result.stdout)
     assert result.returncode == 0
     assert payload["ok"] is True
-    assert payload["valid_total"] == 10
+    assert payload["valid_total"] == 11
     assert payload["invalid_total"] == 6
