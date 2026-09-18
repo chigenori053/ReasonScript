@@ -169,6 +169,11 @@ pub enum Expr {
         value: serde_json::Value,
         #[serde(default)]
         source_span: Option<serde_json::Value>,
+        /// Decoded once on first evaluation (P0-6 allocation reduction):
+        /// a string literal inside a loop used to allocate a fresh
+        /// `Rc<str>` on every iteration.
+        #[serde(skip)]
+        cached: std::cell::OnceCell<crate::value::Value>,
     },
     #[serde(rename = "local")]
     Local {

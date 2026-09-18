@@ -610,7 +610,11 @@ class TC1011MaxCallDepthContract(unittest.TestCase):
         with redirect_stdout(stdout):
             rc = run_run(self.tmp)
         self.assertEqual(rc, 2)
-        self.assertEqual(json.loads(stdout.getvalue())["diagnostics"][0]["code"], "RT-LOOP-001")
+        diagnostic = json.loads(stdout.getvalue())["diagnostics"][0]
+        # P0-2: the configured loop limit is an Execution Budget (RT-BUDGET-005
+        # supersedes RT-LOOP-001) and the stop reason is reported explicitly.
+        self.assertEqual(diagnostic["code"], "RT-BUDGET-005")
+        self.assertEqual(diagnostic["termination_reason"], "loop_iteration_budget")
 
 
 class TC1011ManifestConsistency(unittest.TestCase):

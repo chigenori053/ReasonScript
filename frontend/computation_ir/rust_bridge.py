@@ -71,6 +71,9 @@ def run_ir(
     trace_config: dict[str, Any] | None = None,
     semantic_events: bool = True,
     limits: dict[str, int] | None = None,
+    reasoning_event_mode: str | None = None,
+    profile_runtime: bool = False,
+    fast_path: bool = True,
 ) -> RustRunResult:
     resolved = binary or find_binary()
     if resolved is None:
@@ -94,17 +97,28 @@ def run_ir(
             },
             "limits": limits or {},
             "trace": {"enabled": trace_enabled, **(trace_config or {})},
-            "reasoning": {"semantic_events": semantic_events},
+            "reasoning": {
+                "semantic_events": semantic_events,
+                **({"event_mode": reasoning_event_mode} if reasoning_event_mode else {}),
+            },
             "numeric_mode": os.environ.get("REASONSCRIPT_NUMERIC_MODE", "compat-reference"),
             "backend": backend,
+            "profile_runtime": profile_runtime,
+            "fast_path": fast_path,
         },
     }
+    timeout = float(os.environ.get("REASONSCRIPT_RUNTIME_TIMEOUT", "30"))
+    wall_budget_ms = (limits or {}).get("max_wall_time_ms")
+    if wall_budget_ms:
+        # P0-2: give the host room to stop itself (RT-BUDGET-001, a clean
+        # diagnostic with metrics) before the bridge resorts to SIGKILL.
+        timeout = max(timeout, wall_budget_ms / 1000 + 5)
     completed = subprocess.run(
         [str(resolved)],
         input=json.dumps(request),
         text=True,
         capture_output=True,
-        timeout=float(os.environ.get("REASONSCRIPT_RUNTIME_TIMEOUT", "30")),
+        timeout=timeout,
         cwd=str(cwd) if cwd is not None else None,
     )
     payload = json.loads(completed.stdout)

@@ -1083,7 +1083,7 @@ fn save(args: Vec<Value>, store: &RefCell<TensorStore>) -> VResult {
         .map_err(|error| {
             RuntimeError::new("TIO-005", format!("atomic Tensor write failed: {error}"))
         })?;
-    let mut fields = std::collections::HashMap::new();
+    let mut fields = crate::value::FastMap::default();
     fields.insert(
         "profile".to_string(),
         Value::String(Rc::from(reasonscript_tensor_core::io::PROFILE)),

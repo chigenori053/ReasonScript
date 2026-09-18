@@ -24,6 +24,9 @@ def run(
     filesystem_write: bool = False,
     auto_build: bool = False,
     trace_config: dict | None = None,
+    budget: dict | None = None,
+    reasoning_event_mode: str | None = None,
+    profile_runtime: bool = False,
 ) -> int:
     try:
         workspace = PackageGraphService().discover(project_root)
@@ -49,6 +52,9 @@ def run(
             filesystem_write=filesystem_write,
             auto_build=auto_build,
             trace_config=trace_config,
+            budget=budget,
+            reasoning_event_mode=reasoning_event_mode,
+            profile_runtime=profile_runtime,
         )
 
     if package is not None and package != workspace.default_package.name:
@@ -63,6 +69,9 @@ def run(
         filesystem_write=filesystem_write,
         auto_build=auto_build,
         trace_config=trace_config,
+        budget=budget,
+        reasoning_event_mode=reasoning_event_mode,
+        profile_runtime=profile_runtime,
     )
 
 
@@ -76,6 +85,9 @@ def _run_package(
     filesystem_write: bool = False,
     auto_build: bool = False,
     trace_config: dict | None = None,
+    budget: dict | None = None,
+    reasoning_event_mode: str | None = None,
+    profile_runtime: bool = False,
 ) -> int:
     try:
         manifest = Manifest.load(project_root)
@@ -160,6 +172,9 @@ def _run_package(
             max_call_depth=manifest.max_call_depth,
             trace_config=trace_config,
             max_loop_iterations=manifest.max_loop_iterations,
+            budget={**manifest.execution_budget(), **(budget or {})},
+            reasoning_event_mode=reasoning_event_mode,
+            profile_runtime=profile_runtime,
         )
     except RustDispatchError as error:
         print(json.dumps({"status": "failure", "diagnostics": [error.to_diagnostic()]}, indent=2))

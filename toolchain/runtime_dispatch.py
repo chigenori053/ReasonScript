@@ -2,10 +2,39 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+
+# `runtime_metrics` entries that measure the machine rather than the program
+# (P0 spec section 29: time and memory values are excluded from determinism
+# comparisons). The native host always reports them; `reason run` includes
+# them only with `--profile-runtime`, so default JSON output stays
+# byte-identical across runs and install locations (ACC-10, install parity).
+# Everything else in `runtime_metrics` is a deterministic count.
+MEASUREMENT_METRIC_KEYS = frozenset({
+    "runtime_execution_ns",
+    "predicate_execution_ns",
+    "relation_execution_ns",
+    "reasoning_event_ns",
+    "trace_execution_ns",
+    "allocation_count",
+    "allocated_bytes",
+    "peak_live_bytes",
+})
+
+
+def deterministic_runtime_result(result: dict[str, Any]) -> dict[str, Any]:
+    """`result` without the measurement-only metrics, for hashing/comparison."""
+    metrics = result.get("runtime_metrics")
+    if not isinstance(metrics, dict):
+        return result
+    stripped = dict(result)
+    stripped["runtime_metrics"] = {key: value for key, value in metrics.items() if key not in MEASUREMENT_METRIC_KEYS}
+    return stripped
 
 
 @dataclass(frozen=True)
@@ -41,6 +70,10 @@ def execute_rust_program(
     max_call_depth: int | None = None,
     trace_config: dict[str, Any] | None = None,
     max_loop_iterations: int | None = None,
+    budget: dict[str, int] | None = None,
+    reasoning_event_mode: str | None = None,
+    profile_runtime: bool = False,
+    fast_path: bool = True,
 ) -> dict[str, Any]:
     from frontend.computation_ir import LoweringError, lower_program
     from frontend.computation_ir.optimizer import optimize_program
@@ -63,6 +96,10 @@ def execute_rust_program(
         max_call_depth=max_call_depth,
         trace_config=trace_config,
         max_loop_iterations=max_loop_iterations,
+        budget=budget,
+        reasoning_event_mode=reasoning_event_mode,
+        profile_runtime=profile_runtime,
+        fast_path=fast_path,
     )
 
 
@@ -77,6 +114,10 @@ def execute_rust_ir(
     max_call_depth: int | None = None,
     trace_config: dict[str, Any] | None = None,
     max_loop_iterations: int | None = None,
+    budget: dict[str, int] | None = None,
+    reasoning_event_mode: str | None = None,
+    profile_runtime: bool = False,
+    fast_path: bool = True,
 ) -> dict[str, Any]:
     from frontend.computation_ir.rust_bridge import find_binary, run_ir
 
@@ -108,6 +149,14 @@ def execute_rust_ir(
         for key, value in (("max_call_depth", max_call_depth), ("max_loop_iterations", max_loop_iterations))
         if value is not None
     }
+    limits.update({key: value for key, value in (budget or {}).items() if value is not None})
+    if "max_wall_time_ms" not in limits:
+        # P0-2 Execution Budget: wall time is the primary stop condition.
+        # Default it to the bridge timeout so the host ends with a clean
+        # RT-BUDGET-001 (plus runtime metrics) rather than being killed.
+        default_wall_ms = int(float(os.environ.get("REASONSCRIPT_RUNTIME_TIMEOUT", "30")) * 1000)
+        if default_wall_ms > 0:
+            limits["max_wall_time_ms"] = default_wall_ms
     try:
         outcome = run_ir(
             ir_document,
@@ -119,6 +168,9 @@ def execute_rust_ir(
             trace_enabled=trace_enabled,
             **({"trace_config": trace_config} if trace_config is not None and not trace_unsupported else {}),
             limits=limits,
+            reasoning_event_mode=reasoning_event_mode,
+            profile_runtime=profile_runtime,
+            fast_path=fast_path,
         )
     except subprocess.TimeoutExpired as error:
         raise RustDispatchError(
@@ -134,15 +186,22 @@ def execute_rust_ir(
             f"native runtime host invocation failed: {error}",
         ) from error
     if not outcome.ok:
+        diagnostic = dict(outcome.diagnostic or {})
+        failure_metadata = outcome.metadata or {}
+        for key in ("termination_reason", "runtime_metrics"):
+            if failure_metadata.get(key) is not None:
+                diagnostic[key] = failure_metadata[key]
+        if not profile_runtime:
+            diagnostic = deterministic_runtime_result(diagnostic)
         raise RustDispatchError(
             "native_runtime_error",
             outcome.error_code or "RTH-RUNTIME-001",
             outcome.error_message or "native runtime execution failed",
-            diagnostic=outcome.diagnostic,
+            diagnostic=diagnostic,
         )
     calculations = outcome.calculation_results or {}
     result_value = next(reversed(calculations.values()), None) if calculations else None
-    return {
+    result = {
         "schema_version": "reasonscript-integrated-runtime/0.1",
         "status": "success",
         "result": result_value,
@@ -154,6 +213,7 @@ def execute_rust_ir(
         "vision_trace": outcome.metadata.get("vision_trace", []),
         "reasoning_trace": outcome.metadata.get("reasoning_trace", []),
         "runtime_metrics": outcome.metadata.get("runtime_metrics", {}),
+        "termination_reason": outcome.metadata.get("termination_reason", "completed"),
         "trace_diagnostics": outcome.metadata.get("trace_diagnostics", []) + ([{
             "code": "RTH-TRACE-001",
             "severity": "warning",
@@ -162,6 +222,7 @@ def execute_rust_ir(
             "operations": list(trace_unsupported),
         }] if trace_unsupported else []),
     }
+    return result if profile_runtime else deterministic_runtime_result(result)
 
 
 def unsupported_rust_operations(ir_document: dict[str, Any]) -> tuple[str, ...]:

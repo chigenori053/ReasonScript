@@ -13,10 +13,14 @@ use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
+use std::time::Instant;
 
 use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
 use crate::state_trace::{TraceConfig, TraceMode, TraceState};
-use crate::value::{from_json, to_json, RuntimeReasonObject, StructValue, Value};
+use crate::value::{from_json, to_json, FastMap, RuntimeReasonObject, StructValue, Value};
+
+/// A frame's bindings. FxHash-keyed (see `value::FxHasher`).
+pub type Env = FastMap<String, Value>;
 
 #[derive(Debug)]
 pub struct RuntimeError {
@@ -48,19 +52,138 @@ pub enum Outcome {
     NoValue,
 }
 
-/// Compiler/runtime contract defaults (Phase 4, "制御された再帰"):
-/// overridable per request via `context.limits.max_call_depth` /
-/// `max_loop_iterations`, same mechanism as the Tensor policy limits.
-pub const DEFAULT_MAX_LOOP_ITERATIONS: u64 = 10_000;
+/// Compiler/runtime contract default (Phase 4, "制御された再帰"):
+/// overridable per request via `context.limits.max_call_depth`.
 pub const DEFAULT_MAX_CALL_DEPTH: u32 = 128;
 
+/// P0-2 Execution Budget. Replaces the former fixed 10,000-visit loop cap.
+/// Every field is optional (`None`, or `0` in the request, = unlimited) and
+/// comes from the request's `context.limits`. When several are exhausted the
+/// spec's priority order decides the reported reason: wall time, memory,
+/// VM instructions, reasoning steps, loop iterations.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ExecutionBudget {
+    pub max_loop_iterations: Option<u64>,
+    pub max_reasoning_steps: Option<u64>,
+    pub max_vm_instructions: Option<u64>,
+    pub max_wall_time_ms: Option<u64>,
+    pub max_allocated_bytes: Option<u64>,
+}
+
+impl ExecutionBudget {
+    pub fn from_limits(limits: &serde_json::Map<String, serde_json::Value>) -> Self {
+        let read = |name: &str| {
+            limits
+                .get(name)
+                .and_then(serde_json::Value::as_u64)
+                .filter(|value| *value > 0)
+        };
+        ExecutionBudget {
+            max_loop_iterations: read("max_loop_iterations"),
+            max_reasoning_steps: read("max_reasoning_steps"),
+            max_vm_instructions: read("max_vm_instructions"),
+            max_wall_time_ms: read("max_wall_time_ms"),
+            max_allocated_bytes: read("max_allocated_bytes"),
+        }
+    }
+}
+
+/// `reasoning.event` processing mode (P0-5). `Off` records nothing and
+/// returns step `0`; `Count` keeps per-type counters only (no event object
+/// is ever built); `Full` additionally materializes the event into
+/// `reasoning_trace` when a trace is enabled.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReasoningEventMode {
+    Off,
+    Count,
+    Full,
+}
+
+impl ReasoningEventMode {
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "off" => Some(ReasoningEventMode::Off),
+            "count" => Some(ReasoningEventMode::Count),
+            "full" => Some(ReasoningEventMode::Full),
+            _ => None,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            ReasoningEventMode::Off => "off",
+            ReasoningEventMode::Count => "count",
+            ReasoningEventMode::Full => "full",
+        }
+    }
+}
+
+pub const EVENT_TYPES: [&str; 11] = [
+    "REASON_STATE_CREATED",
+    "RU_ACTIVATED",
+    "CANDIDATE_GENERATED",
+    "CANDIDATE_PRUNED",
+    "HYPOTHESIS_CREATED",
+    "HYPOTHESIS_VERIFIED",
+    "HYPOTHESIS_REJECTED",
+    "EVIDENCE_ADDED",
+    "STATE_TRANSITION",
+    "GOAL_UPDATED",
+    "TERMINATION_INFERRED",
+];
+
+/// P0-1 native runtime counters. Each one is incremented exactly where the
+/// work happens; none is derived or estimated. The `*_ns` timers are only
+/// accumulated under `--profile-runtime`.
+#[derive(Default)]
+pub struct Metrics {
+    pub vm_instruction_count: Cell<u64>,
+    pub reasoning_event_count: Cell<u64>,
+    pub event_type_counts: RefCell<[u64; EVENT_TYPES.len()]>,
+    pub candidate_pruned_count: Cell<u64>,
+    pub relation_dispatch_count: Cell<u64>,
+    pub relation_filter_count: Cell<u64>,
+    pub relation_predicate_eval_count: Cell<u64>,
+    pub relation_count_count: Cell<u64>,
+    pub array_read_count: Cell<u64>,
+    pub array_write_count: Cell<u64>,
+    pub struct_field_read_count: Cell<u64>,
+    pub struct_field_write_count: Cell<u64>,
+    pub state_transition_count: Cell<u64>,
+    pub branch_count: Cell<u64>,
+    pub fast_path_count: Cell<u64>,
+    pub predicate_execution_ns: Cell<u64>,
+    pub relation_execution_ns: Cell<u64>,
+    pub reasoning_event_ns: Cell<u64>,
+    pub trace_execution_ns: Cell<u64>,
+}
+
+#[inline]
+fn bump(cell: &Cell<u64>) {
+    cell.set(cell.get() + 1);
+}
+
+/// `termination_reason` for the result envelope, derived from the error
+/// code (`None` = the program completed).
+pub fn termination_reason(code: Option<&str>) -> &'static str {
+    match code {
+        None => "completed",
+        Some("RT-BUDGET-001") => "wall_time_budget",
+        Some("RT-BUDGET-002") => "memory_budget",
+        Some("RT-BUDGET-003") => "vm_instruction_budget",
+        Some("RT-BUDGET-004") => "reasoning_step_budget",
+        Some("RT-BUDGET-005") => "loop_iteration_budget",
+        Some(_) => "runtime_error",
+    }
+}
+
 pub struct Vm<'a> {
-    functions: HashMap<&'a str, &'a Function>,
-    max_loop_iterations: u64,
+    functions: FastMap<&'a str, &'a Function>,
+    budget: ExecutionBudget,
     max_call_depth: u32,
     tensors: RefCell<reasonscript_tensor_core::TensorStore>,
-    reason_objects: RefCell<HashMap<String, Value>>,
-    reasoning_bindings: HashMap<String, Value>,
+    reason_objects: RefCell<Env>,
+    reasoning_bindings: Env,
     loop_trace: RefCell<Vec<serde_json::Value>>,
     loop_frames: RefCell<HashMap<String, Vec<(i64, serde_json::Value)>>>,
     trace_enabled: bool,
@@ -71,7 +194,13 @@ pub struct Vm<'a> {
     trace_event_id: Cell<u64>,
     trace_frame_id: Cell<u64>,
     sampled_tail: RefCell<VecDeque<(serde_json::Value, usize)>>,
-    semantic_events: bool,
+    event_mode: ReasoningEventMode,
+    profile: bool,
+    fast_path: bool,
+    metrics: Metrics,
+    execution_ns: Cell<u64>,
+    started: Cell<Option<Instant>>,
+    alloc_start: Cell<crate::alloc_counter::Snapshot>,
     semantic_steps: Cell<u64>,
     loop_iterations: Cell<u64>,
     builder_appends: Cell<u64>,
@@ -84,7 +213,7 @@ pub struct Vm<'a> {
     filesystem_read: bool,
     filesystem_write: bool,
     backend: String,
-    active_frames: RefCell<Vec<Rc<RefCell<HashMap<String, Value>>>>>,
+    active_frames: RefCell<Vec<Rc<RefCell<Env>>>>,
     active_calculations: RefCell<Vec<Value>>,
     temporary_roots: RefCell<Vec<Value>>,
 }
@@ -95,7 +224,7 @@ struct FrameGuard<'a, 'v> {
 }
 
 impl<'a, 'v> FrameGuard<'a, 'v> {
-    fn new(vm: &'a Vm<'v>, env: &Rc<RefCell<HashMap<String, Value>>>, traceable: bool) -> Self {
+    fn new(vm: &'a Vm<'v>, env: &Rc<RefCell<Env>>, traceable: bool) -> Self {
         vm.active_frames.borrow_mut().push(env.clone());
         let traced = matches!(vm.trace_config.mode, TraceMode::Delta | TraceMode::Sampled)
             && !vm.trace_suppressed.get();
@@ -168,16 +297,14 @@ impl<'a> Vm<'a> {
             false,
             "RuntimeReal".to_owned(),
             DEFAULT_MAX_CALL_DEPTH,
-            DEFAULT_MAX_LOOP_ITERATIONS,
+            ExecutionBudget::default(),
         )
     }
 
-    /// `max_call_depth`/`max_loop_iterations`: Phase 4 ("制御された再帰")
-    /// exposes both as part of the compiler/runtime contract (the
-    /// `reasonscript-runtime-request/1.0` protocol's `context.limits`,
-    /// same mechanism the Tensor policy limits already use), rather than
-    /// only ever being the hardcoded `DEFAULT_MAX_CALL_DEPTH`/
-    /// `DEFAULT_MAX_LOOP_ITERATIONS` every caller silently got before.
+    /// `max_call_depth` (Phase 4, "制御された再帰") and the P0-2
+    /// `ExecutionBudget` both arrive through the
+    /// `reasonscript-runtime-request/1.0` protocol's `context.limits`, the
+    /// same mechanism the Tensor policy limits already use.
     #[allow(clippy::too_many_arguments)]
     pub fn with_runtime_context(
         program: &'a Program,
@@ -189,7 +316,7 @@ impl<'a> Vm<'a> {
         trace_enabled: bool,
         backend: String,
         max_call_depth: u32,
-        max_loop_iterations: u64,
+        budget: ExecutionBudget,
     ) -> Self {
         let functions = program
             .functions
@@ -205,10 +332,10 @@ impl<'a> Vm<'a> {
         );
         Vm {
             functions,
-            max_loop_iterations,
+            budget,
             max_call_depth,
             tensors: RefCell::new(tensors),
-            reason_objects: RefCell::new(HashMap::new()),
+            reason_objects: RefCell::new(Env::default()),
             reasoning_bindings: program
                 .reasoning_bindings
                 .iter()
@@ -231,7 +358,17 @@ impl<'a> Vm<'a> {
             trace_event_id: Cell::new(0),
             trace_frame_id: Cell::new(0),
             sampled_tail: RefCell::new(VecDeque::new()),
-            semantic_events: true,
+            event_mode: if trace_enabled {
+                ReasoningEventMode::Full
+            } else {
+                ReasoningEventMode::Count
+            },
+            profile: false,
+            fast_path: true,
+            metrics: Metrics::default(),
+            execution_ns: Cell::new(0),
+            started: Cell::new(None),
+            alloc_start: Cell::new(Default::default()),
             semantic_steps: Cell::new(0),
             loop_iterations: Cell::new(0),
             builder_appends: Cell::new(0),
@@ -265,10 +402,99 @@ impl<'a> Vm<'a> {
         result
     }
 
-    pub fn configure_trace(&mut self, config: TraceConfig, semantic_events: bool) {
+    pub fn configure_trace(&mut self, config: TraceConfig, event_mode: ReasoningEventMode) {
         self.trace_enabled = config.mode != TraceMode::Off;
         self.trace_config = config;
-        self.semantic_events = semantic_events;
+        self.event_mode = event_mode;
+    }
+
+    /// `--profile-runtime`: accumulate the per-section nanosecond timers.
+    pub fn set_profile(&mut self, profile: bool) {
+        self.profile = profile;
+    }
+
+    /// `context.fast_path = false` routes every primitive through the
+    /// Generic Path (the Fast/Generic equivalence tests rely on this).
+    pub fn set_fast_path(&mut self, fast_path: bool) {
+        self.fast_path = fast_path;
+    }
+
+    pub fn budget(&self) -> &ExecutionBudget {
+        &self.budget
+    }
+
+    #[inline]
+    fn delta_tracing(&self) -> bool {
+        matches!(
+            self.trace_config.mode,
+            TraceMode::Delta | TraceMode::Sampled
+        ) && !self.trace_suppressed.get()
+    }
+
+    #[inline]
+    fn recording_events(&self) -> bool {
+        self.event_mode == ReasoningEventMode::Full
+            && self.trace_enabled
+            && !self.trace_suppressed.get()
+    }
+
+    #[inline]
+    fn profile_start(&self) -> Option<Instant> {
+        if self.profile {
+            Some(Instant::now())
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    fn profile_stop(&self, started: Option<Instant>, cell: &Cell<u64>) {
+        if let Some(started) = started {
+            cell.set(cell.get() + started.elapsed().as_nanos() as u64);
+        }
+    }
+
+    /// One VM instruction (or terminator) about to execute. The counter and
+    /// the instruction budget are checked every time; the wall-clock and
+    /// memory budgets are sampled every 1024 instructions so
+    /// `Instant::now()` stays off the hot path.
+    #[inline]
+    fn tick_instruction(&self) -> Result<(), RuntimeError> {
+        let count = self.metrics.vm_instruction_count.get() + 1;
+        self.metrics.vm_instruction_count.set(count);
+        if count & 0x3ff == 0 {
+            self.check_periodic_budget()?;
+        }
+        if let Some(max) = self.budget.max_vm_instructions {
+            if count > max {
+                return Err(RuntimeError::new(
+                    "RT-BUDGET-003",
+                    format!("VM instruction budget exceeded: {max}"),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn check_periodic_budget(&self) -> Result<(), RuntimeError> {
+        if let (Some(max), Some(started)) = (self.budget.max_wall_time_ms, self.started.get()) {
+            if started.elapsed().as_millis() as u64 > max {
+                return Err(RuntimeError::new(
+                    "RT-BUDGET-001",
+                    format!("wall time budget exceeded: {max} ms"),
+                ));
+            }
+        }
+        if let Some(max) = self.budget.max_allocated_bytes {
+            let live = crate::alloc_counter::live_bytes();
+            if live > max {
+                return Err(RuntimeError::new(
+                    "RT-BUDGET-002",
+                    format!("memory budget exceeded: {max} bytes (live: {live})"),
+                ));
+            }
+        }
+        Ok(())
     }
 
     pub fn trace_diagnostics(&self) -> Vec<serde_json::Value> {
@@ -282,7 +508,30 @@ impl<'a> Vm<'a> {
     }
 
     pub fn runtime_metrics(&self) -> serde_json::Value {
-        serde_json::json!({
+        let m = &self.metrics;
+        let counts = m.event_type_counts.borrow();
+        let count_of = |name: &str| {
+            EVENT_TYPES
+                .iter()
+                .position(|candidate| *candidate == name)
+                .map_or(0, |index| counts[index])
+        };
+        let event_type_counts: serde_json::Map<String, serde_json::Value> = EVENT_TYPES
+            .iter()
+            .zip(counts.iter())
+            .filter(|(_, count)| **count > 0)
+            .map(|(name, count)| ((*name).to_owned(), serde_json::json!(count)))
+            .collect();
+        let alloc = crate::alloc_counter::snapshot();
+        let start = self.alloc_start.get();
+        let execution_ns = if self.execution_ns.get() > 0 {
+            self.execution_ns.get()
+        } else {
+            self.started
+                .get()
+                .map_or(0, |started| started.elapsed().as_nanos() as u64)
+        };
+        let mut metrics = serde_json::json!({
             "loop_iterations": self.loop_iterations.get(),
             "semantic_reasoning_steps": self.semantic_steps.get(),
             "builder_appends": self.builder_appends.get(),
@@ -290,7 +539,39 @@ impl<'a> Vm<'a> {
             "relation_rows_scanned": self.relation_rows_scanned.get(),
             "trace_bytes": self.trace_bytes.get(),
             "trace_mode": format!("{:?}", self.trace_config.mode).to_lowercase(),
-        })
+            "vm_instruction_count": m.vm_instruction_count.get(),
+            "reasoning_step_count": self.semantic_steps.get(),
+            "reasoning_event_count": m.reasoning_event_count.get(),
+            "reasoning_event_type_counts": event_type_counts,
+            "hypothesis_test_count": count_of("HYPOTHESIS_VERIFIED") + count_of("HYPOTHESIS_REJECTED"),
+            "candidate_pruned_count": m.candidate_pruned_count.get(),
+            "relation_dispatch_count": m.relation_dispatch_count.get(),
+            "relation_filter_count": m.relation_filter_count.get(),
+            "relation_filter_rows_scanned": self.relation_rows_scanned.get(),
+            "relation_predicate_eval_count": m.relation_predicate_eval_count.get(),
+            "relation_count_count": m.relation_count_count.get(),
+            "array_read_count": m.array_read_count.get(),
+            "array_write_count": m.array_write_count.get(),
+            "struct_field_read_count": m.struct_field_read_count.get(),
+            "struct_field_write_count": m.struct_field_write_count.get(),
+            "allocation_count": alloc.count.saturating_sub(start.count),
+            "allocated_bytes": alloc.bytes.saturating_sub(start.bytes),
+            "peak_live_bytes": alloc.peak,
+            "state_transition_count": m.state_transition_count.get(),
+            "branch_count": m.branch_count.get(),
+            "loop_iteration_count": self.loop_iterations.get(),
+            "fast_path_count": m.fast_path_count.get(),
+            "fast_path_enabled": self.fast_path,
+            "reasoning_event_mode": self.event_mode.name(),
+            "runtime_execution_ns": execution_ns,
+        });
+        if self.profile {
+            metrics["predicate_execution_ns"] = serde_json::json!(m.predicate_execution_ns.get());
+            metrics["relation_execution_ns"] = serde_json::json!(m.relation_execution_ns.get());
+            metrics["reasoning_event_ns"] = serde_json::json!(m.reasoning_event_ns.get());
+            metrics["trace_execution_ns"] = serde_json::json!(m.trace_execution_ns.get());
+        }
+        metrics
     }
 
     fn reserve_trace(&self, event: &serde_json::Value) -> Option<usize> {
@@ -334,55 +615,58 @@ impl<'a> Vm<'a> {
         }
     }
 
-    fn semantic_event(
-        &self,
-        event_type: &str,
-        subject: serde_json::Value,
-        evidence: serde_json::Value,
-        affected: serde_json::Value,
-        metadata: serde_json::Value,
-    ) -> Result<Value, RuntimeError> {
-        const TYPES: &[&str] = &[
-            "REASON_STATE_CREATED",
-            "RU_ACTIVATED",
-            "CANDIDATE_GENERATED",
-            "CANDIDATE_PRUNED",
-            "HYPOTHESIS_CREATED",
-            "HYPOTHESIS_VERIFIED",
-            "HYPOTHESIS_REJECTED",
-            "EVIDENCE_ADDED",
-            "STATE_TRANSITION",
-            "GOAL_UPDATED",
-            "TERMINATION_INFERRED",
-        ];
-        if !TYPES.contains(&event_type) {
+    /// `materialize` builds the event payload and is only invoked in
+    /// `Full` mode with an enabled trace (P0-5 lazy materialization); in
+    /// `Count` mode a `reasoning.event` call costs two counter increments.
+    fn semantic_event<F>(&self, event_type: &str, materialize: F) -> Result<Value, RuntimeError>
+    where
+        F: FnOnce() -> (
+            serde_json::Value,
+            serde_json::Value,
+            serde_json::Value,
+            serde_json::Value,
+        ),
+    {
+        let Some(type_index) = EVENT_TYPES.iter().position(|name| *name == event_type) else {
             return Err(RuntimeError::new(
                 "REASON-EVENT-001",
                 format!("invalid reasoning event: {event_type}"),
             ));
-        }
-        if !self.semantic_events {
+        };
+        if self.event_mode == ReasoningEventMode::Off {
             return Ok(Value::Int(0));
         }
+        let timer = self.profile_start();
+        bump(&self.metrics.reasoning_event_count);
+        self.metrics.event_type_counts.borrow_mut()[type_index] += 1;
         let step = self.semantic_steps.get() + 1;
         self.semantic_steps.set(step);
-        if !self.trace_enabled || self.trace_suppressed.get() {
-            return Ok(Value::Int(step as i64));
+        if let Some(max) = self.budget.max_reasoning_steps {
+            if step > max {
+                return Err(RuntimeError::new(
+                    "RT-BUDGET-004",
+                    format!("reasoning step budget exceeded: {max}"),
+                ));
+            }
         }
-        let event = serde_json::json!({
-            "event_id": format!("reason-event-{step}"),
-            "reasoning_step_id": step,
-            "event_type": event_type,
-            "source_ru": null,
-            "state_revision": step,
-            "subject": subject,
-            "evidence": evidence,
-            "affected_entities": affected,
-            "metadata": metadata,
-        });
-        if self.reserve_trace(&event).is_some() {
-            self.reasoning_trace.borrow_mut().push(event);
+        if self.recording_events() {
+            let (subject, evidence, affected, metadata) = materialize();
+            let event = serde_json::json!({
+                "event_id": format!("reason-event-{step}"),
+                "reasoning_step_id": step,
+                "event_type": event_type,
+                "source_ru": null,
+                "state_revision": step,
+                "subject": subject,
+                "evidence": evidence,
+                "affected_entities": affected,
+                "metadata": metadata,
+            });
+            if self.reserve_trace(&event).is_some() {
+                self.reasoning_trace.borrow_mut().push(event);
+            }
         }
+        self.profile_stop(timer, &self.metrics.reasoning_event_ns);
         Ok(Value::Int(step as i64))
     }
 
@@ -414,6 +698,7 @@ impl<'a> Vm<'a> {
         if self.trace_suppressed.get() {
             return Ok(());
         }
+        let timer = self.profile_start();
         let mut states = self.trace_states.borrow_mut();
         if let Some(state) = states.last_mut().and_then(Option::as_mut) {
             if let Some(mut event) = state.finish() {
@@ -431,6 +716,7 @@ impl<'a> Vm<'a> {
                 self.retain_state_event(event);
             }
         }
+        self.profile_stop(timer, &self.metrics.trace_execution_ns);
         Ok(())
     }
 
@@ -501,7 +787,20 @@ impl<'a> Vm<'a> {
         &self,
         program: &Program,
     ) -> Result<Vec<(String, Value)>, RuntimeError> {
-        let mut object_bindings = HashMap::new();
+        let started = Instant::now();
+        self.started.set(Some(started));
+        self.alloc_start.set(crate::alloc_counter::snapshot());
+        let result = self.run_calculations_inner(program);
+        self.execution_ns
+            .set(started.elapsed().as_nanos().max(1) as u64);
+        result
+    }
+
+    fn run_calculations_inner(
+        &self,
+        program: &Program,
+    ) -> Result<Vec<(String, Value)>, RuntimeError> {
+        let mut object_bindings = Env::default();
         if !program.reason_object_bindings.is_empty() && !self.filesystem_read {
             return Err(RuntimeError::new(
                 "RUO-N2-007",
@@ -565,7 +864,7 @@ impl<'a> Vm<'a> {
                     format!("unknown calculation: {calculation_id}"),
                 )
             })?;
-            let mut env_map: HashMap<String, Value> = calculations
+            let mut env_map: Env = calculations
                 .iter()
                 .map(|(name, value)| (name.clone(), value.clone()))
                 .collect();
@@ -599,13 +898,18 @@ impl<'a> Vm<'a> {
     }
 
     fn push_temporary_root(&self, value: Value) {
+        // Roots exist only for the tensor collector; with no live tensors no
+        // value can reference one, so skip the clone-and-push (P0-6).
+        if self.tensors.borrow().is_empty() {
+            return;
+        }
         self.temporary_roots.borrow_mut().push(value);
     }
 
     fn run_function(
         &self,
         function: &Function,
-        env: &Rc<RefCell<HashMap<String, Value>>>,
+        env: &Rc<RefCell<Env>>,
         call_depth: u32,
     ) -> Result<Outcome, RuntimeError> {
         let traceable = function.blocks.iter().any(|block| {
@@ -615,32 +919,25 @@ impl<'a> Vm<'a> {
                 .any(|instruction| matches!(instruction, Instruction::TraceLoopStart { .. }))
         });
         let _frame_guard = FrameGuard::new(self, env, traceable);
-        let blocks: HashMap<&str, &Block> = function
+        let blocks: FastMap<&str, &Block> = function
             .blocks
             .iter()
             .map(|block| (block.id.as_str(), block))
             .collect();
         let mut current = function.entry_block.as_str();
-        let mut visits: HashMap<String, u64> = HashMap::new();
+        // P0-2: the per-block visit counter (the fixed 10,000 cap) is gone.
+        // Loop iterations are budgeted at `TraceLoopStart`; the wall-time,
+        // memory and instruction budgets in `tick_instruction` cover the rest.
         loop {
-            let count = visits.entry(current.to_string()).or_insert(0);
-            *count += 1;
-            if *count > self.max_loop_iterations {
-                return Err(RuntimeError::new(
-                    "RT-LOOP-001",
-                    format!(
-                        "loop iteration limit exceeded: {}",
-                        self.max_loop_iterations
-                    ),
-                ));
-            }
             let block = blocks.get(current).ok_or_else(|| {
                 RuntimeError::new("IR-EXEC-006", format!("unknown block: {current}"))
             })?;
             for instruction in &block.instructions {
+                self.tick_instruction()?;
                 self.execute_instruction(instruction, env, call_depth)?;
                 self.collect_tensors();
             }
+            self.tick_instruction()?;
             match &block.terminator {
                 Terminator::Jump { target } => {
                     current = self.resolve_block_id(&blocks, target)?;
@@ -650,6 +947,7 @@ impl<'a> Vm<'a> {
                     then,
                     else_target,
                 } => {
+                    bump(&self.metrics.branch_count);
                     let condition_value = self.eval_expr(condition, env, call_depth)?;
                     let taken = match condition_value {
                         Value::Bool(value) => value,
@@ -680,6 +978,7 @@ impl<'a> Vm<'a> {
                     return Err(RuntimeError::new(code, message.clone()));
                 }
                 Terminator::Match { subject, arms } => {
+                    bump(&self.metrics.branch_count);
                     let subject_value = self.eval_expr(subject, env, call_depth)?;
                     let mut matched_target: Option<&str> = None;
                     for arm in arms {
@@ -787,7 +1086,7 @@ impl<'a> Vm<'a> {
 
     fn resolve_block_id<'b>(
         &self,
-        blocks: &HashMap<&'b str, &'b Block>,
+        blocks: &FastMap<&'b str, &'b Block>,
         target: &'b str,
     ) -> Result<&'b str, RuntimeError> {
         if blocks.contains_key(target) {
@@ -803,23 +1102,36 @@ impl<'a> Vm<'a> {
     fn execute_instruction(
         &self,
         instruction: &Instruction,
-        env: &Rc<RefCell<HashMap<String, Value>>>,
+        env: &Rc<RefCell<Env>>,
         call_depth: u32,
     ) -> Result<(), RuntimeError> {
         match instruction {
             Instruction::TraceLoopStart { loop_id, counter } => {
-                let iteration = match env.borrow().get(counter) {
-                    Some(Value::Int(value)) => *value + 1,
-                    _ => {
-                        return Err(RuntimeError::new(
-                            "IR-EXEC-009",
-                            "loop trace counter is missing",
-                        ))
+                let iteration = {
+                    let mut env_mut = env.borrow_mut();
+                    match env_mut.get_mut(counter) {
+                        Some(Value::Int(value)) => {
+                            *value += 1;
+                            *value
+                        }
+                        _ => {
+                            return Err(RuntimeError::new(
+                                "IR-EXEC-009",
+                                "loop trace counter is missing",
+                            ))
+                        }
                     }
                 };
-                env.borrow_mut()
-                    .insert(counter.clone(), Value::Int(iteration));
-                self.loop_iterations.set(self.loop_iterations.get() + 1);
+                let iterations = self.loop_iterations.get() + 1;
+                self.loop_iterations.set(iterations);
+                if let Some(max) = self.budget.max_loop_iterations {
+                    if iterations > max {
+                        return Err(RuntimeError::new(
+                            "RT-BUDGET-005",
+                            format!("loop iteration budget exceeded: {max}"),
+                        ));
+                    }
+                }
                 if !self.trace_suppressed.get() {
                     match self.trace_config.mode {
                         TraceMode::Off => {}
@@ -853,6 +1165,7 @@ impl<'a> Vm<'a> {
                 if self.trace_config.mode == TraceMode::Off || self.trace_suppressed.get() {
                     return Ok(());
                 }
+                let timer = self.profile_start();
                 if self.trace_config.mode == TraceMode::Full {
                     let key = format!("{}:{loop_id}", self.active_frames.borrow().len());
                     let (iteration, previous_state) = self
@@ -894,12 +1207,24 @@ impl<'a> Vm<'a> {
                     drop(states);
                     self.retain_state_event(event);
                 }
+                self.profile_stop(timer, &self.metrics.trace_execution_ns);
                 Ok(())
             }
             Instruction::Assign { target, expr } => {
                 let value = self.eval_expr(expr, env, call_depth)?;
-                self.trace_assign(target, env.borrow().get(target), &value);
-                env.borrow_mut().insert(target.clone(), value);
+                bump(&self.metrics.state_transition_count);
+                if self.delta_tracing() {
+                    self.trace_assign(target, env.borrow().get(target), &value);
+                }
+                // Overwrite in place: `insert(target.clone(), ..)` allocated a
+                // fresh key String on every assignment (P0-6).
+                let mut env_mut = env.borrow_mut();
+                match env_mut.get_mut(target) {
+                    Some(slot) => *slot = value,
+                    None => {
+                        env_mut.insert(target.clone(), value);
+                    }
+                }
                 Ok(())
             }
             Instruction::Expr { expr } => {
@@ -941,6 +1266,8 @@ impl<'a> Vm<'a> {
                             &new_value,
                         );
                         items.borrow_mut()[index_int as usize] = new_value;
+                        bump(&self.metrics.array_write_count);
+                        bump(&self.metrics.state_transition_count);
                         Ok(())
                     }
                     _ => Err(RuntimeError::new(
@@ -976,6 +1303,8 @@ impl<'a> Vm<'a> {
                             .fields
                             .borrow_mut()
                             .insert(member.clone(), new_value);
+                        bump(&self.metrics.struct_field_write_count);
+                        bump(&self.metrics.state_transition_count);
                         Ok(())
                     }
                     _ => Err(RuntimeError::new(
@@ -990,7 +1319,7 @@ impl<'a> Vm<'a> {
     fn eval_expr(
         &self,
         expr: &Expr,
-        env: &Rc<RefCell<HashMap<String, Value>>>,
+        env: &Rc<RefCell<Env>>,
         call_depth: u32,
     ) -> Result<Value, RuntimeError> {
         self.eval_expr_inner(expr, env, call_depth)
@@ -1000,11 +1329,23 @@ impl<'a> Vm<'a> {
     fn eval_expr_inner(
         &self,
         expr: &Expr,
-        env: &Rc<RefCell<HashMap<String, Value>>>,
+        env: &Rc<RefCell<Env>>,
         call_depth: u32,
     ) -> Result<Value, RuntimeError> {
         match expr {
-            Expr::Const { kind, value, .. } => const_value(kind, value),
+            Expr::Const {
+                kind,
+                value,
+                cached,
+                ..
+            } => {
+                if let Some(cached) = cached.get() {
+                    return Ok(cached.clone());
+                }
+                let decoded = const_value(kind, value)?;
+                let _ = cached.set(decoded.clone());
+                Ok(decoded)
+            }
             Expr::Local { name, .. } => env.borrow().get(name).cloned().ok_or_else(|| {
                 RuntimeError::new("RT-NAME-001", format!("unknown runtime name: {name}"))
             }),
@@ -1022,7 +1363,7 @@ impl<'a> Vm<'a> {
                 type_name, fields, ..
             } => {
                 let _guard = TempRootGuard::new(self);
-                let mut evaluated = HashMap::new();
+                let mut evaluated = Env::with_capacity_and_hasher(fields.len(), Default::default());
                 for (name, field_expr) in fields {
                     let val = self.eval_expr(field_expr, env, call_depth)?;
                     self.push_temporary_root(val.clone());
@@ -1095,10 +1436,16 @@ impl<'a> Vm<'a> {
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
                 self.push_temporary_root(collection_value.clone());
                 let index_value = self.eval_expr(index, env, call_depth)?;
+                bump(&self.metrics.array_read_count);
                 index_value_lookup(collection_value, index_value)
             }
             Expr::Member { object, member, .. } => {
                 let owner = self.eval_expr(object, env, call_depth)?;
+                match &owner {
+                    Value::Struct(_) => bump(&self.metrics.struct_field_read_count),
+                    Value::Array(_) => bump(&self.metrics.array_read_count),
+                    _ => {}
+                }
                 member_lookup(owner, member)
             }
             Expr::CallTensor {
@@ -1239,6 +1586,11 @@ impl<'a> Vm<'a> {
                 arguments,
                 ..
             } => {
+                bump(&self.metrics.relation_dispatch_count);
+                let is_count = function_id == "relation.count";
+                if is_count {
+                    bump(&self.metrics.relation_count_count);
+                }
                 let _guard = TempRootGuard::new(self);
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
@@ -1246,7 +1598,27 @@ impl<'a> Vm<'a> {
                     self.push_temporary_root(val.clone());
                     values.push(val);
                 }
-                crate::relation_dispatch::call(function_id, values)
+                let timer = self.profile_start();
+                if is_count && self.fast_path && values.len() == 1 {
+                    // P0-3 `relation.count` -> ARRAY_LEN Fast Path.
+                    // ponytail: trusts the type checker's homogeneous `[Struct]`
+                    // arrays and type-checks only the first element; the
+                    // Generic Path below scans every row before counting.
+                    if let Value::Array(items) = &values[0] {
+                        let items = items.borrow();
+                        if items
+                            .first()
+                            .is_none_or(|item| matches!(item, Value::Struct(_)))
+                        {
+                            bump(&self.metrics.fast_path_count);
+                            self.profile_stop(timer, &self.metrics.relation_execution_ns);
+                            return Ok(Value::Int(items.len() as i64));
+                        }
+                    }
+                }
+                let result = crate::relation_dispatch::call(function_id, values);
+                self.profile_stop(timer, &self.metrics.relation_execution_ns);
+                result
             }
             Expr::RelationFilter {
                 source,
@@ -1255,6 +1627,8 @@ impl<'a> Vm<'a> {
                 ..
             } => {
                 validate_predicate(predicate)?;
+                bump(&self.metrics.relation_dispatch_count);
+                bump(&self.metrics.relation_filter_count);
                 let source = self.eval_expr(source, env, call_depth)?;
                 let Value::Array(rows) = source else {
                     return Err(RuntimeError::new(
@@ -1262,35 +1636,108 @@ impl<'a> Vm<'a> {
                         "Relation function requires Array<Struct>",
                     ));
                 };
-                let scoped = Rc::new(RefCell::new(env.borrow().clone()));
+                let relation_timer = self.profile_start();
+                let fast = if self.fast_path {
+                    compile_fast_predicate(predicate, binding, &env.borrow())
+                } else {
+                    None
+                };
+                let recording = self.recording_events();
                 let rows = rows.borrow();
                 let mut kept = Vec::with_capacity(rows.len());
-                let mut removed = Vec::new();
+                let mut removed: Vec<usize> = Vec::new();
+                let mut removed_count = 0usize;
+                // The row binding lives in the caller's frame for the duration
+                // of the scan and is restored afterwards, instead of cloning
+                // the entire environment per call (P0-6). A predicate cannot
+                // assign, so nothing else in the frame can change meanwhile.
+                let saved = env.borrow_mut().remove(binding);
+                let predicate_timer = self.profile_start();
+                let mut outcome: Result<(), RuntimeError> = Ok(());
                 for (index, row) in rows.iter().enumerate() {
                     if !matches!(row, Value::Struct(_)) {
-                        return Err(RuntimeError::new(
+                        outcome = Err(RuntimeError::new(
                             "REL-004",
                             "Relation function requires Array<Struct>",
                         ));
+                        break;
                     }
-                    scoped.borrow_mut().insert(binding.clone(), row.clone());
                     self.relation_rows_scanned
                         .set(self.relation_rows_scanned.get() + 1);
-                    match self.eval_expr(predicate, &scoped, call_depth)? {
-                        Value::Bool(true) => kept.push(row.clone()),
-                        Value::Bool(false) => removed.push(index),
-                        _ => {
-                            return Err(RuntimeError::new(
-                                "REL-PRED-003",
-                                "relation predicate must return Bool",
-                            ))
+                    bump(&self.metrics.relation_predicate_eval_count);
+                    let reads = &self.metrics.struct_field_read_count;
+                    let verdict = match fast.as_ref().and_then(|fast| fast.eval(row, reads)) {
+                        Some(verdict) => {
+                            bump(&self.metrics.fast_path_count);
+                            Ok(verdict)
+                        }
+                        None => {
+                            {
+                                let mut env_mut = env.borrow_mut();
+                                match env_mut.get_mut(binding) {
+                                    Some(slot) => *slot = row.clone(),
+                                    None => {
+                                        env_mut.insert(binding.clone(), row.clone());
+                                    }
+                                }
+                            }
+                            match self.eval_expr(predicate, env, call_depth) {
+                                Ok(Value::Bool(verdict)) => Ok(verdict),
+                                Ok(_) => Err(RuntimeError::new(
+                                    "REL-PRED-003",
+                                    "relation predicate must return Bool",
+                                )),
+                                Err(error) => Err(error),
+                            }
+                        }
+                    };
+                    match verdict {
+                        Ok(true) => kept.push(row.clone()),
+                        Ok(false) => {
+                            removed_count += 1;
+                            if recording {
+                                removed.push(index);
+                            }
+                        }
+                        Err(error) => {
+                            outcome = Err(error);
+                            break;
                         }
                     }
                 }
-                if !removed.is_empty() {
-                    self.semantic_event("CANDIDATE_PRUNED", serde_json::json!(binding), serde_json::Value::Null,
-                        serde_json::json!(removed), serde_json::json!({"before_count": rows.len(), "after_count": kept.len(), "removed_count": removed.len()}))?;
+                self.profile_stop(predicate_timer, &self.metrics.predicate_execution_ns);
+                {
+                    let mut env_mut = env.borrow_mut();
+                    match saved {
+                        Some(value) => {
+                            env_mut.insert(binding.clone(), value);
+                        }
+                        None => {
+                            env_mut.remove(binding);
+                        }
+                    }
                 }
+                outcome?;
+                if removed_count > 0 {
+                    self.metrics
+                        .candidate_pruned_count
+                        .set(self.metrics.candidate_pruned_count.get() + removed_count as u64);
+                    let before_count = rows.len();
+                    let after_count = kept.len();
+                    self.semantic_event("CANDIDATE_PRUNED", || {
+                        (
+                            serde_json::json!(binding),
+                            serde_json::Value::Null,
+                            serde_json::json!(removed),
+                            serde_json::json!({
+                                "before_count": before_count,
+                                "after_count": after_count,
+                                "removed_count": removed_count,
+                            }),
+                        )
+                    })?;
+                }
+                self.profile_stop(relation_timer, &self.metrics.relation_execution_ns);
                 Ok(Value::Array(Rc::new(RefCell::new(kept))))
             }
             Expr::ArrayBuilder { .. } => Ok(Value::ArrayBuilder(Rc::new(RefCell::new(
@@ -1343,6 +1790,7 @@ impl<'a> Vm<'a> {
                         );
                         builder.borrow_mut().items.as_mut().unwrap().push(value);
                         self.builder_appends.set(self.builder_appends.get() + 1);
+                        bump(&self.metrics.array_write_count);
                         Ok(Value::Null)
                     }
                     ("finish", []) => {
@@ -1391,13 +1839,14 @@ impl<'a> Vm<'a> {
                         "event type must be a string",
                     ));
                 };
-                self.semantic_event(
-                    event_type,
-                    to_json(&values[1]),
-                    to_json(&values[2]),
-                    serde_json::json!([]),
-                    serde_json::json!({}),
-                )
+                self.semantic_event(event_type, || {
+                    (
+                        to_json(&values[1]),
+                        to_json(&values[2]),
+                        serde_json::json!([]),
+                        serde_json::json!({}),
+                    )
+                })
             }
             Expr::CallArrayAppend {
                 collection, item, ..
@@ -1538,7 +1987,7 @@ impl<'a> Vm<'a> {
         &self,
         name: &str,
         argument_exprs: &[Expr],
-        env: &Rc<RefCell<HashMap<String, Value>>>,
+        env: &Rc<RefCell<Env>>,
         call_depth: u32,
     ) -> Result<Value, RuntimeError> {
         let function_id = format!("fn.{name}");
@@ -1564,7 +2013,7 @@ impl<'a> Vm<'a> {
             self.push_temporary_root(val.clone());
             arguments.push(val);
         }
-        let mut local_env: HashMap<String, Value> = self.reason_objects.borrow().clone();
+        let mut local_env: Env = self.reason_objects.borrow().clone();
         local_env.extend(self.reasoning_bindings.clone());
         local_env.extend(function.parameters.iter().cloned().zip(arguments));
         let local_env = Rc::new(RefCell::new(local_env));
@@ -1586,7 +2035,7 @@ impl<'a> Vm<'a> {
     }
 }
 
-fn trace_env(env: &HashMap<String, Value>) -> serde_json::Value {
+fn trace_env(env: &Env) -> serde_json::Value {
     let mut visible = std::collections::BTreeMap::new();
     for (name, value) in env {
         if name.starts_with("__for_") || name.starts_with("__trace_") || name.starts_with("__opt_")
@@ -1657,6 +2106,178 @@ fn collect_tensor_ids(
             }
         }
         _ => {}
+    }
+}
+
+/// P0-4 predicate Fast Path for `relation.filter`: `row.field <op> value`,
+/// `row.field % m <op> value`, combined with `&&`, `||` and `!`. Compiled
+/// once per `relation.filter` call against the caller's environment (a
+/// predicate cannot assign, so every captured local is stable for the whole
+/// scan). Any row that leaves the happy path -- a non-Struct row, a missing
+/// field, a non-Int modulo operand, incomparable operand types -- yields
+/// `None` and is re-evaluated by the Generic Path, so results and
+/// diagnostics are identical by construction.
+enum FastOperand {
+    Field(String),
+    FieldModulo(String, i64),
+    /// A captured struct's field (`state.value`), resolved once per scan but
+    /// still counted as one field read per row, like the Generic Path.
+    CapturedField(Value),
+    Const(Value),
+}
+
+enum FastPredicate {
+    Compare {
+        operator: String,
+        left: FastOperand,
+        right: FastOperand,
+    },
+    And(Box<FastPredicate>, Box<FastPredicate>),
+    Or(Box<FastPredicate>, Box<FastPredicate>),
+    Not(Box<FastPredicate>),
+}
+
+fn compile_fast_predicate(expr: &Expr, binding: &str, env: &Env) -> Option<FastPredicate> {
+    match expr {
+        Expr::Comparison {
+            operator,
+            left,
+            right,
+            ..
+        } => Some(FastPredicate::Compare {
+            operator: operator.clone(),
+            left: compile_fast_operand(left, binding, env)?,
+            right: compile_fast_operand(right, binding, env)?,
+        }),
+        Expr::Logical {
+            operator,
+            left,
+            right,
+            ..
+        } => {
+            let left = Box::new(compile_fast_predicate(left, binding, env)?);
+            let right = Box::new(compile_fast_predicate(right, binding, env)?);
+            match operator.as_str() {
+                "And" => Some(FastPredicate::And(left, right)),
+                "Or" => Some(FastPredicate::Or(left, right)),
+                _ => None,
+            }
+        }
+        Expr::Unary {
+            operator, operand, ..
+        } if operator == "Not" => Some(FastPredicate::Not(Box::new(compile_fast_predicate(
+            operand, binding, env,
+        )?))),
+        _ => None,
+    }
+}
+
+fn compile_fast_operand(expr: &Expr, binding: &str, env: &Env) -> Option<FastOperand> {
+    match expr {
+        Expr::Member { object, member, .. } => match object.as_ref() {
+            Expr::Local { name, .. } if name == binding => Some(FastOperand::Field(member.clone())),
+            // `state.value`: a captured struct's field, read once per scan.
+            Expr::Local { name, .. } => match env.get(name)? {
+                Value::Struct(owner) => owner
+                    .fields
+                    .borrow()
+                    .get(member)
+                    .cloned()
+                    .map(FastOperand::CapturedField),
+                _ => None,
+            },
+            _ => None,
+        },
+        Expr::Const { kind, value, .. } => const_value(kind, value).ok().map(FastOperand::Const),
+        Expr::Local { name, .. } if name != binding => {
+            env.get(name).cloned().map(FastOperand::Const)
+        }
+        Expr::Binary {
+            operator,
+            left,
+            right,
+            ..
+        } if operator == "Modulo" => {
+            let FastOperand::Field(field) = compile_fast_operand(left, binding, env)? else {
+                return None;
+            };
+            match compile_fast_operand(right, binding, env)? {
+                FastOperand::Const(Value::Int(modulus)) if modulus != 0 => {
+                    Some(FastOperand::FieldModulo(field, modulus))
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+impl FastOperand {
+    /// `reads` is the VM's `struct_field_read_count`, kept in step with the
+    /// Generic Path so counters are identical whichever path ran.
+    #[inline]
+    fn eval(&self, fields: &Env, reads: &Cell<u64>) -> Option<Value> {
+        match self {
+            FastOperand::Field(name) => {
+                bump(reads);
+                fields.get(name).cloned()
+            }
+            FastOperand::FieldModulo(name, modulus) => {
+                bump(reads);
+                match fields.get(name) {
+                    Some(Value::Int(value)) => Some(Value::Int(python_mod_i64(*value, *modulus))),
+                    _ => None,
+                }
+            }
+            FastOperand::CapturedField(value) => {
+                bump(reads);
+                Some(value.clone())
+            }
+            FastOperand::Const(value) => Some(value.clone()),
+        }
+    }
+}
+
+impl FastPredicate {
+    #[inline]
+    fn eval(&self, row: &Value, reads: &Cell<u64>) -> Option<bool> {
+        let Value::Struct(row) = row else {
+            return None;
+        };
+        let fields = row.fields.borrow();
+        self.eval_fields(&fields, reads)
+    }
+
+    fn eval_fields(&self, fields: &Env, reads: &Cell<u64>) -> Option<bool> {
+        match self {
+            FastPredicate::Compare {
+                operator,
+                left,
+                right,
+            } => match eval_comparison(
+                operator,
+                left.eval(fields, reads)?,
+                right.eval(fields, reads)?,
+            ) {
+                Ok(Value::Bool(verdict)) => Some(verdict),
+                _ => None,
+            },
+            // Same short-circuit as `Expr::Logical`: the right side is never
+            // evaluated (and can never raise) when the left side decides.
+            FastPredicate::And(left, right) => {
+                if !left.eval_fields(fields, reads)? {
+                    return Some(false);
+                }
+                right.eval_fields(fields, reads)
+            }
+            FastPredicate::Or(left, right) => {
+                if left.eval_fields(fields, reads)? {
+                    return Some(true);
+                }
+                right.eval_fields(fields, reads)
+            }
+            FastPredicate::Not(inner) => inner.eval_fields(fields, reads).map(|verdict| !verdict),
+        }
     }
 }
 

@@ -81,7 +81,7 @@ pub enum Value {
 #[derive(Debug)]
 pub struct StructValue {
     pub type_name: String,
-    pub fields: RefCell<HashMap<String, Value>>,
+    pub fields: RefCell<FastMap<String, Value>>,
 }
 
 impl Value {
@@ -315,3 +315,63 @@ pub fn from_json(value: serde_json::Value) -> Value {
         value @ serde_json::Value::Object(_) => Value::Json(Rc::new(value)),
     }
 }
+
+/// FxHash (the rustc/Firefox hasher): a few ALU ops per word instead of
+/// SipHash's rounds. Profiling the P0 SpecTest loop showed ~25% of
+/// trace=off wall time inside `sip::Hasher::write` for `env`/field/block
+/// lookups keyed by short identifiers. Not DoS-resistant, which is
+/// irrelevant for keys that come from the program's own identifiers.
+#[derive(Clone, Copy, Default)]
+pub struct FxHasher {
+    hash: u64,
+}
+
+const FX_SEED: u64 = 0x51_7c_c1_b7_27_22_0a_95;
+
+impl FxHasher {
+    #[inline]
+    fn add(&mut self, word: u64) {
+        self.hash = (self.hash.rotate_left(5) ^ word).wrapping_mul(FX_SEED);
+    }
+}
+
+impl std::hash::Hasher for FxHasher {
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) {
+        let mut rest = bytes;
+        while rest.len() >= 8 {
+            self.add(u64::from_le_bytes(rest[..8].try_into().unwrap()));
+            rest = &rest[8..];
+        }
+        if rest.len() >= 4 {
+            self.add(u64::from(u32::from_le_bytes(rest[..4].try_into().unwrap())));
+            rest = &rest[4..];
+        }
+        for &byte in rest {
+            self.add(u64::from(byte));
+        }
+    }
+    #[inline]
+    fn write_u8(&mut self, value: u8) {
+        self.add(u64::from(value));
+    }
+    #[inline]
+    fn write_u32(&mut self, value: u32) {
+        self.add(u64::from(value));
+    }
+    #[inline]
+    fn write_u64(&mut self, value: u64) {
+        self.add(value);
+    }
+    #[inline]
+    fn write_usize(&mut self, value: usize) {
+        self.add(value as u64);
+    }
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+}
+
+pub type FxBuildHasher = std::hash::BuildHasherDefault<FxHasher>;
+pub type FastMap<K, V> = HashMap<K, V, FxBuildHasher>;

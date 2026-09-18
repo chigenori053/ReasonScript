@@ -74,9 +74,17 @@ def _build_parser() -> argparse.ArgumentParser:
         if name in {"analyze", "run", "artifacts", "export"}:
             sub.add_argument("--out")
         if name == "run":
-            sub.add_argument("--trace", nargs="?", const="delta", choices=["off", "delta", "full", "sampled"], default=None)
+            sub.add_argument("--trace", nargs="?", const="delta", choices=["off", "summary", "delta", "full", "sampled"], default=None)
             sub.add_argument("--trace-checkpoint-interval", type=int)
             sub.add_argument("--trace-max-bytes", type=int)
+            # P0-2 Execution Budget / P0-5 reasoning event modes / P0-1 profiling
+            sub.add_argument("--max-loop-iterations", type=int)
+            sub.add_argument("--max-reasoning-steps", type=int)
+            sub.add_argument("--max-vm-instructions", type=int)
+            sub.add_argument("--max-wall-time-ms", type=int)
+            sub.add_argument("--max-allocated-bytes", type=int)
+            sub.add_argument("--reasoning-events", choices=["off", "count", "full"], default=None)
+            sub.add_argument("--profile-runtime", action="store_true")
             sub.add_argument("--allow-read", action="store_true")
             sub.add_argument("--allow-write", action="store_true")
             sub.add_argument("--result-output")
@@ -178,7 +186,16 @@ def cmd_run(args: argparse.Namespace) -> int:
             if value < 0:
                 raise CliFileSystemError(f"--trace-{name.replace('_', '-')} must be nonnegative")
             trace_config[name] = value
-    result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace != "off", allow_read=args.allow_read, allow_write=args.allow_write, trace_config=trace_config)
+    budget = {
+        key: value
+        for key in ("max_loop_iterations", "max_reasoning_steps", "max_vm_instructions", "max_wall_time_ms", "max_allocated_bytes")
+        if (value := getattr(args, key, None)) is not None
+    }
+    result = _run_result(
+        Path(args.file), args.compiler_mode, include_trace=args.trace != "off", allow_read=args.allow_read,
+        allow_write=args.allow_write, trace_config=trace_config, budget=budget,
+        reasoning_event_mode=getattr(args, "reasoning_events", None), profile_runtime=getattr(args, "profile_runtime", False),
+    )
     if args.result_output and result.get("ok"):
         runtime_result = result.get("runtime_result")
         if not isinstance(runtime_result, dict) or "result" not in runtime_result:
@@ -417,7 +434,7 @@ def _analyze_result(path: Path, compiler_mode: str) -> dict[str, Any]:
     }
 
 
-def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_read: bool = False, allow_write: bool = False, trace_config: dict[str, Any] | None = None) -> dict[str, Any]:
+def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_read: bool = False, allow_write: bool = False, trace_config: dict[str, Any] | None = None, budget: dict[str, int] | None = None, reasoning_event_mode: str | None = None, profile_runtime: bool = False) -> dict[str, Any]:
     analyze = _analyze_result(path, compiler_mode)
     simulation = analyze["artifacts"].get("simulation") if isinstance(analyze.get("artifacts"), dict) else {}
     knowledge = analyze["artifacts"].get("knowledge") if isinstance(analyze.get("artifacts"), dict) else {}
@@ -457,6 +474,9 @@ def _run_result(path: Path, compiler_mode: str, *, include_trace: bool, allow_re
                 allow_write,
                 include_trace=include_trace,
                 **({"trace_config": trace_config} if trace_config is not None else {}),
+                budget=budget,
+                reasoning_event_mode=reasoning_event_mode,
+                profile_runtime=profile_runtime,
             )
             result["runtime_result"] = runtime_result
             result["console_output"] = runtime_result.get("console_output", [])

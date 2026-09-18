@@ -1,0 +1,87 @@
+{
+  "schema": "reasonscript-p0-runtime-profile/1.0",
+  "cases": 79,
+  "samples": 3,
+  "baseline_host": "/Users/chigenori/.reasonscript/versions/0.5.5.15/bin/reason-runtime-host",
+  "optimized_host": "/Users/chigenori/development/ReasonScript/.claude/worktrees/pytest-cleanup-files-de05aa/ReasonRuntime/target/release/reason-runtime-host",
+  "P0-A_no_unnecessary_loop_limit_stop": {
+    "pass": true,
+    "baseline_loop_limited_cases": [
+      "limit_probe_sqrt30000",
+      "limit_probe_sqrt40000",
+      "limit_probe_sqrt50000",
+      "limit_probe_sqrt70000",
+      "limit_probe_sqrt100000"
+    ]
+  },
+  "P0-B_results_events_pruning_identical": {
+    "pass": true,
+    "compared_cases": 74
+  },
+  "P0-C_sieve_wall_time_minus_20_percent": {
+    "pass": false,
+    "median_before_over_after": 1.0343,
+    "cases_at_or_above_1.25": 11,
+    "cases_measured": 74
+  },
+  "P0-D_sieve_at_or_below_wheel6_wall": {
+    "pass": true,
+    "cases_host_wall": [
+      "basic_12",
+      "basic_84",
+      "basic_97",
+      "semiprime_8b",
+      "semiprime_near_equal_8b",
+      "repeated_8b",
+      "highly_composite_8b",
+      "mixed_8b",
+      "repeated_10b",
+      "repeated_12b",
+      "highly_composite_12b",
+      "mixed_12b",
+      "semiprime_14b",
+      "semiprime_near_equal_14b",
+      "repeated_14b",
+      "mixed_14b",
+      "prime_16b",
+      "repeated_16b",
+      "mixed_16b",
+      "prime_18b",
+      "mixed_18b",
+      "repeated_22b",
+      "repeated_26b"
+    ],
+    "cases_in_process_execution": [
+      "basic_12",
+      "basic_18",
+      "basic_21",
+      "basic_60",
+      "basic_84",
+      "basic_97",
+      "repeated_8b",
+      "repeated_10b",
+      "repeated_12b",
+      "repeated_14b",
+      "repeated_16b",
+      "repeated_18b",
+      "repeated_20b",
+      "repeated_22b",
+      "repeated_24b",
+      "repeated_26b"
+    ]
+  },
+  "P0-E_compression_vs_improvement_correlation": {
+    "pearson_r_wall_improvement": 0.022216975875598358,
+    "pearson_r_exec_advantage_over_wheel6": -0.31321726493485663,
+    "pass": true
+  },
+  "P0-F_reasoning_advantage_in_real_time": {
+    "pass": false,
+    "cases": 23,
+    "of": 79
+  },
+  "determinism": {
+    "pass": true
+  },
+  "median_wheel6_wall_improvement": 1.01555
+}

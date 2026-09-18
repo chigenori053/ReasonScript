@@ -7,7 +7,7 @@ use std::rc::Rc;
 use serde_json::{json, Value as Json};
 use sha2::{Digest, Sha256};
 
-use crate::value::{to_json, Value};
+use crate::value::{to_json, FastMap, Value};
 use crate::vm::RuntimeError;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,7 +48,8 @@ impl TraceConfig {
             ));
         }
         let mode = match value.get("mode").and_then(Json::as_str) {
-            Some("off") => TraceMode::Off,
+            // `summary` (P0 trace separation): no payloads, event counts only.
+            Some("off") | Some("summary") => TraceMode::Off,
             Some("delta") => TraceMode::Delta,
             Some("full") => TraceMode::Full,
             Some("sampled") => TraceMode::Sampled,
@@ -123,7 +124,7 @@ pub struct TraceState {
 }
 
 impl TraceState {
-    pub fn new(env: &HashMap<String, Value>) -> Self {
+    pub fn new(env: &FastMap<String, Value>) -> Self {
         let mut result = Self::default();
         for (name, value) in env {
             result.assign(name, None, value);

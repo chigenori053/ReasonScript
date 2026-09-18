@@ -23,9 +23,16 @@ use std::process::ExitCode;
 
 use reasonscript_computation_ir::state_trace::{TraceConfig, TraceMode};
 use reasonscript_computation_ir::{
-    decode, to_json, NumericMode, TensorPolicy, Vm, DEFAULT_MAX_CALL_DEPTH,
-    DEFAULT_MAX_LOOP_ITERATIONS,
+    decode, termination_reason, to_json, ExecutionBudget, NumericMode, ReasoningEventMode,
+    TensorPolicy, Vm, DEFAULT_MAX_CALL_DEPTH,
 };
+
+/// P0-1: every allocation the host makes is counted (`allocation_count`,
+/// `allocated_bytes`, `peak_live_bytes`) and the memory budget
+/// (`RT-BUDGET-002`) reads the live total.
+#[global_allocator]
+static GLOBAL: reasonscript_computation_ir::alloc_counter::CountingAllocator =
+    reasonscript_computation_ir::alloc_counter::CountingAllocator;
 
 const REQUEST_SCHEMA: &str = "reasonscript-runtime-request/1.0";
 const RESULT_SCHEMA: &str = "reasonscript-runtime-result/1.0";
@@ -215,11 +222,8 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         tensor_policy.max_saved_tensor_bytes,
     );
     let max_call_depth = limit(limits, "max_call_depth", DEFAULT_MAX_CALL_DEPTH as usize) as u32;
-    let max_loop_iterations = limit(
-        limits,
-        "max_loop_iterations",
-        DEFAULT_MAX_LOOP_ITERATIONS as usize,
-    ) as u64;
+    // P0-2: no fixed loop cap; every budget is opt-in through `limits`.
+    let budget = ExecutionBudget::from_limits(limits);
     let capabilities = context
         .get("capabilities")
         .and_then(serde_json::Value::as_object)
@@ -262,13 +266,49 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         trace_enabled,
         backend,
         max_call_depth,
-        max_loop_iterations,
+        budget,
     );
     let semantic_events = request
         .pointer("/context/reasoning/semantic_events")
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(true);
-    vm.configure_trace(trace_config, semantic_events);
+    // P0-5: `full` when a trace is on, `count` otherwise -- exactly the
+    // pre-P0 behavior -- unless the request names a mode explicitly.
+    let event_mode = match request
+        .pointer("/context/reasoning/event_mode")
+        .and_then(serde_json::Value::as_str)
+    {
+        Some(name) => match ReasoningEventMode::parse(name) {
+            Some(mode) => mode,
+            None => {
+                return fail_request(
+                    request_id,
+                    "RTH-PROTO-005",
+                    "reasoning.event_mode must be off, count, or full",
+                )
+            }
+        },
+        None if trace_enabled => ReasoningEventMode::Full,
+        None => ReasoningEventMode::Count,
+    };
+    let event_mode = if semantic_events {
+        event_mode
+    } else {
+        ReasoningEventMode::Off
+    };
+    vm.configure_trace(trace_config, event_mode);
+    vm.set_profile(
+        request
+            .pointer("/context/profile_runtime")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+    );
+    vm.set_fast_path(
+        request
+            .pointer("/context/fast_path")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(true),
+    );
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let loop_trace = vm.loop_trace();
@@ -313,12 +353,19 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "reason_object_metadata": [],
                         "trace_diagnostics": vm.trace_diagnostics(),
                         "runtime_metrics": vm.runtime_metrics(),
+                        "termination_reason": termination_reason(None),
                     },
                 })
             );
             ExitCode::SUCCESS
         }
-        Err(error) => fail_runtime_request(request_id, &error),
+        Err(error) => fail_request_with_location(
+            request_id,
+            &error.code,
+            &error.message,
+            error.source_location.clone(),
+            Some(vm.runtime_metrics()),
+        ),
     }
 }
 
@@ -376,7 +423,7 @@ fn fail_io(message: &str) -> ExitCode {
 }
 
 fn fail_request(request_id: &str, code: &str, message: &str) -> ExitCode {
-    fail_request_with_location(request_id, code, message, None)
+    fail_request_with_location(request_id, code, message, None, None)
 }
 
 fn fail_runtime_request(
@@ -388,14 +435,19 @@ fn fail_runtime_request(
         &error.code,
         &error.message,
         error.source_location.clone(),
+        None,
     )
 }
 
+/// `runtime_metrics` is present whenever a VM ran (budget stops included),
+/// so a caller can see how far execution got; `termination_reason` names
+/// the budget that stopped it (spec section 17).
 fn fail_request_with_location(
     request_id: &str,
     code: &str,
     message: &str,
     source_location: Option<serde_json::Value>,
+    runtime_metrics: Option<serde_json::Value>,
 ) -> ExitCode {
     let payload = serde_json::json!({
         "schema": RESULT_SCHEMA,
@@ -415,6 +467,8 @@ fn fail_request_with_location(
             "trace": [],
             "tensor_metadata": [],
             "reason_object_metadata": [],
+            "termination_reason": termination_reason(Some(code)),
+            "runtime_metrics": runtime_metrics.unwrap_or(serde_json::Value::Null),
         },
     });
     println!("{payload}");

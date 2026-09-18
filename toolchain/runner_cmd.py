@@ -171,6 +171,7 @@ def _collect_package(
                 backend=manifest.backend,
                 max_call_depth=manifest.max_call_depth,
                 max_loop_iterations=manifest.max_loop_iterations,
+                budget=manifest.execution_budget(),
             )
         except RustDispatchError as error:
             if error.reason in _INFRASTRUCTURE_REASONS:

@@ -10,7 +10,7 @@ from typing import Any
 
 from frontend.language_surface.nodes import CalculationNode
 from toolchain.pipeline import PipelineError, compile_package_sources
-from toolchain.runtime_dispatch import RustDispatchError, execute_rust_program
+from toolchain.runtime_dispatch import RustDispatchError, execute_rust_program, deterministic_runtime_result
 from toolchain.artifacts import validate_artifact_directory
 from toolchain.manifest import Manifest, ManifestError
 from toolchain.source_selection import SourceSelectionError, package_sources
@@ -74,7 +74,7 @@ def validate_project(root: str | Path, *, repetitions: int = 3) -> dict[str, Any
                         False,
                         backend=_manifest_backend(manifest),
                     )
-                    encoded = _canonical(payload)
+                    encoded = _canonical(deterministic_runtime_result(payload))
                     run_hashes.append(hashlib.sha256(encoded.encode()).hexdigest())
                 canonical_runs.extend(run_hashes)
                 if len(set(run_hashes)) == 1:

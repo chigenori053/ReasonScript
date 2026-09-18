@@ -30,8 +30,25 @@ KNOWN_SECTION_KEYS = {
     "source": {"entry"},
     "artifacts": {"directory"},
     "compiler": {"language_core", "platform"},
-    "runtime": {"backend", "max_call_depth", "max_loop_iterations"},
+    "runtime": {
+        "backend",
+        "max_call_depth",
+        "max_loop_iterations",
+        "max_reasoning_steps",
+        "max_vm_instructions",
+        "max_wall_time_ms",
+        "max_allocated_bytes",
+    },
 }
+
+
+BUDGET_KEYS = (
+    "max_loop_iterations",
+    "max_reasoning_steps",
+    "max_vm_instructions",
+    "max_wall_time_ms",
+    "max_allocated_bytes",
+)
 
 
 class ManifestError(ValueError):
@@ -52,6 +69,11 @@ class Manifest:
     # contract, the same way `backend` already is).
     max_call_depth: int | None = None
     max_loop_iterations: int | None = None
+    # P0-2 Execution Budget (`[runtime]` in reason.toml); `None` = unlimited.
+    max_reasoning_steps: int | None = None
+    max_vm_instructions: int | None = None
+    max_wall_time_ms: int | None = None
+    max_allocated_bytes: int | None = None
     dependencies: dict[str, object] = field(default_factory=dict)
     identifier: str | None = None
     project_name: str | None = None
@@ -63,6 +85,10 @@ class Manifest:
     source_entry: str | None = None
     artifacts_directory: str = "artifacts"
     capabilities: dict[str, object] = field(default_factory=dict)
+
+    def execution_budget(self) -> dict[str, int]:
+        """Configured `[runtime]` budget limits as `context.limits` entries."""
+        return {key: value for key in BUDGET_KEYS if (value := getattr(self, key)) is not None}
 
     @staticmethod
     def load(project_root: Path) -> Manifest:
@@ -193,7 +219,7 @@ class Manifest:
                 f"Unknown runtime backend '{backend}'. "
                 f"Supported: {', '.join(sorted(SUPPORTED_BACKENDS))}"
             )
-        for limit_key in ("max_call_depth", "max_loop_iterations"):
+        for limit_key in BUDGET_KEYS + ("max_call_depth",):
             limit_value = runtime.get(limit_key)
             if limit_value is not None and (
                 isinstance(limit_value, bool)
@@ -218,6 +244,10 @@ class Manifest:
             backend=backend,
             max_call_depth=runtime.get("max_call_depth"),
             max_loop_iterations=runtime.get("max_loop_iterations"),
+            max_reasoning_steps=runtime.get("max_reasoning_steps"),
+            max_vm_instructions=runtime.get("max_vm_instructions"),
+            max_wall_time_ms=runtime.get("max_wall_time_ms"),
+            max_allocated_bytes=runtime.get("max_allocated_bytes"),
             dependencies=dict(dependencies),
             identifier=pkg_identifier,
             project_name=proj_name,

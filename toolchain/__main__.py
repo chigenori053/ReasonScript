@@ -105,6 +105,9 @@ def main() -> int:
                     trace_config=_trace_config(args[1:]),
                     filesystem_read="--allow-read" in args[1:],
                     filesystem_write="--allow-write" in args[1:],
+                    budget=_budget_config(args[1:]),
+                    reasoning_event_mode=_reasoning_event_mode(args[1:]),
+                    profile_runtime="--profile-runtime" in args[1:],
                 )
         from scripts.reason_cli import main as reason_main
         return reason_main(args)
@@ -131,6 +134,9 @@ def main() -> int:
             trace_config=_trace_config(args[1:]),
             filesystem_read="--allow-read" in args[1:],
             filesystem_write="--allow-write" in args[1:],
+            budget=_budget_config(args[1:]),
+            reasoning_event_mode=_reasoning_event_mode(args[1:]),
+            profile_runtime="--profile-runtime" in args[1:],
         )
 
     if command == "test":
@@ -353,7 +359,14 @@ def _command_usage(command: str) -> None:
         print("Options:")
         print("  --entry <entry>    Specify calculation entry point (e.g. Main or Module::Calc)")
         print("  --package <pkg>    Target a specific workspace package")
-        print("  --trace=MODE       off, delta (default), full, or sampled")
+        print("  --trace=MODE       off, summary, delta (default), full, or sampled")
+        print("  --max-loop-iterations N    Execution budget: loop iterations (RT-BUDGET-005)")
+        print("  --max-reasoning-steps N    Execution budget: reasoning steps (RT-BUDGET-004)")
+        print("  --max-vm-instructions N    Execution budget: VM instructions (RT-BUDGET-003)")
+        print("  --max-wall-time-ms N       Execution budget: wall time (RT-BUDGET-001)")
+        print("  --max-allocated-bytes N    Execution budget: live memory (RT-BUDGET-002)")
+        print("  --reasoning-events=MODE    off, count, or full (default: full with a trace, else count)")
+        print("  --profile-runtime  Add per-section timers to runtime_metrics")
         print("  --allow-read       Grant read permissions to runtime resource root")
         print("  --allow-write      Grant write permissions to runtime resource root")
         print("  --json             Emit execution results and traces in machine-readable JSON")
@@ -414,6 +427,38 @@ def _command_usage(command: str) -> None:
     print("Run 'reason help' for the full command list.")
 
 
+BUDGET_OPTIONS = {
+    "--max-loop-iterations": "max_loop_iterations",
+    "--max-reasoning-steps": "max_reasoning_steps",
+    "--max-vm-instructions": "max_vm_instructions",
+    "--max-wall-time-ms": "max_wall_time_ms",
+    "--max-allocated-bytes": "max_allocated_bytes",
+}
+
+
+def _value_option(args: list[str], option: str) -> str | None:
+    """`--option value` or `--option=value`."""
+    for index, arg in enumerate(args):
+        if arg == option and index + 1 < len(args):
+            return args[index + 1]
+        if arg.startswith(option + "="):
+            return arg.split("=", 1)[1]
+    return None
+
+
+def _budget_config(args: list[str]) -> dict[str, int]:
+    budget: dict[str, int] = {}
+    for option, key in BUDGET_OPTIONS.items():
+        value = _value_option(args, option)
+        if value is not None:
+            budget[key] = int(value)
+    return budget
+
+
+def _reasoning_event_mode(args: list[str]) -> str | None:
+    return _value_option(args, "--reasoning-events")
+
+
 def _trace_config(args: list[str]) -> dict:
     config = {"mode": next((arg.split("=", 1)[1] for arg in args if arg.startswith("--trace=")), "delta")}
     for name in ("checkpoint_interval", "max_bytes"):
@@ -440,6 +485,8 @@ def _positional_entry_arg(args: list[str]) -> str | None:
             "--template",
             "--trace-checkpoint-interval",
             "--trace-max-bytes",
+            "--reasoning-events",
+            *BUDGET_OPTIONS,
         }:
             skip_next = True
             continue
@@ -481,6 +528,8 @@ def _source_file_arg(args: list[str]) -> str | None:
             "--result-output",
             "--trace-checkpoint-interval",
             "--trace-max-bytes",
+            "--reasoning-events",
+            *BUDGET_OPTIONS,
         }:
             skip_next = True
             continue

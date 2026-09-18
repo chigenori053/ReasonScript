@@ -83,15 +83,88 @@ Executes a standalone source file or a package project.
 
 
 
+## Execution budget (P0 runtime performance)
+
+```sh
+./reason run program.rsn --max-reasoning-steps 100000 --max-wall-time-ms 30000
+./reason run program.rsn --max-loop-iterations 1000000 --max-vm-instructions 50000000
+./reason run program.rsn --max-allocated-bytes 268435456
+```
+
+The native runtime no longer has a fixed 10,000-iteration loop cap. Execution
+is bounded by an Execution Budget instead: every limit is optional (`0` or
+absent means unlimited), and the same keys are accepted under `[runtime]` in
+`reason.toml` (CLI flags override the manifest). When no wall-time budget is
+given, `reason run` uses `REASONSCRIPT_RUNTIME_TIMEOUT` (30 s by default) so
+the host stops itself with a diagnostic instead of being killed by the bridge.
+
+Stop conditions are checked in this priority order and reported with a
+dedicated code and `termination_reason`:
+
+| Code | `termination_reason` | Budget |
+|---|---|---|
+| `RT-BUDGET-001` | `wall_time_budget` | `max_wall_time_ms` |
+| `RT-BUDGET-002` | `memory_budget` | `max_allocated_bytes` (live host memory) |
+| `RT-BUDGET-003` | `vm_instruction_budget` | `max_vm_instructions` |
+| `RT-BUDGET-004` | `reasoning_step_budget` | `max_reasoning_steps` |
+| `RT-BUDGET-005` | `loop_iteration_budget` | `max_loop_iterations` (supersedes `RT-LOOP-001`) |
+
+A completed run reports `termination_reason: "completed"`; any other runtime
+error reports `runtime_error`. Budget diagnostics carry the `runtime_metrics`
+collected up to the stop, so a stopped run still shows how far it got. The
+wall-time and memory budgets are sampled every 1,024 VM instructions.
+
+## Runtime metrics and profiling
+
+`runtime_result.runtime_metrics` (and `metadata.runtime_metrics` in the host
+envelope) reports native counters measured inside the VM: `vm_instruction_count`,
+`reasoning_step_count`, `reasoning_event_count`, `reasoning_event_type_counts`,
+`hypothesis_test_count`, `candidate_pruned_count`, `relation_dispatch_count`,
+`relation_filter_count`, `relation_filter_rows_scanned`,
+`relation_predicate_eval_count`, `relation_count_count`, `array_read_count`,
+`array_write_count`, `struct_field_read_count`, `struct_field_write_count`,
+`state_transition_count` (binding, field and index writes), `branch_count`,
+`loop_iteration_count`, `fast_path_count`, and the pre-existing
+`loop_iterations`, `semantic_reasoning_steps`, `builder_appends`,
+`relation_rows_scanned`, `trace_bytes`, `trace_mode`. All of these are
+deterministic counts.
+
+Measurement values depend on the machine and the process environment, so
+`reason run` includes them only with `--profile-runtime` (keeping default JSON
+output byte-identical across runs and install locations): `runtime_execution_ns`
+(in-process VM time), `allocation_count`, `allocated_bytes`, `peak_live_bytes`,
+and the per-section timers `predicate_execution_ns`, `relation_execution_ns`,
+`reasoning_event_ns`, `trace_execution_ns` (the timers are also only
+accumulated under the flag, because timing itself costs time). The native host
+envelope (`metadata.runtime_metrics`) always carries the execution time and
+allocation figures.
+
+```sh
+./reason run program.rsn --json --trace=off --profile-runtime
+./reason run program.rsn --json --reasoning-events=count
+```
+
+`--reasoning-events` selects how `reasoning.event()` is processed: `off`
+(returns step `0`, records nothing), `count` (per-type counters only, no event
+object is built), or `full` (events materialized into `reasoning_trace`). The
+default is `full` when a trace is enabled and `count` otherwise, which matches
+the previous behavior exactly.
+
 ## Native execution traces
 
 ```sh
 ./reason run program.rsn --json --trace=delta
 ./reason run program.rsn --trace=off
+./reason run program.rsn --trace=summary
 ./reason run program.rsn --json --trace=full
 ./reason run program.rsn --json --trace=sampled
 ./reason run program.rsn --trace=delta --trace-checkpoint-interval 100 --trace-max-bytes 104857600
 ```
+
+`summary` records no trace payloads and keeps only the reasoning event
+counters (`reasoning_event_type_counts`); it is the recommended mode for
+performance measurement, while `delta` remains the mode for reasoning
+correctness verification.
 
 Delta is the default; bare `--trace` also selects delta. It records changed paths
 instead of complete before/after states for every iteration. Full mode retains
@@ -364,7 +437,11 @@ platform = "0.2"               # platform version
 [runtime]
 backend = "RuntimeReal"        # "RuntimeReal" or "HybridRuntime"
 max_call_depth = 100           # optional positive integer recursion limit
-max_loop_iterations = 100000   # optional positive integer; default 10000 block visits per call
+max_loop_iterations = 100000   # optional Execution Budget: total loop iterations (unlimited by default)
+max_reasoning_steps = 100000   # optional Execution Budget: reasoning.event steps
+max_vm_instructions = 50000000 # optional Execution Budget: VM instructions
+max_wall_time_ms = 30000       # optional Execution Budget: wall time (default: REASONSCRIPT_RUNTIME_TIMEOUT)
+max_allocated_bytes = 0        # optional Execution Budget: live host memory (0 = unlimited)
 
 [dependencies]
 # package dependencies

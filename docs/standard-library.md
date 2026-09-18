@@ -155,9 +155,25 @@ Unknown types fail with `REASON-EVENT-001`.
 The minimal API assigns monotonically increasing state revisions and leaves
 `source_ru` null. Automatic pruning events use the same step sequence. Events
 appear in `reasoning_trace`; `runtime_metrics` separately reports loop iterations,
-semantic steps, builder appends, scanned rows, and trace bytes. Disabling trace
-retains semantic counters but records no payloads. Disabling semantic events in
-the runtime request returns step `0` and emits no semantic events.
+semantic steps, builder appends, scanned rows, trace bytes, and the native
+counters listed in the CLI reference (`vm_instruction_count`,
+`reasoning_event_type_counts`, `hypothesis_test_count`,
+`candidate_pruned_count`, ...).
+
+Events are processed in one of three modes (`--reasoning-events`, or
+`context.reasoning.event_mode` in the runtime request): `off` returns step `0`
+and records nothing; `count` assigns steps and keeps per-type counters without
+building an event object; `full` also materializes each event into
+`reasoning_trace`. The default is `full` when a trace is enabled and `count`
+otherwise, so disabling trace retains the semantic counters but records no
+payloads. Disabling semantic events in the runtime request is the same as
+`off`.
+
+`relation.filter` predicates of the form `row.field <op> value`,
+`row.field % m <op> value`, and their `&&`/`||`/`!` combinations, as well as
+`relation.count`, execute on a native Fast Path that skips generic expression
+dispatch. Results, events, counters, and diagnostics are identical to the
+Generic Path; `runtime_metrics.fast_path_count` reports how often it was taken.
 
 These new collection and event APIs execute in the native Rust host. The Python
 interpreters retain their earlier reference API surface.

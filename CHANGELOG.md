@@ -1,5 +1,32 @@
 # Changelog
 
+## [Unreleased] - P0 Runtime Performance
+
+- Replaced the fixed 10,000-iteration loop cap with an Execution Budget
+  (`max_loop_iterations`, `max_reasoning_steps`, `max_vm_instructions`,
+  `max_wall_time_ms`, `max_allocated_bytes`) configurable from `reason run`
+  flags and `[runtime]` in `reason.toml`. Budget stops report `RT-BUDGET-001`
+  to `RT-BUDGET-005` with a `termination_reason`; `RT-BUDGET-005` supersedes
+  `RT-LOOP-001` for the loop limit, and every result now carries
+  `termination_reason`.
+- Added native runtime counters to `runtime_metrics` (VM instructions,
+  reasoning steps and per-type event counts, relation dispatch/filter/predicate
+  counts, array and struct access counts, allocation count and bytes, state
+  writes, branches, loop iterations) and `--profile-runtime`, which adds the
+  in-process execution time, allocation figures, and per-section timers to
+  `reason run` output (the native host envelope always reports them).
+- Added `reasoning.event` modes `off` / `count` / `full`
+  (`--reasoning-events`), with lazy event materialization: `count` mode never
+  builds an event object. Added `--trace=summary`.
+- Added Fast Paths for `relation.count` and simple `relation.filter`
+  predicates (field comparisons, modulo predicates, `&&`/`||`/`!`), with
+  results, events, counters, and diagnostics identical to the Generic Path
+  (`context.fast_path = false` forces the Generic Path).
+- Reduced native interpreter overhead: FxHash for identifier-keyed maps,
+  per-iteration key and string-literal allocations removed, in-place row
+  binding for `relation.filter`, and buffered result output. Trace payloads
+  and results are byte-identical to 0.5.5.15.
+
 ## [0.5.5.15] - 2026-09-17
 
 - Added Rust-native `relation.filter(rows, predicate)`, transient array builders,
