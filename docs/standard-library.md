@@ -167,6 +167,16 @@ the corresponding counts, serialized allocation estimates, VM-instructions per
 RU, and SHA-256 sequence/graph hashes. Turning semantic event tracing off does
 not disable this explicit structure projection.
 
+Executable Reason Units are independently controlled by
+`context.executable_reason_units`: `off` (default), `count`, or `full`.
+`ReasonStructure` creates and activates native units before candidate predicate
+evaluation, then verifies or rejects and completes them afterward. Explicit
+`reasoning.event` calls remain compatible through synthetic units marked
+`legacy_reasoning_event`. Full mode exposes `reason_unit_trace`; count mode
+retains lifecycle, kind, Evidence, source, RUVMR, and deterministic hash metrics
+without returning unit payloads. Invalid lifecycle transitions report
+`RU-LIFECYCLE-001`.
+
 These new collection and event APIs execute in the native Rust host. The Python
 interpreters retain their earlier reference API surface.
 

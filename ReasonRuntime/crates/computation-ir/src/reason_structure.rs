@@ -1,6 +1,66 @@
 use sha2::{Digest, Sha256};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum ExecutableMode {
+    #[default]
+    Off,
+    Count,
+    Full,
+}
+
+impl ExecutableMode {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "off" => Some(Self::Off),
+            "count" => Some(Self::Count),
+            "full" => Some(Self::Full),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReasonUnitSource {
+    Runtime,
+    LegacyReasoningEvent,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExecutableKind {
+    Hypothesis,
+    Verification,
+    ConstraintDerivation,
+    GoalEvaluation,
+    TerminationCheck,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TerminalStatus {
+    Verified,
+    Rejected,
+    Completed,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ExecutableHandle(usize);
+
+#[derive(Debug)]
+struct ExecutableReasonUnit {
+    id: String,
+    semantic_signature: String,
+    kind: ExecutableKind,
+    source: ReasonUnitSource,
+    subject: serde_json::Value,
+    input: serde_json::Value,
+    output: serde_json::Value,
+    evidence_refs: Vec<String>,
+    status: &'static str,
+    terminal_status: Option<TerminalStatus>,
+    lifecycle_revision: u64,
+    lifecycle: Vec<&'static str>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ReasonUnitMode {
     #[default]
     Off,
@@ -46,6 +106,13 @@ pub struct ReasonStructure {
     objects: Vec<serde_json::Value>,
     evidence: Vec<serde_json::Value>,
     relations: Vec<serde_json::Value>,
+    executable_mode: ExecutableMode,
+    executable_units: Vec<ExecutableReasonUnit>,
+    executable_evidence: Vec<serde_json::Value>,
+    executable_relations: Vec<serde_json::Value>,
+    executable_sequence: Vec<serde_json::Value>,
+    executable_lifecycle: Vec<serde_json::Value>,
+    executable_metrics: [u64; 13],
 }
 
 impl ReasonStructure {
@@ -54,6 +121,156 @@ impl ReasonStructure {
             mode,
             ..Self::default()
         }
+    }
+
+    pub fn set_executable_mode(&mut self, mode: ExecutableMode) {
+        self.executable_mode = mode;
+    }
+
+    pub fn begin_executable(
+        &mut self,
+        kind: ExecutableKind,
+        source: ReasonUnitSource,
+        operation: &str,
+        subject: serde_json::Value,
+        input: serde_json::Value,
+    ) -> Option<ExecutableHandle> {
+        if self.executable_mode == ExecutableMode::Off {
+            return None;
+        }
+        let sequence = self.executable_metrics[0] + 1;
+        let id = format!("ru:{}:{sequence:08}", executable_kind_id(kind));
+        let semantic_signature = format!(
+            "{}|{}|{}|{}",
+            executable_kind(kind),
+            operation,
+            canonical(&subject),
+            canonical(&input)
+        );
+        self.executable_metrics[0] += 1; // created
+        self.executable_metrics[1] += 1; // activated
+        self.executable_metrics[6] += 2; // lifecycle transitions
+        self.executable_metrics[8 + executable_kind_index(kind)] += 1;
+        let unit = ExecutableReasonUnit {
+            id: id.clone(),
+            semantic_signature,
+            kind,
+            source,
+            subject,
+            input,
+            output: serde_json::Value::Null,
+            evidence_refs: Vec::new(),
+            status: "ACTIVE",
+            terminal_status: None,
+            lifecycle_revision: 1,
+            lifecycle: vec!["CREATED", "ACTIVE"],
+        };
+        self.executable_lifecycle
+            .push(serde_json::json!([id, "CREATED", 0]));
+        self.executable_lifecycle
+            .push(serde_json::json!([id, "ACTIVE", 1]));
+        self.executable_units.push(unit);
+        Some(ExecutableHandle(self.executable_units.len() - 1))
+    }
+
+    pub fn finish_executable(
+        &mut self,
+        handle: Option<ExecutableHandle>,
+        terminal: TerminalStatus,
+        output: serde_json::Value,
+        evidence_kind: Option<&str>,
+        evidence_value: serde_json::Value,
+    ) -> Result<(), &'static str> {
+        let Some(handle) = handle else { return Ok(()) };
+        let Some(unit) = self.executable_units.get_mut(handle.0) else {
+            self.executable_metrics[7] += 1;
+            return Err("RU-LIFECYCLE-001");
+        };
+        if unit.status != "ACTIVE" {
+            self.executable_metrics[7] += 1;
+            return Err("RU-LIFECYCLE-001");
+        }
+        unit.output = output;
+        unit.terminal_status = Some(terminal);
+        unit.status = "COMPLETED";
+        unit.lifecycle_revision += 1;
+        unit.lifecycle.push(terminal_status(terminal));
+        self.executable_metrics[6] += 1;
+        self.executable_lifecycle.push(serde_json::json!([
+            unit.id,
+            terminal_status(terminal),
+            unit.lifecycle_revision
+        ]));
+        if terminal != TerminalStatus::Completed {
+            unit.lifecycle_revision += 1;
+            unit.lifecycle.push("COMPLETED");
+            self.executable_metrics[6] += 1;
+            self.executable_lifecycle.push(serde_json::json!([
+                unit.id,
+                "COMPLETED",
+                unit.lifecycle_revision
+            ]));
+        }
+        self.executable_metrics[2] += 1; // executed
+        self.executable_metrics[5] += 1; // completed
+        match terminal {
+            TerminalStatus::Verified => self.executable_metrics[3] += 1,
+            TerminalStatus::Rejected => self.executable_metrics[4] += 1,
+            TerminalStatus::Completed => {}
+        }
+        if let Some(kind) = evidence_kind {
+            let evidence_id = format!("evidence:ru:{:08}", self.executable_evidence.len() + 1);
+            unit.evidence_refs.push(evidence_id.clone());
+            self.executable_evidence.push(serde_json::json!({
+                "id": evidence_id,
+                "kind": kind,
+                "subject": unit.subject,
+                "value": evidence_value,
+                "source_ru": unit.id,
+            }));
+            self.executable_relations.push(serde_json::json!({
+                "id": format!("relation:ru:{:08}", self.executable_relations.len() + 1),
+                "kind": "PRODUCES",
+                "source_ref": unit.id,
+                "target_ref": evidence_id,
+            }));
+        }
+        self.executable_sequence.push(serde_json::json!([
+            unit.semantic_signature,
+            executable_kind(unit.kind),
+            terminal_status(terminal),
+            unit.subject
+        ]));
+        Ok(())
+    }
+
+    pub fn record_legacy_executable(
+        &mut self,
+        event_type: &str,
+        subject: serde_json::Value,
+        evidence: serde_json::Value,
+    ) -> Result<(), &'static str> {
+        let (kind, terminal, evidence_kind) = executable_event(event_type);
+        let handle = self.begin_executable(
+            kind,
+            ReasonUnitSource::LegacyReasoningEvent,
+            event_type,
+            subject,
+            serde_json::Value::Null,
+        );
+        self.finish_executable(handle, terminal, evidence.clone(), evidence_kind, evidence)
+    }
+
+    pub fn executable_trace(&self) -> serde_json::Value {
+        let full = self.executable_mode == ExecutableMode::Full;
+        serde_json::json!({
+            "mode": match self.executable_mode { ExecutableMode::Off => "off", ExecutableMode::Count => "count", ExecutableMode::Full => "full" },
+            "reason_units": if full { self.executable_units.iter().map(executable_json).collect::<Vec<_>>() } else { Vec::new() },
+            "evidence": if full { self.executable_evidence.clone() } else { Vec::new() },
+            "relations": if full { self.executable_relations.clone() } else { Vec::new() },
+            "ru_sequence_hash": hash(&self.executable_sequence),
+            "ru_lifecycle_hash": hash(&self.executable_lifecycle),
+        })
     }
 
     pub fn record(
@@ -150,7 +367,7 @@ impl ReasonStructure {
             .filter(|unit| unit["status"] == "COMPLETED")
             .count();
         let executed = self.units.len();
-        serde_json::json!({
+        let mut metrics = serde_json::json!({
             "ru_created_count": self.units.len(),
             "ru_executed_count": executed,
             "ru_verified_count": verified,
@@ -175,8 +392,141 @@ impl ReasonStructure {
             "rus_transition_hash": rus_hash(&self.states),
             "ruo_graph_hash": hash(&self.objects),
             "hypothesis_sequence_hash": hypothesis_hash(&self.units, &self.evidence),
-        })
+        });
+        if self.executable_mode != ExecutableMode::Off {
+            let native = self
+                .executable_units
+                .iter()
+                .filter(|unit| unit.source == ReasonUnitSource::Runtime)
+                .count();
+            let legacy = self.executable_units.len() - native;
+            let extra = serde_json::json!({
+                "ru_created_count": self.executable_metrics[0],
+                "ru_activated_count": self.executable_metrics[1],
+                "ru_executed_count": self.executable_metrics[2],
+                "ru_verified_count": self.executable_metrics[3],
+                "ru_rejected_count": self.executable_metrics[4],
+                "ru_completed_count": self.executable_metrics[5],
+                "ru_lifecycle_transition_count": self.executable_metrics[6],
+                "ru_invalid_transition_count": self.executable_metrics[7],
+                "ru_hypothesis_count": self.executable_metrics[8],
+                "ru_verification_count": self.executable_metrics[9],
+                "ru_constraint_derivation_count": self.executable_metrics[10],
+                "ru_goal_evaluation_count": self.executable_metrics[11],
+                "ru_termination_check_count": self.executable_metrics[12],
+                "ru_evidence_created_count": self.executable_evidence.len(),
+                "ru_evidence_attached_count": self.executable_evidence.len(),
+                "ru_native_count": native,
+                "ru_legacy_adapter_count": legacy,
+                "ru_serialized_bytes": if self.executable_mode == ExecutableMode::Full { serialized_len(&self.executable_units.iter().map(executable_json).collect::<Vec<_>>()) } else { 0 },
+                "ruvmr": if self.executable_metrics[2] == 0 { serde_json::Value::Null } else { serde_json::json!(vm_instruction_count as f64 / self.executable_metrics[2] as f64) },
+                "ru_sequence_hash": hash(&self.executable_sequence),
+                "ru_lifecycle_hash": hash(&self.executable_lifecycle),
+            });
+            metrics
+                .as_object_mut()
+                .unwrap()
+                .extend(extra.as_object().unwrap().clone());
+        }
+        metrics
     }
+}
+
+fn executable_kind(kind: ExecutableKind) -> &'static str {
+    match kind {
+        ExecutableKind::Hypothesis => "HYPOTHESIS",
+        ExecutableKind::Verification => "VERIFICATION",
+        ExecutableKind::ConstraintDerivation => "CONSTRAINT_DERIVATION",
+        ExecutableKind::GoalEvaluation => "GOAL_EVALUATION",
+        ExecutableKind::TerminationCheck => "TERMINATION_CHECK",
+    }
+}
+
+fn executable_kind_id(kind: ExecutableKind) -> &'static str {
+    match kind {
+        ExecutableKind::Hypothesis => "hypothesis",
+        ExecutableKind::Verification => "verification",
+        ExecutableKind::ConstraintDerivation => "constraint-derivation",
+        ExecutableKind::GoalEvaluation => "goal-evaluation",
+        ExecutableKind::TerminationCheck => "termination-check",
+    }
+}
+
+fn executable_kind_index(kind: ExecutableKind) -> usize {
+    match kind {
+        ExecutableKind::Hypothesis => 0,
+        ExecutableKind::Verification => 1,
+        ExecutableKind::ConstraintDerivation => 2,
+        ExecutableKind::GoalEvaluation => 3,
+        ExecutableKind::TerminationCheck => 4,
+    }
+}
+
+fn terminal_status(status: TerminalStatus) -> &'static str {
+    match status {
+        TerminalStatus::Verified => "VERIFIED",
+        TerminalStatus::Rejected => "REJECTED",
+        TerminalStatus::Completed => "COMPLETED",
+    }
+}
+
+fn executable_source(source: ReasonUnitSource) -> &'static str {
+    match source {
+        ReasonUnitSource::Runtime => "runtime",
+        ReasonUnitSource::LegacyReasoningEvent => "legacy_reasoning_event",
+    }
+}
+
+fn executable_event(event_type: &str) -> (ExecutableKind, TerminalStatus, Option<&'static str>) {
+    match event_type {
+        "HYPOTHESIS_VERIFIED" => (
+            ExecutableKind::Verification,
+            TerminalStatus::Verified,
+            Some("FACTOR_CONFIRMED"),
+        ),
+        "HYPOTHESIS_REJECTED" | "CANDIDATE_PRUNED" => (
+            ExecutableKind::Verification,
+            TerminalStatus::Rejected,
+            Some("NOT_DIVISIBLE"),
+        ),
+        "EVIDENCE_ADDED" => (
+            ExecutableKind::ConstraintDerivation,
+            TerminalStatus::Completed,
+            Some("CONSTRAINT_DERIVED"),
+        ),
+        "GOAL_UPDATED" => (
+            ExecutableKind::GoalEvaluation,
+            TerminalStatus::Verified,
+            Some("GOAL_CONFIRMED"),
+        ),
+        "TERMINATION_INFERRED" => (
+            ExecutableKind::TerminationCheck,
+            TerminalStatus::Verified,
+            Some("GOAL_CONFIRMED"),
+        ),
+        _ => (ExecutableKind::Hypothesis, TerminalStatus::Completed, None),
+    }
+}
+
+fn executable_json(unit: &ExecutableReasonUnit) -> serde_json::Value {
+    serde_json::json!({
+        "id": unit.id,
+        "semantic_signature": unit.semantic_signature,
+        "kind": executable_kind(unit.kind),
+        "source": executable_source(unit.source),
+        "subject": unit.subject,
+        "input": unit.input,
+        "output": unit.output,
+        "evidence_refs": unit.evidence_refs,
+        "status": unit.status,
+        "terminal_status": unit.terminal_status.map(terminal_status),
+        "lifecycle_revision": unit.lifecycle_revision,
+        "lifecycle": unit.lifecycle,
+    })
+}
+
+fn canonical(value: &serde_json::Value) -> String {
+    serde_json::to_string(value).expect("JSON values are serializable")
 }
 
 fn classify(event_type: &str) -> (&'static str, &'static str) {
@@ -320,5 +670,73 @@ mod tests {
             &serde_json::json!({}),
         );
         assert_eq!(structure.metrics(4)["ru_created_count"], 0);
+    }
+
+    #[test]
+    fn executable_lifecycle_is_validated_and_deterministic() {
+        let run = || {
+            let mut structure = ReasonStructure::default();
+            structure.set_executable_mode(ExecutableMode::Full);
+            let handle = structure.begin_executable(
+                ExecutableKind::Verification,
+                ReasonUnitSource::Runtime,
+                "DIVISIBLE",
+                serde_json::json!(11),
+                serde_json::json!({"remaining": 77}),
+            );
+            structure
+                .finish_executable(
+                    handle,
+                    TerminalStatus::Verified,
+                    serde_json::json!({"divisible": true}),
+                    Some("FACTOR_CONFIRMED"),
+                    serde_json::json!(11),
+                )
+                .unwrap();
+            assert!(structure
+                .finish_executable(
+                    handle,
+                    TerminalStatus::Completed,
+                    serde_json::Value::Null,
+                    None,
+                    serde_json::Value::Null
+                )
+                .is_err());
+            structure
+        };
+        let first = run();
+        let second = run();
+        assert_eq!(
+            first.executable_trace()["ru_sequence_hash"],
+            second.executable_trace()["ru_sequence_hash"]
+        );
+        assert_eq!(
+            first.executable_trace()["ru_lifecycle_hash"],
+            second.executable_trace()["ru_lifecycle_hash"]
+        );
+        assert_eq!(
+            first.executable_trace()["reason_units"][0]["lifecycle"],
+            serde_json::json!(["CREATED", "ACTIVE", "VERIFIED", "COMPLETED"])
+        );
+        assert_eq!(first.executable_trace()["relations"][0]["kind"], "PRODUCES");
+        assert_eq!(first.metrics(4)["ru_invalid_transition_count"], 1);
+    }
+
+    #[test]
+    fn executable_count_mode_omits_payloads() {
+        let mut structure = ReasonStructure::default();
+        structure.set_executable_mode(ExecutableMode::Count);
+        structure
+            .record_legacy_executable(
+                "HYPOTHESIS_CREATED",
+                serde_json::json!(5),
+                serde_json::Value::Null,
+            )
+            .unwrap();
+        assert_eq!(
+            structure.executable_trace()["reason_units"],
+            serde_json::json!([])
+        );
+        assert_eq!(structure.metrics(1)["ru_legacy_adapter_count"], 1);
     }
 }

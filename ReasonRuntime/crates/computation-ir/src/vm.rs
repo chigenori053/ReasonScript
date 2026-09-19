@@ -15,7 +15,10 @@ use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
 use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
-use crate::reason_structure::{ReasonStructure, ReasonUnitMode};
+use crate::reason_structure::{
+    ExecutableKind, ExecutableMode, ReasonStructure, ReasonUnitMode, ReasonUnitSource,
+    TerminalStatus,
+};
 use crate::state_trace::{TraceConfig, TraceMode, TraceState};
 use crate::value::{from_json, to_json, RuntimeReasonObject, StructValue, Value};
 
@@ -282,6 +285,14 @@ impl<'a> Vm<'a> {
         *self.reason_structure.borrow_mut() = ReasonStructure::new(mode);
     }
 
+    pub fn configure_executable_reason_units(&mut self, mode: ExecutableMode) {
+        self.reason_structure.borrow_mut().set_executable_mode(mode);
+    }
+
+    pub fn reason_unit_trace(&self) -> serde_json::Value {
+        self.reason_structure.borrow().executable_trace()
+    }
+
     pub fn reason_structure_trace(&self) -> serde_json::Value {
         self.reason_structure.borrow().trace()
     }
@@ -368,6 +379,7 @@ impl<'a> Vm<'a> {
         evidence: serde_json::Value,
         affected: serde_json::Value,
         metadata: serde_json::Value,
+        source: ReasonUnitSource,
     ) -> Result<Value, RuntimeError> {
         const TYPES: &[&str] = &[
             "REASON_STATE_CREATED",
@@ -387,6 +399,14 @@ impl<'a> Vm<'a> {
                 "REASON-EVENT-001",
                 format!("invalid reasoning event: {event_type}"),
             ));
+        }
+        if source == ReasonUnitSource::LegacyReasoningEvent {
+            self.reason_structure
+                .borrow_mut()
+                .record_legacy_executable(event_type, subject.clone(), evidence.clone())
+                .map_err(|code| {
+                    RuntimeError::new(code, "invalid Reason Unit lifecycle transition")
+                })?;
         }
         self.reason_structure
             .borrow_mut()
@@ -1306,12 +1326,73 @@ impl<'a> Vm<'a> {
                             "Relation function requires Array<Struct>",
                         ));
                     }
+                    let subject = to_json(row);
+                    let hypothesis = self.reason_structure.borrow_mut().begin_executable(
+                        ExecutableKind::Hypothesis,
+                        ReasonUnitSource::Runtime,
+                        "CANDIDATE_ADOPTED",
+                        subject.clone(),
+                        serde_json::json!({"candidate_index": index}),
+                    );
+                    self.reason_structure
+                        .borrow_mut()
+                        .finish_executable(
+                            hypothesis,
+                            TerminalStatus::Completed,
+                            serde_json::json!({"adopted": true}),
+                            None,
+                            serde_json::Value::Null,
+                        )
+                        .map_err(|code| {
+                            RuntimeError::new(code, "invalid Reason Unit lifecycle transition")
+                        })?;
+                    let verification = self.reason_structure.borrow_mut().begin_executable(
+                        ExecutableKind::Verification,
+                        ReasonUnitSource::Runtime,
+                        "CANDIDATE_PREDICATE",
+                        subject,
+                        serde_json::json!({"candidate_index": index}),
+                    );
                     scoped.borrow_mut().insert(binding.clone(), row.clone());
                     self.relation_rows_scanned
                         .set(self.relation_rows_scanned.get() + 1);
                     match self.eval_expr(predicate, &scoped, call_depth)? {
-                        Value::Bool(true) => kept.push(row.clone()),
-                        Value::Bool(false) => removed.push(index),
+                        Value::Bool(true) => {
+                            kept.push(row.clone());
+                            self.reason_structure
+                                .borrow_mut()
+                                .finish_executable(
+                                    verification,
+                                    TerminalStatus::Verified,
+                                    serde_json::json!({"accepted": true}),
+                                    Some("FACTOR_CONFIRMED"),
+                                    to_json(row),
+                                )
+                                .map_err(|code| {
+                                    RuntimeError::new(
+                                        code,
+                                        "invalid Reason Unit lifecycle transition",
+                                    )
+                                })?;
+                        }
+                        Value::Bool(false) => {
+                            removed.push(index);
+                            self.reason_structure
+                                .borrow_mut()
+                                .finish_executable(
+                                    verification,
+                                    TerminalStatus::Rejected,
+                                    serde_json::json!({"accepted": false}),
+                                    Some("NOT_DIVISIBLE"),
+                                    to_json(row),
+                                )
+                                .map_err(|code| {
+                                    RuntimeError::new(
+                                        code,
+                                        "invalid Reason Unit lifecycle transition",
+                                    )
+                                })?;
+                        }
                         _ => {
                             return Err(RuntimeError::new(
                                 "REL-PRED-003",
@@ -1322,7 +1403,7 @@ impl<'a> Vm<'a> {
                 }
                 if !removed.is_empty() {
                     self.semantic_event("CANDIDATE_PRUNED", serde_json::json!(binding), serde_json::Value::Null,
-                        serde_json::json!(removed), serde_json::json!({"before_count": rows.len(), "after_count": kept.len(), "removed_count": removed.len()}))?;
+                        serde_json::json!(removed), serde_json::json!({"before_count": rows.len(), "after_count": kept.len(), "removed_count": removed.len()}), ReasonUnitSource::Runtime)?;
                 }
                 Ok(Value::Array(Rc::new(RefCell::new(kept))))
             }
@@ -1430,6 +1511,7 @@ impl<'a> Vm<'a> {
                     to_json(&values[2]),
                     serde_json::json!([]),
                     serde_json::json!({}),
+                    ReasonUnitSource::LegacyReasoningEvent,
                 )
             }
             Expr::CallArrayAppend {

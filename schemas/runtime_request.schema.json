@@ -38,6 +38,7 @@
         "numeric_mode": {"enum": ["compat-reference", "native-fast"]},
         "backend": {"enum": ["RuntimeReal", "HybridRuntime"]},
         "reason_units": {"enum": ["off", "ru", "ru_rus", "ru_rus_ruo"]},
+        "executable_reason_units": {"enum": ["off", "count", "full"]},
         "reasoning": {
           "type": "object",
           "properties": {"semantic_events": {"type": "boolean"}},

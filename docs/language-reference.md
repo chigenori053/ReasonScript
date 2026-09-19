@@ -399,6 +399,13 @@ immutable Reason Unit State revisions, and `ru_rus_ruo` additionally binds each
 unit, state, Evidence, and ReasonRelation in a Reason Unit Object. The default
 `off` mode preserves existing results, traces, and semantics.
 
+Executable units use the separate `context.executable_reason_units` setting.
+`count` collects lifecycle and cost metrics, while `full` also returns typed
+unit, Evidence, and `PRODUCES` relation payloads in `reason_unit_trace`.
+Candidate adoption and predicate verification are separate semantic units;
+ordinary VM instructions are not. Explicit `reasoning.event` calls are adapted
+to synthetic executable units without changing their existing behavior.
+
 ## Compatibility and known limits
 
 - Named arguments are limited; `optimizer.*` and `relation.*` are positional

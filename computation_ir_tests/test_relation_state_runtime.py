@@ -210,6 +210,34 @@ def test_explicit_reason_units_preserve_results_and_add_layers_incrementally():
     assert traces["ru"]["hashes"]["ru_sequence_hash"] == traces["ru_rus_ruo"]["hashes"]["ru_sequence_hash"]
 
 
+def test_executable_reason_units_extend_reason_structure_without_changing_results():
+    ir = lower_program(parse("""module M {
+        struct Candidate { value: int }
+        calculation Answer {
+            let candidates = [Candidate { value: 5 }, Candidate { value: 7 }]
+            let kept = relation.filter(candidates, candidate.value == 5)
+            reasoning.event("HYPOTHESIS_VERIFIED", 5, true)
+            result = kept.length
+        }
+    }"""))
+    off = run_ir(ir, binary=HOST, executable_reason_units="off")
+    count = run_ir(ir, binary=HOST, executable_reason_units="count")
+    full_runs = [run_ir(ir, binary=HOST, executable_reason_units="full") for _ in range(3)]
+    assert off.calculation_results == count.calculation_results == full_runs[0].calculation_results == {"Answer": 1}
+    assert count.metadata["reason_unit_trace"]["reason_units"] == []
+    metrics = count.metadata["runtime_metrics"]
+    assert metrics["ru_created_count"] == 5
+    assert metrics["ru_hypothesis_count"] == 2
+    assert metrics["ru_verification_count"] == 3
+    trace = full_runs[0].metadata["reason_unit_trace"]
+    assert {unit["source"] for unit in trace["reason_units"]} == {"runtime", "legacy_reasoning_event"}
+    assert all(unit["lifecycle"][:2] == ["CREATED", "ACTIVE"] for unit in trace["reason_units"])
+    assert all(unit["lifecycle"][-1] == "COMPLETED" for unit in trace["reason_units"])
+    assert all(relation["kind"] == "PRODUCES" for relation in trace["relations"])
+    assert len({run.metadata["reason_unit_trace"]["ru_sequence_hash"] for run in full_runs}) == 1
+    assert len({run.metadata["reason_unit_trace"]["ru_lifecycle_hash"] for run in full_runs}) == 1
+
+
 def test_state_reads_are_not_reused_across_mutation_by_optimizer():
     result = execute("""
         let rows = [Row { value: 1 }, Row { value: 3 }]

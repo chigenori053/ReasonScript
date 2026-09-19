@@ -21,7 +21,7 @@ use std::fs;
 use std::io::{self, Read};
 use std::process::ExitCode;
 
-use reasonscript_computation_ir::reason_structure::ReasonUnitMode;
+use reasonscript_computation_ir::reason_structure::{ExecutableMode, ReasonUnitMode};
 use reasonscript_computation_ir::state_trace::{TraceConfig, TraceMode};
 use reasonscript_computation_ir::{
     decode, to_json, NumericMode, TensorPolicy, Vm, DEFAULT_MAX_CALL_DEPTH,
@@ -280,8 +280,21 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             "reason_units must be off, ru, ru_rus, or ru_rus_ruo",
         );
     };
+    let executable_reason_unit_name = request
+        .pointer("/context/executable_reason_units")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("off");
+    let Some(executable_reason_unit_mode) = ExecutableMode::parse(executable_reason_unit_name)
+    else {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-004",
+            "executable_reason_units must be off, count, or full",
+        );
+    };
     vm.configure_trace(trace_config, semantic_events);
     vm.configure_reason_units(reason_unit_mode);
+    vm.configure_executable_reason_units(executable_reason_unit_mode);
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let loop_trace = vm.loop_trace();
@@ -289,6 +302,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             let vision_trace = vm.vision_trace();
             let reasoning_trace = vm.reasoning_trace();
             let reason_structure_trace = vm.reason_structure_trace();
+            let reason_unit_trace = vm.reason_unit_trace();
             let tensor_metadata = vm.tensor_metadata();
             let mut combined_trace = loop_trace.clone();
             combined_trace.extend(tensor_trace.clone());
@@ -323,6 +337,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "vision_trace": vision_trace,
                         "reasoning_trace": reasoning_trace,
                         "reason_structure_trace": reason_structure_trace,
+                        "reason_unit_trace": reason_unit_trace,
                         "tensor_metadata": tensor_metadata,
                         "console_output": vm.console_events(),
                         "reason_object_metadata": [],

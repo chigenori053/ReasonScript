@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Promoted explicit Reason Units from observation-only projections to executable
+  entities managed by `ReasonStructure`, with validated lifecycle transitions,
+  native and legacy-event sources, Evidence production, deterministic hashes,
+  and independent `off`, `count`, and `full` collection modes.
 - Added opt-in native runtime `reason_units` modes (`off`, `ru`, `ru_rus`, and
   `ru_rus_ruo`) that project semantic reasoning events into deterministic
   Reason Units, immutable state revisions, Reason Unit Objects, Evidence, and
