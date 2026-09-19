@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-executable-ru-benchmark/1.0",
+  "title": "ReasonScript Model G/H Executable RU benchmark summary",
+  "type": "object",
+  "required": [
+    "schema",
+    "version",
+    "generator",
+    "generated_at",
+    "cases_total",
+    "semantic_equivalence_pass",
+    "determinism_pass",
+    "judgements"
+  ],
+  "properties": {
+    "schema": {"const": "reasonscript-executable-ru-benchmark/1.0"},
+    "version": {"const": "1.0"},
+    "generator": {"type": "string"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "cases_total": {"type": "integer", "minimum": 1},
+    "semantic_equivalence_pass": {"type": "boolean"},
+    "determinism_pass": {"type": "boolean"},
+    "judgements": {"type": "object"}
+  },
+  "additionalProperties": true
+}

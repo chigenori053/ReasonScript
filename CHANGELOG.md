@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added the reproducible 117-case Model G/H Executable RU benchmark, including
+  host-side execution timing, deterministic managed-allocation metrics,
+  semantic/lifecycle gates, CSV/JSON evidence, and six SVG analyses.
 - Promoted explicit Reason Units from observation-only projections to executable
   entities managed by `ReasonStructure`, with validated lifecycle transitions,
   native and legacy-event sources, Evidence production, deterministic hashes,

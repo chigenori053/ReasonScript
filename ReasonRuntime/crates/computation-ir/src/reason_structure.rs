@@ -351,6 +351,26 @@ impl ReasonStructure {
     }
 
     pub fn metrics(&self, vm_instruction_count: u64) -> serde_json::Value {
+        // Deterministic managed-allocation proxy: VM value slots plus retained
+        // ReasonStructure payload. This is intentionally allocator-independent
+        // so Model G/H runs remain comparable across platforms and allocators.
+        let executable_bytes = serialized_len(
+            &self
+                .executable_units
+                .iter()
+                .map(executable_json)
+                .collect::<Vec<_>>(),
+        ) + serialized_len(&self.executable_evidence)
+            + serialized_len(&self.executable_relations)
+            + serialized_len(&self.executable_sequence)
+            + serialized_len(&self.executable_lifecycle);
+        let managed_base_bytes = vm_instruction_count.saturating_mul(16);
+        let managed_allocation_count = vm_instruction_count
+            + self.executable_units.len() as u64
+            + self.executable_evidence.len() as u64
+            + self.executable_relations.len() as u64
+            + self.executable_sequence.len() as u64
+            + self.executable_lifecycle.len() as u64;
         let verified = self
             .units
             .iter()
@@ -392,6 +412,10 @@ impl ReasonStructure {
             "rus_transition_hash": rus_hash(&self.states),
             "ruo_graph_hash": hash(&self.objects),
             "hypothesis_sequence_hash": hypothesis_hash(&self.units, &self.evidence),
+            "allocation_count": managed_allocation_count,
+            "allocated_bytes": managed_base_bytes + executable_bytes as u64,
+            "peak_live_bytes": managed_base_bytes + executable_bytes as u64,
+            "allocation_metric_kind": "deterministic_managed_proxy",
         });
         if self.executable_mode != ExecutableMode::Off {
             let native = self

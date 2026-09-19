@@ -1,0 +1,18 @@
+{
+  "artifact_version": "1.0",
+  "artifacts": [
+    "comparison.csv",
+    "graphs/native_ratio_by_class.svg",
+    "graphs/ru_composition_by_class.svg",
+    "graphs/runtime_by_ruvmr.svg",
+    "graphs/runtime_overhead_by_ru.svg",
+    "graphs/ruor_by_case.svg",
+    "graphs/vm_instructions_by_ru.svg",
+    "summary.json"
+  ],
+  "generated_at": "1970-01-01T00:00:00Z",
+  "generator": "benchmark_executable_ru.py",
+  "language_version": "0.5",
+  "schema": "reasonscript-artifact-manifest/1.0",
+  "version": "1.0"
+}

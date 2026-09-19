@@ -462,3 +462,17 @@ reason migrate extensions path/to/project
 - `0`: 成功（移行完了、または `--check` で衝突なし、または移行対象なし）
 - `1`: 衝突（Conflict）検出、非対応形式、または引数エラー
 - `2`: ファイルシステム・I/O 障害（自動ロールバック実行）
+# Model G/H Executable RU benchmark
+
+Build the release runtime host, then run the fixed 117-case comparison:
+
+```sh
+cargo build --manifest-path ReasonRuntime/Cargo.toml --release -p reasonscript-computation-runtime-cli
+python3 scripts/benchmark_executable_ru.py --binary ReasonRuntime/target/release/reason-runtime-host
+```
+
+The command uses three warmups and ten measured samples by default. It writes
+`comparison.csv`, `summary.json`, and six SVG graphs under
+`artifacts/executable_ru_benchmark/`, plus the human-readable report under
+`docs/reports/`. `--quick` runs three cases with one sample to validate the
+harness without replacing the canonical artifacts.

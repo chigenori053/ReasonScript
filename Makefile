@@ -1,4 +1,4 @@
-.PHONY: fmt lint test unit integration regression golden compatibility playground build release-check tensor-manifest tensor-manifest-check benchmark-tensor benchmark-relation-matrix
+.PHONY: fmt lint test unit integration regression golden compatibility playground build release-check tensor-manifest tensor-manifest-check benchmark-tensor benchmark-relation-matrix benchmark-executable-ru
 
 fmt:
 	python3 scripts/test_platform.py fmt
@@ -44,3 +44,6 @@ benchmark-tensor:
 
 benchmark-relation-matrix:
 	python3 scripts/benchmark_relation_matrix.py --check
+
+benchmark-executable-ru:
+	python3 scripts/benchmark_executable_ru.py --binary ReasonRuntime/target/release/reason-runtime-host

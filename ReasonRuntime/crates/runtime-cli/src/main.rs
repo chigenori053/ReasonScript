@@ -295,8 +295,10 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
     vm.configure_trace(trace_config, semantic_events);
     vm.configure_reason_units(reason_unit_mode);
     vm.configure_executable_reason_units(executable_reason_unit_mode);
+    let execution_started = Instant::now();
     match vm.run_calculations(&program) {
         Ok(calculations) => {
+            let runtime_execution_ns = execution_started.elapsed().as_nanos() as u64;
             let loop_trace = vm.loop_trace();
             let tensor_trace = vm.tensor_trace();
             let vision_trace = vm.vision_trace();
@@ -318,6 +320,17 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         to_json(&value)
                     },
                 );
+            }
+            let mut runtime_metrics = vm.runtime_metrics();
+            if request
+                .pointer("/context/benchmark_metrics")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false)
+            {
+                runtime_metrics.as_object_mut().unwrap().extend([(
+                    "runtime_execution_ns".to_owned(),
+                    runtime_execution_ns.into(),
+                )]);
             }
             println!(
                 "{}",
@@ -342,7 +355,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "console_output": vm.console_events(),
                         "reason_object_metadata": [],
                         "trace_diagnostics": vm.trace_diagnostics(),
-                        "runtime_metrics": vm.runtime_metrics(),
+                        "runtime_metrics": runtime_metrics,
                     },
                 })
             );
@@ -450,3 +463,4 @@ fn fail_request_with_location(
     println!("{payload}");
     ExitCode::FAILURE
 }
+use std::time::Instant;

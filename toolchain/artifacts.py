@@ -117,6 +117,7 @@ SUPPORTED_SCHEMA_PREFIXES = (
     "reasonscript-visualization-render-plan/",
     "reasonscript-visualization-evidence/",
     "reasonscript-visualization-validation/",
+    "reasonscript-executable-ru-benchmark/",
 )
 
 

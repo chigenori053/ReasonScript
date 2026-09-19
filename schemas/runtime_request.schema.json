@@ -39,6 +39,7 @@
         "backend": {"enum": ["RuntimeReal", "HybridRuntime"]},
         "reason_units": {"enum": ["off", "ru", "ru_rus", "ru_rus_ruo"]},
         "executable_reason_units": {"enum": ["off", "count", "full"]},
+        "benchmark_metrics": {"type": "boolean"},
         "reasoning": {
           "type": "object",
           "properties": {"semantic_events": {"type": "boolean"}},

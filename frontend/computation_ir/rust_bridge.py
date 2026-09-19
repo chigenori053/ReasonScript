@@ -72,6 +72,7 @@ def run_ir(
     semantic_events: bool = True,
     reason_units: str = "off",
     executable_reason_units: str = "off",
+    benchmark_metrics: bool = False,
     limits: dict[str, int] | None = None,
 ) -> RustRunResult:
     resolved = binary or find_binary()
@@ -99,6 +100,7 @@ def run_ir(
             "reasoning": {"semantic_events": semantic_events},
             "reason_units": reason_units,
             "executable_reason_units": executable_reason_units,
+            "benchmark_metrics": benchmark_metrics,
             "numeric_mode": os.environ.get("REASONSCRIPT_NUMERIC_MODE", "compat-reference"),
             "backend": backend,
         },
