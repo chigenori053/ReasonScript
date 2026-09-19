@@ -19,6 +19,7 @@ pub mod value;
 pub mod vision_dispatch;
 pub mod vm;
 
+pub use candidate_space::FusionPolicy;
 pub use console_dispatch::ConsoleEvent;
 pub use ir::{decode, Program, SCHEMA};
 pub use reasonscript_tensor_core::{NumericMode, TensorPolicy};

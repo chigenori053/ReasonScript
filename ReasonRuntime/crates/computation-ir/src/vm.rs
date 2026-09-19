@@ -15,7 +15,9 @@ use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 use std::time::Instant;
 
-use crate::candidate_space::{isqrt, Added, CandidateSpace, CmpOp, Constraint, Generator};
+use crate::candidate_space::{
+    isqrt, Added, CandidateSpace, CmpOp, Constraint, FusionPolicy, FusionRejectReason, Generator,
+};
 use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
 use crate::state_trace::{TraceConfig, TraceMode, TraceState};
 use crate::value::{from_json, to_json, FastMap, RuntimeReasonObject, StructValue, Value};
@@ -119,7 +121,7 @@ impl ReasoningEventMode {
     }
 }
 
-pub const EVENT_TYPES: [&str; 18] = [
+pub const EVENT_TYPES: [&str; 20] = [
     "REASON_STATE_CREATED",
     "RU_ACTIVATED",
     "CANDIDATE_GENERATED",
@@ -142,6 +144,10 @@ pub const EVENT_TYPES: [&str; 18] = [
     "CONSTRAINT_FUSED",
     "GENERATOR_REBUILT",
     "FUSION_FALLBACK",
+    // Adaptive / Cost-Aware Constraint Fusion (spec
+    // ReasonScript_Adaptive_Cost_Aware_Constraint_Fusion_v0_1 section 39).
+    "FUSION_SELECTED",
+    "FUSION_REJECTED_COST",
 ];
 
 /// P0-1 native runtime counters. Each one is incremented exactly where the
@@ -184,6 +190,13 @@ pub struct Metrics {
     /// a property of whichever space was most recently constrained).
     pub constraint_fusion_count: Cell<u64>,
     pub constraint_fusion_rebuild_count: Cell<u64>,
+    /// Adaptive Cost-Aware Fusion v0.1 (spec sections 37, 90).
+    pub fusion_candidate_count: Cell<u64>,
+    pub fusion_selected_count: Cell<u64>,
+    pub fusion_rejected_cost_count: Cell<u64>,
+    pub fusion_estimated_benefit_total: Cell<u64>,
+    pub fusion_estimated_cost_total: Cell<u64>,
+    pub fusion_score_total: Cell<i128>,
     pub fusion_fallback_count: Cell<u64>,
     pub fused_modulus: Cell<i64>,
     pub fused_residue_count: Cell<u64>,
@@ -234,7 +247,7 @@ pub struct Vm<'a> {
     event_mode: ReasoningEventMode,
     profile: bool,
     fast_path: bool,
-    constraint_fusion: bool,
+    constraint_fusion: FusionPolicy,
     metrics: Metrics,
     execution_ns: Cell<u64>,
     started: Cell<Option<Instant>>,
@@ -403,7 +416,7 @@ impl<'a> Vm<'a> {
             },
             profile: false,
             fast_path: true,
-            constraint_fusion: false,
+            constraint_fusion: FusionPolicy::Off,
             metrics: Metrics::default(),
             execution_ns: Cell::new(0),
             started: Cell::new(None),
@@ -458,13 +471,13 @@ impl<'a> Vm<'a> {
         self.fast_path = fast_path;
     }
 
-    /// `context.constraint_fusion = true` (default `false`, matching the
-    /// pre-Fusion v0.1 behavior byte-for-byte): folds a prime
-    /// `NotDivisibleBy(p)` `relation.filter`/`exclude_multiples_of`
-    /// constraint into the CandidateSpace's generator instead of storing it
-    /// as a residual constraint (Constraint Fusion v0.1, spec section 55).
-    pub fn set_constraint_fusion(&mut self, constraint_fusion: bool) {
-        self.constraint_fusion = constraint_fusion;
+    /// `context.constraint_fusion`: `"off"` (default, byte-identical to
+    /// pre-Fusion v0.1 behavior), `"always"` (Constraint Fusion v0.1 /
+    /// Model F: fuse whenever the budget allows it), or `"adaptive"`
+    /// (Adaptive Cost-Aware Constraint Fusion v0.1 / Model G: fuse only
+    /// when a cheap cost estimate says it should pay off).
+    pub fn set_constraint_fusion(&mut self, policy: FusionPolicy) {
+        self.constraint_fusion = policy;
     }
 
     pub fn budget(&self) -> &ExecutionBudget {
@@ -638,6 +651,13 @@ impl<'a> Vm<'a> {
             // Constraint Fusion v0.1 (spec section 30/59).
             ("constraint_fusion_count", serde_json::json!(m.constraint_fusion_count.get())),
             ("constraint_fusion_rebuild_count", serde_json::json!(m.constraint_fusion_rebuild_count.get())),
+            ("constraint_fusion_policy", serde_json::json!(self.constraint_fusion.name())),
+            ("fusion_candidate_count", serde_json::json!(m.fusion_candidate_count.get())),
+            ("fusion_selected_count", serde_json::json!(m.fusion_selected_count.get())),
+            ("fusion_rejected_cost_count", serde_json::json!(m.fusion_rejected_cost_count.get())),
+            ("fusion_estimated_benefit_total", serde_json::json!(m.fusion_estimated_benefit_total.get())),
+            ("fusion_estimated_cost_total", serde_json::json!(m.fusion_estimated_cost_total.get())),
+            ("fusion_score_total", serde_json::json!(m.fusion_score_total.get().to_string())),
             ("fusion_fallback_count", serde_json::json!(m.fusion_fallback_count.get())),
             ("fused_modulus", serde_json::json!(m.fused_modulus.get())),
             ("fused_residue_count", serde_json::json!(m.fused_residue_count.get())),
@@ -935,6 +955,22 @@ impl<'a> Vm<'a> {
         Ok(())
     }
 
+    /// Accumulates the cumulative Adaptive Fusion metrics (spec section 37)
+    /// for one `plan_fusion` estimate, whether it led to a fuse or a
+    /// cost-rejected residual constraint.
+    fn record_fusion_estimate(&self, estimate: &crate::candidate_space::FusionEstimate, selected: bool) {
+        let m = &self.metrics;
+        m.fusion_candidate_count.set(m.fusion_candidate_count.get() + 1);
+        if selected {
+            m.fusion_selected_count.set(m.fusion_selected_count.get() + 1);
+        }
+        m.fusion_estimated_benefit_total
+            .set(m.fusion_estimated_benefit_total.get() + estimate.estimated_benefit);
+        m.fusion_estimated_cost_total
+            .set(m.fusion_estimated_cost_total.get() + estimate.estimated_cost);
+        m.fusion_score_total.set(m.fusion_score_total.get() + estimate.score);
+    }
+
     /// `relation.filter` / `exclude_multiples_of` over a candidate space
     /// (spec sections 18-19): a new handle with the constraint added. No
     /// candidate is visited; the cursor never moves backwards.
@@ -951,6 +987,8 @@ impl<'a> Vm<'a> {
         let mut excluded = 0u64;
         let mut fused_this_call = false;
         let mut fallback_this_call = false;
+        let mut cost_rejected_this_call = false;
+        let mut adaptive_selected_this_call = false;
         for leaf in constraint.conjuncts() {
             // `unvisited_count` (O(residue count)) is computed by `add`
             // itself, only for a leaf that actually folds or fuses -- never
@@ -969,9 +1007,13 @@ impl<'a> Vm<'a> {
                         self.metrics.candidate_symbolic_exclusion_unknown.set(true);
                     }
                 }
-                Added::Fused { excluded: count, .. } => {
+                Added::Fused { excluded: count, estimate, .. } => {
                     added += 1;
                     fused_this_call = true;
+                    if let Some(estimate) = estimate {
+                        self.record_fusion_estimate(&estimate, true);
+                        adaptive_selected_this_call = true;
+                    }
                     // Exact, like a bound fold: `unvisited_count` already
                     // reflects the narrowed generator (spec section 29).
                     if next.residual_constraints.is_empty() {
@@ -980,10 +1022,14 @@ impl<'a> Vm<'a> {
                         self.metrics.candidate_symbolic_exclusion_unknown.set(true);
                     }
                 }
-                Added::Stored { fusion_fallback } => {
+                Added::Stored { fusion_fallback, reject_reason, estimate } => {
                     added += 1;
                     non_fused_added += 1;
                     fallback_this_call |= fusion_fallback;
+                    cost_rejected_this_call |= reject_reason == Some(FusionRejectReason::Cost);
+                    if let Some(estimate) = estimate {
+                        self.record_fusion_estimate(&estimate, false);
+                    }
                     self.metrics.candidate_symbolic_exclusion_unknown.set(true);
                 }
                 Added::Duplicate => {}
@@ -1023,10 +1069,31 @@ impl<'a> Vm<'a> {
                     serde_json::json!({ "fused_residue_count": final_residue_count }),
                 )
             })?;
+            if adaptive_selected_this_call {
+                self.semantic_event("FUSION_SELECTED", || {
+                    (
+                        serde_json::json!("candidate_space"),
+                        serde_json::json!(description),
+                        serde_json::json!([]),
+                        serde_json::json!({ "fused_modulus": final_modulus, "fused_residue_count": final_residue_count }),
+                    )
+                })?;
+            }
         }
         if fallback_this_call {
             m.fusion_fallback_count.set(m.fusion_fallback_count.get() + 1);
             self.semantic_event("FUSION_FALLBACK", || {
+                (
+                    serde_json::json!("candidate_space"),
+                    serde_json::json!(description),
+                    serde_json::json!([]),
+                    serde_json::json!({}),
+                )
+            })?;
+        }
+        if cost_rejected_this_call {
+            m.fusion_rejected_cost_count.set(m.fusion_rejected_cost_count.get() + 1);
+            self.semantic_event("FUSION_REJECTED_COST", || {
                 (
                     serde_json::json!("candidate_space"),
                     serde_json::json!(description),

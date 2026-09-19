@@ -176,7 +176,9 @@ counts per-candidate work in `runtime_metrics` (`candidate_space_estimated_size`
 its domain, generator, constraints and cursor. Candidate spaces execute only
 on the native runtime.
 
-`context.constraint_fusion` (default `false`) folds a prime
+`context.constraint_fusion` -- `"off"` (default), `"always"`, or
+`"adaptive"` (a plain boolean is also accepted for backward
+compatibility: `true` = `"always"`, `false` = `"off"`) -- folds a prime
 `NotDivisibleBy(p)` constraint directly into the space's generator (an
 LCM-based wheel expansion, budgeted at a 30,030 modulus) instead of
 storing it as a residual constraint evaluated per candidate, eliminating
@@ -188,8 +190,18 @@ sequences, and candidate order are unchanged (`relation.filter`/
 the generator each time a new prime is folded in is not free: for
 problems with few candidates it can make a program slower than fusion
 off, not faster, unless the search space is large enough to amortize it.
-Falls back silently to a residual constraint above the modulus budget or
-on integer overflow (`fusion_fallback_count`).
+`"always"` folds in every prime the budget allows; `"adaptive"` first
+estimates, in O(1) with no residue scan, whether a given fusion is
+likely to pay off (a candidate/constraint-evaluation benefit against the
+generator's rebuild cost) and leaves the constraint residual when it
+does not expect it to -- meaningfully safer than `"always"` in most
+cases, though the estimate can still be misled when a program stops
+generating candidates on its own (a shrinking loop variable, invisible
+to the candidate space) well before the space's own domain bound.
+Fusion always falls back silently to a residual constraint above the
+modulus budget, on integer overflow, or (`"adaptive"` only) when the
+cost estimate says it would not be worth it (`fusion_fallback_count`,
+`fusion_rejected_cost_count`).
 
 ## Array builders
 

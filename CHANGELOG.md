@@ -1,5 +1,38 @@
 # Changelog
 
+## [Unreleased] - Adaptive / Cost-Aware Constraint Fusion v0.1
+
+- Extended `context.constraint_fusion` to accept `"off"` (default) /
+  `"always"` (Constraint Fusion v0.1) / `"adaptive"` (new: Model G) --
+  plain booleans are still accepted for backward compatibility
+  (`true` = `"always"`, `false` = `"off"`). Unknown values report
+  `RTH-PROTO-006`.
+- Adaptive mode adds a cheap, deterministic, O(1) cost estimator
+  (`CandidateSpace::plan_fusion`, no residue-vector scan) that predicts a
+  fusion's benefit (candidates and constraint evaluations it would save)
+  against its cost (generator rebuild size) before deciding to fuse a
+  prime constraint or leave it residual. `predicted_modulus`/
+  `predicted_residue_count` are exact (a sieve identity for coprime
+  moduli); `remaining_candidates` is a density-based estimate. New
+  `runtime_metrics`: `fusion_candidate_count`, `fusion_selected_count`,
+  `fusion_rejected_cost_count`, `fusion_estimated_benefit_total`,
+  `fusion_estimated_cost_total`, `fusion_score_total`,
+  `constraint_fusion_policy`, and reasoning events `FUSION_SELECTED`,
+  `FUSION_REJECTED_COST`.
+- Finding (see `docs/reports/ReasonScript_Adaptive_Cost_Aware_Constraint_Fusion_Report.md`):
+  Adaptive Fusion substantially mitigates Always-Fusion's worst
+  regressions (median runtime across 117 cases: 92,500ns for Always vs
+  40,917ns for Adaptive, a 2.26x improvement; Oracle Efficiency median
+  0.988) and never regresses when there is little to fuse. It does NOT
+  fully match Fusion-off's own safety in every case: the cost estimate's
+  `remaining_candidates` is blind to a program's own dynamic early
+  termination (e.g. a factorization loop's own shrinking `remaining`
+  variable, invisible to the candidate space), so a handful of mid-size
+  synthetic cases (`sqrt(N)` in the 1e5-1e6 range with several small
+  factors) still fuse as eagerly as Always and keep that regression.
+- Added `scripts/benchmark_adaptive_fusion.py` (Model B vs E vs F vs G on
+  117 cases) and `tests/runtime/test_adaptive_constraint_fusion.py`.
+
 ## [Unreleased] - Constraint Fusion v0.1
 
 - Added `context.constraint_fusion` (default `false`): folds a prime

@@ -74,7 +74,7 @@ def run_ir(
     reasoning_event_mode: str | None = None,
     profile_runtime: bool = False,
     fast_path: bool = True,
-    constraint_fusion: bool = False,
+    constraint_fusion: bool | str = False,
 ) -> RustRunResult:
     resolved = binary or find_binary()
     if resolved is None:

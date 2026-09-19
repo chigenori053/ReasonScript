@@ -309,14 +309,36 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(true),
     );
-    // Constraint Fusion v0.1: opt-in, default off (byte-identical to
-    // pre-Fusion behavior when unset).
-    vm.set_constraint_fusion(
-        request
-            .pointer("/context/constraint_fusion")
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false),
-    );
+    // Constraint Fusion: "off" (default, byte-identical to pre-Fusion
+    // behavior)/"always" (Constraint Fusion v0.1)/"adaptive" (Adaptive
+    // Cost-Aware Constraint Fusion v0.1). A plain boolean is accepted too
+    // for backward compatibility with Constraint Fusion v0.1's
+    // `context.constraint_fusion: true/false` (true means "always").
+    let constraint_fusion = match request.pointer("/context/constraint_fusion") {
+        None => reasonscript_computation_ir::FusionPolicy::Off,
+        Some(serde_json::Value::Bool(true)) => reasonscript_computation_ir::FusionPolicy::Always,
+        Some(serde_json::Value::Bool(false)) => reasonscript_computation_ir::FusionPolicy::Off,
+        Some(serde_json::Value::String(name)) => {
+            match reasonscript_computation_ir::FusionPolicy::parse(name) {
+                Some(policy) => policy,
+                None => {
+                    return fail_request(
+                        request_id,
+                        "RTH-PROTO-006",
+                        "constraint_fusion must be off, always, or adaptive",
+                    )
+                }
+            }
+        }
+        Some(_) => {
+            return fail_request(
+                request_id,
+                "RTH-PROTO-006",
+                "constraint_fusion must be a boolean or one of off/always/adaptive",
+            )
+        }
+    };
+    vm.set_constraint_fusion(constraint_fusion);
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let loop_trace = vm.loop_trace();

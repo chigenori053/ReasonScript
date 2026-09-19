@@ -1,0 +1,125 @@
+{
+  "schema": "reasonscript-adaptive-fusion-profile/1.0",
+  "cases_total": 117,
+  "samples": 10,
+  "warmup": 3,
+  "host": "/Users/chigenori/development/ReasonScript/.claude/worktrees/reasonscript-lazy-candidate-space-d1ff02/ReasonRuntime/target/release/reason-runtime-host",
+  "results_identical_E_F_G": true,
+  "cases_analyzed": 117,
+  "cases_b_comparable": 116,
+  "cases_excluded_mismatch": [],
+  "median_runtime_E": 31729.0,
+  "median_runtime_F": 92500.5,
+  "median_runtime_G": 40917.0,
+  "median_GRR_E_over_G": 0.9898910000000001,
+  "median_GRF_F_over_G": 1.0082775,
+  "E_favorable_cases": 32,
+  "F_favorable_cases": 29,
+  "G_favorable_cases": 29,
+  "fusion_selected_total": 118,
+  "fusion_rejected_cost_total": 53,
+  "oracle_efficiency_median": 0.988229,
+  "correlation_RCR_RTER_E": 0.24809563632754178,
+  "correlation_RCR_RTER_F": -0.3600251846328689,
+  "correlation_RCR_RTER_G": -0.2657283076866234,
+  "completion_judgements": {
+    "1_semantic_equivalence": {
+      "pass": true,
+      "mandatory": true
+    },
+    "2_worst_case_regression_recovery": {
+      "pass": false,
+      "mandatory": true,
+      "fixtures": [
+        {
+          "test_id": "synthetic_sqrt1000000_k6",
+          "runtime_E": 83041.5,
+          "runtime_F": 163229.0,
+          "runtime_G": 161708.5,
+          "G_lt_F": true,
+          "worst_case_was_F_2x_E": false
+        },
+        {
+          "test_id": "synthetic_sqrt1000000_k8",
+          "runtime_E": 24708.5,
+          "runtime_F": 105812.5,
+          "runtime_G": 105875.5,
+          "G_lt_F": false,
+          "worst_case_was_F_2x_E": true
+        },
+        {
+          "test_id": "highly_composite_24b",
+          "runtime_E": 23771.0,
+          "runtime_F": 103562.5,
+          "runtime_G": 32520.5,
+          "G_lt_F": true,
+          "worst_case_was_F_2x_E": true
+        }
+      ]
+    },
+    "3_model_e_protection_95pct_within_1.10x": {
+      "pass": false,
+      "target": true,
+      "fraction": 0.75
+    },
+    "4_fusion_opportunity_utilized": {
+      "pass": true,
+      "mandatory": true
+    },
+    "5_reasoning_favorable_region_g_gte_e": {
+      "pass": false,
+      "important": true,
+      "G_favorable": 29,
+      "E_favorable": 32
+    },
+    "6_reasoning_favorable_region_g_gt_e": {
+      "pass": false,
+      "target": true
+    },
+    "7_oracle_efficiency_median_gte_0.9": {
+      "pass": true,
+      "target": true
+    },
+    "8_correlation_improves_over_f": {
+      "pass": true,
+      "mandatory_target": true,
+      "r_F": -0.3600251846328689,
+      "r_G": -0.2657283076866234
+    },
+    "9_adaptive_overhead_not_dominant_k0_k1": {
+      "pass": true,
+      "target": true,
+      "cases_exceeding_1.05x": []
+    }
+  },
+  "positive_fixture_fusion_selected": {
+    "pass": true,
+    "cases": [
+      "synthetic_sqrt10000000_k1",
+      "synthetic_sqrt10000000_k2",
+      "synthetic_sqrt10000000_k3",
+      "synthetic_sqrt10000000_k4",
+      "synthetic_sqrt10000000_k5",
+      "synthetic_sqrt10000000_k6",
+      "synthetic_sqrt10000000_k8",
+      "synthetic_sqrt10000000_k10"
+    ]
+  },
+  "reasoning_favorable_region_vs_e": {
+    "gained_by_adaptive": [
+      "basic_97",
+      "semiprime_8b"
+    ],
+    "lost_by_adaptive": [
+      "synthetic_sqrt10000000_k8",
+      "synthetic_sqrt1000000_k6",
+      "synthetic_sqrt100000_k4",
+      "synthetic_sqrt100000_k5",
+      "synthetic_sqrt10000_k3"
+    ]
+  },
+  "reasoning_favorable_region_vs_f": {
+    "recovered_from_f_regression": [],
+    "still_lost_vs_f": []
+  }
+}

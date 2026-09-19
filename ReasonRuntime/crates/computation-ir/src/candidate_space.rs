@@ -237,6 +237,89 @@ impl FusedConstraintSet {
     }
 }
 
+/// spec `ReasonScript_Adaptive_Cost_Aware_Constraint_Fusion_v0_1` section 7,
+/// 82. `Off` and `Always` are exactly Model E / Model F's behavior;
+/// `Adaptive` (Model G) decides per constraint via `plan_fusion`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FusionPolicy {
+    Off,
+    Always,
+    Adaptive,
+}
+
+impl FusionPolicy {
+    pub fn parse(name: &str) -> Option<Self> {
+        Some(match name {
+            "off" => FusionPolicy::Off,
+            "always" => FusionPolicy::Always,
+            "adaptive" => FusionPolicy::Adaptive,
+            _ => return None,
+        })
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            FusionPolicy::Off => "off",
+            FusionPolicy::Always => "always",
+            FusionPolicy::Adaptive => "adaptive",
+        }
+    }
+}
+
+/// Why `plan_fusion` (the LCM-growth path only; a prime that already
+/// divides the current modulus never reaches the estimator, spec section
+/// 79) did not produce a fuseable estimate, or -- `Cost` -- produced one
+/// the Adaptive policy chose not to act on (spec section 36).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FusionRejectReason {
+    Overflow,
+    ModulusBudget,
+    ResidueBudget,
+    Cost,
+}
+
+/// A cheap (O(1), no residue iteration: spec section 17, 25, 79),
+/// deterministic, integer-only (section 46, 86) prediction of what fusing
+/// `p` in would cost and save, used only to CHOOSE fuse-vs-residual --
+/// `CandidateSpace::add` still calls the real, exact `FusedConstraintSet::
+/// try_fuse` to actually do it (section 23).
+///
+/// `predicted_modulus`/`predicted_residue_count` are exact, not
+/// approximate: for a prime `p` coprime to the current modulus (always
+/// true on this path -- `p | modulus` is handled separately and never
+/// reaches here), the fused residue set expands uniformly across every
+/// residue class, so exactly `current_residue_count * (p - 1)` of the
+/// `current_residue_count * p` expanded values survive `v % p != 0`. This
+/// is the same identity `FusedConstraintSet::try_fuse` computes the hard
+/// way (by actually building and filtering the expansion); this struct
+/// gets the same numbers in O(1).
+///
+/// `remaining_candidates` is the one genuinely approximate quantity: the
+/// exact count would need `CandidateSpace::unvisited_count` (O(residue
+/// count), forbidden here), so it uses the current fused density
+/// (`residue_count / modulus`) over the unvisited range instead --
+/// cheap, deterministic, monotonic in range size (spec section 18).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FusionEstimate {
+    pub remaining_candidates: u64,
+    pub current_modulus: i64,
+    pub predicted_modulus: i64,
+    pub current_residue_count: usize,
+    pub predicted_residue_count: usize,
+    pub expected_removed: u64,
+    pub estimated_benefit: u64,
+    pub estimated_cost: u64,
+    pub score: i128,
+}
+
+impl FusionEstimate {
+    /// spec section 30-31: `benefit > cost x FUSION_MARGIN` with
+    /// `FUSION_MARGIN = 1.25 = 5/4`, kept in integer arithmetic.
+    pub fn should_fuse(&self) -> bool {
+        (self.estimated_benefit as u128) * 4 > (self.estimated_cost as u128) * 5
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CmpOp {
     Eq,
@@ -413,14 +496,33 @@ pub enum Added {
     Folded { excluded: u64 },
     /// `NotDivisibleBy(p)` folded directly into the generator's stepping
     /// rule (Constraint Fusion v0.1); no residual constraint was added.
-    /// `excluded` is exact, like `Folded` (spec section 29).
-    Fused { modulus: i64, residue_count: usize, excluded: u64 },
+    /// `excluded` is exact, like `Folded` (spec section 29). `estimate` is
+    /// `Some` when an Adaptive-policy cost estimate informed this fuse
+    /// (the LCM-growth path); `None` for `Always` policy or the cheap
+    /// "p already divides modulus" path, which never estimates (spec
+    /// Adaptive Fusion section 79).
+    Fused {
+        modulus: i64,
+        residue_count: usize,
+        excluded: u64,
+        estimate: Option<FusionEstimate>,
+    },
     /// Went to `residual_constraints` as before. `fusion_fallback` is true
     /// only when fusion was attempted (a prime `NotDivisibleBy`, fusion
-    /// enabled) and rejected by the budget -- not merely ineligible (a
-    /// non-prime modulus, or fusion disabled), which is ordinary Class C
-    /// classification, not a fallback.
-    Stored { fusion_fallback: bool },
+    /// enabled) and rejected by the budget/overflow -- not merely
+    /// ineligible (a non-prime modulus, or fusion disabled), which is
+    /// ordinary Class C classification, not a fallback. `reject_reason`
+    /// names why, when known (Adaptive Fusion section 35-36).
+    Stored {
+        fusion_fallback: bool,
+        reject_reason: Option<FusionRejectReason>,
+        /// The cost estimate that led to `reject_reason: Some(Cost)`, for
+        /// the cumulative `fusion_estimated_*_total` metrics (spec section
+        /// 37). Always `None` for every other reject reason (no estimate
+        /// was computable) and for an ordinary, non-fusion-eligible
+        /// residual constraint.
+        estimate: Option<FusionEstimate>,
+    },
     Duplicate,
 }
 
@@ -532,13 +634,72 @@ impl CandidateSpace {
         self.exhausted_reported = false;
     }
 
+    /// O(1) prediction of fusing `p` in, for the Adaptive policy to decide
+    /// with (spec `ReasonScript_Adaptive_Cost_Aware_Constraint_Fusion_v0_1`
+    /// sections 11-30). Caller has already established `p` does not
+    /// divide `self.fused.modulus` (that path is exact and cheap without
+    /// needing an estimate at all -- see `add`).
+    fn plan_fusion(&self, p: i64, budget: &FusionBudget) -> Result<FusionEstimate, FusionRejectReason> {
+        let current_modulus = self.fused.modulus;
+        let current_residue_count = self.fused.residues.len();
+        let from = self.visited_through();
+        let range_left: u128 = if from >= self.upper {
+            0
+        } else {
+            (self.upper as i128 - from as i128) as u128
+        };
+        // Cheap density estimate (section 18): exact would need
+        // `unvisited_count`, O(residue count), which section 79 forbids
+        // adding here.
+        let remaining = ((range_left * current_residue_count as u128) / current_modulus as u128) as u64;
+
+        let new_modulus = checked_lcm(current_modulus, p).ok_or(FusionRejectReason::Overflow)?;
+        if new_modulus > budget.max_modulus {
+            return Err(FusionRejectReason::ModulusBudget);
+        }
+        let predicted_residue_count = current_residue_count
+            .checked_mul((p - 1) as usize)
+            .ok_or(FusionRejectReason::Overflow)?;
+        if predicted_residue_count > budget.max_residue_count {
+            return Err(FusionRejectReason::ResidueBudget);
+        }
+        let remaining_after = ((range_left * predicted_residue_count as u128) / new_modulus as u128) as u64;
+        let expected_removed = remaining.saturating_sub(remaining_after);
+
+        // Fixed, hardware-independent logical cost units (spec section 46):
+        // never calibrated from a benchmark or CPU clock.
+        const GENERATION_WEIGHT: u64 = 1;
+        const CONSTRAINT_WEIGHT: u64 = 1;
+        const REBUILD_READ_WEIGHT: u64 = 1;
+        const REBUILD_WRITE_WEIGHT: u64 = 1;
+        let estimated_benefit = expected_removed
+            .saturating_mul(GENERATION_WEIGHT)
+            .saturating_add(remaining.saturating_mul(CONSTRAINT_WEIGHT));
+        let estimated_cost = (current_residue_count as u64)
+            .saturating_mul(REBUILD_READ_WEIGHT)
+            .saturating_add((predicted_residue_count as u64).saturating_mul(REBUILD_WRITE_WEIGHT));
+        let score = estimated_benefit as i128 - estimated_cost as i128;
+
+        Ok(FusionEstimate {
+            remaining_candidates: remaining,
+            current_modulus,
+            predicted_modulus: new_modulus,
+            current_residue_count,
+            predicted_residue_count,
+            expected_removed,
+            estimated_benefit,
+            estimated_cost,
+            score,
+        })
+    }
+
     /// Adds one constraint: bounds fold into the domain; a prime
     /// `NotDivisibleBy(p)` folds into the generator when `fusion_enabled`
     /// and the budget allows it (Constraint Fusion v0.1); everything else
     /// is deduplicated and inserted into `residual_constraints` in
     /// canonical order. Never moves the cursor backwards (fusion never
     /// touches `cursor`/`peeked`; the caller `unpeek`s first as before).
-    pub fn add(&mut self, constraint: Constraint, fusion_enabled: bool) -> Added {
+    pub fn add(&mut self, constraint: Constraint, policy: FusionPolicy) -> Added {
         if let Constraint::Compare { op, k } = constraint {
             if !matches!(op, CmpOp::Eq | CmpOp::Ne) {
                 let before = self.unvisited_count();
@@ -556,34 +717,84 @@ impl CandidateSpace {
             }
         }
         let mut fallback = false;
-        if fusion_enabled {
+        let mut reject_reason = None;
+        let mut cost_estimate = None;
+        if policy != FusionPolicy::Off {
             if let Constraint::Modulo { m: p, op: CmpOp::Ne, r: 0 } = constraint {
                 if is_small_prime(p) {
                     let budget = FusionBudget::default();
-                    if self.fused.would_fuse(p, &budget) {
-                        // `unvisited_count` is O(residue count) -- paid
-                        // only when `try_fuse` might actually change the
-                        // fused set, never for a call `would_fuse` already
-                        // knows is a guaranteed fallback. Discovered as a
-                        // real regression while benchmarking: computing it
-                        // unconditionally for every prime-modulo call, even
-                        // ones a full modulus had already made no-ops, made
-                        // Fusion slower than no fusion at all once a
-                        // program kept excluding more primes past the
-                        // budget cap (each such call used to cost O(final
-                        // residue count) for nothing).
+                    if self.fused.modulus % p == 0 {
+                        // `p` already divides the modulus (a duplicate, or
+                        // a prime the base generator already excludes,
+                        // e.g. wheel-6's own 2/3): exact and cheap either
+                        // way, so both `Always` and `Adaptive` fuse
+                        // without estimating (spec Adaptive Fusion v0.1
+                        // section 79 -- no new O(R) scan for the
+                        // estimator, and this path was never one).
                         let before = self.unvisited_count();
                         match self.fused.try_fuse(p, &budget) {
                             FuseOutcome::AlreadyExcluded => return Added::Duplicate,
                             FuseOutcome::Fused { modulus, residue_count } => {
                                 self.fused_primes.push(p);
                                 let excluded = before - self.unvisited_count();
-                                return Added::Fused { modulus, residue_count, excluded };
+                                return Added::Fused { modulus, residue_count, excluded, estimate: None };
                             }
-                            FuseOutcome::BudgetExceeded => fallback = true,
+                            FuseOutcome::BudgetExceeded => unreachable!("p | modulus never grows it"),
                         }
                     } else {
-                        fallback = true;
+                        match policy {
+                            FusionPolicy::Off => unreachable!(),
+                            FusionPolicy::Always => {
+                                // Unchanged from Constraint Fusion v0.1:
+                                // fuse whenever the budget allows it, no
+                                // cost estimate computed at all.
+                                if self.fused.would_fuse(p, &budget) {
+                                    let before = self.unvisited_count();
+                                    match self.fused.try_fuse(p, &budget) {
+                                        FuseOutcome::AlreadyExcluded => return Added::Duplicate,
+                                        FuseOutcome::Fused { modulus, residue_count } => {
+                                            self.fused_primes.push(p);
+                                            let excluded = before - self.unvisited_count();
+                                            return Added::Fused { modulus, residue_count, excluded, estimate: None };
+                                        }
+                                        FuseOutcome::BudgetExceeded => fallback = true,
+                                    }
+                                } else {
+                                    fallback = true;
+                                }
+                            }
+                            FusionPolicy::Adaptive => match self.plan_fusion(p, &budget) {
+                                Err(reason) => {
+                                    fallback = matches!(reason, FusionRejectReason::ModulusBudget | FusionRejectReason::ResidueBudget | FusionRejectReason::Overflow);
+                                    reject_reason = Some(reason);
+                                }
+                                Ok(estimate) if estimate.should_fuse() => {
+                                    let before = self.unvisited_count();
+                                    match self.fused.try_fuse(p, &budget) {
+                                        FuseOutcome::AlreadyExcluded => return Added::Duplicate,
+                                        FuseOutcome::Fused { modulus, residue_count } => {
+                                            self.fused_primes.push(p);
+                                            let excluded = before - self.unvisited_count();
+                                            return Added::Fused { modulus, residue_count, excluded, estimate: Some(estimate) };
+                                        }
+                                        // `plan_fusion` already checked the
+                                        // budget with the same numbers, so
+                                        // this should not happen; treat as
+                                        // an ordinary fallback if it ever
+                                        // does (never panic: spec section
+                                        // 71, conservative on doubt).
+                                        FuseOutcome::BudgetExceeded => {
+                                            fallback = true;
+                                            reject_reason = Some(FusionRejectReason::ModulusBudget);
+                                        }
+                                    }
+                                }
+                                Ok(estimate) => {
+                                    reject_reason = Some(FusionRejectReason::Cost);
+                                    cost_estimate = Some(estimate);
+                                }
+                            },
+                        }
                     }
                 }
             }
@@ -598,7 +809,7 @@ impl CandidateSpace {
             .rposition(|existing| existing.rank() <= rank)
             .map_or(0, |index| index + 1);
         self.residual_constraints.insert(position, constraint);
-        Added::Stored { fusion_fallback: fallback }
+        Added::Stored { fusion_fallback: fallback, reject_reason, estimate: cost_estimate }
     }
 
     pub fn to_json(&self) -> serde_json::Value {
@@ -665,13 +876,13 @@ mod tests {
         let mut space = CandidateSpace::new(Generator::Wheel6, 5, 60);
         assert_eq!(space.generate_next(), Some(5));
         assert_eq!(
-            space.add(not_divisible_by(5), false),
-            Added::Stored { fusion_fallback: false }
+            space.add(not_divisible_by(5), FusionPolicy::Off),
+            Added::Stored { fusion_fallback: false, reject_reason: None, estimate: None }
         );
-        assert_eq!(space.add(not_divisible_by(5), false), Added::Duplicate);
+        assert_eq!(space.add(not_divisible_by(5), FusionPolicy::Off), Added::Duplicate);
         assert_eq!(
-            space.add(Constraint::Compare { op: CmpOp::Ne, k: 13 }, false),
-            Added::Stored { fusion_fallback: false }
+            space.add(Constraint::Compare { op: CmpOp::Ne, k: 13 }, FusionPolicy::Off),
+            Added::Stored { fusion_fallback: false, reject_reason: None, estimate: None }
         );
         // equality sorts before modulo regardless of insertion order
         assert!(matches!(space.residual_constraints[0], Constraint::Compare { .. }));
@@ -684,11 +895,11 @@ mod tests {
         let mut space = CandidateSpace::new(Generator::Range, 1, 100);
         assert_eq!(space.generate_next(), Some(1));
         assert_eq!(
-            space.add(Constraint::Compare { op: CmpOp::Gt, k: 90 }, false),
+            space.add(Constraint::Compare { op: CmpOp::Gt, k: 90 }, FusionPolicy::Off),
             Added::Folded { excluded: 89 }
         );
         assert_eq!(
-            space.add(Constraint::Compare { op: CmpOp::Lt, k: 10 }, false),
+            space.add(Constraint::Compare { op: CmpOp::Lt, k: 10 }, FusionPolicy::Off),
             Added::Folded { excluded: 10 }
         );
         assert_eq!(space.unvisited_count(), 0);
@@ -698,7 +909,7 @@ mod tests {
     #[test]
     fn unpeek_puts_the_lookahead_back_without_revisiting_skips() {
         let mut space = CandidateSpace::new(Generator::Range, 1, 10);
-        space.add(Constraint::Modulo { m: 2, op: CmpOp::Eq, r: 0 }, false);
+        space.add(Constraint::Modulo { m: 2, op: CmpOp::Eq, r: 0 }, FusionPolicy::Off);
         let mut evals = 0;
         // peek: 1 skipped, 2 accepted
         let mut found = None;
@@ -738,8 +949,8 @@ mod tests {
     fn wheel6_plus_5_fuses_to_mod_30() {
         let mut space = CandidateSpace::new(Generator::Wheel6, 5, 100);
         assert_eq!(
-            space.add(not_divisible_by(5), true),
-            Added::Fused { modulus: 30, residue_count: 8, excluded: 7 }
+            space.add(not_divisible_by(5), FusionPolicy::Always),
+            Added::Fused { modulus: 30, residue_count: 8, excluded: 7, estimate: None }
         );
         assert_eq!(space.fused.modulus, 30);
         assert_eq!(*space.fused.residues, vec![1, 7, 11, 13, 17, 19, 23, 29]); // spec section 12
@@ -750,10 +961,10 @@ mod tests {
     #[test]
     fn wheel30_plus_7_fuses_to_mod_210() {
         let mut space = CandidateSpace::new(Generator::Wheel6, 5, 250);
-        space.add(not_divisible_by(5), true);
+        space.add(not_divisible_by(5), FusionPolicy::Always);
         assert_eq!(
-            space.add(not_divisible_by(7), true),
-            Added::Fused { modulus: 210, residue_count: 48, excluded: 9 }
+            space.add(not_divisible_by(7), FusionPolicy::Always),
+            Added::Fused { modulus: 210, residue_count: 48, excluded: 9, estimate: None }
         );
         assert_eq!(space.fused.modulus, 210); // spec section 13
         for &r in space.fused.residues.iter() {
@@ -765,11 +976,11 @@ mod tests {
     #[test]
     fn fusion_is_order_invariant() {
         let mut a = CandidateSpace::new(Generator::Wheel6, 5, 250);
-        a.add(not_divisible_by(5), true);
-        a.add(not_divisible_by(7), true);
+        a.add(not_divisible_by(5), FusionPolicy::Always);
+        a.add(not_divisible_by(7), FusionPolicy::Always);
         let mut b = CandidateSpace::new(Generator::Wheel6, 5, 250);
-        b.add(not_divisible_by(7), true);
-        b.add(not_divisible_by(5), true);
+        b.add(not_divisible_by(7), FusionPolicy::Always);
+        b.add(not_divisible_by(5), FusionPolicy::Always);
         assert_eq!(a.fused.modulus, b.fused.modulus); // spec section 19
         assert_eq!(a.fused.residues, b.fused.residues);
         assert_eq!(drain(&mut a.clone()), drain(&mut b.clone()));
@@ -778,10 +989,10 @@ mod tests {
     #[test]
     fn duplicate_fusion_is_a_noop() {
         let mut space = CandidateSpace::new(Generator::Wheel6, 5, 100);
-        assert!(matches!(space.add(not_divisible_by(5), true), Added::Fused { .. }));
-        assert_eq!(space.add(not_divisible_by(5), true), Added::Duplicate); // spec section 20
+        assert!(matches!(space.add(not_divisible_by(5), FusionPolicy::Always), Added::Fused { .. }));
+        assert_eq!(space.add(not_divisible_by(5), FusionPolicy::Always), Added::Duplicate); // spec section 20
         // A prime the base generator already excludes is also a no-op.
-        assert_eq!(space.add(not_divisible_by(3), true), Added::Duplicate);
+        assert_eq!(space.add(not_divisible_by(3), FusionPolicy::Always), Added::Duplicate);
     }
 
     #[test]
@@ -791,7 +1002,7 @@ mod tests {
             space.generate_next();
         } // cursor now at the 3rd wheel-6 value (11)
         let before = space.cursor;
-        space.add(not_divisible_by(5), true); // spec section 17
+        space.add(not_divisible_by(5), FusionPolicy::Always); // spec section 17
         assert_eq!(space.cursor, before);
         assert!(space.generate_next().unwrap() > before);
     }
@@ -801,12 +1012,12 @@ mod tests {
         let mut budget_hit = CandidateSpace::new(Generator::Range, 1, 1_000_000);
         // 2*3*5*7*11*13 = 30030 (the default max_modulus); *17 would exceed it.
         for p in [2, 3, 5, 7, 11, 13] {
-            assert!(matches!(budget_hit.add(not_divisible_by(p), true), Added::Fused { .. } | Added::Duplicate));
+            assert!(matches!(budget_hit.add(not_divisible_by(p), FusionPolicy::Always), Added::Fused { .. } | Added::Duplicate));
         }
         assert_eq!(budget_hit.fused.modulus, 30_030);
         assert_eq!(
-            budget_hit.add(not_divisible_by(17), true),
-            Added::Stored { fusion_fallback: true }
+            budget_hit.add(not_divisible_by(17), FusionPolicy::Always),
+            Added::Stored { fusion_fallback: true, reject_reason: None, estimate: None }
         ); // spec section 22-23, 26
 
         // A prime whose LCM with the current modulus would overflow i64
@@ -815,8 +1026,8 @@ mod tests {
         overflow.fused.modulus = i64::MAX / 2; // simulate an already-huge modulus
         let huge_prime = 4_611_686_018_427_387_847i64; // prime, coprime to the modulus above
         assert_eq!(
-            overflow.add(not_divisible_by(huge_prime), true),
-            Added::Stored { fusion_fallback: true }
+            overflow.add(not_divisible_by(huge_prime), FusionPolicy::Always),
+            Added::Stored { fusion_fallback: true, reject_reason: None, estimate: None }
         );
     }
 
@@ -824,12 +1035,12 @@ mod tests {
     fn composite_modulus_and_non_ne_zero_modulo_stay_residual_even_with_fusion_on() {
         let mut space = CandidateSpace::new(Generator::Range, 1, 100);
         assert_eq!(
-            space.add(not_divisible_by(15), true), // composite: spec section 21
-            Added::Stored { fusion_fallback: false }
+            space.add(not_divisible_by(15), FusionPolicy::Always), // composite: spec section 21
+            Added::Stored { fusion_fallback: false, reject_reason: None, estimate: None }
         );
         assert_eq!(
-            space.add(Constraint::Modulo { m: 5, op: CmpOp::Eq, r: 0 }, true), // not `!= 0`
-            Added::Stored { fusion_fallback: false }
+            space.add(Constraint::Modulo { m: 5, op: CmpOp::Eq, r: 0 }, FusionPolicy::Always), // not `!= 0`
+            Added::Stored { fusion_fallback: false, reject_reason: None, estimate: None }
         );
         assert_eq!(space.fused.modulus, 1); // untouched
     }
@@ -838,8 +1049,8 @@ mod tests {
     fn fusion_disabled_matches_pre_fusion_behavior_exactly() {
         let mut space = CandidateSpace::new(Generator::Wheel6, 5, 100);
         assert_eq!(
-            space.add(not_divisible_by(5), false),
-            Added::Stored { fusion_fallback: false }
+            space.add(not_divisible_by(5), FusionPolicy::Off),
+            Added::Stored { fusion_fallback: false, reject_reason: None, estimate: None }
         );
         assert_eq!(space.fused.modulus, 6); // spec section 55: never touched
         assert_eq!(space.residual_constraints.len(), 1);
@@ -862,6 +1073,116 @@ mod tests {
         for after in -50..500i64 {
             assert_eq!(wheel.next_after(after), hand_written(after), "after={after}");
         }
+    }
+
+    // Adaptive / Cost-Aware Constraint Fusion v0.1 tests (spec
+    // `ReasonScript_Adaptive_Cost_Aware_Constraint_Fusion_v0_1.md` section 99).
+
+    #[test]
+    fn adaptive_rejects_fusion_for_a_tiny_search_space() {
+        // Range[1,20]: only 20 candidates total, but fusing 101 would
+        // rebuild a 100-residue set -- cost (101) dwarfs benefit (21).
+        let mut space = CandidateSpace::new(Generator::Range, 1, 20);
+        assert_eq!(
+            space.add(not_divisible_by(101), FusionPolicy::Adaptive),
+            Added::Stored { fusion_fallback: false, reject_reason: Some(FusionRejectReason::Cost), estimate: space.plan_fusion(101, &FusionBudget::default()).ok() }
+        );
+        assert_eq!(space.fused.modulus, 1); // untouched
+        assert!(space.residual_constraints.iter().any(|c| matches!(c, Constraint::Modulo { m: 101, .. })));
+    }
+
+    #[test]
+    fn adaptive_selects_fusion_for_a_large_search_space() {
+        // Range[1,10_000_000]: fusing 11 removes ~900K candidates from the
+        // generation stream for a rebuild cost of only 10+1 residues.
+        let mut space = CandidateSpace::new(Generator::Range, 1, 10_000_000);
+        let estimate = space.plan_fusion(11, &FusionBudget::default()).unwrap();
+        assert!(estimate.should_fuse());
+        assert_eq!(estimate.expected_removed, 909_091); // O(1) density estimate
+        assert_eq!(
+            space.add(not_divisible_by(11), FusionPolicy::Adaptive),
+            // `excluded` on `Added::Fused` is the EXACT count (computed via
+            // `unvisited_count` before/after the real fuse), which differs
+            // slightly from the O(1) estimate above by construction (spec
+            // section 18/22: the estimate is a cheap approximation, not
+            // required to match the exact count it informs the decision
+            // with).
+            Added::Fused { modulus: 11, residue_count: 10, excluded: 909_090, estimate: Some(estimate) }
+        );
+    }
+
+    #[test]
+    fn off_always_and_adaptive_agree_on_the_final_candidate_sequence() {
+        // A large-enough search space that Adaptive selects fusion for
+        // p=5 and p=7 exactly like Always does -- all three modes must
+        // produce byte-identical (`off`) or equivalent-result (`always`/
+        // `adaptive`) candidate streams once fusion actually happens.
+        let build = |policy: FusionPolicy| {
+            let mut space = CandidateSpace::new(Generator::Wheel6, 5, 2_000_000);
+            space.add(not_divisible_by(5), policy);
+            space.add(not_divisible_by(7), policy);
+            space
+        };
+        let off = drain(&mut build(FusionPolicy::Off));
+        let always = drain(&mut build(FusionPolicy::Always));
+        let adaptive = drain(&mut build(FusionPolicy::Adaptive));
+        assert_eq!(off, always);
+        assert_eq!(off, adaptive);
+    }
+
+    #[test]
+    fn cost_rejection_reason_is_distinct_from_budget_and_overflow() {
+        let mut cost = CandidateSpace::new(Generator::Range, 1, 20);
+        assert_eq!(
+            cost.add(not_divisible_by(101), FusionPolicy::Adaptive),
+            Added::Stored { fusion_fallback: false, reject_reason: Some(FusionRejectReason::Cost), estimate: cost.plan_fusion(101, &FusionBudget::default()).ok() }
+        );
+
+        let mut budget = CandidateSpace::new(Generator::Range, 1, 100_000_000);
+        for p in [2, 3, 5, 7, 11, 13] {
+            budget.add(not_divisible_by(p), FusionPolicy::Adaptive);
+        }
+        assert_eq!(budget.fused.modulus, 30_030);
+        assert_eq!(
+            budget.add(not_divisible_by(17), FusionPolicy::Adaptive),
+            Added::Stored { fusion_fallback: true, reject_reason: Some(FusionRejectReason::ModulusBudget), estimate: None }
+        );
+
+        let mut overflow = CandidateSpace::new(Generator::Range, 1, 100);
+        overflow.fused.modulus = i64::MAX / 2;
+        let huge_prime = 4_611_686_018_427_387_847i64;
+        assert_eq!(
+            overflow.add(not_divisible_by(huge_prime), FusionPolicy::Adaptive),
+            Added::Stored { fusion_fallback: true, reject_reason: Some(FusionRejectReason::Overflow), estimate: None }
+        );
+    }
+
+    #[test]
+    fn adaptive_estimate_is_deterministic() {
+        let space = CandidateSpace::new(Generator::Wheel6, 5, 500_000);
+        let a = space.plan_fusion(13, &FusionBudget::default()).unwrap();
+        let b = space.plan_fusion(13, &FusionBudget::default()).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn adaptive_duplicate_constraint_is_a_noop() {
+        let mut space = CandidateSpace::new(Generator::Wheel6, 5, 2_000_000);
+        assert!(matches!(space.add(not_divisible_by(11), FusionPolicy::Adaptive), Added::Fused { .. }));
+        assert_eq!(space.add(not_divisible_by(11), FusionPolicy::Adaptive), Added::Duplicate);
+    }
+
+    #[test]
+    fn adaptive_never_moves_the_cursor_backwards() {
+        let mut space = CandidateSpace::new(Generator::Wheel6, 5, 2_000_000);
+        for _ in 0..3 {
+            space.generate_next();
+        }
+        let before = space.cursor;
+        space.add(not_divisible_by(11), FusionPolicy::Adaptive); // selected: large space
+        assert_eq!(space.cursor, before);
+        space.add(not_divisible_by(101), FusionPolicy::Adaptive); // rejected: still shouldn't move it
+        assert_eq!(space.cursor, before);
     }
 
     #[test]
