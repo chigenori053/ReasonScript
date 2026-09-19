@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased] - Reasoning-to-Resource Efficiency Test v1.0
+
+- Added `scripts/benchmark_reasoning_resource_efficiency.py`, comparing
+  Model B (numerical wheel-6 search) against Model E (lazy / symbolic
+  reasoning) at the runtime-host boundary over the existing 79-case
+  SpecTest dataset plus a synthetic 2D matrix (search space size x
+  compression level, `N = p1 x ... x pk x q`). No runtime or frontend
+  code changed; this is a benchmarking and analysis pass over the
+  existing Model E implementation.
+- Finding (see `docs/reports/ReasonScript_Reasoning_to_Resource_Efficiency_Report.md`):
+  Model E beats Model B only in a narrow region (search space
+  sqrt(N) >= ~10,000 and moderate compression, RCR ~1.25-2.0, up to
+  1.29x faster); very small search spaces and high compression levels
+  (many stored constraints) both favor Model B, because each stored
+  constraint is evaluated per surviving candidate (O(constraints) per
+  candidate) while its marginal exclusion benefit shrinks -- pointing at
+  Constraint Fusion (already flagged as v0.1 future work) as the next
+  step. No positive correlation between compression ratio and runtime
+  improvement once search-space size is properly decoupled from
+  compression level in the test data (an earlier version of the
+  generator conflated the two; documented and fixed in the report).
+
 ## [Unreleased] - Lazy / Symbolic Candidate Space v0.1
 
 - Added the `candidate_space` standard namespace (`range`, `wheel6`, `isqrt`,

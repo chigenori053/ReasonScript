@@ -1,0 +1,74 @@
+{
+  "schema": "reasonscript-reasoning-resource-efficiency/1.0",
+  "cases_total": 104,
+  "samples": 10,
+  "warmup": 3,
+  "host": "/Users/chigenori/development/ReasonScript/.claude/worktrees/reasonscript-lazy-candidate-space-d1ff02/ReasonRuntime/target/release/reason-runtime-host",
+  "excluded_result_mismatches": [
+    "basic_100"
+  ],
+  "cases_analyzed": 103,
+  "cases_RTER_gt_1": 35,
+  "median_RCR": 1.0,
+  "median_POR": 0.831465,
+  "median_AER": 1.707865,
+  "median_RTER": 0.877706,
+  "correlation_RCR_POR": 0.4182738459810435,
+  "correlation_RCR_RTER": 0.031579264023991166,
+  "break_even_RCR": null,
+  "break_even_search_space": {
+    "1e3-1e4": null,
+    "1e4-1e5": null,
+    "1e5-1e6": 1.736264,
+    "<1e3": null,
+    ">=1e6": null
+  },
+  "levels": {
+    "Level_1_compression_reduces_vm_instructions": {
+      "pass": true,
+      "cases": 15,
+      "of_compressed": 41
+    },
+    "Level_2_compression_reduces_allocations": {
+      "pass": true,
+      "cases": 41,
+      "of_compressed": 41
+    },
+    "Level_3_E_faster_than_B_exists": {
+      "pass": true,
+      "cases": 35,
+      "of_total": 104
+    },
+    "Level_4_E_faster_reproducible_across_sizes": {
+      "pass": true,
+      "classes": {
+        "repeated_factor_composite": [
+          "1e3-1e4",
+          "<1e3"
+        ],
+        "synthetic_k2": [
+          "1e4-1e5",
+          "1e5-1e6",
+          ">=1e6"
+        ],
+        "synthetic_k3": [
+          "1e4-1e5",
+          "1e5-1e6"
+        ]
+      }
+    },
+    "Level_5_positive_correlation": {
+      "pass": false,
+      "pearson_r": 0.031579264023991166
+    },
+    "Level_6_break_even_identified": {
+      "pass": false,
+      "break_even_RCR": null
+    }
+  },
+  "regions": {
+    "numerical_favorable_RTER_lt_1": 59,
+    "break_even_RTER_approx_1": 14,
+    "reasoning_favorable_RTER_gt_1": 30
+  }
+}
