@@ -309,6 +309,14 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(true),
     );
+    // Constraint Fusion v0.1: opt-in, default off (byte-identical to
+    // pre-Fusion behavior when unset).
+    vm.set_constraint_fusion(
+        request
+            .pointer("/context/constraint_fusion")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+    );
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let loop_trace = vm.loop_trace();

@@ -130,8 +130,14 @@ envelope) reports native counters measured inside the VM: `vm_instruction_count`
 `null`), `candidate_materialized_count`, `candidate_constraint_count`,
 `candidate_constraint_eval_count`, `candidate_space_next_count`,
 `candidate_materialized_pruned_count`, `candidate_generated_skipped_count`,
-`symbolic_constraint_eval_count`, `generic_predicate_eval_count`, and the
-pre-existing `loop_iterations`, `semantic_reasoning_steps`, `builder_appends`,
+`symbolic_constraint_eval_count`, `generic_predicate_eval_count`, the
+Constraint Fusion counters `constraint_fusion_count`,
+`constraint_fusion_rebuild_count`, `fusion_fallback_count`,
+`fused_modulus`, `fused_residue_count`, `fused_constraint_count`,
+`residual_constraint_count` (see `candidate_space.exclude_multiples_of`/
+`relation.filter`'s note on `context.constraint_fusion` in
+docs/standard-library.md), and the pre-existing `loop_iterations`,
+`semantic_reasoning_steps`, `builder_appends`,
 `relation_rows_scanned`, `trace_bytes`, `trace_mode`. All of these are
 deterministic counts.
 

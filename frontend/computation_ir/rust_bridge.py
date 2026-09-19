@@ -74,6 +74,7 @@ def run_ir(
     reasoning_event_mode: str | None = None,
     profile_runtime: bool = False,
     fast_path: bool = True,
+    constraint_fusion: bool = False,
 ) -> RustRunResult:
     resolved = binary or find_binary()
     if resolved is None:
@@ -105,6 +106,7 @@ def run_ir(
             "backend": backend,
             "profile_runtime": profile_runtime,
             "fast_path": fast_path,
+            "constraint_fusion": constraint_fusion,
         },
     }
     timeout = float(os.environ.get("REASONSCRIPT_RUNTIME_TIMEOUT", "30"))

@@ -1,0 +1,227 @@
+{
+  "schema": "reasonscript-constraint-fusion-profile/1.0",
+  "cases_total": 117,
+  "samples": 10,
+  "warmup": 3,
+  "host": "/Users/chigenori/development/ReasonScript/.claude/worktrees/reasonscript-lazy-candidate-space-d1ff02/ReasonRuntime/target/release/reason-runtime-host",
+  "cases_analyzed_e_f_identical": 117,
+  "cases_excluded_e_f_mismatch": [],
+  "cases_b_comparable": 116,
+  "median_FRR": 0.979684,
+  "median_constraint_eval_reduction_FER": 4.9166665,
+  "median_RTER_E_B": 0.8299415,
+  "median_RTER_F_B": 0.809667,
+  "correlation_RCR_RTER_E": 0.19639007995782784,
+  "correlation_RCR_RTER_F": -0.38067677439509456,
+  "cases_F_faster_than_B": 33,
+  "cases_E_faster_than_B": 37,
+  "completion": {
+    "A_all_results_identical_E_F": {
+      "pass": true,
+      "mismatches": []
+    },
+    "B_hypothesis_sequence_identical": "verified separately in tests/runtime/test_constraint_fusion.py (this script compares final results and counts only)",
+    "C_constraint_eval_reduced_at_k_gte_4": {
+      "pass": true,
+      "cases": 8,
+      "of": 8
+    },
+    "D_POR_F_B_improves_over_POR_E_B_at_k_gte_6": {
+      "pass": false,
+      "cases": 0,
+      "of": 8
+    },
+    "E_F_faster_than_E_at_k6_k8_target_1e6": [
+      {
+        "test_id": "synthetic_sqrt1000000_k6",
+        "FRR": 0.50253,
+        "RTER_E_B": 1.25627,
+        "RTER_F_B": 0.631313
+      },
+      {
+        "test_id": "synthetic_sqrt1000000_k8",
+        "FRR": 0.240072,
+        "RTER_E_B": 0.809524,
+        "RTER_F_B": 0.194344
+      }
+    ],
+    "F_RTER_F_B_gt_1_at_1e6_k6_k8": {
+      "pass": false,
+      "cases": [
+        [
+          "synthetic_sqrt1000000_k6",
+          0.631313
+        ],
+        [
+          "synthetic_sqrt1000000_k8",
+          0.194344
+        ]
+      ]
+    },
+    "G_correlation_improves_over_E": {
+      "pass": false,
+      "pearson_r_E": 0.19639007995782784,
+      "pearson_r_F": -0.38067677439509456,
+      "target_0.3": false,
+      "target_0.5": false
+    }
+  },
+  "reasoning_favorable_region_change": {
+    "E_favorable_cases": [
+      "basic_12",
+      "basic_18",
+      "basic_21",
+      "basic_60",
+      "basic_84",
+      "basic_97",
+      "mixed_20b",
+      "prime_8b",
+      "repeated_10b",
+      "repeated_12b",
+      "repeated_14b",
+      "repeated_16b",
+      "repeated_18b",
+      "repeated_20b",
+      "repeated_22b",
+      "repeated_24b",
+      "repeated_26b",
+      "repeated_8b",
+      "semiprime_8b",
+      "synthetic_sqrt10000000_k2",
+      "synthetic_sqrt10000000_k3",
+      "synthetic_sqrt10000000_k4",
+      "synthetic_sqrt10000000_k5",
+      "synthetic_sqrt10000000_k6",
+      "synthetic_sqrt10000000_k8",
+      "synthetic_sqrt1000000_k2",
+      "synthetic_sqrt1000000_k3",
+      "synthetic_sqrt1000000_k4",
+      "synthetic_sqrt1000000_k5",
+      "synthetic_sqrt1000000_k6",
+      "synthetic_sqrt100000_k1",
+      "synthetic_sqrt100000_k2",
+      "synthetic_sqrt100000_k3",
+      "synthetic_sqrt100000_k4",
+      "synthetic_sqrt100000_k5",
+      "synthetic_sqrt10000_k2",
+      "synthetic_sqrt10000_k3"
+    ],
+    "F_favorable_cases": [
+      "basic_12",
+      "basic_18",
+      "basic_21",
+      "basic_60",
+      "basic_84",
+      "basic_97",
+      "basic_997",
+      "prime_8b",
+      "repeated_10b",
+      "repeated_12b",
+      "repeated_14b",
+      "repeated_16b",
+      "repeated_18b",
+      "repeated_20b",
+      "repeated_22b",
+      "repeated_24b",
+      "repeated_26b",
+      "repeated_8b",
+      "semiprime_8b",
+      "synthetic_sqrt10000000_k1",
+      "synthetic_sqrt10000000_k2",
+      "synthetic_sqrt10000000_k3",
+      "synthetic_sqrt10000000_k4",
+      "synthetic_sqrt10000000_k5",
+      "synthetic_sqrt10000000_k6",
+      "synthetic_sqrt1000000_k1",
+      "synthetic_sqrt1000000_k2",
+      "synthetic_sqrt1000000_k3",
+      "synthetic_sqrt1000000_k4",
+      "synthetic_sqrt1000000_k5",
+      "synthetic_sqrt100000_k2",
+      "synthetic_sqrt100000_k3",
+      "synthetic_sqrt10000_k2"
+    ],
+    "gained_by_fusion": [
+      "basic_997",
+      "synthetic_sqrt10000000_k1",
+      "synthetic_sqrt1000000_k1"
+    ],
+    "lost_by_fusion": [
+      "mixed_20b",
+      "synthetic_sqrt10000000_k8",
+      "synthetic_sqrt1000000_k6",
+      "synthetic_sqrt100000_k1",
+      "synthetic_sqrt100000_k4",
+      "synthetic_sqrt100000_k5",
+      "synthetic_sqrt10000_k3"
+    ]
+  },
+  "performance_regression_k0_k1": {
+    "pass": true,
+    "cases_exceeding_1.05x": []
+  },
+  "focus_medians_target_1e5_1e6_k_2_3_4_6_8": {
+    "RTER_E_B": 1.1656625,
+    "RTER_F_B": 0.948277,
+    "FRR": 0.7709900000000001,
+    "FER": 3.7576655,
+    "POR_E_B": 1.273669,
+    "POR_F_B": 1.273669
+  },
+  "medians_by_k": {
+    "synthetic_k0": {
+      "RCR": 1.0,
+      "RTER_E_B": 0.81601,
+      "RTER_F_B": 0.811527,
+      "FRR": 0.997168
+    },
+    "synthetic_k1": {
+      "RCR": 1.249998,
+      "RTER_E_B": 0.99493,
+      "RTER_F_B": 0.990746,
+      "FRR": 1.003714
+    },
+    "synthetic_k2": {
+      "RCR": 1.458329,
+      "RTER_E_B": 1.093754,
+      "RTER_F_B": 1.122145,
+      "FRR": 0.979684
+    },
+    "synthetic_k3": {
+      "RCR": 1.604041,
+      "RTER_E_B": 1.180215,
+      "RTER_F_B": 1.156596,
+      "FRR": 0.979988
+    },
+    "synthetic_k4": {
+      "RCR": 1.737784,
+      "RTER_E_B": 1.216473,
+      "RTER_F_B": 0.774409,
+      "FRR": 0.636602
+    },
+    "synthetic_k5": {
+      "RCR": 1.787879,
+      "RTER_E_B": 1.087404,
+      "RTER_F_B": 0.417708,
+      "FRR": 0.384134
+    },
+    "synthetic_k6": {
+      "RCR": 1.884058,
+      "RTER_E_B": 1.062157,
+      "RTER_F_B": 0.42985450000000003,
+      "FRR": 0.3828225
+    },
+    "synthetic_k8": {
+      "RCR": 1.8,
+      "RTER_E_B": 0.809524,
+      "RTER_F_B": 0.194344,
+      "FRR": 0.240072
+    },
+    "synthetic_k10": {
+      "RCR": 2.1,
+      "RTER_E_B": 0.776118,
+      "RTER_F_B": 0.203761,
+      "FRR": 0.262538
+    }
+  }
+}

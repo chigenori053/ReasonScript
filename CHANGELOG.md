@@ -1,5 +1,36 @@
 # Changelog
 
+## [Unreleased] - Constraint Fusion v0.1
+
+- Added `context.constraint_fusion` (default `false`): folds a prime
+  `NotDivisibleBy(p)` constraint (`relation.filter`/`exclude_multiples_of`
+  with `row % p != 0`) directly into the candidate space's generator
+  (`FusedConstraintSet`, LCM-based wheel expansion up to a 30,030 modulus
+  budget) instead of storing it as a residual constraint evaluated per
+  candidate. Falls back to a residual constraint over budget or i64
+  overflow (never an error). Model E's own template run with this flag on
+  is "Model F" -- no new `.rsn` template or surface syntax was added.
+- New `runtime_metrics`: `constraint_fusion_count`,
+  `constraint_fusion_rebuild_count`, `fusion_fallback_count`,
+  `fused_modulus`, `fused_residue_count`, `fused_constraint_count`,
+  `residual_constraint_count`, and reasoning events `CONSTRAINT_FUSED`,
+  `GENERATOR_REBUILT`, `FUSION_FALLBACK`.
+- Finding (see `docs/reports/ReasonScript_Constraint_Fusion_Report.md`):
+  Fusion reliably reduces constraint evaluation count (median 4.9x at
+  k>=4) but does NOT translate into a runtime win in this benchmark --
+  the one-time generator-rebuild cost per fused prime is not amortized by
+  problems with few candidates (most of the 79-case organic dataset,
+  including `highly_composite_*`), making Model F slower than Model E in
+  that regime (up to 5x at k=8-10) despite being byte-identical in result
+  and hypothesis sequence. Fusion helps only where the search space is
+  large enough to amortize the rebuild (e.g. sqrt(N) >= ~1,000,000 with
+  moderate k). Two real performance bugs were found and fixed during
+  benchmarking (an O(residue count) `CandidateSpace::clone` now O(1) via
+  `Rc<Vec<i64>>`, and an unconditional O(residue count)
+  `unvisited_count()` call now gated by an O(1) `would_fuse` pre-check).
+- Added `scripts/benchmark_constraint_fusion.py` (Model B vs E vs F on
+  117 cases) and `tests/runtime/test_constraint_fusion.py`.
+
 ## [Unreleased] - Reasoning-to-Resource Efficiency Test v1.0
 
 - Added `scripts/benchmark_reasoning_resource_efficiency.py`, comparing

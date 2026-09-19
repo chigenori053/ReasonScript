@@ -119,7 +119,7 @@ impl ReasoningEventMode {
     }
 }
 
-pub const EVENT_TYPES: [&str; 15] = [
+pub const EVENT_TYPES: [&str; 18] = [
     "REASON_STATE_CREATED",
     "RU_ACTIVATED",
     "CANDIDATE_GENERATED",
@@ -138,6 +138,10 @@ pub const EVENT_TYPES: [&str; 15] = [
     "CONSTRAINT_ADDED",
     "CANDIDATE_SKIPPED",
     "CANDIDATE_SPACE_EXHAUSTED",
+    // Constraint Fusion (spec ReasonScript_Constraint_Fusion_v0_1 section 58).
+    "CONSTRAINT_FUSED",
+    "GENERATOR_REBUILT",
+    "FUSION_FALLBACK",
 ];
 
 /// P0-1 native runtime counters. Each one is incremented exactly where the
@@ -172,6 +176,19 @@ pub struct Metrics {
     pub candidate_constraint_count: Cell<u64>,
     pub candidate_constraint_eval_count: Cell<u64>,
     pub candidate_space_next_count: Cell<u64>,
+    /// Constraint Fusion v0.1 counters (cumulative across every
+    /// CandidateSpace this VM touches) and "last observed space" snapshots
+    /// (overwritten on every constraint addition -- see the v0.1 report's
+    /// implementation-decisions section for why these are snapshots, not
+    /// per-space cumulative sums, matching `fused_modulus` naturally being
+    /// a property of whichever space was most recently constrained).
+    pub constraint_fusion_count: Cell<u64>,
+    pub constraint_fusion_rebuild_count: Cell<u64>,
+    pub fusion_fallback_count: Cell<u64>,
+    pub fused_modulus: Cell<i64>,
+    pub fused_residue_count: Cell<u64>,
+    pub fused_constraint_count: Cell<u64>,
+    pub residual_constraint_count: Cell<u64>,
     pub predicate_execution_ns: Cell<u64>,
     pub relation_execution_ns: Cell<u64>,
     pub reasoning_event_ns: Cell<u64>,
@@ -217,6 +234,7 @@ pub struct Vm<'a> {
     event_mode: ReasoningEventMode,
     profile: bool,
     fast_path: bool,
+    constraint_fusion: bool,
     metrics: Metrics,
     execution_ns: Cell<u64>,
     started: Cell<Option<Instant>>,
@@ -385,6 +403,7 @@ impl<'a> Vm<'a> {
             },
             profile: false,
             fast_path: true,
+            constraint_fusion: false,
             metrics: Metrics::default(),
             execution_ns: Cell::new(0),
             started: Cell::new(None),
@@ -437,6 +456,15 @@ impl<'a> Vm<'a> {
     /// Generic Path (the Fast/Generic equivalence tests rely on this).
     pub fn set_fast_path(&mut self, fast_path: bool) {
         self.fast_path = fast_path;
+    }
+
+    /// `context.constraint_fusion = true` (default `false`, matching the
+    /// pre-Fusion v0.1 behavior byte-for-byte): folds a prime
+    /// `NotDivisibleBy(p)` `relation.filter`/`exclude_multiples_of`
+    /// constraint into the CandidateSpace's generator instead of storing it
+    /// as a residual constraint (Constraint Fusion v0.1, spec section 55).
+    pub fn set_constraint_fusion(&mut self, constraint_fusion: bool) {
+        self.constraint_fusion = constraint_fusion;
     }
 
     pub fn budget(&self) -> &ExecutionBudget {
@@ -607,6 +635,14 @@ impl<'a> Vm<'a> {
             ("candidate_generated_skipped_count", serde_json::json!(m.candidate_skipped_count.get())),
             ("symbolic_constraint_eval_count", serde_json::json!(m.candidate_constraint_eval_count.get())),
             ("generic_predicate_eval_count", serde_json::json!(0)),
+            // Constraint Fusion v0.1 (spec section 30/59).
+            ("constraint_fusion_count", serde_json::json!(m.constraint_fusion_count.get())),
+            ("constraint_fusion_rebuild_count", serde_json::json!(m.constraint_fusion_rebuild_count.get())),
+            ("fusion_fallback_count", serde_json::json!(m.fusion_fallback_count.get())),
+            ("fused_modulus", serde_json::json!(m.fused_modulus.get())),
+            ("fused_residue_count", serde_json::json!(m.fused_residue_count.get())),
+            ("fused_constraint_count", serde_json::json!(m.fused_constraint_count.get())),
+            ("residual_constraint_count", serde_json::json!(m.residual_constraint_count.get())),
         ] {
             metrics[key] = value;
         }
@@ -911,19 +947,43 @@ impl<'a> Vm<'a> {
         next.unpeek();
         let description = constraint.to_string();
         let mut added = 0u64;
+        let mut non_fused_added = 0u64;
         let mut excluded = 0u64;
+        let mut fused_this_call = false;
+        let mut fallback_this_call = false;
         for leaf in constraint.conjuncts() {
-            match next.add(leaf) {
+            // `unvisited_count` (O(residue count)) is computed by `add`
+            // itself, only for a leaf that actually folds or fuses -- never
+            // unconditionally here. Computing it up front for every leaf
+            // regardless of outcome was a real regression once the fused
+            // residue count grew large (a `relation.filter` call that only
+            // fell back to a residual constraint still paid the full O(R)
+            // cost); see `FusedConstraintSet::residues`'s doc comment.
+            match next.add(leaf, self.constraint_fusion) {
                 Added::Folded { excluded: count } => {
                     added += 1;
-                    if next.constraints.is_empty() {
+                    non_fused_added += 1;
+                    if next.residual_constraints.is_empty() {
                         excluded += count;
                     } else {
                         self.metrics.candidate_symbolic_exclusion_unknown.set(true);
                     }
                 }
-                Added::Stored => {
+                Added::Fused { excluded: count, .. } => {
                     added += 1;
+                    fused_this_call = true;
+                    // Exact, like a bound fold: `unvisited_count` already
+                    // reflects the narrowed generator (spec section 29).
+                    if next.residual_constraints.is_empty() {
+                        excluded += count;
+                    } else {
+                        self.metrics.candidate_symbolic_exclusion_unknown.set(true);
+                    }
+                }
+                Added::Stored { fusion_fallback } => {
+                    added += 1;
+                    non_fused_added += 1;
+                    fallback_this_call |= fusion_fallback;
                     self.metrics.candidate_symbolic_exclusion_unknown.set(true);
                 }
                 Added::Duplicate => {}
@@ -934,20 +994,64 @@ impl<'a> Vm<'a> {
             .set(m.candidate_constraint_count.get() + added);
         m.candidate_symbolically_excluded_count
             .set(m.candidate_symbolically_excluded_count.get() + excluded);
-        let constraint_count = next.constraints.len();
+        m.fused_modulus.set(next.fused.modulus);
+        m.fused_residue_count.set(next.fused.residues.len() as u64);
+        m.fused_constraint_count.set(next.fused_primes.len() as u64);
+        m.residual_constraint_count
+            .set(next.residual_constraints.len() as u64);
+        let constraint_count = next.residual_constraints.len();
+        let final_modulus = next.fused.modulus;
+        let final_residue_count = next.fused.residues.len();
         let value = Value::CandidateSpace(Rc::new(RefCell::new(next)));
-        self.semantic_event("CONSTRAINT_ADDED", || {
-            (
-                serde_json::json!("candidate_space"),
-                serde_json::json!(description),
-                serde_json::json!([]),
-                serde_json::json!({
-                    "added": added,
-                    "constraint_count": constraint_count,
-                    "symbolically_excluded": excluded,
-                }),
-            )
-        })?;
+        if fused_this_call {
+            m.constraint_fusion_count.set(m.constraint_fusion_count.get() + 1);
+            m.constraint_fusion_rebuild_count
+                .set(m.constraint_fusion_rebuild_count.get() + 1);
+            self.semantic_event("CONSTRAINT_FUSED", || {
+                (
+                    serde_json::json!("candidate_space"),
+                    serde_json::json!(description),
+                    serde_json::json!([]),
+                    serde_json::json!({ "fused_modulus": final_modulus, "fused_residue_count": final_residue_count }),
+                )
+            })?;
+            self.semantic_event("GENERATOR_REBUILT", || {
+                (
+                    serde_json::json!("candidate_space"),
+                    serde_json::json!(format!("mod {final_modulus}")),
+                    serde_json::json!([]),
+                    serde_json::json!({ "fused_residue_count": final_residue_count }),
+                )
+            })?;
+        }
+        if fallback_this_call {
+            m.fusion_fallback_count.set(m.fusion_fallback_count.get() + 1);
+            self.semantic_event("FUSION_FALLBACK", || {
+                (
+                    serde_json::json!("candidate_space"),
+                    serde_json::json!(description),
+                    serde_json::json!([]),
+                    serde_json::json!({}),
+                )
+            })?;
+        }
+        // Preserves the pre-Fusion v0.1 behavior exactly when nothing in
+        // this call was fused (CONSTRAINT_ADDED always fired, even for an
+        // all-duplicate call); only a call that fused every leaf skips it.
+        if !fused_this_call || non_fused_added > 0 {
+            self.semantic_event("CONSTRAINT_ADDED", || {
+                (
+                    serde_json::json!("candidate_space"),
+                    serde_json::json!(description),
+                    serde_json::json!([]),
+                    serde_json::json!({
+                        "added": non_fused_added,
+                        "constraint_count": constraint_count,
+                        "symbolically_excluded": excluded,
+                    }),
+                )
+            })?;
+        }
         Ok(value)
     }
 
@@ -1911,9 +2015,13 @@ impl<'a> Vm<'a> {
                 if is_count && values.len() == 1 {
                     if let Value::CandidateSpace(space) = &values[0] {
                         // Spec section 17: exact symbolic count or nothing;
-                        // never a hidden scan.
+                        // never a hidden scan. A fused constraint (spec
+                        // ReasonScript_Constraint_Fusion_v0_1) is already
+                        // folded into `unvisited_count`'s generator-level
+                        // accounting, so only a residual constraint blocks
+                        // an exact count.
                         let space = space.borrow();
-                        if !space.constraints.is_empty() {
+                        if !space.residual_constraints.is_empty() {
                             return Err(RuntimeError::new(
                                 "CS-COUNT-001",
                                 "relation.count on a constrained candidate space is not symbolically computable; use candidate_space.materialize(space).length for an explicit scan",

@@ -282,3 +282,5 @@ artifacts/reasoning_resource_efficiency/graphs/break_even_map.png
 | peak_memory（§28） | `/usr/bin/time -l` による追加プロセス起動は行わず、VM自身が計測する `peak_live_bytes`（allocatorのpeak live bytes）を代替値として使用する。プロセスRSSではなくVM内allocationのpeak値である点を明記する。 |
 | cpu_time_ns（§7） | プロセス起動を伴う追加計測が必要なため本試験では収集しない（§6の計測境界の趣旨に反しないよう、in-process VM時間のみで判定する）。 |
 | break_even_search_space（§29） | `sqrt(N)`の桁（`10^3`未満、`10^3-10^4`、`10^4-10^5`、`10^5-10^6`、`10^6`以上の5bucket）ごとに§13と同じ手順でbreak-even RCRを求めた辞書として出力する。 |
+
+後続: [ReasonScript_Constraint_Fusion_v0_1.md](ReasonScript_Constraint_Fusion_v0_1.md) が本試験で発見された「圧縮率が高いほどwheel-6より不利になり得る（k>=6以降）」という現象の原因分析と対策を扱う。

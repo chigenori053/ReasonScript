@@ -176,6 +176,21 @@ counts per-candidate work in `runtime_metrics` (`candidate_space_estimated_size`
 its domain, generator, constraints and cursor. Candidate spaces execute only
 on the native runtime.
 
+`context.constraint_fusion` (default `false`) folds a prime
+`NotDivisibleBy(p)` constraint directly into the space's generator (an
+LCM-based wheel expansion, budgeted at a 30,030 modulus) instead of
+storing it as a residual constraint evaluated per candidate, eliminating
+per-candidate constraint evaluation for the primes it can absorb. This
+changes only the internal representation -- results, hypothesis
+sequences, and candidate order are unchanged (`relation.filter`/
+`exclude_multiples_of` behave identically either way). It reduces
+`candidate_constraint_eval_count`, but the one-time cost of rebuilding
+the generator each time a new prime is folded in is not free: for
+problems with few candidates it can make a program slower than fusion
+off, not faster, unless the search space is large enough to amortize it.
+Falls back silently to a residual constraint above the modulus budget or
+on integer overflow (`fusion_fallback_count`).
+
 ## Array builders
 
 Use a transient builder for bulk construction:
