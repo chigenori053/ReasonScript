@@ -186,6 +186,30 @@ def test_empty_and_unchanged_filters_do_not_create_semantic_steps():
     assert result.metadata["runtime_metrics"]["semantic_reasoning_steps"] == 1
 
 
+def test_explicit_reason_units_preserve_results_and_add_layers_incrementally():
+    ir = lower_program(parse("""module M {
+        calculation Answer {
+            reasoning.event("HYPOTHESIS_VERIFIED", 11, true)
+            reasoning.event("STATE_TRANSITION", 77, 7)
+            reasoning.event("TERMINATION_INFERRED", 7, true)
+            result = 77
+        }
+    }"""))
+    runs = {
+        mode: run_ir(ir, binary=HOST, reason_units=mode)
+        for mode in ("off", "ru", "ru_rus", "ru_rus_ruo")
+    }
+    assert {json.dumps(run.calculation_results, sort_keys=True) for run in runs.values()} == {'{"Answer": 77}'}
+    traces = {mode: run.metadata["reason_structure_trace"] for mode, run in runs.items()}
+    assert traces["off"]["reason_units"] == []
+    assert len(traces["ru"]["reason_units"]) == 3
+    assert traces["ru"]["reason_unit_states"] == []
+    assert len(traces["ru_rus"]["reason_unit_states"]) == 3
+    assert traces["ru_rus"]["reason_unit_objects"] == []
+    assert len(traces["ru_rus_ruo"]["reason_unit_objects"]) == 3
+    assert traces["ru"]["hashes"]["ru_sequence_hash"] == traces["ru_rus_ruo"]["hashes"]["ru_sequence_hash"]
+
+
 def test_state_reads_are_not_reused_across_mutation_by_optimizer():
     result = execute("""
         let rows = [Row { value: 1 }, Row { value: 3 }]

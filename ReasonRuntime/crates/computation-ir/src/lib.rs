@@ -8,6 +8,7 @@
 pub mod console_dispatch;
 pub mod ir;
 pub mod optimizer_dispatch;
+pub mod reason_structure;
 pub mod relation_dispatch;
 pub mod ruo_dispatch;
 pub mod state_trace;

@@ -15,6 +15,7 @@ use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
 use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
+use crate::reason_structure::{ReasonStructure, ReasonUnitMode};
 use crate::state_trace::{TraceConfig, TraceMode, TraceState};
 use crate::value::{from_json, to_json, RuntimeReasonObject, StructValue, Value};
 
@@ -73,6 +74,9 @@ pub struct Vm<'a> {
     sampled_tail: RefCell<VecDeque<(serde_json::Value, usize)>>,
     semantic_events: bool,
     semantic_steps: Cell<u64>,
+    vm_instruction_count: Cell<u64>,
+    branch_count: Cell<u64>,
+    reason_structure: RefCell<ReasonStructure>,
     loop_iterations: Cell<u64>,
     builder_appends: Cell<u64>,
     relation_rows_scanned: Cell<u64>,
@@ -233,6 +237,9 @@ impl<'a> Vm<'a> {
             sampled_tail: RefCell::new(VecDeque::new()),
             semantic_events: true,
             semantic_steps: Cell::new(0),
+            vm_instruction_count: Cell::new(0),
+            branch_count: Cell::new(0),
+            reason_structure: RefCell::new(ReasonStructure::default()),
             loop_iterations: Cell::new(0),
             builder_appends: Cell::new(0),
             relation_rows_scanned: Cell::new(0),
@@ -271,6 +278,14 @@ impl<'a> Vm<'a> {
         self.semantic_events = semantic_events;
     }
 
+    pub fn configure_reason_units(&mut self, mode: ReasonUnitMode) {
+        *self.reason_structure.borrow_mut() = ReasonStructure::new(mode);
+    }
+
+    pub fn reason_structure_trace(&self) -> serde_json::Value {
+        self.reason_structure.borrow().trace()
+    }
+
     pub fn trace_diagnostics(&self) -> Vec<serde_json::Value> {
         if self.trace_suppressed.get() {
             vec![
@@ -282,7 +297,7 @@ impl<'a> Vm<'a> {
     }
 
     pub fn runtime_metrics(&self) -> serde_json::Value {
-        serde_json::json!({
+        let mut metrics = serde_json::json!({
             "loop_iterations": self.loop_iterations.get(),
             "semantic_reasoning_steps": self.semantic_steps.get(),
             "builder_appends": self.builder_appends.get(),
@@ -290,7 +305,19 @@ impl<'a> Vm<'a> {
             "relation_rows_scanned": self.relation_rows_scanned.get(),
             "trace_bytes": self.trace_bytes.get(),
             "trace_mode": format!("{:?}", self.trace_config.mode).to_lowercase(),
-        })
+            "vm_instruction_count": self.vm_instruction_count.get(),
+            "branch_count": self.branch_count.get(),
+        });
+        if let (Some(target), Some(extra)) = (
+            metrics.as_object_mut(),
+            self.reason_structure
+                .borrow()
+                .metrics(self.vm_instruction_count.get())
+                .as_object(),
+        ) {
+            target.extend(extra.clone());
+        }
+        metrics
     }
 
     fn reserve_trace(&self, event: &serde_json::Value) -> Option<usize> {
@@ -361,6 +388,9 @@ impl<'a> Vm<'a> {
                 format!("invalid reasoning event: {event_type}"),
             ));
         }
+        self.reason_structure
+            .borrow_mut()
+            .record(event_type, &subject, &evidence);
         if !self.semantic_events {
             return Ok(Value::Int(0));
         }
@@ -638,6 +668,8 @@ impl<'a> Vm<'a> {
                 RuntimeError::new("IR-EXEC-006", format!("unknown block: {current}"))
             })?;
             for instruction in &block.instructions {
+                self.vm_instruction_count
+                    .set(self.vm_instruction_count.get() + 1);
                 self.execute_instruction(instruction, env, call_depth)?;
                 self.collect_tensors();
             }
@@ -650,6 +682,7 @@ impl<'a> Vm<'a> {
                     then,
                     else_target,
                 } => {
+                    self.branch_count.set(self.branch_count.get() + 1);
                     let condition_value = self.eval_expr(condition, env, call_depth)?;
                     let taken = match condition_value {
                         Value::Bool(value) => value,

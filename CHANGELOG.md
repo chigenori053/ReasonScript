@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Added opt-in native runtime `reason_units` modes (`off`, `ru`, `ru_rus`, and
+  `ru_rus_ruo`) that project semantic reasoning events into deterministic
+  Reason Units, immutable state revisions, Reason Unit Objects, Evidence, and
+  ReasonRelations. The default remains `off`.
+- Added canonical structure hashes and per-layer allocation/count metrics while
+  preserving calculation results and existing reasoning traces.
+- Updated the VS Code extension packaging toolchain and vulnerable transitive
+  dependencies; `npm audit` now reports zero known vulnerabilities.
+
 ## [0.5.5.15] - 2026-09-17
 
 - Added Rust-native `relation.filter(rows, predicate)`, transient array builders,

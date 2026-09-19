@@ -393,6 +393,12 @@ Changes between loops and after the final loop are included in the journal.
 `reason run --trace=full` selects the earlier loop-snapshot format. Semantic
 reasoning steps are measured separately from loop iterations.
 
+The native runtime request can opt into explicit semantic structures with
+`context.reason_units`: `ru` records Reason Units, `ru_rus` also records
+immutable Reason Unit State revisions, and `ru_rus_ruo` additionally binds each
+unit, state, Evidence, and ReasonRelation in a Reason Unit Object. The default
+`off` mode preserves existing results, traces, and semantics.
+
 ## Compatibility and known limits
 
 - Named arguments are limited; `optimizer.*` and `relation.*` are positional

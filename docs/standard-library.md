@@ -159,6 +159,14 @@ semantic steps, builder appends, scanned rows, and trace bytes. Disabling trace
 retains semantic counters but records no payloads. Disabling semantic events in
 the runtime request returns step `0` and emits no semantic events.
 
+Native runtime requests may independently set `context.reason_units` to `off`
+(the default), `ru`, `ru_rus`, or `ru_rus_ruo`. Enabled modes expose a
+`reason_structure_trace` with canonical IDs, Evidence and ReasonRelation links,
+immutable RUS revisions, and RUO lifecycle bindings. `runtime_metrics` includes
+the corresponding counts, serialized allocation estimates, VM-instructions per
+RU, and SHA-256 sequence/graph hashes. Turning semantic event tracing off does
+not disable this explicit structure projection.
+
 These new collection and event APIs execute in the native Rust host. The Python
 interpreters retain their earlier reference API surface.
 

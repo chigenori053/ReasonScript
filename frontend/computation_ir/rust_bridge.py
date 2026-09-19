@@ -70,6 +70,7 @@ def run_ir(
     trace_enabled: bool = False,
     trace_config: dict[str, Any] | None = None,
     semantic_events: bool = True,
+    reason_units: str = "off",
     limits: dict[str, int] | None = None,
 ) -> RustRunResult:
     resolved = binary or find_binary()
@@ -95,6 +96,7 @@ def run_ir(
             "limits": limits or {},
             "trace": {"enabled": trace_enabled, **(trace_config or {})},
             "reasoning": {"semantic_events": semantic_events},
+            "reason_units": reason_units,
             "numeric_mode": os.environ.get("REASONSCRIPT_NUMERIC_MODE", "compat-reference"),
             "backend": backend,
         },
