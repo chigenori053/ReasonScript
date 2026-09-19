@@ -812,7 +812,7 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
             visit(item.expression)
             return
         if isinstance(item, MemberAccessNode):
-            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo", "optimizer", "relation"}:
+            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo", "optimizer", "relation", "candidate_space"}:
                 return
             visit(item.object)
             return
@@ -1593,7 +1593,7 @@ def _validate_calculation_expression(
                 raise SurfaceValidationError(
                     "NAM-2004 ReasonScript does not support JavaScript runtime APIs such as Js.*. Use 'Console.log' or 'print' instead."
                 )
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation", "reasoning", "Console"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation", "reasoning", "candidate_space", "Console"}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1644,6 +1644,11 @@ def _validate_calculation_expression(
                 for argument in value.arguments:
                     visit(argument)
                 return
+            if _candidate_space_call_name(value) is not None:
+                _validate_candidate_space_call(value)
+                for argument in value.arguments:
+                    visit(argument)
+                return
             if relation_call_name(value) is not None:
                 try:
                     validate_relation_call(value)
@@ -1652,14 +1657,19 @@ def _validate_calculation_expression(
                 if relation_call_name(value) == "relation.filter":
                     visit(value.arguments[0])
                     row_type = _expression_type(value.arguments[0], symbols, bindings)
-                    if not isinstance(row_type, ArrayTypeNode):
+                    if isinstance(row_type, _CandidateSpaceType):
+                        # A candidate space row is the candidate value itself.
+                        element_type = PrimitiveTypeNode(PrimitiveKind.INT)
+                    elif isinstance(row_type, ArrayTypeNode):
+                        element_type = row_type.element_type
+                    else:
                         raise SurfaceValidationError("REL-004 Relation function requires Array<Struct>")
                     try:
                         name = predicate_binding(value.arguments[1], set(bindings) | set(symbols))
                     except RelationSemanticError as error:
                         raise SurfaceValidationError(str(error)) from error
                     scoped = dict(bindings)
-                    scoped[name] = _Binding(row_type.element_type, mutable=False)
+                    scoped[name] = _Binding(element_type, mutable=False)
                     predicate = value.arguments[1]
                     _validate_calculation_expression(predicate if isinstance(predicate, ExpressionNode) else ExpressionNode(predicate), symbols, scoped)
                 else:
@@ -1956,6 +1966,68 @@ class _BuilderType:
     element_type: Any = _UNKNOWN_TYPE
 
 
+@dataclass
+class _CandidateSpaceType:
+    """`candidate_space.*` handle: an opaque lazy candidate space whose rows
+    are Int candidate values (relation.filter binds the row as Int)."""
+
+
+# name -> exact argument count.
+_CANDIDATE_SPACE_SIGNATURES: dict[str, int] = {
+    "range": 2,  # lower, upper (inclusive Int bounds)
+    "wheel6": 2,
+    "isqrt": 1,  # exact floor(sqrt(n)) for domain bounds
+    "next": 1,
+    "is_exhausted": 1,
+    "exclude_multiples_of": 2,  # space, modulus
+    "reset": 1,
+    "materialize": 1,
+}
+
+
+def _candidate_space_call_name(value: CallExpressionNode) -> str | None:
+    callee = value.callee
+    if (
+        isinstance(callee, MemberAccessNode)
+        and isinstance(callee.object, IdentifierNode)
+        and callee.object.name == "candidate_space"
+    ):
+        return callee.member
+    return None
+
+
+def _validate_candidate_space_call(value: CallExpressionNode) -> None:
+    method = _candidate_space_call_name(value)
+    expected = _CANDIDATE_SPACE_SIGNATURES.get(method)
+    if expected is None:
+        raise SurfaceValidationError(f"CS-001 unknown candidate_space function: candidate_space.{method}")
+    if len(value.arguments) != expected:
+        raise SurfaceValidationError(f"CS-001 candidate_space.{method} expects {expected} argument(s)")
+
+
+def _candidate_space_call_type(
+    method: str, value: CallExpressionNode, symbols: dict[str, Any], bindings: dict[str, Any]
+) -> Any:
+    _validate_candidate_space_call(value)
+    types = [_expression_type(argument, symbols, bindings) for argument in value.arguments]
+    int_type = PrimitiveTypeNode(PrimitiveKind.INT)
+    if method in ("range", "wheel6", "isqrt"):
+        for index, argument_type in enumerate(types, 1):
+            _require_type_equal(int_type, argument_type, f"CS-002 candidate_space.{method} argument {index}")
+        return int_type if method == "isqrt" else _CandidateSpaceType()
+    if types[0] is not _UNKNOWN_TYPE and not isinstance(types[0], _CandidateSpaceType):
+        raise SurfaceValidationError(f"CS-002 candidate_space.{method} requires a CandidateSpace")
+    if method == "exclude_multiples_of":
+        _require_type_equal(int_type, types[1], "CS-002 candidate_space.exclude_multiples_of modulus")
+    if method == "next":
+        return int_type
+    if method == "is_exhausted":
+        return PrimitiveTypeNode(PrimitiveKind.BOOL)
+    if method == "materialize":
+        return ArrayTypeNode(int_type)
+    return _CandidateSpaceType()
+
+
 def _expression_type(
     value: Any,
     symbols: dict[str, Any],
@@ -2187,6 +2259,9 @@ def _expression_type(
             if _array_call_name(value) == "builder":
                 _validate_array_call(value)
                 return _BuilderType()
+            candidate_function = _candidate_space_call_name(value)
+            if candidate_function is not None:
+                return _candidate_space_call_type(candidate_function, value, symbols, bindings)
             if callee.member in {"append", "finish"} and _array_call_name(value) is None:
                 builder_type = _expression_type(callee.object, symbols, bindings)
                 if not isinstance(builder_type, _BuilderType):
@@ -2333,7 +2408,17 @@ def _expression_type(
                 symbols,
                 bindings,
             )
-            if not isinstance(rows_type, ArrayTypeNode):
+            if isinstance(rows_type, _CandidateSpaceType):
+                # A lazy candidate space supports relation.filter (lowered to a
+                # constraint addition) and relation.count; its row is Int.
+                if relation_function != "relation.filter":
+                    raise SurfaceValidationError(
+                        f"REL-004 {relation_function} requires Array<Struct>; a CandidateSpace supports relation.filter and relation.count"
+                    )
+                element_type = PrimitiveTypeNode(PrimitiveKind.INT)
+            elif isinstance(rows_type, ArrayTypeNode):
+                element_type = rows_type.element_type
+            else:
                 raise SurfaceValidationError("REL-004 Relation function requires Array<Struct>")
             if relation_function == "relation.filter":
                 try:
@@ -2341,7 +2426,7 @@ def _expression_type(
                 except RelationSemanticError as error:
                     raise SurfaceValidationError(str(error)) from error
                 scoped = dict(bindings)
-                scoped[name] = _Binding(rows_type.element_type, mutable=False)
+                scoped[name] = _Binding(element_type, mutable=False)
                 predicate_type = _expression_type(value.arguments[1], symbols, scoped)
                 if predicate_type != PrimitiveTypeNode(PrimitiveKind.BOOL):
                     raise SurfaceValidationError("REL-PRED-003 relation predicate must return Bool")
@@ -2594,6 +2679,8 @@ def _type_name(value: Any) -> str:
         return f"set<{_type_name(value.element_type)}>"
     if isinstance(value, MapTypeNode):
         return f"map<{_type_name(value.key_type)},{_type_name(value.value_type)}>"
+    if isinstance(value, _CandidateSpaceType):
+        return "CandidateSpace"
     return "Unknown"
 
 

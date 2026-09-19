@@ -124,8 +124,14 @@ envelope) reports native counters measured inside the VM: `vm_instruction_count`
 `relation_predicate_eval_count`, `relation_count_count`, `array_read_count`,
 `array_write_count`, `struct_field_read_count`, `struct_field_write_count`,
 `state_transition_count` (binding, field and index writes), `branch_count`,
-`loop_iteration_count`, `fast_path_count`, and the pre-existing
-`loop_iterations`, `semantic_reasoning_steps`, `builder_appends`,
+`loop_iteration_count`, `fast_path_count`, the lazy candidate space counters
+`candidate_space_estimated_size`, `candidate_generated_count`,
+`candidate_skipped_count`, `candidate_symbolically_excluded_count` (exact or
+`null`), `candidate_materialized_count`, `candidate_constraint_count`,
+`candidate_constraint_eval_count`, `candidate_space_next_count`,
+`candidate_materialized_pruned_count`, `candidate_generated_skipped_count`,
+`symbolic_constraint_eval_count`, `generic_predicate_eval_count`, and the
+pre-existing `loop_iterations`, `semantic_reasoning_steps`, `builder_appends`,
 `relation_rows_scanned`, `trace_bytes`, `trace_mode`. All of these are
 deterministic counts.
 

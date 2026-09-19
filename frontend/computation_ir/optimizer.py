@@ -280,6 +280,7 @@ def _expr_is_pure_function_body(
         "array_builder",
         "call_array_builder",
         "call_semantic_event",
+        "call_candidate_space",
         "call_reasoning",
         "call_array_append",
         "call_array_concat",
@@ -538,7 +539,7 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_optimizer":
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
-    if op == "call_relation":
+    if op in ("call_relation", "call_candidate_space"):
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_array_append":
         return {**expr, "collection": _fold_expr(expr["collection"]), "item": _fold_expr(expr["item"])}
@@ -843,7 +844,7 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
     if op == "member":
         _collect_reads(expr["object"], out)
         return
-    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_candidate_space", "call_string", "call_reasoning", "call_function"):
         for argument in expr["arguments"]:
             _collect_reads(argument, out)
         return
@@ -875,7 +876,9 @@ _IMPURE_FUNCTION_IDS = {"tensor.load", "tensor.save"}
 
 def _is_side_effect_free(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
-    if op in {"relation_filter", "array_builder", "call_array_builder", "call_semantic_event"}:
+    # `candidate_space.next` advances a shared cursor; creation and
+    # constraint additions emit reasoning events.
+    if op in {"relation_filter", "array_builder", "call_array_builder", "call_semantic_event", "call_candidate_space"}:
         return False
     if op == "call_tensor":
         if expr["function_id"] in _IMPURE_FUNCTION_IDS:
@@ -1002,7 +1005,7 @@ def _reads_name(expr: dict[str, Any], name: str) -> bool:
 
 def _is_cse_eligible(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
-    if op in {"relation_filter", "array_builder", "call_array_builder", "call_semantic_event"}:
+    if op in {"relation_filter", "array_builder", "call_array_builder", "call_semantic_event", "call_candidate_space"}:
         return False
     if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function", "call_array_append", "call_array_concat", "assert", "assert_eq"):
         return False  # never dedupe calls: see module docstring

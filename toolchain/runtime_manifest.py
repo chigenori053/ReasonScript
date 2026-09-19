@@ -58,6 +58,14 @@ OPTIMIZER_FUNCTIONS = tuple(
 REASONING_FUNCTIONS = (
     "runtime.search", "runtime.simulate", "runtime.predict", "runtime.plan", "reasoning.event"
 )
+# Lazy / symbolic candidate space (Rust-only, spec v0.1).
+CANDIDATE_SPACE_FUNCTIONS = tuple(
+    f"candidate_space.{name}"
+    for name in (
+        "range", "wheel6", "isqrt", "next", "is_exhausted", "exclude_multiples_of",
+        "reset", "materialize",
+    )
+)
 
 
 def stable_json(value: Any) -> str:
@@ -116,6 +124,10 @@ def build_manifest() -> dict[str, Any]:
         "array": [
             _operation(name, python=name in {"array.append", "array.concat"}, rust=True, fallback=None)
             for name in ("array.append", "array.concat", "array.builder", "ArrayBuilder.append", "ArrayBuilder.finish")
+        ],
+        "candidate_space": [
+            _operation(name, python=False, rust=True, fallback=None)
+            for name in CANDIDATE_SPACE_FUNCTIONS
         ],
     }
 

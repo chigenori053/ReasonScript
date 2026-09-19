@@ -51,6 +51,7 @@ pub fn dispatch(function_id: &str, args: &[Value], events: &RefCell<Vec<ConsoleE
 pub fn format_console_value(value: &Value) -> String {
     match value {
         Value::ArrayBuilder(_) => "<array_builder>".to_owned(),
+        Value::CandidateSpace(_) => "<candidate_space>".to_owned(),
         Value::Null => "null".to_string(),
         Value::Bool(b) => {
             if *b {

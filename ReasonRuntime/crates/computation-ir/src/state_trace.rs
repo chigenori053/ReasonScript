@@ -97,6 +97,7 @@ fn identity(value: &Value) -> Option<Identity> {
         Value::ArrayBuilder(value) => Some((2, Rc::as_ptr(value) as usize)),
         Value::ReasonObject(value) => Some((3, Rc::as_ptr(value) as usize)),
         Value::ReasonTransaction(value) => Some((4, Rc::as_ptr(value) as usize)),
+        Value::CandidateSpace(value) => Some((5, Rc::as_ptr(value) as usize)),
         _ => None,
     }
 }

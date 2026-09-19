@@ -6,6 +6,7 @@
 //! against.
 
 pub mod alloc_counter;
+pub mod candidate_space;
 pub mod console_dispatch;
 pub mod ir;
 pub mod optimizer_dispatch;

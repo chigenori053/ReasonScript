@@ -15,6 +15,7 @@ use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 use std::time::Instant;
 
+use crate::candidate_space::{isqrt, Added, CandidateSpace, CmpOp, Constraint, Generator};
 use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
 use crate::state_trace::{TraceConfig, TraceMode, TraceState};
 use crate::value::{from_json, to_json, FastMap, RuntimeReasonObject, StructValue, Value};
@@ -118,7 +119,7 @@ impl ReasoningEventMode {
     }
 }
 
-pub const EVENT_TYPES: [&str; 11] = [
+pub const EVENT_TYPES: [&str; 15] = [
     "REASON_STATE_CREATED",
     "RU_ACTIVATED",
     "CANDIDATE_GENERATED",
@@ -130,6 +131,13 @@ pub const EVENT_TYPES: [&str; 11] = [
     "STATE_TRANSITION",
     "GOAL_UPDATED",
     "TERMINATION_INFERRED",
+    // Lazy candidate space (spec v0.1 section 26). The runtime emits
+    // CREATED / CONSTRAINT_ADDED / EXHAUSTED once per space or constraint;
+    // per-candidate activity is counted, never recorded as events.
+    "CANDIDATE_SPACE_CREATED",
+    "CONSTRAINT_ADDED",
+    "CANDIDATE_SKIPPED",
+    "CANDIDATE_SPACE_EXHAUSTED",
 ];
 
 /// P0-1 native runtime counters. Each one is incremented exactly where the
@@ -152,6 +160,18 @@ pub struct Metrics {
     pub state_transition_count: Cell<u64>,
     pub branch_count: Cell<u64>,
     pub fast_path_count: Cell<u64>,
+    /// Lazy candidate space counters (spec v0.1 section 47).
+    pub candidate_space_estimated_size: Cell<u64>,
+    pub candidate_generated_count: Cell<u64>,
+    pub candidate_skipped_count: Cell<u64>,
+    pub candidate_symbolically_excluded_count: Cell<u64>,
+    /// Set once an exclusion count could not be derived exactly (any stored
+    /// constraint); the metric then reports `null` (spec section 29).
+    pub candidate_symbolic_exclusion_unknown: Cell<bool>,
+    pub candidate_materialized_count: Cell<u64>,
+    pub candidate_constraint_count: Cell<u64>,
+    pub candidate_constraint_eval_count: Cell<u64>,
+    pub candidate_space_next_count: Cell<u64>,
     pub predicate_execution_ns: Cell<u64>,
     pub relation_execution_ns: Cell<u64>,
     pub reasoning_event_ns: Cell<u64>,
@@ -565,6 +585,31 @@ impl<'a> Vm<'a> {
             "reasoning_event_mode": self.event_mode.name(),
             "runtime_execution_ns": execution_ns,
         });
+        // Lazy candidate space counters (spec v0.1 sections 28, 47, 60).
+        // `candidate_symbolically_excluded_count` is exact or `null`, never
+        // an estimate (section 29); v0.1 holds no generic (VM callback)
+        // predicates on candidate spaces, so every evaluation is symbolic.
+        let excluded = if m.candidate_symbolic_exclusion_unknown.get() {
+            serde_json::Value::Null
+        } else {
+            serde_json::json!(m.candidate_symbolically_excluded_count.get())
+        };
+        for (key, value) in [
+            ("candidate_space_estimated_size", serde_json::json!(m.candidate_space_estimated_size.get())),
+            ("candidate_generated_count", serde_json::json!(m.candidate_generated_count.get())),
+            ("candidate_skipped_count", serde_json::json!(m.candidate_skipped_count.get())),
+            ("candidate_symbolically_excluded_count", excluded),
+            ("candidate_materialized_count", serde_json::json!(m.candidate_materialized_count.get())),
+            ("candidate_constraint_count", serde_json::json!(m.candidate_constraint_count.get())),
+            ("candidate_constraint_eval_count", serde_json::json!(m.candidate_constraint_eval_count.get())),
+            ("candidate_space_next_count", serde_json::json!(m.candidate_space_next_count.get())),
+            ("candidate_materialized_pruned_count", serde_json::json!(m.candidate_pruned_count.get())),
+            ("candidate_generated_skipped_count", serde_json::json!(m.candidate_skipped_count.get())),
+            ("symbolic_constraint_eval_count", serde_json::json!(m.candidate_constraint_eval_count.get())),
+            ("generic_predicate_eval_count", serde_json::json!(0)),
+        ] {
+            metrics[key] = value;
+        }
         if self.profile {
             metrics["predicate_execution_ns"] = serde_json::json!(m.predicate_execution_ns.get());
             metrics["relation_execution_ns"] = serde_json::json!(m.relation_execution_ns.get());
@@ -668,6 +713,270 @@ impl<'a> Vm<'a> {
         }
         self.profile_stop(timer, &self.metrics.reasoning_event_ns);
         Ok(Value::Int(step as i64))
+    }
+
+    /// `candidate_space.*` dispatch (spec v0.1 sections 7-15 and 21).
+    /// Arguments are evaluated in place: no argument vector and no per-call
+    /// allocation besides a new space handle.
+    fn call_candidate_space(
+        &self,
+        function_id: &str,
+        arguments: &[Expr],
+        env: &Rc<RefCell<Env>>,
+        call_depth: u32,
+    ) -> Result<Value, RuntimeError> {
+        let name = function_id
+            .strip_prefix("candidate_space.")
+            .unwrap_or(function_id);
+        let int = |value: Value, what: &str| match value {
+            Value::Int(value) => Ok(value),
+            other => Err(RuntimeError::new(
+                "CS-002",
+                format!(
+                    "candidate_space.{name} {what} must be Int, got {}",
+                    other.type_name()
+                ),
+            )),
+        };
+        let space = |value: Value| match value {
+            Value::CandidateSpace(space) => Ok(space),
+            other => Err(RuntimeError::new(
+                "CS-002",
+                format!(
+                    "candidate_space.{name} requires a CandidateSpace, got {}",
+                    other.type_name()
+                ),
+            )),
+        };
+        match (name, arguments) {
+            ("isqrt", [n]) => {
+                let n = int(self.eval_expr(n, env, call_depth)?, "argument")?;
+                if n < 0 {
+                    return Err(RuntimeError::new(
+                        "CS-005",
+                        format!("candidate_space.isqrt requires a non-negative Int, got {n}"),
+                    ));
+                }
+                Ok(Value::Int(isqrt(n)))
+            }
+            ("range" | "wheel6", [lower, upper]) => {
+                let lower = int(self.eval_expr(lower, env, call_depth)?, "lower bound")?;
+                let upper = int(self.eval_expr(upper, env, call_depth)?, "upper bound")?;
+                let generator = if name == "range" {
+                    Generator::Range
+                } else {
+                    Generator::Wheel6
+                };
+                let created = CandidateSpace::new(generator, lower, upper);
+                let estimated = created.estimated_size();
+                let m = &self.metrics;
+                m.candidate_space_estimated_size
+                    .set(m.candidate_space_estimated_size.get() + estimated);
+                let value = Value::CandidateSpace(Rc::new(RefCell::new(created)));
+                self.semantic_event("CANDIDATE_SPACE_CREATED", || {
+                    (
+                        serde_json::json!("candidate_space"),
+                        to_json(&value),
+                        serde_json::json!([]),
+                        serde_json::json!({ "estimated_size": estimated }),
+                    )
+                })?;
+                Ok(value)
+            }
+            ("next", [source]) => {
+                let space = space(self.eval_expr(source, env, call_depth)?)?;
+                bump(&self.metrics.candidate_space_next_count);
+                match self.candidate_peek(&space)? {
+                    Some(candidate) => {
+                        space.borrow_mut().peeked = None;
+                        bump(&self.metrics.candidate_generated_count);
+                        Ok(Value::Int(candidate))
+                    }
+                    None => {
+                        self.candidate_report_exhausted(&space)?;
+                        Err(RuntimeError::new(
+                            "CS-003",
+                            "candidate space is exhausted; check candidate_space.is_exhausted before next",
+                        ))
+                    }
+                }
+            }
+            ("is_exhausted", [source]) => {
+                let space = space(self.eval_expr(source, env, call_depth)?)?;
+                let exhausted = self.candidate_peek(&space)?.is_none();
+                if exhausted {
+                    self.candidate_report_exhausted(&space)?;
+                }
+                Ok(Value::Bool(exhausted))
+            }
+            ("exclude_multiples_of", [source, modulus]) => {
+                let space = space(self.eval_expr(source, env, call_depth)?)?;
+                let m = int(self.eval_expr(modulus, env, call_depth)?, "modulus")?;
+                if m == 0 {
+                    return Err(RuntimeError::new(
+                        "CS-004",
+                        "candidate_space.exclude_multiples_of modulus must be non-zero",
+                    ));
+                }
+                self.candidate_with_constraint(
+                    &space,
+                    Constraint::Modulo {
+                        m,
+                        op: CmpOp::Ne,
+                        r: 0,
+                    },
+                )
+            }
+            ("reset", [source]) => {
+                let space = space(self.eval_expr(source, env, call_depth)?)?;
+                let mut reset = space.borrow().clone();
+                reset.reset_cursor();
+                Ok(Value::CandidateSpace(Rc::new(RefCell::new(reset))))
+            }
+            ("materialize", [source]) => {
+                let space = space(self.eval_expr(source, env, call_depth)?)?;
+                self.candidate_materialize(&space)
+            }
+            _ => Err(RuntimeError::new(
+                "CS-001",
+                format!("unknown candidate_space function or argument count: {function_id}"),
+            )),
+        }
+    }
+
+    /// Generates up to the next accepted candidate and parks it in
+    /// `peeked` (the `is_exhausted` lookahead). Every generator value is
+    /// checked against the constraints exactly once; rejected values are
+    /// counted as skipped. The wall-time/memory budget is sampled every
+    /// 1024 skipped values, like `tick_instruction` does for instructions.
+    fn candidate_peek(
+        &self,
+        space: &Rc<RefCell<CandidateSpace>>,
+    ) -> Result<Option<i64>, RuntimeError> {
+        let mut space = space.borrow_mut();
+        if space.peeked.is_some() {
+            return Ok(space.peeked);
+        }
+        let mut evals = 0u64;
+        let mut skipped = 0u64;
+        let found = loop {
+            let Some(candidate) = space.generate_next() else {
+                break None;
+            };
+            if space.accepts(candidate, &mut evals) {
+                break Some(candidate);
+            }
+            skipped += 1;
+            if skipped & 0x3ff == 0 {
+                self.check_periodic_budget()?;
+            }
+        };
+        let m = &self.metrics;
+        m.candidate_constraint_eval_count
+            .set(m.candidate_constraint_eval_count.get() + evals);
+        m.candidate_skipped_count
+            .set(m.candidate_skipped_count.get() + skipped);
+        space.peeked = found;
+        Ok(found)
+    }
+
+    fn candidate_report_exhausted(
+        &self,
+        space: &Rc<RefCell<CandidateSpace>>,
+    ) -> Result<(), RuntimeError> {
+        if space.borrow().exhausted_reported {
+            return Ok(());
+        }
+        space.borrow_mut().exhausted_reported = true;
+        self.semantic_event("CANDIDATE_SPACE_EXHAUSTED", || {
+            (
+                serde_json::json!("candidate_space"),
+                space.borrow().to_json(),
+                serde_json::json!([]),
+                serde_json::json!({}),
+            )
+        })?;
+        Ok(())
+    }
+
+    /// `relation.filter` / `exclude_multiples_of` over a candidate space
+    /// (spec sections 18-19): a new handle with the constraint added. No
+    /// candidate is visited; the cursor never moves backwards.
+    fn candidate_with_constraint(
+        &self,
+        space: &Rc<RefCell<CandidateSpace>>,
+        constraint: Constraint,
+    ) -> Result<Value, RuntimeError> {
+        let mut next = space.borrow().clone();
+        next.unpeek();
+        let description = constraint.to_string();
+        let mut added = 0u64;
+        let mut excluded = 0u64;
+        for leaf in constraint.conjuncts() {
+            match next.add(leaf) {
+                Added::Folded { excluded: count } => {
+                    added += 1;
+                    if next.constraints.is_empty() {
+                        excluded += count;
+                    } else {
+                        self.metrics.candidate_symbolic_exclusion_unknown.set(true);
+                    }
+                }
+                Added::Stored => {
+                    added += 1;
+                    self.metrics.candidate_symbolic_exclusion_unknown.set(true);
+                }
+                Added::Duplicate => {}
+            }
+        }
+        let m = &self.metrics;
+        m.candidate_constraint_count
+            .set(m.candidate_constraint_count.get() + added);
+        m.candidate_symbolically_excluded_count
+            .set(m.candidate_symbolically_excluded_count.get() + excluded);
+        let constraint_count = next.constraints.len();
+        let value = Value::CandidateSpace(Rc::new(RefCell::new(next)));
+        self.semantic_event("CONSTRAINT_ADDED", || {
+            (
+                serde_json::json!("candidate_space"),
+                serde_json::json!(description),
+                serde_json::json!([]),
+                serde_json::json!({
+                    "added": added,
+                    "constraint_count": constraint_count,
+                    "symbolically_excluded": excluded,
+                }),
+            )
+        })?;
+        Ok(value)
+    }
+
+    /// Explicit materialization (debug, export, compatibility): every
+    /// accepted value of the domain, independent of the cursor.
+    fn candidate_materialize(
+        &self,
+        space: &Rc<RefCell<CandidateSpace>>,
+    ) -> Result<Value, RuntimeError> {
+        let mut probe = space.borrow().clone();
+        probe.reset_cursor();
+        let mut evals = 0u64;
+        let mut visited = 0u64;
+        let mut items = Vec::new();
+        while let Some(candidate) = probe.generate_next() {
+            visited += 1;
+            if visited & 0x3ff == 0 {
+                self.check_periodic_budget()?;
+            }
+            if probe.accepts(candidate, &mut evals) {
+                items.push(Value::Int(candidate));
+            }
+        }
+        let m = &self.metrics;
+        m.candidate_constraint_eval_count
+            .set(m.candidate_constraint_eval_count.get() + evals);
+        m.candidate_materialized_count
+            .set(m.candidate_materialized_count.get() + items.len() as u64);
+        Ok(Value::Array(Rc::new(RefCell::new(items))))
     }
 
     fn retain_state_event(&self, event: serde_json::Value) {
@@ -1599,6 +1908,21 @@ impl<'a> Vm<'a> {
                     values.push(val);
                 }
                 let timer = self.profile_start();
+                if is_count && values.len() == 1 {
+                    if let Value::CandidateSpace(space) = &values[0] {
+                        // Spec section 17: exact symbolic count or nothing;
+                        // never a hidden scan.
+                        let space = space.borrow();
+                        if !space.constraints.is_empty() {
+                            return Err(RuntimeError::new(
+                                "CS-COUNT-001",
+                                "relation.count on a constrained candidate space is not symbolically computable; use candidate_space.materialize(space).length for an explicit scan",
+                            ));
+                        }
+                        self.profile_stop(timer, &self.metrics.relation_execution_ns);
+                        return Ok(Value::Int(space.unvisited_count() as i64));
+                    }
+                }
                 if is_count && self.fast_path && values.len() == 1 {
                     // P0-3 `relation.count` -> ARRAY_LEN Fast Path.
                     // ponytail: trusts the type checker's homogeneous `[Struct]`
@@ -1630,6 +1954,21 @@ impl<'a> Vm<'a> {
                 bump(&self.metrics.relation_dispatch_count);
                 bump(&self.metrics.relation_filter_count);
                 let source = self.eval_expr(source, env, call_depth)?;
+                if let Value::CandidateSpace(space) = &source {
+                    // Spec sections 18-19: a filter over a candidate space is
+                    // lowered to a constraint addition, not a scan.
+                    let constraint = compile_constraint(predicate, binding, &env.borrow())
+                        .ok_or_else(|| {
+                            RuntimeError::new(
+                                "CS-PRED-001",
+                                "relation predicate cannot be lowered to a symbolic candidate constraint (supported: comparisons of the row or `row % m` against Int captures, &&, ||, !); materialize the space first",
+                            )
+                        })?;
+                    let timer = self.profile_start();
+                    let result = self.candidate_with_constraint(space, constraint);
+                    self.profile_stop(timer, &self.metrics.relation_execution_ns);
+                    return result;
+                }
                 let Value::Array(rows) = source else {
                     return Err(RuntimeError::new(
                         "REL-004",
@@ -1815,6 +2154,13 @@ impl<'a> Vm<'a> {
                     )),
                 }
             }
+            Expr::CallCandidateSpace {
+                function_id,
+                arguments,
+                source_span,
+            } => self
+                .call_candidate_space(function_id, arguments, env, call_depth)
+                .map_err(|error| error.with_source_location(source_span.as_ref())),
             Expr::CallSemanticEvent {
                 function_id,
                 arguments,
@@ -1826,14 +2172,17 @@ impl<'a> Vm<'a> {
                         "reasoning.event expects type, subject, evidence",
                     ));
                 }
+                // No argument vector: a `reasoning.event` call in `count`
+                // mode must not allocate (spec v0.1 section 24 -- the
+                // per-hypothesis event is the only remaining per-candidate
+                // work in a lazy search).
                 let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(3);
-                for argument in arguments {
-                    let value = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(value.clone());
-                    values.push(value);
-                }
-                let Value::String(event_type) = &values[0] else {
+                let event_type = self.eval_expr(&arguments[0], env, call_depth)?;
+                let subject = self.eval_expr(&arguments[1], env, call_depth)?;
+                self.push_temporary_root(subject.clone());
+                let evidence = self.eval_expr(&arguments[2], env, call_depth)?;
+                self.push_temporary_root(evidence.clone());
+                let Value::String(event_type) = &event_type else {
                     return Err(RuntimeError::new(
                         "REASON-EVENT-001",
                         "event type must be a string",
@@ -1841,8 +2190,8 @@ impl<'a> Vm<'a> {
                 };
                 self.semantic_event(event_type, || {
                     (
-                        to_json(&values[1]),
-                        to_json(&values[2]),
+                        to_json(&subject),
+                        to_json(&evidence),
                         serde_json::json!([]),
                         serde_json::json!({}),
                     )
@@ -2278,6 +2627,104 @@ impl FastPredicate {
             }
             FastPredicate::Not(inner) => inner.eval_fields(fields, reads).map(|verdict| !verdict),
         }
+    }
+}
+
+/// Lowers a `relation.filter` predicate over a candidate space to a
+/// symbolic constraint (spec sections 19-20). The row binding is the
+/// candidate value itself; captured locals and `state.field` reads are
+/// resolved once, when the filter runs. `None` means the predicate has no
+/// symbolic form (the caller reports `CS-PRED-001`).
+fn compile_constraint(expr: &Expr, binding: &str, env: &Env) -> Option<Constraint> {
+    match expr {
+        Expr::Comparison {
+            operator,
+            left,
+            right,
+            ..
+        } => {
+            let op = CmpOp::parse(operator)?;
+            if let Some(operand) = compile_row_operand(left, binding, env) {
+                Some(operand.compare(op, compile_captured_int(right, binding, env)?))
+            } else {
+                let operand = compile_row_operand(right, binding, env)?;
+                Some(operand.compare(op.flip(), compile_captured_int(left, binding, env)?))
+            }
+        }
+        Expr::Logical {
+            operator,
+            left,
+            right,
+            ..
+        } => {
+            let left = Box::new(compile_constraint(left, binding, env)?);
+            let right = Box::new(compile_constraint(right, binding, env)?);
+            match operator.as_str() {
+                "And" => Some(Constraint::And(left, right)),
+                "Or" => Some(Constraint::Or(left, right)),
+                _ => None,
+            }
+        }
+        Expr::Unary {
+            operator, operand, ..
+        } if operator == "Not" => Some(compile_constraint(operand, binding, env)?.negated()),
+        _ => None,
+    }
+}
+
+enum RowOperand {
+    Value,
+    Modulo(i64),
+}
+
+impl RowOperand {
+    fn compare(self, op: CmpOp, k: i64) -> Constraint {
+        match self {
+            RowOperand::Value => Constraint::Compare { op, k },
+            RowOperand::Modulo(m) => Constraint::Modulo { m, op, r: k },
+        }
+    }
+}
+
+fn compile_row_operand(expr: &Expr, binding: &str, env: &Env) -> Option<RowOperand> {
+    match expr {
+        Expr::Local { name, .. } if name == binding => Some(RowOperand::Value),
+        Expr::Binary {
+            operator,
+            left,
+            right,
+            ..
+        } if operator == "Modulo" => {
+            if !matches!(left.as_ref(), Expr::Local { name, .. } if name == binding) {
+                return None;
+            }
+            match compile_captured_int(right, binding, env)? {
+                0 => None,
+                m => Some(RowOperand::Modulo(m)),
+            }
+        }
+        _ => None,
+    }
+}
+
+fn compile_captured_int(expr: &Expr, binding: &str, env: &Env) -> Option<i64> {
+    match expr {
+        Expr::Const { kind, value, .. } if kind == "int" => value.as_i64(),
+        Expr::Local { name, .. } if name != binding => match env.get(name)? {
+            Value::Int(value) => Some(*value),
+            _ => None,
+        },
+        Expr::Member { object, member, .. } => match object.as_ref() {
+            Expr::Local { name, .. } if name != binding => match env.get(name)? {
+                Value::Struct(owner) => match owner.fields.borrow().get(member)? {
+                    Value::Int(value) => Some(*value),
+                    _ => None,
+                },
+                _ => None,
+            },
+            _ => None,
+        },
+        _ => None,
     }
 }
 

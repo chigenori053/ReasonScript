@@ -295,6 +295,13 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
+    #[serde(rename = "call_candidate_space")]
+    CallCandidateSpace {
+        function_id: String,
+        arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "call_semantic_event")]
     CallSemanticEvent {
         function_id: String,
@@ -405,6 +412,7 @@ impl Expr {
             | Expr::RelationFilter { source_span, .. }
             | Expr::ArrayBuilder { source_span, .. }
             | Expr::CallArrayBuilder { source_span, .. }
+            | Expr::CallCandidateSpace { source_span, .. }
             | Expr::CallSemanticEvent { source_span, .. }
             | Expr::CallReasoning { source_span, .. }
             | Expr::CallArrayAppend { source_span, .. }

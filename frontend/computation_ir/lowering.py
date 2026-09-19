@@ -822,6 +822,16 @@ def _lower_call(value: CallExpressionNode, declared_functions: _Scope) -> dict[s
             "function_id": f"ruo.{value.callee.member}",
             "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
         }
+    if (
+        isinstance(value.callee, MemberAccessNode)
+        and isinstance(value.callee.object, IdentifierNode)
+        and value.callee.object.name == "candidate_space"
+    ):
+        return {
+            "op": "call_candidate_space",
+            "function_id": f"candidate_space.{value.callee.member}",
+            "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
+        }
     vision_function = vision_call_name(value)
     if vision_function is not None:
         return {

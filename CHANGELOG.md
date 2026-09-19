@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased] - Lazy / Symbolic Candidate Space v0.1
+
+- Added the `candidate_space` standard namespace (`range`, `wheel6`, `isqrt`,
+  `next`, `is_exhausted`, `exclude_multiples_of`, `reset`, `materialize`): a
+  lazy candidate space held as domain + generator + constraints, with
+  candidates generated one at a time and never materialized unless asked.
+  `relation.filter` over a candidate space is lowered to a symbolic constraint
+  (comparisons and modulo on the row, `&&`/`||`/`!`) instead of a scan, and
+  `relation.count` answers symbolically or fails with `CS-COUNT-001`.
+- Added reasoning event types `CANDIDATE_SPACE_CREATED`, `CONSTRAINT_ADDED`,
+  `CANDIDATE_SKIPPED`, `CANDIDATE_SPACE_EXHAUSTED`, the candidate space
+  counters in `runtime_metrics` (`candidate_space_estimated_size`,
+  `candidate_generated_count`, `candidate_skipped_count`,
+  `candidate_symbolically_excluded_count`, `candidate_materialized_count`,
+  `candidate_constraint_count`, `candidate_constraint_eval_count`,
+  `candidate_space_next_count`, and the `candidate_pruned_count` split), and
+  the computation IR expression op `call_candidate_space` (Rust-only; the
+  runtime consolidation manifest baseline was regenerated).
+- `reasoning.event` no longer allocates an argument vector per call.
+- Added `scripts/benchmark_candidate_space.py` (Model D vs Model E on the
+  SpecTest v1.3 dataset) and `tests/runtime/test_candidate_*.py`.
+
 ## [Unreleased] - P0 Runtime Performance
 
 - Replaced the fixed 10,000-iteration loop cap with an Execution Budget

@@ -59,6 +59,56 @@
         "rust": "implemented"
       }
     ],
+    "candidate_space": [
+      {
+        "name": "candidate_space.range",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      },
+      {
+        "name": "candidate_space.wheel6",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      },
+      {
+        "name": "candidate_space.isqrt",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      },
+      {
+        "name": "candidate_space.next",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      },
+      {
+        "name": "candidate_space.is_exhausted",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      },
+      {
+        "name": "candidate_space.exclude_multiples_of",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      },
+      {
+        "name": "candidate_space.reset",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      },
+      {
+        "name": "candidate_space.materialize",
+        "production_fallback": null,
+        "python": "absent",
+        "rust": "implemented"
+      }
+    ],
     "optimizer": [
       {
         "name": "optimizer.adam",

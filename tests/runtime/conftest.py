@@ -27,8 +27,8 @@ def lower(body: str, *, declarations: str = DECLARATIONS) -> dict:
     return ir
 
 
-def execute(body: str, *, mode: str = "off", limits: dict | None = None, **options):
-    return run_ir(lower(body), binary=HOST, trace_enabled=mode != "off",
+def execute(body: str, *, mode: str = "off", limits: dict | None = None, declarations: str = DECLARATIONS, **options):
+    return run_ir(lower(body, declarations=declarations), binary=HOST, trace_enabled=mode != "off",
                   trace_config={"mode": mode}, limits=limits or {}, **options)
 
 

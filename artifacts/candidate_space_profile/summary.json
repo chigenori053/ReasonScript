@@ -1,0 +1,159 @@
+{
+  "schema": "reasonscript-candidate-space-profile/1.0",
+  "cases": 79,
+  "samples": 3,
+  "host": "/Users/chigenori/development/ReasonScript/.claude/worktrees/reasonscript-lazy-candidate-space-d1ff02/ReasonRuntime/target/release/reason-runtime-host",
+  "Level_A_results_identical": {
+    "pass": true,
+    "failing": []
+  },
+  "Level_B_hypothesis_sequence_identical": {
+    "pass": true,
+    "sequence_compared_cases": 78,
+    "count_only_cases": [
+      "limit_probe_sqrt100000"
+    ]
+  },
+  "Level_C_no_materialization": {
+    "pass": true,
+    "max_CMR": 0,
+    "median_GER": 1.0
+  },
+  "Level_D_highly_composite_allocations_minus_50_percent": {
+    "pass": false,
+    "median_ACR": 10.5294,
+    "cases": 10
+  },
+  "Level_E_highly_composite_24b_runtime": {
+    "pass": true,
+    "RTR": 53.8639,
+    "exec_ns_D": 1286000,
+    "exec_ns_E": 23875
+  },
+  "Level_F_E_at_or_below_wheel6_where_D_was_slower": {
+    "pass": true,
+    "cases": [
+      "basic_12",
+      "basic_97",
+      "basic_100",
+      "basic_997",
+      "prime_8b",
+      "semiprime_8b",
+      "semiprime_near_equal_8b",
+      "prime_10b",
+      "prime_12b",
+      "semiprime_12b",
+      "semiprime_near_equal_12b",
+      "highly_composite_12b"
+    ],
+    "of": 65
+  },
+  "Level_G_compression_vs_runtime_correlation": {
+    "pass": true,
+    "pearson_r_compression_vs_RTR": 0.5435816523291561,
+    "pearson_r_compression_vs_E_advantage_over_B": -0.2064383026443397,
+    "cases": 79,
+    "compression_ratio_distribution": {
+      "min": 0.75,
+      "max": 1.625,
+      "cases_above_1": 20
+    }
+  },
+  "Level_H_chain_compression_to_runtime": {
+    "pass": false,
+    "cases_with_compression": 20,
+    "cases_with_full_chain": 10,
+    "failing": [
+      "semiprime_10b",
+      "mixed_10b",
+      "mixed_12b",
+      "mixed_14b",
+      "mixed_20b",
+      "semiprime_22b",
+      "mixed_22b",
+      "semiprime_24b",
+      "mixed_24b",
+      "mixed_26b"
+    ]
+  },
+  "determinism": {
+    "pass": true
+  },
+  "medians": {
+    "all": {
+      "PCR": 1.6659,
+      "ACR": 6.0959,
+      "RTR": 1.9523,
+      "GER": 1.0,
+      "exec_ratio_D_over_B": 2.2227,
+      "exec_ratio_E_over_B": 1.1239,
+      "wall_ratio_D_over_E": 1.0406
+    },
+    "focus_classes": {
+      "PCR": 6.5991,
+      "ACR": 10.5659,
+      "RTR": 3.89415,
+      "GER": 1.1429,
+      "exec_ratio_D_over_B": 4.45325,
+      "exec_ratio_E_over_B": 1.1312
+    },
+    "by_class": {
+      "highly_composite": {
+        "PCR": 7.811,
+        "ACR": 10.5294,
+        "RTR": 3.89415,
+        "exec_ratio_D_over_B": 4.45325,
+        "exec_ratio_E_over_B": 1.1312,
+        "search_compression_ratio": 1.5
+      },
+      "mixed": {
+        "PCR": 1.0645,
+        "ACR": 1.19085,
+        "RTR": 1.1968,
+        "exec_ratio_D_over_B": 1.07565,
+        "exec_ratio_E_over_B": 0.84805,
+        "search_compression_ratio": 1.0
+      },
+      "mixed_factor_composite": {
+        "PCR": 5.35645,
+        "ACR": 15.06625,
+        "RTR": 3.6077500000000002,
+        "exec_ratio_D_over_B": 4.139200000000001,
+        "exec_ratio_E_over_B": 1.1583,
+        "search_compression_ratio": 1.0167
+      },
+      "prime": {
+        "PCR": 1.6533,
+        "ACR": 16.25345,
+        "RTR": 1.8963,
+        "exec_ratio_D_over_B": 2.1215,
+        "exec_ratio_E_over_B": 1.11875,
+        "search_compression_ratio": 1.0
+      },
+      "repeated_factor_composite": {
+        "PCR": 1.0,
+        "ACR": 1.1515,
+        "RTR": 1.1185,
+        "exec_ratio_D_over_B": 0.77675,
+        "exec_ratio_E_over_B": 0.69215,
+        "search_compression_ratio": 1.0
+      },
+      "semiprime": {
+        "PCR": 3.2874,
+        "ACR": 14.46385,
+        "RTR": 3.20505,
+        "exec_ratio_D_over_B": 3.814,
+        "exec_ratio_E_over_B": 1.1713,
+        "search_compression_ratio": 1.0
+      },
+      "semiprime_near_equal": {
+        "PCR": 1.6663,
+        "ACR": 283.1548,
+        "RTR": 2.4562,
+        "exec_ratio_D_over_B": 2.9288,
+        "exec_ratio_E_over_B": 1.2154,
+        "search_compression_ratio": 1.0
+      }
+    }
+  }
+}

@@ -111,6 +111,71 @@ operation emits one `CANDIDATE_PRUNED` semantic event with the removed source
 indices and before/after counts. A filter that removes no rows emits no event.
 The fixed comparison functions remain available with their existing behavior.
 
+`relation.filter` and `relation.count` also accept a lazy candidate space (next
+section). Over a candidate space the row binding is the candidate value itself
+(an `int`), the filter is lowered to a symbolic constraint instead of a scan,
+and `relation.count` answers only when it can be computed symbolically.
+
+## Candidate spaces
+
+A candidate space is a lazy, symbolic search space: a domain, a generation
+rule, and an ordered set of constraints. Candidates are produced one at a time
+by `next`, checked against the constraints at generation time, and never
+materialized unless asked. Creating a space and adding constraints is O(1) /
+O(constraints) work whatever the size of the domain.
+
+```text
+candidate_space.range(lower, upper)              // every int in [lower, upper]
+candidate_space.wheel6(lower, upper)             // 6k-1 and 6k+1 in [lower, upper]
+candidate_space.isqrt(n)                         // exact floor(sqrt(n)), for domain bounds
+candidate_space.is_exhausted(space) -> bool      // looks ahead for the next accepted candidate
+candidate_space.next(space) -> int               // the next accepted candidate (CS-003 when exhausted)
+candidate_space.exclude_multiples_of(space, m)   // new space with `row % m != 0`
+relation.filter(space, predicate)                // new space with the predicate as a constraint
+relation.count(space) -> int                     // remaining candidates, symbolic only
+candidate_space.reset(space)                     // new space with the cursor at the start
+candidate_space.materialize(space) -> [int]      // every accepted value of the domain (explicit scan)
+```
+
+```reasonscript
+let space = candidate_space.wheel6(5, candidate_space.isqrt(remaining))
+while !candidate_space.is_exhausted(space) {
+  let c = candidate_space.next(space)
+  if remaining % c == 0 {
+    remaining = int(remaining / c)
+    let factor = c
+    space = relation.filter(space, row % factor != 0)   // evidence -> constraint, no scan
+  }
+}
+```
+
+Constraints a filter can express symbolically are comparisons of the row (or
+of `row % m`) against an `int` literal, a captured local, or a captured
+`state.field`, combined with `&&`, `||` and `!` (`row == 7`, `row > limit`,
+`row % factor != 0`, `!(row % 5 == 0)`). Ordering constraints fold into the
+domain bounds; a predicate outside this set fails with `CS-PRED-001`
+(materialize first and filter the array). Repeated constraints are added once,
+and `a && b` is stored as two constraints in canonical order (bounds, equality,
+modulo, logical trees), so the order in which evidence arrives never changes
+the candidate sequence.
+
+`next` and `is_exhausted` advance the cursor of the shared handle; a constraint
+addition or `reset` returns a new handle and leaves the original unchanged.
+Adding a constraint after `is_exhausted` looked ahead re-checks the pending
+candidate against the new constraint; already returned candidates are never
+revisited, and the cursor never moves backwards. `relation.count` over a space
+with stored constraints fails with `CS-COUNT-001` rather than scanning.
+
+The runtime emits `CANDIDATE_SPACE_CREATED` per space, `CONSTRAINT_ADDED` per
+filter or exclusion call, and `CANDIDATE_SPACE_EXHAUSTED` once per space, and
+counts per-candidate work in `runtime_metrics` (`candidate_space_estimated_size`,
+`candidate_generated_count`, `candidate_skipped_count`,
+`candidate_symbolically_excluded_count`, `candidate_materialized_count`,
+`candidate_constraint_count`, `candidate_constraint_eval_count`,
+`candidate_space_next_count`). In traces a space is an opaque handle showing
+its domain, generator, constraints and cursor. Candidate spaces execute only
+on the native runtime.
+
 ## Array builders
 
 Use a transient builder for bulk construction:
@@ -149,8 +214,9 @@ instructions. Subjects and evidence may be ordinary values, including structs.
 Supported types are `REASON_STATE_CREATED`, `RU_ACTIVATED`,
 `CANDIDATE_GENERATED`, `CANDIDATE_PRUNED`, `HYPOTHESIS_CREATED`,
 `HYPOTHESIS_VERIFIED`, `HYPOTHESIS_REJECTED`, `EVIDENCE_ADDED`,
-`STATE_TRANSITION`, `GOAL_UPDATED`, and `TERMINATION_INFERRED`.
-Unknown types fail with `REASON-EVENT-001`.
+`STATE_TRANSITION`, `GOAL_UPDATED`, `TERMINATION_INFERRED`,
+`CANDIDATE_SPACE_CREATED`, `CONSTRAINT_ADDED`, `CANDIDATE_SKIPPED`, and
+`CANDIDATE_SPACE_EXHAUSTED`. Unknown types fail with `REASON-EVENT-001`.
 
 The minimal API assigns monotonically increasing state revisions and leaves
 `source_ru` null. Automatic pruning events use the same step sequence. Events

@@ -22,6 +22,8 @@ use std::rc::Rc;
 
 use reasonscript_native_reasonunit_runtime::NativeReasonUnitObject;
 
+use crate::candidate_space::CandidateSpace;
+
 #[derive(Debug)]
 pub struct RuntimeReasonObject {
     pub object: RefCell<NativeReasonUnitObject>,
@@ -57,6 +59,11 @@ pub enum Value {
     String(Rc<str>),
     Array(Rc<RefCell<Vec<Value>>>),
     ArrayBuilder(Rc<RefCell<ArrayBuilder>>),
+    /// A lazy / symbolic candidate space (spec v0.1): domain + generator +
+    /// constraints + cursor, never a materialized candidate list. Shared by
+    /// handle like `ArrayBuilder`; `next` advances the shared cursor, while
+    /// constraint additions produce a new handle.
+    CandidateSpace(Rc<RefCell<CandidateSpace>>),
     Struct(Rc<StructValue>),
     /// A resolved `EnumName.VariantName` reference (Phase 1 enum
     /// unification). Distinct from `String` so `Color.Red == "Red"` is a
@@ -123,6 +130,7 @@ impl Value {
             Value::String(_) => "String",
             Value::Array(_) => "Array",
             Value::ArrayBuilder(_) => "ArrayBuilder",
+            Value::CandidateSpace(_) => "CandidateSpace",
             Value::Struct(_) => "Struct",
             Value::Enum { .. } => "Enum",
             Value::Optional(_) => "Optional",
@@ -145,6 +153,7 @@ impl PartialEq for Value {
             (Value::String(a), Value::String(b)) => a == b,
             (Value::Array(a), Value::Array(b)) => *a.borrow() == *b.borrow(),
             (Value::ArrayBuilder(a), Value::ArrayBuilder(b)) => Rc::ptr_eq(a, b),
+            (Value::CandidateSpace(a), Value::CandidateSpace(b)) => Rc::ptr_eq(a, b),
             (Value::Struct(a), Value::Struct(b)) => {
                 a.type_name == b.type_name && *a.fields.borrow() == *b.fields.borrow()
             }
@@ -192,6 +201,7 @@ impl fmt::Display for Value {
             Value::String(value) => write!(f, "{value}"),
             Value::Array(_) => write!(f, "<array>"),
             Value::ArrayBuilder(_) => write!(f, "<array_builder>"),
+            Value::CandidateSpace(_) => write!(f, "<candidate_space>"),
             Value::Struct(value) => write!(f, "<struct {}>", value.type_name),
             Value::Enum {
                 enum_name,
@@ -241,6 +251,9 @@ pub fn to_json(value: &Value) -> serde_json::Value {
                 "finished": builder.items.is_none(),
             }})
         }
+        // Opaque handle in traces: domain, generator, constraints and the
+        // cursor at the time of the assignment (candidates are never listed).
+        Value::CandidateSpace(space) => space.borrow().to_json(),
         Value::Struct(value) => {
             let mut map = serde_json::Map::new();
             map.insert(
