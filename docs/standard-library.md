@@ -172,7 +172,10 @@ Executable Reason Units are independently controlled by
 uses the production-oriented fast path: it retains counters, active lifecycle
 state, and rolling SHA-256 hashes without retaining RU, Evidence, Relation,
 sequence, or lifecycle payloads. `full` retains those payloads for debugging
-and structural inspection.
+and structural inspection. Count-mode canonical JSON and semantic signatures
+are streamed directly into the SHA-256 v1 contract; Count and Full therefore
+produce identical sequence and lifecycle hashes without constructing the
+intermediate signature or RU-ID strings in the Count hot path.
 `ReasonStructure` creates and activates native units before candidate predicate
 evaluation, then verifies or rejects and completes them afterward. Explicit
 `reasoning.event` calls remain compatible through synthetic units marked

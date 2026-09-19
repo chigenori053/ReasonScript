@@ -7,24 +7,24 @@
 - ReasonScript: `ReasonScript 0.5.5.15
 Install Foundation 1.1
 Runtime 0.5.5.15`
-- Commit: `11ba735aef9046b02d5cb6673505a83c268075a4`
+- Commit: `de28b5a14303386ae0070fd7523c8054edb586ff`
 - Runtime: `/Users/chigenori/development/ReasonScript/ReasonRuntime/target/release/reason-runtime-host` (release)
 - Compiler: `rustc 1.93.1 (01f6ddf75 2026-02-11)`
-- Date: `2026-09-19T21:52:57.407018+00:00`
+- Date: `2026-09-19T23:23:17.300443+00:00`
 
 ## Dataset and models
 
-The fixed Executable RU Microbenchmark Dataset v1 contains 117 cases. Model G uses executable RU `off`; Model H-fast uses the optimized public `count` mode. H-old values come from the frozen pre-optimization artifact. All other runtime settings and IR are identical. Warmup is 3 and samples are 10; G/H-fast order alternates by sample. Allocation metrics are the runtime's deterministic managed-allocation proxy (VM value slots plus retained ReasonStructure payload), not process heap telemetry.
+The fixed Executable RU Microbenchmark Dataset v1 contains 117 cases. Model G uses executable RU `off`; H1 is the frozen Count Fast Path baseline; H2 uses the Semantic Hash / Canonicalization Fast Path in public `count` mode. All other runtime settings and IR are identical. Warmup is 3 and samples are 10; G/H2 order alternates by sample. Allocation metrics are the runtime's deterministic managed-allocation proxy, not process heap telemetry.
 
 ## Results
 
 - Semantic equivalence: PASS
 - RU/lifecycle determinism and count/full hash equivalence: PASS
 - Invalid lifecycle transitions: 0
-- Median RUOR old / fast: 3.1285 / 2.6722
-- Fast p90 / max: 2.8094 / 2.8763
-- Median Fast Path speedup: 1.1283
-- Median VIO-fast / AOR-fast: 1.0000 / 1.0000
+- Median RUOR old / H1 / H2: 3.1285 / 2.6722 / 1.9476
+- H2 p90 / max: 2.0892 / 2.1714
+- Median Semantic Hash speedup: 1.2786
+- Median VIO-H2 / AOR-H2: 1.0000 / 1.0000
 - Native / legacy RU ratio: 1.0000 / 0.0000
 - Median RUVMR: 0.0370
 
@@ -44,6 +44,6 @@ The fixed Executable RU Microbenchmark Dataset v1 contains 117 cases. Model G us
 
 ## Conclusion and next step
 
-RUS gate: **HOLD**. Recommended next step: **Further RU optimization**. Working tree dirty during measurement: **True**. Runtime binary SHA-256: `02aca5a6057df20ee32a18a2098ecf4ce8f04aa6a751bf70468f0b49355493eb`.
+RUS gate: **HOLD**. Recommended next step: **Further RU optimization**. Working tree dirty during measurement: **True**. Runtime binary SHA-256: `201e7ca73ad1fbf273cc949614048539527e5e6a7db720462646c7b6d9931d7c`.
 
 Reproduce with `python3 scripts/benchmark_executable_ru.py --binary /Users/chigenori/development/ReasonScript/ReasonRuntime/target/release/reason-runtime-host`. Machine-readable evidence is in `artifacts/executable_ru_benchmark/comparison.csv` and `summary.json`; six SVG graphs are in `graphs/`.

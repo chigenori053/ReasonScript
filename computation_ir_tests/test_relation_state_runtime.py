@@ -255,7 +255,7 @@ def test_count_fast_path_matches_full_without_retaining_payloads():
     assert count_trace["reason_units"] == count_trace["evidence"] == count_trace["relations"] == []
     assert count_trace["ru_sequence_hash"] == full_trace["ru_sequence_hash"]
     assert count_trace["ru_lifecycle_hash"] == full_trace["ru_lifecycle_hash"]
-    names = [name for name in count.metadata["runtime_metrics"] if name.startswith("ru_") and name.endswith("_count")]
+    names = [name for name in count.metadata["runtime_metrics"] if name.startswith("ru_") and name.endswith("_count") and name != "ru_hash_update_count"]
     assert all(count.metadata["runtime_metrics"][name] == full.metadata["runtime_metrics"][name] for name in names)
     assert count.metadata["runtime_metrics"]["ru_active_count"] == 0
 

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Streamed Count-mode semantic signatures, canonical JSON values, RU IDs, and
+  lifecycle/sequence records directly into the compatible SHA-256 v1 hash,
+  removing hot-path signature and ID string materialization.
 - Changed executable RU `count` mode to a counter-and-rolling-hash fast path
   that retains no RU, Evidence, Relation, sequence, or lifecycle payloads while
   preserving Full-mode counts, lifecycle validation, and SHA-256 hashes.

@@ -1,5 +1,5 @@
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
+use std::borrow::Cow;
 use std::io::{self, Write};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -48,8 +48,9 @@ pub enum ExecutableHandle {
     Count {
         sequence: u64,
         kind: ExecutableKind,
-        semantic_signature: String,
+        operation: Cow<'static, str>,
         subject: serde_json::Value,
+        input: serde_json::Value,
     },
     Full(usize),
 }
@@ -58,24 +59,74 @@ pub enum ExecutableHandle {
 struct RollingJsonArrayHash {
     hasher: Sha256,
     items: u64,
+    updates: u64,
+    bytes: u64,
 }
 
 impl Default for RollingJsonArrayHash {
     fn default() -> Self {
         let mut hasher = Sha256::new();
         hasher.update(b"[");
-        Self { hasher, items: 0 }
+        Self {
+            hasher,
+            items: 0,
+            updates: 1,
+            bytes: 1,
+        }
     }
 }
 
 impl RollingJsonArrayHash {
-    fn push<T: serde::Serialize>(&mut self, value: &T) {
+    fn write(&mut self, bytes: &[u8]) {
+        self.hasher.update(bytes);
+        self.updates += 1;
+        self.bytes += bytes.len() as u64;
+    }
+
+    fn begin_item(&mut self) {
         if self.items > 0 {
-            self.hasher.update(b",");
+            self.write(b",");
         }
-        serde_json::to_writer(HashWriter(&mut self.hasher), value)
-            .expect("Reason Unit hash values are serializable");
         self.items += 1;
+    }
+
+    fn lifecycle(&mut self, kind: ExecutableKind, sequence: u64, transition: &str, revision: u64) {
+        self.begin_item();
+        self.write(b"[\"ru:");
+        self.write(executable_kind_id(kind).as_bytes());
+        self.write(b":");
+        write_zero_padded_u64(self, sequence, 8);
+        self.write(b"\",\"");
+        write_json_string_content(self, transition);
+        self.write(b"\",");
+        write_u64(self, revision);
+        self.write(b"]");
+    }
+
+    fn sequence(
+        &mut self,
+        kind: ExecutableKind,
+        operation: &str,
+        subject: &serde_json::Value,
+        input: &serde_json::Value,
+        terminal: TerminalStatus,
+    ) {
+        self.begin_item();
+        self.write(b"[\"");
+        write_json_string_content(self, executable_kind(kind));
+        self.write(b"|");
+        write_json_string_content(self, operation);
+        self.write(b"|");
+        write_canonical_escaped(self, subject);
+        self.write(b"|");
+        write_canonical_escaped(self, input);
+        self.write(b"\",\"");
+        self.write(executable_kind(kind).as_bytes());
+        self.write(b"\",\"");
+        self.write(terminal_status(terminal).as_bytes());
+        self.write(b"\",");
+        write_canonical(self, subject);
+        self.write(b"]");
     }
 
     fn finish(&self) -> String {
@@ -85,16 +136,138 @@ impl RollingJsonArrayHash {
     }
 }
 
-struct HashWriter<'a>(&'a mut Sha256);
+struct HashWriter<'a>(&'a mut RollingJsonArrayHash);
 
 impl Write for HashWriter<'_> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        self.0.update(bytes);
+        self.0.write(bytes);
         Ok(bytes.len())
     }
 
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
+    }
+}
+
+struct EscapedHashWriter<'a>(&'a mut RollingJsonArrayHash);
+
+impl Write for EscapedHashWriter<'_> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        write_json_string_bytes(self.0, bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn write_u64(hash: &mut RollingJsonArrayHash, value: u64) {
+    let mut buffer = [0_u8; 20];
+    let start = decimal_u64(value, &mut buffer);
+    hash.write(&buffer[start..]);
+}
+
+fn write_zero_padded_u64(hash: &mut RollingJsonArrayHash, value: u64, width: usize) {
+    let mut buffer = [0_u8; 20];
+    let start = decimal_u64(value, &mut buffer);
+    for _ in 0..width.saturating_sub(buffer.len() - start) {
+        hash.write(b"0");
+    }
+    hash.write(&buffer[start..]);
+}
+
+fn decimal_u64(mut value: u64, buffer: &mut [u8; 20]) -> usize {
+    let mut cursor = buffer.len();
+    loop {
+        cursor -= 1;
+        buffer[cursor] = b'0' + (value % 10) as u8;
+        value /= 10;
+        if value == 0 {
+            return cursor;
+        }
+    }
+}
+
+fn write_json_string_content(hash: &mut RollingJsonArrayHash, value: &str) {
+    write_json_string_bytes(hash, value.as_bytes());
+}
+
+fn write_json_string_bytes(hash: &mut RollingJsonArrayHash, bytes: &[u8]) {
+    let mut start = 0;
+    for (index, byte) in bytes.iter().copied().enumerate() {
+        let escape = match byte {
+            b'"' => Some(b"\\\"".as_slice()),
+            b'\\' => Some(b"\\\\".as_slice()),
+            b'\x08' => Some(b"\\b".as_slice()),
+            b'\t' => Some(b"\\t".as_slice()),
+            b'\n' => Some(b"\\n".as_slice()),
+            b'\x0c' => Some(b"\\f".as_slice()),
+            b'\r' => Some(b"\\r".as_slice()),
+            0x00..=0x1f => None,
+            _ => continue,
+        };
+        if start < index {
+            hash.write(&bytes[start..index]);
+        }
+        if let Some(escape) = escape {
+            hash.write(escape);
+        } else {
+            const HEX: &[u8; 16] = b"0123456789abcdef";
+            hash.write(&[
+                b'\\',
+                b'u',
+                b'0',
+                b'0',
+                HEX[(byte >> 4) as usize],
+                HEX[(byte & 15) as usize],
+            ]);
+        }
+        start = index + 1;
+    }
+    if start < bytes.len() {
+        hash.write(&bytes[start..]);
+    }
+}
+
+fn write_canonical(hash: &mut RollingJsonArrayHash, value: &serde_json::Value) {
+    write_canonical_to(&mut HashWriter(hash), value);
+}
+
+fn write_canonical_escaped(hash: &mut RollingJsonArrayHash, value: &serde_json::Value) {
+    write_canonical_to(&mut EscapedHashWriter(hash), value);
+}
+
+fn write_canonical_to<W: Write>(writer: &mut W, value: &serde_json::Value) {
+    match value {
+        serde_json::Value::Null => writer.write_all(b"null").unwrap(),
+        serde_json::Value::Bool(value) => writer
+            .write_all(if *value { b"true" } else { b"false" })
+            .unwrap(),
+        serde_json::Value::Number(value) => serde_json::to_writer(writer, value).unwrap(),
+        serde_json::Value::String(value) => serde_json::to_writer(writer, value).unwrap(),
+        serde_json::Value::Array(values) => {
+            writer.write_all(b"[").unwrap();
+            for (index, value) in values.iter().enumerate() {
+                if index > 0 {
+                    writer.write_all(b",").unwrap();
+                }
+                write_canonical_to(writer, value);
+            }
+            writer.write_all(b"]").unwrap();
+        }
+        serde_json::Value::Object(values) => {
+            writer.write_all(b"{").unwrap();
+            for (index, (key, value)) in values.iter().enumerate() {
+                if index > 0 {
+                    writer.write_all(b",").unwrap();
+                }
+                serde_json::to_writer(&mut *writer, key).unwrap();
+                writer.write_all(b":").unwrap();
+                write_canonical_to(writer, value);
+            }
+            writer.write_all(b"}").unwrap();
+        }
     }
 }
 
@@ -167,7 +340,7 @@ pub struct ReasonStructure {
     executable_sequence: Vec<serde_json::Value>,
     executable_lifecycle: Vec<serde_json::Value>,
     executable_metrics: [u64; 18],
-    executable_active: HashSet<u64>,
+    executable_active: Vec<u64>,
     executable_sequence_hash: RollingJsonArrayHash,
     executable_lifecycle_hash: RollingJsonArrayHash,
 }
@@ -196,13 +369,6 @@ impl ReasonStructure {
             return None;
         }
         let sequence = self.executable_metrics[0] + 1;
-        let semantic_signature = format!(
-            "{}|{}|{}|{}",
-            executable_kind(kind),
-            operation,
-            canonical(&subject),
-            canonical(&input)
-        );
         self.executable_metrics[0] += 1; // created
         self.executable_metrics[1] += 1; // activated
         self.executable_metrics[6] += 2; // lifecycle transitions
@@ -212,17 +378,26 @@ impl ReasonStructure {
             ReasonUnitSource::LegacyReasoningEvent => self.executable_metrics[14] += 1,
         }
         if self.executable_mode == ExecutableMode::Count {
-            let id = format!("ru:{}:{sequence:08}", executable_kind_id(kind));
-            self.executable_lifecycle_hash.push(&(&id, "CREATED", 0));
-            self.executable_lifecycle_hash.push(&(&id, "ACTIVE", 1));
-            self.executable_active.insert(sequence);
+            self.executable_lifecycle_hash
+                .lifecycle(kind, sequence, "CREATED", 0);
+            self.executable_lifecycle_hash
+                .lifecycle(kind, sequence, "ACTIVE", 1);
+            self.executable_active.push(sequence);
             return Some(ExecutableHandle::Count {
                 sequence,
                 kind,
-                semantic_signature,
+                operation: executable_operation(operation),
                 subject,
+                input,
             });
         }
+        let semantic_signature = format!(
+            "{}|{}|{}|{}",
+            executable_kind(kind),
+            operation,
+            canonical(&subject),
+            canonical(&input)
+        );
         let id = format!("ru:{}:{sequence:08}", executable_kind_id(kind));
         let unit = ExecutableReasonUnit {
             id: id.clone(),
@@ -258,31 +433,36 @@ impl ReasonStructure {
         if let ExecutableHandle::Count {
             sequence,
             kind,
-            semantic_signature,
+            operation,
             subject,
+            input,
         } = handle
         {
-            if !self.executable_active.remove(&sequence) {
+            let Some(position) = self
+                .executable_active
+                .iter()
+                .rposition(|active| *active == sequence)
+            else {
                 self.executable_metrics[7] += 1;
                 return Err("RU-LIFECYCLE-001");
-            }
-            let id = format!("ru:{}:{sequence:08}", executable_kind_id(kind));
+            };
+            self.executable_active.swap_remove(position);
             let mut revision = 2;
-            self.executable_lifecycle_hash
-                .push(&(&id, terminal_status(terminal), revision));
+            self.executable_lifecycle_hash.lifecycle(
+                kind,
+                sequence,
+                terminal_status(terminal),
+                revision,
+            );
             self.executable_metrics[6] += 1;
             if terminal != TerminalStatus::Completed {
                 revision += 1;
                 self.executable_lifecycle_hash
-                    .push(&(&id, "COMPLETED", revision));
+                    .lifecycle(kind, sequence, "COMPLETED", revision);
                 self.executable_metrics[6] += 1;
             }
-            self.executable_sequence_hash.push(&(
-                semantic_signature,
-                executable_kind(kind),
-                terminal_status(terminal),
-                subject,
-            ));
+            self.executable_sequence_hash
+                .sequence(kind, &operation, &subject, &input, terminal);
             self.finish_counters(terminal, evidence_kind.is_some());
             return Ok(());
         }
@@ -574,6 +754,9 @@ impl ReasonStructure {
                 "ru_native_count": self.executable_metrics[13],
                 "ru_legacy_adapter_count": self.executable_metrics[14],
                 "ru_active_count": self.executable_active.len(),
+                "ru_hash_update_count": self.executable_sequence_hash.updates + self.executable_lifecycle_hash.updates,
+                "ru_hash_bytes": self.executable_sequence_hash.bytes + self.executable_lifecycle_hash.bytes + 2,
+                "ru_canonicalization_count": self.executable_metrics[2].saturating_mul(3),
                 "ru_serialized_bytes": if self.executable_mode == ExecutableMode::Full { serialized_len(&self.executable_units.iter().map(executable_json).collect::<Vec<_>>()) } else { 0 },
                 "ruvmr": if self.executable_metrics[2] == 0 { serde_json::Value::Null } else { serde_json::json!(vm_instruction_count as f64 / self.executable_metrics[2] as f64) },
                 "ru_sequence_hash": sequence_hash,
@@ -615,6 +798,22 @@ fn executable_kind_index(kind: ExecutableKind) -> usize {
         ExecutableKind::ConstraintDerivation => 2,
         ExecutableKind::GoalEvaluation => 3,
         ExecutableKind::TerminationCheck => 4,
+    }
+}
+
+fn executable_operation(operation: &str) -> Cow<'static, str> {
+    match operation {
+        "CANDIDATE_ADOPTED" => Cow::Borrowed("CANDIDATE_ADOPTED"),
+        "CANDIDATE_PREDICATE" => Cow::Borrowed("CANDIDATE_PREDICATE"),
+        "HYPOTHESIS_CREATED" => Cow::Borrowed("HYPOTHESIS_CREATED"),
+        "HYPOTHESIS_VERIFIED" => Cow::Borrowed("HYPOTHESIS_VERIFIED"),
+        "HYPOTHESIS_REJECTED" => Cow::Borrowed("HYPOTHESIS_REJECTED"),
+        "CANDIDATE_PRUNED" => Cow::Borrowed("CANDIDATE_PRUNED"),
+        "STATE_TRANSITION" => Cow::Borrowed("STATE_TRANSITION"),
+        "GOAL_UPDATED" => Cow::Borrowed("GOAL_UPDATED"),
+        "TERMINATION_INFERRED" => Cow::Borrowed("TERMINATION_INFERRED"),
+        "EVIDENCE_ADDED" => Cow::Borrowed("EVIDENCE_ADDED"),
+        other => Cow::Owned(other.to_owned()),
     }
 }
 
@@ -966,5 +1165,70 @@ mod tests {
             assert_eq!(count_metrics[name], full_metrics[name], "{name}");
         }
         assert_eq!(count_metrics["ru_active_count"], 0);
+    }
+
+    #[test]
+    fn executable_streaming_hash_matches_full_for_json_edge_values() {
+        let subjects = [
+            serde_json::Value::Null,
+            serde_json::json!(true),
+            serde_json::json!(i64::MIN),
+            serde_json::json!(u64::MAX),
+            serde_json::json!(-12.5),
+            serde_json::json!("quote \" slash \\ line\n雪"),
+            serde_json::json!([]),
+            serde_json::json!({}),
+            serde_json::json!([null, false, 7, "é"]),
+            serde_json::json!({"nested": {"items": [1, 2]}, "empty": []}),
+        ];
+        for subject in subjects {
+            let run = |mode| {
+                let mut structure = ReasonStructure::default();
+                structure.set_executable_mode(mode);
+                let handle = structure.begin_executable(
+                    ExecutableKind::Verification,
+                    ReasonUnitSource::Runtime,
+                    "CANDIDATE_PREDICATE",
+                    subject.clone(),
+                    serde_json::json!({"index": 0, "label": "a\tb"}),
+                );
+                structure
+                    .finish_executable(
+                        handle,
+                        TerminalStatus::Verified,
+                        serde_json::Value::Null,
+                        Some("FACTOR_CONFIRMED"),
+                        serde_json::Value::Null,
+                    )
+                    .unwrap();
+                structure.executable_trace()
+            };
+            let count = run(ExecutableMode::Count);
+            let full = run(ExecutableMode::Full);
+            assert_eq!(count["ru_sequence_hash"], full["ru_sequence_hash"]);
+            assert_eq!(count["ru_lifecycle_hash"], full["ru_lifecycle_hash"]);
+        }
+    }
+
+    #[test]
+    fn executable_hash_v1_golden_is_stable() {
+        let mut structure = ReasonStructure::default();
+        structure.set_executable_mode(ExecutableMode::Count);
+        structure
+            .record_legacy_executable(
+                "HYPOTHESIS_VERIFIED",
+                serde_json::json!(11),
+                serde_json::json!(true),
+            )
+            .unwrap();
+        let trace = structure.executable_trace();
+        assert_eq!(
+            trace["ru_sequence_hash"],
+            "sha256:eb90b531efe93b19c86007c1a4d2a78be05b2fb202450f076ba0b96c4686ee95"
+        );
+        assert_eq!(
+            trace["ru_lifecycle_hash"],
+            "sha256:8fc292f6f4d053b76e6777bd473c9e24db4b883ab8a2d8e480737ca2e6275b55"
+        );
     }
 }
