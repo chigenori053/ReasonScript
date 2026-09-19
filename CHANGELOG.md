@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Changed executable RU `count` mode to a counter-and-rolling-hash fast path
+  that retains no RU, Evidence, Relation, sequence, or lifecycle payloads while
+  preserving Full-mode counts, lifecycle validation, and SHA-256 hashes.
 - Added the reproducible 117-case Model G/H Executable RU benchmark, including
   host-side execution timing, deterministic managed-allocation metrics,
   semantic/lifecycle gates, CSV/JSON evidence, and six SVG analyses.

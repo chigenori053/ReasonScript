@@ -168,7 +168,11 @@ RU, and SHA-256 sequence/graph hashes. Turning semantic event tracing off does
 not disable this explicit structure projection.
 
 Executable Reason Units are independently controlled by
-`context.executable_reason_units`: `off` (default), `count`, or `full`.
+`context.executable_reason_units`: `off` (default), `count`, or `full`. `count`
+uses the production-oriented fast path: it retains counters, active lifecycle
+state, and rolling SHA-256 hashes without retaining RU, Evidence, Relation,
+sequence, or lifecycle payloads. `full` retains those payloads for debugging
+and structural inspection.
 `ReasonStructure` creates and activates native units before candidate predicate
 evaluation, then verifies or rejects and completes them afterward. Explicit
 `reasoning.event` calls remain compatible through synthetic units marked

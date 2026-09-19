@@ -1,4 +1,6 @@
 use sha2::{Digest, Sha256};
+use std::collections::HashSet;
+use std::io::{self, Write};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ExecutableMode {
@@ -41,8 +43,60 @@ pub enum TerminalStatus {
     Completed,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct ExecutableHandle(usize);
+#[derive(Clone, Debug)]
+pub enum ExecutableHandle {
+    Count {
+        sequence: u64,
+        kind: ExecutableKind,
+        semantic_signature: String,
+        subject: serde_json::Value,
+    },
+    Full(usize),
+}
+
+#[derive(Clone)]
+struct RollingJsonArrayHash {
+    hasher: Sha256,
+    items: u64,
+}
+
+impl Default for RollingJsonArrayHash {
+    fn default() -> Self {
+        let mut hasher = Sha256::new();
+        hasher.update(b"[");
+        Self { hasher, items: 0 }
+    }
+}
+
+impl RollingJsonArrayHash {
+    fn push<T: serde::Serialize>(&mut self, value: &T) {
+        if self.items > 0 {
+            self.hasher.update(b",");
+        }
+        serde_json::to_writer(HashWriter(&mut self.hasher), value)
+            .expect("Reason Unit hash values are serializable");
+        self.items += 1;
+    }
+
+    fn finish(&self) -> String {
+        let mut hasher = self.hasher.clone();
+        hasher.update(b"]");
+        format!("sha256:{:x}", hasher.finalize())
+    }
+}
+
+struct HashWriter<'a>(&'a mut Sha256);
+
+impl Write for HashWriter<'_> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.update(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
 
 #[derive(Debug)]
 struct ExecutableReasonUnit {
@@ -112,7 +166,10 @@ pub struct ReasonStructure {
     executable_relations: Vec<serde_json::Value>,
     executable_sequence: Vec<serde_json::Value>,
     executable_lifecycle: Vec<serde_json::Value>,
-    executable_metrics: [u64; 13],
+    executable_metrics: [u64; 18],
+    executable_active: HashSet<u64>,
+    executable_sequence_hash: RollingJsonArrayHash,
+    executable_lifecycle_hash: RollingJsonArrayHash,
 }
 
 impl ReasonStructure {
@@ -139,7 +196,6 @@ impl ReasonStructure {
             return None;
         }
         let sequence = self.executable_metrics[0] + 1;
-        let id = format!("ru:{}:{sequence:08}", executable_kind_id(kind));
         let semantic_signature = format!(
             "{}|{}|{}|{}",
             executable_kind(kind),
@@ -151,6 +207,23 @@ impl ReasonStructure {
         self.executable_metrics[1] += 1; // activated
         self.executable_metrics[6] += 2; // lifecycle transitions
         self.executable_metrics[8 + executable_kind_index(kind)] += 1;
+        match source {
+            ReasonUnitSource::Runtime => self.executable_metrics[13] += 1,
+            ReasonUnitSource::LegacyReasoningEvent => self.executable_metrics[14] += 1,
+        }
+        if self.executable_mode == ExecutableMode::Count {
+            let id = format!("ru:{}:{sequence:08}", executable_kind_id(kind));
+            self.executable_lifecycle_hash.push(&(&id, "CREATED", 0));
+            self.executable_lifecycle_hash.push(&(&id, "ACTIVE", 1));
+            self.executable_active.insert(sequence);
+            return Some(ExecutableHandle::Count {
+                sequence,
+                kind,
+                semantic_signature,
+                subject,
+            });
+        }
+        let id = format!("ru:{}:{sequence:08}", executable_kind_id(kind));
         let unit = ExecutableReasonUnit {
             id: id.clone(),
             semantic_signature,
@@ -170,7 +243,7 @@ impl ReasonStructure {
         self.executable_lifecycle
             .push(serde_json::json!([id, "ACTIVE", 1]));
         self.executable_units.push(unit);
-        Some(ExecutableHandle(self.executable_units.len() - 1))
+        Some(ExecutableHandle::Full(self.executable_units.len() - 1))
     }
 
     pub fn finish_executable(
@@ -182,7 +255,41 @@ impl ReasonStructure {
         evidence_value: serde_json::Value,
     ) -> Result<(), &'static str> {
         let Some(handle) = handle else { return Ok(()) };
-        let Some(unit) = self.executable_units.get_mut(handle.0) else {
+        if let ExecutableHandle::Count {
+            sequence,
+            kind,
+            semantic_signature,
+            subject,
+        } = handle
+        {
+            if !self.executable_active.remove(&sequence) {
+                self.executable_metrics[7] += 1;
+                return Err("RU-LIFECYCLE-001");
+            }
+            let id = format!("ru:{}:{sequence:08}", executable_kind_id(kind));
+            let mut revision = 2;
+            self.executable_lifecycle_hash
+                .push(&(&id, terminal_status(terminal), revision));
+            self.executable_metrics[6] += 1;
+            if terminal != TerminalStatus::Completed {
+                revision += 1;
+                self.executable_lifecycle_hash
+                    .push(&(&id, "COMPLETED", revision));
+                self.executable_metrics[6] += 1;
+            }
+            self.executable_sequence_hash.push(&(
+                semantic_signature,
+                executable_kind(kind),
+                terminal_status(terminal),
+                subject,
+            ));
+            self.finish_counters(terminal, evidence_kind.is_some());
+            return Ok(());
+        }
+        let ExecutableHandle::Full(index) = handle else {
+            unreachable!()
+        };
+        let Some(unit) = self.executable_units.get_mut(index) else {
             self.executable_metrics[7] += 1;
             return Err("RU-LIFECYCLE-001");
         };
@@ -211,13 +318,6 @@ impl ReasonStructure {
                 unit.lifecycle_revision
             ]));
         }
-        self.executable_metrics[2] += 1; // executed
-        self.executable_metrics[5] += 1; // completed
-        match terminal {
-            TerminalStatus::Verified => self.executable_metrics[3] += 1,
-            TerminalStatus::Rejected => self.executable_metrics[4] += 1,
-            TerminalStatus::Completed => {}
-        }
         if let Some(kind) = evidence_kind {
             let evidence_id = format!("evidence:ru:{:08}", self.executable_evidence.len() + 1);
             unit.evidence_refs.push(evidence_id.clone());
@@ -241,7 +341,23 @@ impl ReasonStructure {
             terminal_status(terminal),
             unit.subject
         ]));
+        self.finish_counters(terminal, evidence_kind.is_some());
         Ok(())
+    }
+
+    fn finish_counters(&mut self, terminal: TerminalStatus, evidence: bool) {
+        self.executable_metrics[2] += 1; // executed
+        self.executable_metrics[5] += 1; // completed
+        match terminal {
+            TerminalStatus::Verified => self.executable_metrics[3] += 1,
+            TerminalStatus::Rejected => self.executable_metrics[4] += 1,
+            TerminalStatus::Completed => {}
+        }
+        if evidence {
+            self.executable_metrics[15] += 1; // evidence created
+            self.executable_metrics[16] += 1; // evidence attached
+            self.executable_metrics[17] += 1; // relation created
+        }
     }
 
     pub fn record_legacy_executable(
@@ -263,13 +379,23 @@ impl ReasonStructure {
 
     pub fn executable_trace(&self) -> serde_json::Value {
         let full = self.executable_mode == ExecutableMode::Full;
+        let sequence_hash = if full {
+            hash(&self.executable_sequence)
+        } else {
+            self.executable_sequence_hash.finish()
+        };
+        let lifecycle_hash = if full {
+            hash(&self.executable_lifecycle)
+        } else {
+            self.executable_lifecycle_hash.finish()
+        };
         serde_json::json!({
             "mode": match self.executable_mode { ExecutableMode::Off => "off", ExecutableMode::Count => "count", ExecutableMode::Full => "full" },
             "reason_units": if full { self.executable_units.iter().map(executable_json).collect::<Vec<_>>() } else { Vec::new() },
             "evidence": if full { self.executable_evidence.clone() } else { Vec::new() },
             "relations": if full { self.executable_relations.clone() } else { Vec::new() },
-            "ru_sequence_hash": hash(&self.executable_sequence),
-            "ru_lifecycle_hash": hash(&self.executable_lifecycle),
+            "ru_sequence_hash": sequence_hash,
+            "ru_lifecycle_hash": lifecycle_hash,
         })
     }
 
@@ -418,12 +544,16 @@ impl ReasonStructure {
             "allocation_metric_kind": "deterministic_managed_proxy",
         });
         if self.executable_mode != ExecutableMode::Off {
-            let native = self
-                .executable_units
-                .iter()
-                .filter(|unit| unit.source == ReasonUnitSource::Runtime)
-                .count();
-            let legacy = self.executable_units.len() - native;
+            let sequence_hash = if self.executable_mode == ExecutableMode::Full {
+                hash(&self.executable_sequence)
+            } else {
+                self.executable_sequence_hash.finish()
+            };
+            let lifecycle_hash = if self.executable_mode == ExecutableMode::Full {
+                hash(&self.executable_lifecycle)
+            } else {
+                self.executable_lifecycle_hash.finish()
+            };
             let extra = serde_json::json!({
                 "ru_created_count": self.executable_metrics[0],
                 "ru_activated_count": self.executable_metrics[1],
@@ -438,14 +568,16 @@ impl ReasonStructure {
                 "ru_constraint_derivation_count": self.executable_metrics[10],
                 "ru_goal_evaluation_count": self.executable_metrics[11],
                 "ru_termination_check_count": self.executable_metrics[12],
-                "ru_evidence_created_count": self.executable_evidence.len(),
-                "ru_evidence_attached_count": self.executable_evidence.len(),
-                "ru_native_count": native,
-                "ru_legacy_adapter_count": legacy,
+                "ru_evidence_created_count": self.executable_metrics[15],
+                "ru_evidence_attached_count": self.executable_metrics[16],
+                "ru_relation_created_count": self.executable_metrics[17],
+                "ru_native_count": self.executable_metrics[13],
+                "ru_legacy_adapter_count": self.executable_metrics[14],
+                "ru_active_count": self.executable_active.len(),
                 "ru_serialized_bytes": if self.executable_mode == ExecutableMode::Full { serialized_len(&self.executable_units.iter().map(executable_json).collect::<Vec<_>>()) } else { 0 },
                 "ruvmr": if self.executable_metrics[2] == 0 { serde_json::Value::Null } else { serde_json::json!(vm_instruction_count as f64 / self.executable_metrics[2] as f64) },
-                "ru_sequence_hash": hash(&self.executable_sequence),
-                "ru_lifecycle_hash": hash(&self.executable_lifecycle),
+                "ru_sequence_hash": sequence_hash,
+                "ru_lifecycle_hash": lifecycle_hash,
             });
             metrics
                 .as_object_mut()
@@ -710,7 +842,7 @@ mod tests {
             );
             structure
                 .finish_executable(
-                    handle,
+                    handle.clone(),
                     TerminalStatus::Verified,
                     serde_json::json!({"divisible": true}),
                     Some("FACTOR_CONFIRMED"),
@@ -762,5 +894,77 @@ mod tests {
             serde_json::json!([])
         );
         assert_eq!(structure.metrics(1)["ru_legacy_adapter_count"], 1);
+    }
+
+    #[test]
+    fn executable_count_fast_path_matches_full_hashes_and_metrics() {
+        let run = |mode| {
+            let mut structure = ReasonStructure::default();
+            structure.set_executable_mode(mode);
+            for (event, subject, evidence) in [
+                (
+                    "HYPOTHESIS_VERIFIED",
+                    serde_json::json!(11),
+                    serde_json::json!(true),
+                ),
+                (
+                    "HYPOTHESIS_REJECTED",
+                    serde_json::json!(13),
+                    serde_json::json!(false),
+                ),
+                (
+                    "TERMINATION_INFERRED",
+                    serde_json::json!(77),
+                    serde_json::json!(true),
+                ),
+            ] {
+                structure
+                    .record_legacy_executable(event, subject, evidence)
+                    .unwrap();
+            }
+            structure
+        };
+        let count = run(ExecutableMode::Count);
+        let full = run(ExecutableMode::Full);
+        let count_trace = count.executable_trace();
+        let full_trace = full.executable_trace();
+        assert_eq!(
+            count_trace["ru_sequence_hash"],
+            full_trace["ru_sequence_hash"]
+        );
+        assert_eq!(
+            count_trace["ru_lifecycle_hash"],
+            full_trace["ru_lifecycle_hash"]
+        );
+        assert_eq!(count_trace["reason_units"], serde_json::json!([]));
+        assert!(count.executable_units.is_empty());
+        assert!(count.executable_evidence.is_empty());
+        assert!(count.executable_relations.is_empty());
+        assert!(count.executable_sequence.is_empty());
+        assert!(count.executable_lifecycle.is_empty());
+        let count_metrics = count.metrics(10);
+        let full_metrics = full.metrics(10);
+        for name in [
+            "ru_created_count",
+            "ru_activated_count",
+            "ru_executed_count",
+            "ru_verified_count",
+            "ru_rejected_count",
+            "ru_completed_count",
+            "ru_lifecycle_transition_count",
+            "ru_invalid_transition_count",
+            "ru_hypothesis_count",
+            "ru_verification_count",
+            "ru_constraint_derivation_count",
+            "ru_goal_evaluation_count",
+            "ru_termination_check_count",
+            "ru_native_count",
+            "ru_legacy_adapter_count",
+            "ru_evidence_created_count",
+            "ru_evidence_attached_count",
+        ] {
+            assert_eq!(count_metrics[name], full_metrics[name], "{name}");
+        }
+        assert_eq!(count_metrics["ru_active_count"], 0);
     }
 }

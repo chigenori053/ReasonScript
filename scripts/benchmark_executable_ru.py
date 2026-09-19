@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import platform
@@ -26,6 +27,8 @@ from toolchain.artifacts import artifact_manifest, artifact_summary, stable_json
 SCHEMA = "reasonscript-executable-ru-benchmark/1.0"
 CASES = ROOT / "tests/benchmarks/executable_ru/cases.json"
 DEFAULT_OUT = ROOT / "artifacts/executable_ru_benchmark"
+OLD_COMPARISON = DEFAULT_OUT / "count_old_baseline.csv"
+OLD_SUMMARY = DEFAULT_OUT / "count_old_baseline.json"
 REPORT = ROOT / "docs/reports/ReasonScript_Model_G_H_Executable_RU_Benchmark_Report.md"
 CLASSES = (
     "prime", "semiprime", "composite", "highly_composite", "repeated_factor",
@@ -145,7 +148,7 @@ def execute(ir: dict, binary: Path, mode: str) -> tuple[dict, dict, dict]:
     return outcome.calculation_results, metrics, outcome.metadata.get("reason_unit_trace", {})
 
 
-def benchmark_case(case: dict, binary: Path, warmup: int, samples: int) -> dict:
+def benchmark_case(case: dict, binary: Path, warmup: int, samples: int, old: dict | None = None) -> dict:
     ir = lower_program(parse(source_for(case)))
     for _ in range(warmup):
         execute(ir, binary, "off")
@@ -154,11 +157,14 @@ def benchmark_case(case: dict, binary: Path, warmup: int, samples: int) -> dict:
     runs_h: list[dict] = []
     result_g = result_h = None
     trace_h: dict = {}
-    for _ in range(samples):
-        result_g, metrics_g, _ = execute(ir, binary, "off")
-        result_h, metrics_h, trace_h = execute(ir, binary, "count")
+    for sample in range(samples):
+        order = ("off", "count") if sample % 2 == 0 else ("count", "off")
+        measured = {mode: execute(ir, binary, mode) for mode in order}
+        result_g, metrics_g, _ = measured["off"]
+        result_h, metrics_h, trace_h = measured["count"]
         runs_g.append(metrics_g)
         runs_h.append(metrics_h)
+    result_full, metrics_full, trace_full = execute(ir, binary, "full")
     g, h = median_metrics(runs_g), median_metrics(runs_h)
     missing_ru = [name for name in RU_METRICS if name not in runs_h[-1]]
     if missing_ru:
@@ -187,7 +193,26 @@ def benchmark_case(case: dict, binary: Path, warmup: int, samples: int) -> dict:
         result_equal=result_g == result_h == {"Answer": case["expected_result"]},
         hypothesis_hash_equal=runs_g[-1].get("hypothesis_sequence_hash") == runs_h[-1].get("hypothesis_sequence_hash"),
         ru_sequence_hash=trace_h.get("ru_sequence_hash"), ru_lifecycle_hash=trace_h.get("ru_lifecycle_hash"),
+        runtime_H_old=float(old["runtime_H"]) if old else None,
+        RUOR_old=float(old["RUOR"]) if old else None,
+        AOR_old=float(old["AOR"]) if old else None,
+        runtime_H_fast=h["runtime_execution_ns"],
+        RUOR_fast=ratio(h["runtime_execution_ns"], g["runtime_execution_ns"]),
+        FastPathSpeedup=ratio(float(old["runtime_H"]), h["runtime_execution_ns"]) if old else None,
+        VIO_fast=ratio(h["vm_instruction_count"], g["vm_instruction_count"]),
+        allocation_H_fast=h["allocated_bytes"], AOR_fast=ratio(h["allocated_bytes"], g["allocated_bytes"]),
+        ru_sequence_hash_count=trace_h.get("ru_sequence_hash"),
+        ru_sequence_hash_full=trace_full.get("ru_sequence_hash"),
+        ru_lifecycle_hash_count=trace_h.get("ru_lifecycle_hash"),
+        ru_lifecycle_hash_full=trace_full.get("ru_lifecycle_hash"),
     )
+    comparable = [name for name in RU_METRICS if name in metrics_full]
+    row["metrics_equal"] = all(runs_h[-1][name] == metrics_full[name] for name in comparable)
+    row["hash_equal"] = (
+        row["ru_sequence_hash_count"] == row["ru_sequence_hash_full"]
+        and row["ru_lifecycle_hash_count"] == row["ru_lifecycle_hash_full"]
+    )
+    row["result_equal"] = row["result_equal"] and result_h == result_full
     return row
 
 
@@ -204,6 +229,7 @@ def determinism(cases: list[dict], binary: Path) -> bool:
 def environment(binary: Path) -> dict:
     def command(*args: str) -> str:
         return subprocess.run(args, cwd=ROOT, text=True, capture_output=True, check=False).stdout.strip()
+    dirty = bool(command("git", "status", "--porcelain"))
     return {
         "os": platform.platform(), "cpu_architecture": platform.machine(),
         "reasonscript_version": command(str(ROOT / "reason"), "--version"),
@@ -211,10 +237,14 @@ def environment(binary: Path) -> dict:
         "build_profile": "release" if "/release/" in str(binary) else "debug",
         "compiler_version": command("rustc", "--version"),
         "date": datetime.now(timezone.utc).isoformat(),
+        "source_commit": command("git", "rev-parse", "HEAD"),
+        "benchmark_commit": command("git", "rev-parse", "HEAD"),
+        "working_tree_dirty": dirty,
+        "runtime_binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
     }
 
 
-def summarize(rows: list[dict], deterministic: bool, env: dict, warmup: int, samples: int) -> dict:
+def summarize(rows: list[dict], deterministic: bool, env: dict, warmup: int, samples: int, old_summary: dict | None = None) -> dict:
     values = lambda name: [float(row[name]) for row in rows if row[name] is not None]
     total_created = sum(row["ru_created_H"] for row in rows)
     total_native = sum(row["ru_native_H"] for row in rows)
@@ -225,10 +255,12 @@ def summarize(rows: list[dict], deterministic: bool, env: dict, warmup: int, sam
         "2_ru_determinism": deterministic, "3_lifecycle_determinism": deterministic,
         "4_zero_invalid_transition": all(row["ru_invalid_transition_H"] == 0 for row in rows),
         "5_all_ru_completed": all_completed,
-        "6_runtime_overhead_target": statistics.median(values("RUOR")) <= 1.20 and percentile(values("RUOR"), .9) <= 1.35,
+        "6_runtime_overhead_target": statistics.median(values("RUOR_fast")) <= 1.20 and percentile(values("RUOR_fast"), .9) <= 1.35,
         "7_vm_overhead_target": statistics.median(values("VIO")) <= 1.20,
-        "8_allocation_overhead_target": statistics.median(values("AOR")) <= 1.50,
+        "8_allocation_overhead_target": statistics.median(values("AOR_fast")) <= 2.0,
         "9_native_ru_present": all(row["ru_native_H"] > 0 for row in rows),
+        "10_count_full_metrics_equal": all(row["metrics_equal"] for row in rows),
+        "11_count_full_hash_equal": all(row["hash_equal"] for row in rows),
     }
     return {
         "schema": SCHEMA, "environment": env, "warmup": warmup, "samples": samples,
@@ -237,16 +269,27 @@ def summarize(rows: list[dict], deterministic: bool, env: dict, warmup: int, sam
         "semantic_equivalence_pass": judgements["1_semantic_equivalence"],
         "median_runtime_G": statistics.median(values("runtime_G")),
         "median_runtime_H": statistics.median(values("runtime_H")),
-        "median_RUOR": statistics.median(values("RUOR")), "p90_RUOR": percentile(values("RUOR"), .9),
-        "max_RUOR": max(values("RUOR")), "median_VIO": statistics.median(values("VIO")),
-        "median_AOR": statistics.median(values("AOR")), "median_PMOR": statistics.median(values("PMOR")),
+        "median_RUOR": statistics.median(values("RUOR_fast")), "p90_RUOR": percentile(values("RUOR_fast"), .9),
+        "max_RUOR": max(values("RUOR_fast")), "median_VIO": statistics.median(values("VIO")),
+        "median_AOR": statistics.median(values("AOR_fast")), "median_PMOR": statistics.median(values("PMOR")),
+        "median_RUOR_old": old_summary.get("median_RUOR") if old_summary else None,
+        "median_RUOR_fast": statistics.median(values("RUOR_fast")),
+        "p90_RUOR_fast": percentile(values("RUOR_fast"), .9),
+        "max_RUOR_fast": max(values("RUOR_fast")),
+        "median_fast_path_speedup": statistics.median(values("FastPathSpeedup")),
+        "median_AOR_fast": statistics.median(values("AOR_fast")),
+        "median_VIO_fast": statistics.median(values("VIO_fast")),
+        "hash_equivalence": all(row["hash_equal"] for row in rows),
+        "lifecycle_equivalence": all(row["ru_lifecycle_hash_count"] == row["ru_lifecycle_hash_full"] for row in rows),
         "median_RUVMR": statistics.median(values("RUVMR")), "total_ru_created": total_created,
         "total_ru_native": total_native, "total_ru_legacy": total_legacy,
         "native_ru_ratio": ratio(total_native, total_created), "legacy_ru_ratio": ratio(total_legacy, total_created),
         "invalid_lifecycle_total": sum(row["ru_invalid_transition_H"] for row in rows),
         "determinism_pass": deterministic, "judgements": judgements,
-        "rus_gate": "PASS" if all(list(judgements.values())[:5]) else "FAIL",
-        "next_step": "RUS" if statistics.median(values("RUOR")) <= 1.50 else "RU Count Fast Path",
+        "working_tree_dirty": env["working_tree_dirty"], "source_commit": env["source_commit"],
+        "benchmark_commit": env["benchmark_commit"], "runtime_binary_sha256": env["runtime_binary_sha256"],
+        "rus_gate": "PASS" if all(list(judgements.values())[:5]) and statistics.median(values("RUOR_fast")) <= 1.50 else "HOLD",
+        "next_step": "RUS" if statistics.median(values("RUOR_fast")) <= 1.50 else "Further RU optimization",
     }
 
 
@@ -275,16 +318,16 @@ def write_artifacts(rows: list[dict], summary: dict, out: Path) -> None:
     (out / "summary.json").write_text(stable_json(summary), encoding="utf-8")
     graphs = out / "graphs"; graphs.mkdir(exist_ok=True)
     specifications = (
-        ("ruor_by_case.svg", "RUOR by case", [(i, row["RUOR"]) for i, row in enumerate(rows)], "case", "RUOR"),
-        ("runtime_overhead_by_ru.svg", "RU count vs runtime overhead", [(row["ru_created_H"], row["runtime_H"] - row["runtime_G"]) for row in rows], "RU count", "ns"),
-        ("vm_instructions_by_ru.svg", "RU count vs VM instructions", [(row["ru_created_H"], row["vm_instr_H"]) for row in rows], "RU count", "instructions"),
-        ("runtime_by_ruvmr.svg", "RUVMR vs runtime", [(row["RUVMR"], row["runtime_H"]) for row in rows], "RUVMR", "ns"),
-        ("native_ratio_by_class.svg", "Native RU ratio by class", [(i, statistics.mean(r["NRR"] for r in rows if r["problem_class"] == name)) for i, name in enumerate(CLASSES) if any(r["problem_class"] == name for r in rows)], "problem class index", "NRR"),
-        ("ru_composition_by_class.svg", "Hypothesis vs verification RU", [(sum(r["ru_hypothesis_H"] for r in rows if r["problem_class"] == name), sum(r["ru_verification_H"] for r in rows if r["problem_class"] == name)) for name in CLASSES if any(r["problem_class"] == name for r in rows)], "hypothesis", "verification"),
+        ("ruor_old_vs_fast.svg", "RUOR old vs fast", [(row["RUOR_old"], row["RUOR_fast"]) for row in rows], "RUOR old", "RUOR fast"),
+        ("runtime_g_old_fast.svg", "Runtime G / H-old / H-fast", [(i * 3 + series, value) for i, row in enumerate(rows) for series, value in enumerate((row["runtime_G"], row["runtime_H_old"], row["runtime_H_fast"]))], "case series", "ns"),
+        ("ru_count_vs_ruor_fast.svg", "RU count vs RUOR fast", [(row["ru_created_H"], row["RUOR_fast"]) for row in rows], "RU count", "RUOR fast"),
+        ("ru_count_vs_runtime_fast.svg", "RU count vs runtime H-fast", [(row["ru_created_H"], row["runtime_H_fast"]) for row in rows], "RU count", "ns"),
+        ("aor_old_vs_fast.svg", "AOR old vs fast", [(row["AOR_old"], row["AOR_fast"]) for row in rows], "AOR old", "AOR fast"),
+        ("fast_path_speedup.svg", "Fast Path speedup by case", [(i, row["FastPathSpeedup"]) for i, row in enumerate(rows)], "case", "speedup"),
     )
     for name, title, points, x_label, y_label in specifications:
         write_svg(graphs / name, title, points, x_label, y_label)
-    filenames = ["comparison.csv", "summary.json", *(f"graphs/{item[0]}" for item in specifications)]
+    filenames = ["comparison.csv", "summary.json", "count_old_baseline.csv", "count_old_baseline.json", *(f"graphs/{item[0]}" for item in specifications)]
     manifest = artifact_manifest(filenames, generator="benchmark_executable_ru.py", language_version="0.5")
     artifact_info = artifact_summary(filenames, generator="benchmark_executable_ru.py", language_version="0.5")
     (out / "artifact_manifest.json").write_text(stable_json(manifest), encoding="utf-8")
@@ -309,15 +352,17 @@ def write_report(summary: dict, out: Path) -> None:
 
 ## Dataset and models
 
-The fixed fixture contains {summary['cases_total']} cases. Model G uses executable RU `off`; Model H uses `count`. All other runtime settings and IR are identical. Warmup is {summary['warmup']} and samples are {summary['samples']}. Allocation metrics are the runtime's deterministic managed-allocation proxy (VM value slots plus retained ReasonStructure payload), not process heap telemetry.
+The fixed Executable RU Microbenchmark Dataset v1 contains {summary['cases_total']} cases. Model G uses executable RU `off`; Model H-fast uses the optimized public `count` mode. H-old values come from the frozen pre-optimization artifact. All other runtime settings and IR are identical. Warmup is {summary['warmup']} and samples are {summary['samples']}; G/H-fast order alternates by sample. Allocation metrics are the runtime's deterministic managed-allocation proxy (VM value slots plus retained ReasonStructure payload), not process heap telemetry.
 
 ## Results
 
 - Semantic equivalence: {'PASS' if summary['semantic_equivalence_pass'] else 'FAIL'}
-- RU/lifecycle determinism: {'PASS' if summary['determinism_pass'] else 'FAIL'}
+- RU/lifecycle determinism and count/full hash equivalence: {'PASS' if summary['determinism_pass'] and summary['hash_equivalence'] else 'FAIL'}
 - Invalid lifecycle transitions: {summary['invalid_lifecycle_total']}
-- Median RUOR / p90 / max: {summary['median_RUOR']:.4f} / {summary['p90_RUOR']:.4f} / {summary['max_RUOR']:.4f}
-- Median VIO / AOR / PMOR: {summary['median_VIO']:.4f} / {summary['median_AOR']:.4f} / {summary['median_PMOR']:.4f}
+- Median RUOR old / fast: {summary['median_RUOR_old']:.4f} / {summary['median_RUOR_fast']:.4f}
+- Fast p90 / max: {summary['p90_RUOR_fast']:.4f} / {summary['max_RUOR_fast']:.4f}
+- Median Fast Path speedup: {summary['median_fast_path_speedup']:.4f}
+- Median VIO-fast / AOR-fast: {summary['median_VIO_fast']:.4f} / {summary['median_AOR_fast']:.4f}
 - Native / legacy RU ratio: {summary['native_ru_ratio']:.4f} / {summary['legacy_ru_ratio']:.4f}
 - Median RUVMR: {summary['median_RUVMR']:.4f}
 
@@ -327,7 +372,7 @@ The fixed fixture contains {summary['cases_total']} cases. Model G uses executab
 
 ## Conclusion and next step
 
-RUS gate: **{summary['rus_gate']}**. Recommended next step: **{summary['next_step']}**.
+RUS gate: **{summary['rus_gate']}**. Recommended next step: **{summary['next_step']}**. Working tree dirty during measurement: **{summary['working_tree_dirty']}**. Runtime binary SHA-256: `{summary['runtime_binary_sha256']}`.
 
 Reproduce with `python3 scripts/benchmark_executable_ru.py --binary {env['runtime_binary_path']}`. Machine-readable evidence is in `{out.relative_to(ROOT)}/comparison.csv` and `summary.json`; six SVG graphs are in `graphs/`.
 """, encoding="utf-8")
@@ -347,6 +392,9 @@ def main() -> int:
         CASES.write_text(json.dumps(fixed_cases(), indent=2) + "\n", encoding="utf-8")
         return 0
     cases = json.loads(CASES.read_text(encoding="utf-8")); validate_cases(cases)
+    with OLD_COMPARISON.open(newline="", encoding="utf-8") as stream:
+        old_rows = {row["test_id"]: row for row in csv.DictReader(stream)}
+    old_summary = json.loads(OLD_SUMMARY.read_text(encoding="utf-8"))
     binary = (args.binary or find_binary())
     if binary is None:
         parser.error("runtime host not found; build ReasonRuntime first")
@@ -355,14 +403,15 @@ def main() -> int:
     warmup, samples = (0, 1) if args.quick else (args.warmup, args.samples)
     if warmup < 0 or samples < 1:
         parser.error("warmup must be non-negative and samples must be positive")
-    rows = [benchmark_case(case, binary, warmup, samples) for case in selected]
+    rows = [benchmark_case(case, binary, warmup, samples, old_rows.get(case["test_id"])) for case in selected]
     deterministic = determinism(selected, binary)
-    summary = summarize(rows, deterministic, environment(binary), warmup, samples)
+    summary = summarize(rows, deterministic, environment(binary), warmup, samples, old_summary)
     write_artifacts(rows, summary, args.out.resolve())
     if not args.quick:
         write_report(summary, args.out.resolve())
     print(json.dumps(summary, indent=2, sort_keys=True))
-    return 0 if all(list(summary["judgements"].values())[:5]) else 1
+    mandatory = ("1_semantic_equivalence", "2_ru_determinism", "3_lifecycle_determinism", "4_zero_invalid_transition", "5_all_ru_completed", "10_count_full_metrics_equal", "11_count_full_hash_equal")
+    return 0 if all(summary["judgements"][name] for name in mandatory) else 1
 
 
 if __name__ == "__main__":

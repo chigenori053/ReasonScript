@@ -238,6 +238,28 @@ def test_executable_reason_units_extend_reason_structure_without_changing_result
     assert len({run.metadata["reason_unit_trace"]["ru_lifecycle_hash"] for run in full_runs}) == 1
 
 
+def test_count_fast_path_matches_full_without_retaining_payloads():
+    ir = lower_program(parse("""module M {
+        struct Candidate { value: int }
+        calculation Answer {
+            let candidates = [Candidate { value: 5 }, Candidate { value: 7 }]
+            let kept = relation.filter(candidates, candidate.value == 5)
+            result = kept.length
+        }
+    }"""))
+    count = run_ir(ir, binary=HOST, executable_reason_units="count")
+    full = run_ir(ir, binary=HOST, executable_reason_units="full")
+    assert count.calculation_results == full.calculation_results == {"Answer": 1}
+    count_trace = count.metadata["reason_unit_trace"]
+    full_trace = full.metadata["reason_unit_trace"]
+    assert count_trace["reason_units"] == count_trace["evidence"] == count_trace["relations"] == []
+    assert count_trace["ru_sequence_hash"] == full_trace["ru_sequence_hash"]
+    assert count_trace["ru_lifecycle_hash"] == full_trace["ru_lifecycle_hash"]
+    names = [name for name in count.metadata["runtime_metrics"] if name.startswith("ru_") and name.endswith("_count")]
+    assert all(count.metadata["runtime_metrics"][name] == full.metadata["runtime_metrics"][name] for name in names)
+    assert count.metadata["runtime_metrics"]["ru_active_count"] == 0
+
+
 def test_state_reads_are_not_reused_across_mutation_by_optimizer():
     result = execute("""
         let rows = [Row { value: 1 }, Row { value: 3 }]
