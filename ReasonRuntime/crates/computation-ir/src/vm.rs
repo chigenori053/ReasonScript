@@ -22,6 +22,7 @@ use crate::reason_structure::{
     ExecutableKind, ExecutableMode, ReasonStructure, ReasonUnitMode, ReasonUnitSource,
     TerminalStatus,
 };
+use crate::reasoning_state::{ReasoningStateMode, ReasoningStateTrace};
 use crate::state_causality::{StateCausalityMode, StateCausalityTrace};
 use crate::state_trace::{TraceConfig, TraceMode, TraceState};
 use crate::value::{from_json, to_json, RuntimeReasonObject, StructValue, Value};
@@ -293,6 +294,12 @@ impl<'a> Vm<'a> {
         self.reason_structure.borrow_mut().set_executable_mode(mode);
     }
 
+    pub fn configure_reasoning_state(&mut self, mode: ReasoningStateMode) {
+        self.reason_structure
+            .borrow_mut()
+            .set_reasoning_state_mode(mode);
+    }
+
     pub fn configure_state_causality(&mut self, mode: StateCausalityMode) {
         self.reason_structure
             .borrow_mut()
@@ -313,6 +320,10 @@ impl<'a> Vm<'a> {
 
     pub fn state_causality_trace(&self) -> StateCausalityTrace {
         self.reason_structure.borrow().state_causality_trace()
+    }
+
+    pub fn reasoning_state_trace(&self) -> ReasoningStateTrace {
+        self.reason_structure.borrow().reasoning_state_trace()
     }
 
     pub fn trace_diagnostics(&self) -> Vec<serde_json::Value> {
@@ -1337,9 +1348,7 @@ impl<'a> Vm<'a> {
                 let rows = rows.borrow();
                 let mut kept = Vec::with_capacity(rows.len());
                 let mut removed = Vec::new();
-                let mut previous_candidate = serde_json::Value::Null;
                 let mut accepted_count = 0_u64;
-                let mut last_verified: Option<(String, String)> = None;
                 for (index, row) in rows.iter().enumerate() {
                     if !matches!(row, Value::Struct(_)) {
                         return Err(RuntimeError::new(
@@ -1368,33 +1377,17 @@ impl<'a> Vm<'a> {
                         .map_err(|code| {
                             RuntimeError::new(code, "invalid Reason Unit lifecycle transition")
                         })?;
-                    if let Some(hypothesis_ref) = hypothesis_ref.as_deref() {
-                        let evidence_ref = {
-                            self.reason_structure
-                                .borrow()
-                                .evidence_ref_for_ru(hypothesis_ref)
-                        };
-                        if let Some(evidence_ref) = evidence_ref {
-                            self.reason_structure.borrow_mut().record_state_transition(
-                                Some(hypothesis_ref),
-                                &serde_json::json!({"current_candidate": previous_candidate}),
-                                &serde_json::json!({"current_candidate": subject}),
-                                std::slice::from_ref(&evidence_ref),
-                            );
-                            previous_candidate = subject.clone();
-                        }
-                    }
                     let verification = self.reason_structure.borrow_mut().begin_executable(
                         ExecutableKind::Verification,
                         ReasonUnitSource::Runtime,
                         "CANDIDATE_PREDICATE",
-                        subject.clone(),
+                        subject,
                         serde_json::json!({"candidate_index": index}),
                     );
                     let verification_ref =
                         self.reason_structure.borrow().executable_ref(&verification);
                     if let (Some(hypothesis_ref), Some(verification_ref)) =
-                        (hypothesis_ref, verification_ref.clone())
+                        (hypothesis_ref, verification_ref)
                     {
                         let evidence_ref = self
                             .reason_structure
@@ -1441,24 +1434,7 @@ impl<'a> Vm<'a> {
                                         "invalid Reason Unit lifecycle transition",
                                     )
                                 })?;
-                            if let Some(verification_ref) = verification_ref.as_deref() {
-                                let evidence_ref = {
-                                    self.reason_structure
-                                        .borrow()
-                                        .evidence_ref_for_ru(verification_ref)
-                                };
-                                if let Some(evidence_ref) = evidence_ref {
-                                    self.reason_structure.borrow_mut().record_state_transition(
-                                        Some(verification_ref),
-                                        &serde_json::json!({"active_constraint_count": accepted_count}),
-                                        &serde_json::json!({"active_constraint_count": accepted_count + 1}),
-                                        std::slice::from_ref(&evidence_ref),
-                                    );
-                                    accepted_count += 1;
-                                    last_verified =
-                                        Some((verification_ref.to_owned(), evidence_ref));
-                                }
-                            }
+                            accepted_count += 1;
                         }
                         Value::Bool(false) => {
                             removed.push(index);
@@ -1486,34 +1462,45 @@ impl<'a> Vm<'a> {
                         }
                     }
                 }
-                if self.reason_structure.borrow().state_causality_enabled() {
-                    if let Some((source_ru, evidence_ref)) = last_verified {
-                        self.reason_structure.borrow_mut().record_state_transition(
-                            Some(&source_ru),
-                            &serde_json::json!({"goal_status": "ACTIVE"}),
-                            &serde_json::json!({"goal_status": "REACHED"}),
-                            std::slice::from_ref(&evidence_ref),
-                        );
-                        let termination = self.reason_structure.borrow_mut().begin_executable(
-                            ExecutableKind::TerminationCheck,
-                            ReasonUnitSource::Runtime,
-                            "FILTER_TERMINATION",
+                if accepted_count > 0 && self.reason_structure.borrow().reasoning_state_enabled() {
+                    let goal = self.reason_structure.borrow_mut().begin_executable(
+                        ExecutableKind::GoalEvaluation,
+                        ReasonUnitSource::Runtime,
+                        "FILTER_GOAL",
+                        serde_json::json!({"accepted_count": accepted_count}),
+                        serde_json::json!({"source": binding}),
+                    );
+                    self.reason_structure
+                        .borrow_mut()
+                        .finish_executable(
+                            goal,
+                            TerminalStatus::Verified,
+                            serde_json::json!({"goal_status": "REACHED"}),
+                            Some("GOAL_CONFIRMED"),
                             serde_json::json!({"accepted_count": accepted_count}),
-                            serde_json::json!({"source": binding}),
-                        );
-                        self.reason_structure
-                            .borrow_mut()
-                            .finish_executable(
-                                termination,
-                                TerminalStatus::Completed,
-                                serde_json::json!({"goal_status": "REACHED"}),
-                                None,
-                                serde_json::Value::Null,
-                            )
-                            .map_err(|code| {
-                                RuntimeError::new(code, "invalid Reason Unit lifecycle transition")
-                            })?;
-                    }
+                        )
+                        .map_err(|code| {
+                            RuntimeError::new(code, "invalid Reason Unit lifecycle transition")
+                        })?;
+                    let termination = self.reason_structure.borrow_mut().begin_executable(
+                        ExecutableKind::TerminationCheck,
+                        ReasonUnitSource::Runtime,
+                        "FILTER_TERMINATION",
+                        serde_json::json!({"accepted_count": accepted_count}),
+                        serde_json::json!({"source": binding}),
+                    );
+                    self.reason_structure
+                        .borrow_mut()
+                        .finish_executable(
+                            termination,
+                            TerminalStatus::Completed,
+                            serde_json::json!({"goal_status": "REACHED"}),
+                            None,
+                            serde_json::Value::Null,
+                        )
+                        .map_err(|code| {
+                            RuntimeError::new(code, "invalid Reason Unit lifecycle transition")
+                        })?;
                 }
                 if !removed.is_empty() {
                     self.semantic_event("CANDIDATE_PRUNED", serde_json::json!(binding), serde_json::Value::Null,

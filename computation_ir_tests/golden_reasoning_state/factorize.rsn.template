@@ -1,0 +1,31 @@
+// Real trial-division factorization. The program only reports semantic
+// reasoning events; `remaining`, `search_bound`, revisions, transitions and
+// causal relations are all derived by the runtime's reasoning state.
+module ReasoningStateFactorization {
+  fn Factor(n: int) -> int {
+    reasoning.event("REASON_STATE_CREATED", n, "factorization")
+    let remaining = n
+    let candidate = 2
+    while candidate * candidate <= remaining {
+      reasoning.event("HYPOTHESIS_CREATED", candidate, remaining)
+      if remaining % candidate == 0 {
+        reasoning.event("HYPOTHESIS_VERIFIED", candidate, true)
+        print("FACTOR", candidate)
+        remaining = int(remaining / candidate)
+      } else {
+        reasoning.event("HYPOTHESIS_REJECTED", candidate, false)
+        candidate = candidate + 1
+      }
+    }
+    if remaining > 1 {
+      print("FACTOR", remaining)
+    }
+    reasoning.event("GOAL_UPDATED", n, remaining)
+    reasoning.event("TERMINATION_INFERRED", n, remaining)
+    return remaining
+  }
+
+  calculation Result {
+    result = Factor(__N__)
+  }
+}

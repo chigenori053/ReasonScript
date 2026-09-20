@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" font-family="sans-serif" font-size="11">
+<text x="70" y="22" font-size="14" font-weight="bold">State Causality runtime vs transition count</text>
+<line x1="70" x2="700" y1="310" y2="310" stroke="#555"/><line x1="70" x2="70" y1="40" y2="310" stroke="#555"/>
+<text x="395" y="338" text-anchor="middle">transitions (max 102)</text>
+<text x="14" y="200" transform="rotate(-90 14 200)" text-anchor="middle">runtime_execution_ns (max 4.897e+05)</text>
+<circle cx="114.9" cy="271.4" r="4" fill="#8a94a6"/>
+<circle cx="244.1" cy="217.8" r="4" fill="#8a94a6"/>
+<circle cx="631.5" cy="67.5" r="4" fill="#8a94a6"/>
+<circle cx="159.8" cy="245.5" r="4" fill="#8a94a6"/>
+<circle cx="642.7" cy="64.5" r="4" fill="#8a94a6"/>
+<rect x="70" y="342" width="10" height="10" fill="#8a94a6"/><text x="84" y="351">R0</text>
+<circle cx="114.9" cy="278.7" r="4" fill="#2f6fdd"/>
+<circle cx="244.1" cy="238.5" r="4" fill="#2f6fdd"/>
+<circle cx="631.5" cy="131.1" r="4" fill="#2f6fdd"/>
+<circle cx="159.8" cy="260.2" r="4" fill="#2f6fdd"/>
+<circle cx="642.7" cy="125.9" r="4" fill="#2f6fdd"/>
+<rect x="160" y="342" width="10" height="10" fill="#2f6fdd"/><text x="174" y="351">R4</text>
+</svg>
