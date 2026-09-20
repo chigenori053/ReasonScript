@@ -262,7 +262,9 @@ def environment(binary: Path) -> dict:
 
 
 def summarize(rows: list[dict], deterministic: bool, env: dict, warmup: int, samples: int, old_summary: dict | None = None, h1_summary: dict | None = None, h2_summary: dict | None = None) -> dict:
-    values = lambda name: [float(row[name]) for row in rows if row[name] is not None]
+    def values(name):
+        return [float(row[name]) for row in rows if row[name] is not None]
+
     total_created = sum(row["ru_created_H"] for row in rows)
     total_native = sum(row["ru_native_H"] for row in rows)
     total_legacy = sum(row["ru_legacy_adapter_H"] for row in rows)
