@@ -188,6 +188,24 @@ retains lifecycle, kind, Evidence, source, RUVMR, and deterministic hash metrics
 without returning unit payloads. Invalid lifecycle transitions report
 `RU-LIFECYCLE-001`.
 
+### Causal relation evaluation
+
+Native runtime requests may set `context.causal_evaluation` to `off` (the
+default), `dependency`, `counterfactual`, or `full`. `causal_observations`
+declare each RU's produced, required, alternative-required, and blocking
+Evidence references. Direct dependencies are indexed by Evidence rather than
+found by pairwise RU scans. Counterfactual mode suppresses the source RU's
+Evidence and evaluates the same deterministic requirement rules again.
+
+The runtime returns `metadata.causal_trace` with structured relations,
+counterfactual results, metrics, diagnostics, and `causal_relation_hash`.
+`CAUSES` requires both an Evidence dependency and counterfactual necessity;
+execution order alone produces only `TEMPORAL`. `PREVENTS` is confirmed when
+suppressing blocking Evidence makes the target succeed. Traversal defaults to
+depth 8 and counterfactual evaluation to 32 runs, configurable through
+`max_causal_depth` and `max_counterfactual_runs`. Bounds report
+`CAUSAL-CYCLE-001` and `CAUSAL-BUDGET-001` without unbounded traversal.
+
 These new collection and event APIs execute in the native Rust host. The Python
 interpreters retain their earlier reference API surface.
 

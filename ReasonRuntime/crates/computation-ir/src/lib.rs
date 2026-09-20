@@ -5,6 +5,7 @@
 //! `frontend/computation_ir/` for the Python side this is validated
 //! against.
 
+pub mod causal;
 pub mod console_dispatch;
 pub mod ir;
 pub mod optimizer_dispatch;

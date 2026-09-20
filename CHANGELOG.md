@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added deterministic causal relation evaluation for Evidence dependencies,
+  suppression-based counterfactual necessity, `CAUSES`/`PREVENTS`
+  classification, bounded chain traversal, causal hashes, metrics, schemas,
+  and native runtime traces.
 - Added inline canonical fragments for executable RU Count mode, traversing
   subject/input values once, reusing their v1 bytes, and eliminating generic
   JSON serialization from the hot path (with deterministic float formatting).

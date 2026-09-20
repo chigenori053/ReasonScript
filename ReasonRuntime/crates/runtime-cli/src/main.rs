@@ -21,6 +21,9 @@ use std::fs;
 use std::io::{self, Read};
 use std::process::ExitCode;
 
+use reasonscript_computation_ir::causal::{
+    evaluate as evaluate_causal, CausalConfig, CausalMode, CausalObservation,
+};
 use reasonscript_computation_ir::reason_structure::{ExecutableMode, ReasonUnitMode};
 use reasonscript_computation_ir::state_trace::{TraceConfig, TraceMode};
 use reasonscript_computation_ir::{
@@ -292,6 +295,37 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             "executable_reason_units must be off, count, or full",
         );
     };
+    let causal_mode_name = request
+        .pointer("/context/causal_evaluation")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("off");
+    let Some(causal_mode) = CausalMode::parse(causal_mode_name) else {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-004",
+            "causal_evaluation must be off, dependency, counterfactual, or full",
+        );
+    };
+    let causal_observations: Vec<CausalObservation> = match serde_json::from_value(
+        request
+            .pointer("/context/causal_observations")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!([])),
+    ) {
+        Ok(observations) => observations,
+        Err(error) => return fail_request(request_id, "CAUSAL-001", &error.to_string()),
+    };
+    let causal_config = CausalConfig {
+        mode: causal_mode,
+        max_causal_depth: request
+            .pointer("/context/max_causal_depth")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(8) as usize,
+        max_counterfactual_runs: request
+            .pointer("/context/max_counterfactual_runs")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(32) as usize,
+    };
     vm.configure_trace(trace_config, semantic_events);
     vm.configure_reason_units(reason_unit_mode);
     vm.configure_executable_reason_units(executable_reason_unit_mode);
@@ -299,6 +333,16 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let runtime_execution_ns = execution_started.elapsed().as_nanos() as u64;
+            let mut causal_trace = evaluate_causal(&causal_observations, &causal_config);
+            causal_trace.metrics.normal_runtime_ns = runtime_execution_ns;
+            causal_trace.metrics.counterfactual_cost_ratio = if runtime_execution_ns == 0 {
+                None
+            } else {
+                Some(
+                    causal_trace.metrics.counterfactual_runtime_ns as f64
+                        / runtime_execution_ns as f64,
+                )
+            };
             let loop_trace = vm.loop_trace();
             let tensor_trace = vm.tensor_trace();
             let vision_trace = vm.vision_trace();
@@ -351,6 +395,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "reasoning_trace": reasoning_trace,
                         "reason_structure_trace": reason_structure_trace,
                         "reason_unit_trace": reason_unit_trace,
+                        "causal_trace": causal_trace,
                         "tensor_metadata": tensor_metadata,
                         "console_output": vm.console_events(),
                         "reason_object_metadata": [],
