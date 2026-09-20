@@ -39,8 +39,8 @@ from frontend.computation_ir.rust_bridge import find_binary
 from frontend.language_surface import parse
 
 GOLDEN_DIR = ROOT / "computation_ir_tests/golden_reasoning_state"
-TEMPLATE = (GOLDEN_DIR / "factorize.rsn.template").read_text()
-GOLDEN_CASES = [case["n"] for case in json.loads((GOLDEN_DIR / "golden.json").read_text())["cases"]]
+TEMPLATE = (GOLDEN_DIR / "factorize.rsn.template").read_text(encoding="utf-8")
+GOLDEN_CASES = [case["n"] for case in json.loads((GOLDEN_DIR / "golden.json").read_text(encoding="utf-8"))["cases"]]
 DEFAULT_OUT = ROOT / "artifacts/reasoning_state_optimization"
 CASES = (77, 997, 10007, 30030, 10403)  # semiprime, primes, highly composite, larger semiprime
 EQUIVALENCE_CASES = sorted({*range(2, 90), *GOLDEN_CASES, *CASES})
@@ -226,7 +226,7 @@ def in_process(profiles: dict[str, Path], iterations: int) -> dict:
         for label, binary in profiles.items():
             for n in CASES:
                 path = Path(directory) / f"program-{n}.json"
-                path.write_text(json.dumps(program(n)))
+                path.write_text(json.dumps(program(n)), encoding="utf-8")
                 for config in ("ru_full", "lightweight", "causality"):
                     completed = subprocess.run(
                         [str(binary), str(path), config, str(iterations)], text=True, capture_output=True, check=True
@@ -288,7 +288,7 @@ def svg_bars(path: Path, title: str, categories: list[str], series: dict[str, li
                    f'<text x="{width - 22}" y="{scale(line) - 4:.1f}" text-anchor="end" fill="#c0392b">target {line:g}{unit}</text>')
     for j, label in enumerate(series):
         out.append(f'<rect x="{left + j * 90}" y="{height - 18}" width="10" height="10" fill="{colors[j % 4]}"/><text x="{left + j * 90 + 14}" y="{height - 9}">{label}</text>')
-    path.write_text("\n".join([*out, "</svg>"]) + "\n")
+    path.write_text("\n".join([*out, "</svg>"]) + "\n", encoding="utf-8")
 
 
 def svg_scatter(path: Path, title: str, xlabel: str, ylabel: str, series: dict[str, list[tuple[float, float]]]) -> None:
@@ -307,19 +307,19 @@ def svg_scatter(path: Path, title: str, xlabel: str, ylabel: str, series: dict[s
     for j, (label, points) in enumerate(series.items()):
         out.extend(f'<circle cx="{sx(x):.1f}" cy="{sy(y):.1f}" r="4" fill="{colors[j % 4]}"/>' for x, y in points)
         out.append(f'<rect x="{left + j * 90}" y="{height - 18}" width="10" height="10" fill="{colors[j % 4]}"/><text x="{left + j * 90 + 14}" y="{height - 9}">{label}</text>')
-    path.write_text("\n".join([*out, "</svg>"]) + "\n")
+    path.write_text("\n".join([*out, "</svg>"]) + "\n", encoding="utf-8")
 
 
 def write_artifacts(out: Path, summary: dict, timings: dict, labels: list[str], profile: dict) -> None:
     out.mkdir(parents=True, exist_ok=True)
-    (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     before, after = labels[0], labels[-1]
     tag = lambda label: label.lower()  # noqa: E731
     columns = ["N", "transitions", "relations", "runtime_ru_full"]
     for label in (before, after):
         columns += [f"runtime_{tag(label)}_rus", f"runtime_{tag(label)}_causality"]
     columns += ["rus_overhead_before", "rus_overhead_after", "causal_overhead_before", "causal_overhead_after"]
-    with (out / "comparison.csv").open("w", newline="") as handle:
+    with (out / "comparison.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(columns)
         for n in CASES:

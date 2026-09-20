@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT))
 from frontend.computation_ir import lower_program
 from frontend.language_surface import parse
 
-TEMPLATE = (ROOT / "computation_ir_tests/golden_reasoning_state/factorize.rsn.template").read_text()
+TEMPLATE = (ROOT / "computation_ir_tests/golden_reasoning_state/factorize.rsn.template").read_text(encoding="utf-8")
 DEFAULT_OUT = ROOT / "artifacts/reasoning_state_optimization/profile"
 CASES = (77, 997, 10007, 30030, 10403)
 CONFIGS = ("ru_full", "lightweight", "causality")
@@ -67,7 +67,7 @@ def harness(binary: Path, program: Path, config: str, iterations: int) -> dict:
 
 
 def summarize_sample(path: Path) -> dict:
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     graph = text.split("Call graph:")[1].split("Total number in stack")[0]
     inclusive: collections.Counter = collections.Counter()
     for line in graph.splitlines():
@@ -109,8 +109,8 @@ def sample(label: str, binary: Path, program: Path, out: Path) -> dict:
     finally:
         process.kill()
     summary = summarize_sample(raw)
-    with gzip.open(out / f"sample_{label}.txt.gz", "wt") as handle:
-        handle.write(raw.read_text())
+    with gzip.open(out / f"sample_{label}.txt.gz", "wt", encoding="utf-8") as handle:
+        handle.write(raw.read_text(encoding="utf-8"))
     raw.unlink()
     return summary
 
@@ -129,7 +129,7 @@ def main() -> int:
         programs = {}
         for n in CASES:
             programs[n] = Path(directory) / f"program-{n}.json"
-            programs[n].write_text(json.dumps(lower_program(parse(TEMPLATE.replace("__N__", str(n))))))
+            programs[n].write_text(json.dumps(lower_program(parse(TEMPLATE.replace("__N__", str(n))))), encoding="utf-8")
         for label, binary in profiles.items():
             for n in CASES:
                 for config in CONFIGS:
@@ -144,7 +144,7 @@ def main() -> int:
                 configs[config]["hot_path_allocations_per_transition"] = round(
                     (configs[config]["run_allocations"] - configs["ru_full"]["run_allocations"]) / transitions, 2
                 )
-    (args.out / "profile.json").write_text(json.dumps(result, indent=2) + "\n")
+    (args.out / "profile.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     for label, cases in result["in_process"].items():
         for n, configs in cases.items():
             base = configs["ru_full"]

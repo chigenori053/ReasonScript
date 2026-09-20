@@ -23,8 +23,8 @@ from frontend.language_surface import parse
 HOST = find_binary()
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-TEMPLATE = (HERE / "golden_reasoning_state" / "factorize.rsn.template").read_text()
-GOLDEN = json.loads((HERE / "golden_reasoning_state" / "golden.json").read_text())
+TEMPLATE = (HERE / "golden_reasoning_state" / "factorize.rsn.template").read_text(encoding="utf-8")
+GOLDEN = json.loads((HERE / "golden_reasoning_state" / "golden.json").read_text(encoding="utf-8"))
 pytestmark = pytest.mark.skipif(HOST is None, reason="reason-runtime-host binary not built")
 
 CONTEXT = {
@@ -37,15 +37,20 @@ CONTEXT = {
 }
 
 
-def execute(source: str, *, expect_ok: bool = True, **context) -> dict:
-    request = {
+def request(source: str, **context) -> dict:
+    return {
         "schema": "reasonscript-runtime-request/1.0",
         "request_id": "reasoning-state",
         "operation": "execute",
         "program": lower_program(parse(source)),
         "context": {**CONTEXT, **context},
     }
-    completed = subprocess.run([str(HOST)], input=json.dumps(request), text=True, capture_output=True)
+
+
+def execute(source: str, *, expect_ok: bool = True, **context) -> dict:
+    completed = subprocess.run(
+        [str(HOST)], input=json.dumps(request(source, **context)), text=True, capture_output=True
+    )
     payload = json.loads(completed.stdout)
     assert payload["ok"] is expect_ok, completed.stdout + completed.stderr
     return payload
@@ -442,7 +447,7 @@ def test_filter_without_accepted_rows_creates_no_goal_or_termination():
 
 # --- Hash / artifact compatibility with the pre-optimization runtime ---------------
 
-R0_DIGESTS = json.loads((HERE / "golden_reasoning_state" / "r0_digests.json").read_text())
+R0_DIGESTS = json.loads((HERE / "golden_reasoning_state" / "r0_digests.json").read_text(encoding="utf-8"))
 
 
 def without_timing(value):
@@ -486,7 +491,7 @@ def test_response_phase_metrics_are_reported_and_the_hot_path_reports_zero_json(
 
 def test_artifacts_validate_against_the_published_schemas():
     jsonschema = pytest.importorskip("jsonschema")
-    load = lambda name: json.loads((ROOT / "schemas" / f"{name}.schema.json").read_text())  # noqa: E731
+    load = lambda name: json.loads((ROOT / "schemas" / f"{name}.schema.json").read_text(encoding="utf-8"))  # noqa: E731
     for n in (77, 84, 97):
         payload = factorize(n)
         jsonschema.validate(state(payload), load("reasoning_state"))
@@ -501,6 +506,22 @@ def test_artifacts_validate_against_the_published_schemas():
     assert request == {"enum": ["off", "lightweight"]}
 
 
+def test_runtime_requests_validate_against_the_published_request_schema():
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = json.loads((ROOT / "schemas" / "runtime_request.schema.json").read_text(encoding="utf-8"))
+    source = TEMPLATE.replace("__N__", "77")
+    for context in (
+        {},
+        {"state_causality": "trace"},
+        {"state_causality": "off", "reasoning_state": "lightweight"},
+        {"reasoning_state": "off", "benchmark_metrics": True},
+    ):
+        jsonschema.validate(request(source, **context), schema)
+    for invalid in ({"reasoning_state": "sometimes"}, {"state_causality": "sometimes"}, {"not_a_context_key": 1}):
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(request(source, **invalid), schema)
+
+
 # --- Phase F: the manual hook is gone ------------------------------------------
 
 
@@ -508,7 +529,7 @@ def test_no_manual_state_transition_hook_remains_in_the_runtime():
     sources = list((ROOT / "ReasonRuntime" / "crates").glob("*/src/**/*.rs"))
     assert sources
     for path in sources:
-        runtime_code = path.read_text().split("#[cfg(test)]")[0]
+        runtime_code = path.read_text(encoding="utf-8").split("#[cfg(test)]")[0]
         assert "record_state_transition" not in runtime_code, path
         # RuntimeReasoningState is the only place a StateTransition is constructed.
         if path.name != "reasoning_state.rs":
