@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Added Lightweight RUS v0.1: a runtime-owned `RuntimeReasoningState`
+  (`remaining`, `search_bound`, `current_candidate`, `active_constraint_count`,
+  `goal_status`) with deterministic revisions, atomic multi-field updates,
+  no-op detection, automatic diffs, automatic `StateTransition` generation with
+  RU/Evidence provenance, a canonical `reasoning_state_hash`, `RUS-001`..`RUS-005`
+  diagnostics, and `context.reasoning_state` (auto-enabled by state causality).
+  State causality now only projects transitions; the manual before/after
+  `record_state_transition` hooks were removed, `relation.filter` completes a
+  real goal-evaluation RU, and real factorization drives `remaining` /
+  `search_bound` from runtime state. Adds the `reasoning_state` schema,
+  a golden factorization dataset, and an overhead benchmark.
 - Added native state causality for runtime-observed factorization state diffs,
   including monotonic transitions, RU/Evidence provenance,
   `CAUSES_STATE_CHANGE`/`ENABLES`/`TERMINATES` relations, deterministic hashes,

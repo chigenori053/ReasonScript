@@ -1,7 +1,8 @@
 use crate::causal::CausalRelation;
+pub use crate::reasoning_state::StateTransition;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::time::Instant;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -27,18 +28,6 @@ impl StateCausalityMode {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct StateTransition {
-    pub id: String,
-    pub revision_before: u64,
-    pub revision_after: u64,
-    pub changed_fields: Vec<String>,
-    pub before_values: BTreeMap<String, serde_json::Value>,
-    pub after_values: BTreeMap<String, serde_json::Value>,
-    pub source_ru: String,
-    pub evidence_refs: Vec<String>,
-}
-
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct StateCausalityMetrics {
     pub state_transition_count: u64,
@@ -61,13 +50,13 @@ pub struct StateCausalityTrace {
     pub diagnostics: Vec<&'static str>,
 }
 
+/// Causal projection of transitions produced by `RuntimeReasoningState`.
+/// It owns no reasoning state: it only records transitions and relations.
 #[derive(Default)]
 pub struct StateCausality {
     mode: StateCausalityMode,
-    revision: u64,
     transitions: Vec<StateTransition>,
     relations: Vec<CausalRelation>,
-    diagnostics: Vec<&'static str>,
     runtime_ns: u64,
 }
 
@@ -80,73 +69,26 @@ impl StateCausality {
         self.mode.enabled()
     }
 
-    pub fn record(
-        &mut self,
-        source_ru: Option<&str>,
-        before: &serde_json::Value,
-        after: &serde_json::Value,
-        evidence_refs: &[String],
-    ) -> Option<String> {
+    pub(crate) fn transitions(&self) -> &[StateTransition] {
+        &self.transitions
+    }
+
+    /// Records a transition and, in `full` mode, its `CAUSES_STATE_CHANGE` relation.
+    pub fn observe(&mut self, transition: StateTransition) {
         if !self.enabled() {
-            return None;
+            return;
         }
         let started = Instant::now();
-        let (Some(before), Some(after)) = (before.as_object(), after.as_object()) else {
-            self.push_diagnostic("STATE-CAUSAL-003");
-            return None;
-        };
-        let Some(source_ru) = source_ru.filter(|value| !value.is_empty()) else {
-            self.push_diagnostic("STATE-CAUSAL-001");
-            return None;
-        };
-        let keys: BTreeSet<_> = before.keys().chain(after.keys()).cloned().collect();
-        let changed_fields: Vec<_> = keys
-            .into_iter()
-            .filter(|key| before.get(key) != after.get(key))
-            .collect();
-        if changed_fields.is_empty() {
-            return None;
-        }
-        let revision_before = self.revision;
-        self.revision += 1;
-        let id = format!("state-transition:{:08}", self.transitions.len() + 1);
-        let select = |values: &serde_json::Map<String, serde_json::Value>| {
-            changed_fields
-                .iter()
-                .map(|key| {
-                    (
-                        key.clone(),
-                        values.get(key).cloned().unwrap_or(serde_json::Value::Null),
-                    )
-                })
-                .collect()
-        };
-        let mut evidence_refs = evidence_refs.to_vec();
-        evidence_refs.sort();
-        evidence_refs.dedup();
-        let before_values = select(before);
-        let after_values = select(after);
-        self.transitions.push(StateTransition {
-            id: id.clone(),
-            revision_before,
-            revision_after: self.revision,
-            changed_fields,
-            before_values,
-            after_values,
-            source_ru: source_ru.to_owned(),
-            evidence_refs: evidence_refs.clone(),
-        });
         if self.mode == StateCausalityMode::Full {
             self.relations.push(state_relation(
-                source_ru,
-                &id,
+                &transition.source_ru,
+                &transition.id,
                 "CAUSES_STATE_CHANGE",
-                evidence_refs,
-                "CONFIRMED",
+                &transition,
             ));
         }
+        self.transitions.push(transition);
         self.runtime_ns += started.elapsed().as_nanos() as u64;
-        Some(id)
     }
 
     pub fn link_next_ru(&mut self, ru_ref: &str, ru_kind: &str) {
@@ -168,23 +110,11 @@ impl StateCausality {
         } else {
             return;
         };
-        if self.relations.iter().any(|relation| {
-            relation.source_ref == transition.id
-                && relation.target_ref == ru_ref
-                && relation.relation_kind == kind
-        }) {
-            return;
-        }
-        self.relations.push(state_relation(
-            &transition.id,
-            ru_ref,
-            kind,
-            transition.evidence_refs.clone(),
-            "CONFIRMED",
-        ));
+        let relation = state_relation(&transition.id, ru_ref, kind, transition);
+        self.relations.push(relation);
     }
 
-    pub fn trace(&self) -> StateCausalityTrace {
+    pub fn trace(&self, diagnostics: Vec<&'static str>) -> StateCausalityTrace {
         let transition_count = self.transitions.len();
         let with_source = self
             .transitions
@@ -227,13 +157,7 @@ impl StateCausality {
                 state_evidence_coverage: ratio(with_evidence, transition_count),
             },
             hashes: BTreeMap::from([("state_transition_hash", transition_hash(&self.transitions))]),
-            diagnostics: self.diagnostics.clone(),
-        }
-    }
-
-    fn push_diagnostic(&mut self, code: &'static str) {
-        if !self.diagnostics.contains(&code) {
-            self.diagnostics.push(code);
+            diagnostics,
         }
     }
 }
@@ -241,7 +165,9 @@ impl StateCausality {
 fn enables(fields: &[String], kind: &str) -> bool {
     fields.iter().any(|field| match field.as_str() {
         "current_candidate" => kind == "VERIFICATION",
-        "remaining" | "search_bound" => matches!(kind, "HYPOTHESIS" | "VERIFICATION"),
+        "remaining" | "search_bound" => {
+            matches!(kind, "HYPOTHESIS" | "VERIFICATION" | "GOAL_EVALUATION")
+        }
         "active_constraint_count" => kind == "CONSTRAINT_DERIVATION",
         _ => false,
     })
@@ -251,25 +177,27 @@ fn state_relation(
     source: &str,
     target: &str,
     kind: &'static str,
-    evidence_refs: Vec<String>,
-    status: &'static str,
+    transition: &StateTransition,
 ) -> CausalRelation {
     CausalRelation {
         id: String::new(),
         source_ref: source.to_owned(),
         target_ref: target.to_owned(),
         relation_kind: kind,
-        evidence_refs: evidence_refs.clone(),
+        evidence_refs: transition.evidence_refs.clone(),
         dependency: Some(true),
         necessity: None,
         sufficiency: None,
         polarity: "POSITIVE",
         modality: "ACTUAL",
-        status,
+        status: "CONFIRMED",
         provenance: serde_json::json!({
-            "evidence_refs": evidence_refs,
+            "evidence_refs": transition.evidence_refs,
             "counterfactual_result_ref": null,
             "observation_source": "native_state",
+            "state_revision_before": transition.revision_before,
+            "state_revision_after": transition.revision_after,
+            "changed_fields": transition.changed_fields,
         }),
     }
 }
@@ -292,38 +220,58 @@ fn ratio(numerator: usize, denominator: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reasoning_state::{
+        ReasonStateField as F, ReasonStateValue as V, ReasoningStateMode, RuntimeReasoningState,
+    };
 
     #[test]
-    fn records_real_diff_ignores_empty_change_and_hashes_deterministically() {
+    fn projects_state_owned_transitions_and_hashes_deterministically() {
         let run = || {
-            let mut state = StateCausality::default();
-            state.set_mode(StateCausalityMode::Full);
+            let mut state = RuntimeReasoningState::default();
+            state.set_mode(ReasoningStateMode::Lightweight);
+            state
+                .initialize(&[(F::Remaining, V::Int(77)), (F::SearchBound, V::Int(8))])
+                .unwrap();
+            let mut causality = StateCausality::default();
+            causality.set_mode(StateCausalityMode::Full);
+            let updates = [(F::Remaining, V::Int(11)), (F::SearchBound, V::Int(3))];
+            causality.observe(
+                state
+                    .apply(
+                        Some("ru:verification:1"),
+                        &updates,
+                        &["evidence:factor:7".to_owned()],
+                    )
+                    .unwrap(),
+            );
             assert!(state
-                .record(
-                    Some("ru:verification:1"),
-                    &serde_json::json!({"remaining": 77, "search_bound": 8}),
-                    &serde_json::json!({"remaining": 11, "search_bound": 3}),
-                    &["evidence:factor:7".to_owned()],
-                )
-                .is_some());
-            assert!(state
-                .record(
-                    Some("ru:verification:1"),
-                    &serde_json::json!({"remaining": 11}),
-                    &serde_json::json!({"remaining": 11}),
-                    &[],
-                )
+                .apply(Some("ru:verification:1"), &updates, &[])
                 .is_none());
-            state.trace()
+            causality.link_next_ru("ru:goal-evaluation:2", "GOAL_EVALUATION");
+            causality.trace(state.diagnostics())
         };
-        let first = run();
-        let second = run();
+        let (first, second) = (run(), run());
         assert_eq!(first.transitions.len(), 1);
         assert_eq!(
             first.transitions[0].changed_fields,
             ["remaining", "search_bound"]
         );
+        let kinds: Vec<_> = first.relations.iter().map(|r| r.relation_kind).collect();
+        assert_eq!(kinds, ["CAUSES_STATE_CHANGE", "ENABLES"]);
+        assert_eq!(first.relations[0].provenance["state_revision_after"], 1);
         assert_eq!(first.hashes, second.hashes);
         assert_eq!(first.metrics.state_transition_coverage, 1.0);
+        assert_eq!(first.metrics.state_evidence_coverage, 1.0);
+    }
+
+    #[test]
+    fn off_mode_records_nothing() {
+        let mut state = RuntimeReasoningState::default();
+        let transition = state
+            .apply(Some("ru:x"), &[(F::CurrentCandidate, V::Int(7))], &[])
+            .unwrap();
+        let mut causality = StateCausality::default();
+        causality.observe(transition);
+        assert!(causality.trace(Vec::new()).transitions.is_empty());
     }
 }
