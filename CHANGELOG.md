@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Merged Lightweight RUS R4 to `main`: `RuntimeReasoningState`, typed `StateTransition`,
+  and State Causality are now the canonical reasoning-state runtime (experimental but integrated;
+  `reasoning_state` and `state_causality` stay off by default). Formal benchmark on arm64 macOS:
+  aggregate +3.1% / +6.6% (Lightweight RUS / State Causality) against executable RU `full`, with
+  identical responses and hashes to the v0.1 baseline (`111f199a`) for all 94 checked cases; the
+  post-merge verification measured +1.4% / +5.1%.
+  Baseline `111f199a`, optimized `6627ad64`, benchmark artifacts `70c28958`. See
+  `docs/reports/ReasonScript_Lightweight_RUS_R4_Merge_Report.md`.
 - Reduced the Lightweight RUS hot-path cost without changing semantics, state,
   causal graph, artifacts, or hashes: typed state and transitions (fixed field
   array, change bitmask, RU/Evidence by index), lazy JSON artifacts and causal

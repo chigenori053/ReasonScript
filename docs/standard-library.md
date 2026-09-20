@@ -235,6 +235,10 @@ counterfactual replay.
 
 ### Runtime reasoning state (Lightweight RUS)
 
+Lightweight RUS R4 is merged to `main` and is the canonical reasoning-state runtime. It is an experimental but
+integrated capability: `context.reasoning_state` and `context.state_causality` remain `off` by default, and
+their semantics, artifacts, and hashes are a stable contract.
+
 `context.reasoning_state` is `off` (default) or `lightweight`; any enabled
 `state_causality` mode turns it on automatically. Both require
 `executable_reason_units: "full"` (`RUS-005` otherwise). The runtime owns five

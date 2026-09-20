@@ -133,3 +133,14 @@ clock.
 - P1 (§133) not done: subject sharing for structured candidates, response-construction
   optimization (it is 19% slower than R0 while the total is 15% faster), Count-mode
   Lightweight RUS, allocator measurement beyond the harness's counting allocator.
+
+## Main integration
+
+Lightweight RUS R4 is merged to `main` (baseline `111f199a`, optimized `6627ad64`, formal benchmark
+artifacts `70c28958`, merge commit `7054afe5`, non-squash). The merge had no conflicts and the merge
+tree equals the R4 tip. Post-merge verification on the clean integration branch reproduced the R4
+results (formal benchmark on arm64 macOS: aggregate +1.4% / +5.1%, against
++3.1% / +6.6% in the formal R4 evaluation) with identical responses and hashes; details in
+`docs/reports/ReasonScript_Lightweight_RUS_R4_Merge_Report.md`. These numbers describe the tested corpus, machine, and
+configuration and are not a general guarantee. R4 is the fixed baseline for the next verification phase; the
+frozen contract is listed in the merge report.

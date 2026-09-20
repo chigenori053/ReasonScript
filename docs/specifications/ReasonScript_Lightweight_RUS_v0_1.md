@@ -4,6 +4,9 @@ Implementation notes and verification record. The requirement text is the
 "Explicit Runtime Reasoning State / Lightweight RUS v0.1 Specification"; section
 numbers (§) below refer to it.
 
+**Status:** merged to `main` as part of Lightweight RUS R4 (see the runtime optimization notes and
+`docs/reports/ReasonScript_Lightweight_RUS_R4_Merge_Report.md`). The semantics described here are the stable v0.1 contract.
+
 ## What changed
 
 ```text
