@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added native state causality for runtime-observed factorization state diffs,
+  including monotonic transitions, RU/Evidence provenance,
+  `CAUSES_STATE_CHANGE`/`ENABLES`/`TERMINATES` relations, deterministic hashes,
+  coverage metrics, schemas, and causal-trace integration.
 - Added the Native RU-Causal Bridge, including runtime `REQUIRES` relations,
   typed native observation projection, external/native/merge selection,
   deterministic observation hashes, bridge diagnostics and metrics, and

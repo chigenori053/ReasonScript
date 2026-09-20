@@ -124,6 +124,24 @@ pub struct CausalTrace {
     pub diagnostics: Vec<&'static str>,
 }
 
+impl CausalTrace {
+    pub fn extend_relations(&mut self, relations: impl IntoIterator<Item = CausalRelation>) {
+        self.relations.extend(relations);
+        self.relations.sort_by(|left, right| {
+            (&left.source_ref, &left.target_ref, left.relation_kind).cmp(&(
+                &right.source_ref,
+                &right.target_ref,
+                right.relation_kind,
+            ))
+        });
+        for (index, relation) in self.relations.iter_mut().enumerate() {
+            relation.id = format!("causal-relation:{:08}", index + 1);
+        }
+        self.hashes
+            .insert("causal_relation_hash", stable_hash(&self.relations));
+    }
+}
+
 pub fn evaluate(observations: &[CausalObservation], config: &CausalConfig) -> CausalTrace {
     let started = Instant::now();
     if config.mode == CausalMode::Off {

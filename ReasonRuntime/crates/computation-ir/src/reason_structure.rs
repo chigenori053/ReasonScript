@@ -2,6 +2,8 @@ use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::io::{self, Write};
 
+use crate::state_causality::{StateCausality, StateCausalityMode, StateCausalityTrace};
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ExecutableMode {
     #[default]
@@ -429,6 +431,7 @@ pub struct ReasonStructure {
     executable_active: Vec<u64>,
     executable_sequence_hash: RollingJsonArrayHash,
     executable_lifecycle_hash: RollingJsonArrayHash,
+    state_causality: StateCausality,
 }
 
 impl ReasonStructure {
@@ -441,6 +444,29 @@ impl ReasonStructure {
 
     pub fn set_executable_mode(&mut self, mode: ExecutableMode) {
         self.executable_mode = mode;
+    }
+
+    pub fn set_state_causality_mode(&mut self, mode: StateCausalityMode) {
+        self.state_causality.set_mode(mode);
+    }
+
+    pub(crate) fn state_causality_enabled(&self) -> bool {
+        self.state_causality.enabled()
+    }
+
+    pub(crate) fn record_state_transition(
+        &mut self,
+        source_ru: Option<&str>,
+        before: &serde_json::Value,
+        after: &serde_json::Value,
+        evidence_refs: &[String],
+    ) -> Option<String> {
+        self.state_causality
+            .record(source_ru, before, after, evidence_refs)
+    }
+
+    pub fn state_causality_trace(&self) -> StateCausalityTrace {
+        self.state_causality.trace()
     }
 
     pub(crate) fn executable_mode(&self) -> ExecutableMode {
@@ -572,6 +598,8 @@ impl ReasonStructure {
         self.executable_lifecycle
             .push(serde_json::json!([id, "ACTIVE", 1]));
         self.executable_units.push(unit);
+        self.state_causality
+            .link_next_ru(&id, executable_kind(kind));
         Some(ExecutableHandle::Full(self.executable_units.len() - 1))
     }
 

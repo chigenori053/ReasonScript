@@ -217,6 +217,22 @@ to produce native dependencies without hand-written `causal_observations`.
 SHA-256 observation hash, diagnostics, coverage, and separately timed bridge
 cost. This remains Evidence-level counterfactual evaluation, not VM replay.
 
+### Native state causality
+
+`context.state_causality` is `off` by default. `trace` records deterministic
+state transitions; `full` also adds `CAUSES_STATE_CHANGE`, `ENABLES`, and
+`TERMINATES` relations to `metadata.causal_trace`. Both enabled modes require
+`executable_reason_units: "full"` so every transition has a native source RU.
+
+The initial runtime contract observes `relation.filter` state used by native
+factorization-style reasoning: `current_candidate`,
+`active_constraint_count`, and `goal_status`. Empty diffs are omitted and
+rejected verification does not create a factor-confirmed state change.
+`metadata.state_causality` contains monotonic revisions, before/after values,
+Evidence provenance, coverage metrics, separately measured runtime cost, and a
+deterministic `state_transition_hash`. This is observed state causality, not
+state-level VM counterfactual replay.
+
 These new collection and event APIs execute in the native Rust host. The Python
 interpreters retain their earlier reference API surface.
 

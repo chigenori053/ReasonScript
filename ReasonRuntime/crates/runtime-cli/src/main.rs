@@ -28,6 +28,7 @@ use reasonscript_computation_ir::causal_bridge::{
     external as external_causal, merge as merge_causal, CausalObservationSource,
 };
 use reasonscript_computation_ir::reason_structure::{ExecutableMode, ReasonUnitMode};
+use reasonscript_computation_ir::state_causality::StateCausalityMode;
 use reasonscript_computation_ir::state_trace::{TraceConfig, TraceMode};
 use reasonscript_computation_ir::{
     decode, to_json, NumericMode, TensorPolicy, Vm, DEFAULT_MAX_CALL_DEPTH,
@@ -298,6 +299,24 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             "executable_reason_units must be off, count, or full",
         );
     };
+    let state_causality_name = request
+        .pointer("/context/state_causality")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("off");
+    let Some(state_causality_mode) = StateCausalityMode::parse(state_causality_name) else {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-004",
+            "state_causality must be off, trace, or full",
+        );
+    };
+    if state_causality_mode.enabled() && executable_reason_unit_mode != ExecutableMode::Full {
+        return fail_request(
+            request_id,
+            "STATE-CAUSAL-001",
+            "state causality requires executable_reason_units=full",
+        );
+    }
     let causal_mode_name = request
         .pointer("/context/causal_evaluation")
         .and_then(serde_json::Value::as_str)
@@ -365,6 +384,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
     vm.configure_trace(trace_config, semantic_events);
     vm.configure_reason_units(reason_unit_mode);
     vm.configure_executable_reason_units(executable_reason_unit_mode);
+    vm.configure_state_causality(state_causality_mode);
     let execution_started = Instant::now();
     match vm.run_calculations(&program) {
         Ok(calculations) => {
@@ -377,7 +397,11 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                     &causal_observations,
                 ),
             };
+            let state_causality = vm.state_causality_trace();
             let mut causal_trace = evaluate_causal(&causal_bridge.observations, &causal_config);
+            if state_causality_mode == StateCausalityMode::Full {
+                causal_trace.extend_relations(state_causality.relations.clone());
+            }
             causal_trace.metrics.normal_runtime_ns = runtime_execution_ns;
             causal_trace.metrics.counterfactual_cost_ratio = if runtime_execution_ns == 0 {
                 None
@@ -441,6 +465,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "reason_unit_trace": reason_unit_trace,
                         "causal_trace": causal_trace,
                         "causal_bridge": causal_bridge,
+                        "state_causality": state_causality,
                         "tensor_metadata": tensor_metadata,
                         "console_output": vm.console_events(),
                         "reason_object_metadata": [],
