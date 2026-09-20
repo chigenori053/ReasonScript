@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use std::io::{self, Write};
 
 use crate::reasoning_state::{
-    ReasoningStateMode, ReasoningStateTrace, RuntimeReasoningState, StateEffect, StateUpdate,
+    EvidenceRef, ReasoningStateMode, ReasoningStateTrace, RefResolver, RuRef,
+    RuntimeReasoningState, StateEffect, StateUpdate,
 };
 use crate::state_causality::{StateCausality, StateCausalityMode, StateCausalityTrace};
 
@@ -471,38 +472,41 @@ impl ReasonStructure {
 
     /// The only gateway through which reasoning state is mutated: the state
     /// diffs the update itself and the resulting transition is projected into
-    /// state causality. Returns the transition ID when the state changed.
+    /// state causality. Returns whether the state changed.
     pub(crate) fn apply_reasoning_state_update(
         &mut self,
-        source_ru: Option<&str>,
+        source_ru: Option<RuRef>,
         updates: &[StateUpdate],
-        evidence_refs: &[String],
-    ) -> Option<String> {
+        evidence: &[EvidenceRef],
+    ) -> bool {
         if !self.reasoning_state.enabled() {
             self.reasoning_state.diagnose("RUS-005");
-            return None;
+            return false;
         }
-        let transition = self
-            .reasoning_state
-            .apply(source_ru, updates, evidence_refs)?;
-        let id = transition.id.clone();
+        let Some(transition) = self.reasoning_state.apply(source_ru, updates, evidence) else {
+            return false;
+        };
         self.state_causality.observe(transition);
-        Some(id)
+        true
     }
 
     fn apply_state_effect(
         &mut self,
-        source_ru: &str,
+        source_ru: RuRef,
         effect: StateEffect,
-        evidence_refs: &[String],
+        evidence: Option<EvidenceRef>,
     ) {
+        let evidence = evidence.as_slice();
         match effect {
             StateEffect::Initialize(values) => {
                 // Refusals are recorded as RUS diagnostics by the state itself.
                 let _ = self.reasoning_state.initialize(&values);
             }
-            StateEffect::Update(updates) => {
-                self.apply_reasoning_state_update(Some(source_ru), &updates, evidence_refs);
+            StateEffect::Update1(updates) => {
+                self.apply_reasoning_state_update(Some(source_ru), &updates, evidence);
+            }
+            StateEffect::Update2(updates) => {
+                self.apply_reasoning_state_update(Some(source_ru), &updates, evidence);
             }
         }
     }
@@ -522,7 +526,7 @@ impl ReasonStructure {
 
     pub fn state_causality_trace(&self) -> StateCausalityTrace {
         self.state_causality
-            .trace(self.reasoning_state.diagnostics())
+            .trace(self, self.reasoning_state.diagnostics())
     }
 
     pub(crate) fn executable_mode(&self) -> ExecutableMode {
@@ -656,7 +660,7 @@ impl ReasonStructure {
             .push(serde_json::json!([id, "ACTIVE", 1]));
         self.executable_units.push(unit);
         self.state_causality
-            .link_next_ru(&id, executable_kind(kind));
+            .link_next_ru(RuRef(self.executable_units.len() as u32 - 1), kind);
         Some(ExecutableHandle::Full(self.executable_units.len() - 1))
     }
 
@@ -755,7 +759,7 @@ impl ReasonStructure {
                 "source_ref": unit.id,
                 "target_ref": evidence_id,
             }));
-            evidence_ref = Some(evidence_id);
+            evidence_ref = Some(EvidenceRef(self.executable_evidence.len() as u32 - 1));
         }
         self.executable_sequence.push(serde_json::json!([
             unit.semantic_signature,
@@ -771,8 +775,7 @@ impl ReasonStructure {
                 &unit.subject,
             ) {
                 Ok(Some(effect)) => {
-                    let source_ru = unit.id.clone();
-                    self.apply_state_effect(&source_ru, effect, evidence_ref.as_slice());
+                    self.apply_state_effect(RuRef(index as u32), effect, evidence_ref);
                 }
                 Ok(None) => {}
                 Err(code) => self.reasoning_state.diagnose(code),
@@ -1028,6 +1031,18 @@ impl ReasonStructure {
                 .extend(extra.as_object().unwrap().clone());
         }
         metrics
+    }
+}
+
+impl RefResolver for ReasonStructure {
+    fn ru_id(&self, ru: RuRef) -> &str {
+        &self.executable_units[ru.0 as usize].id
+    }
+
+    fn evidence_id(&self, evidence: EvidenceRef) -> &str {
+        self.executable_evidence[evidence.0 as usize]["id"]
+            .as_str()
+            .unwrap_or_default()
     }
 }
 
@@ -1586,9 +1601,7 @@ mod tests {
         assert_eq!(structure.reasoning_state_trace().revision, 0);
         assert!(structure.reasoning_state_trace().diagnostics.is_empty());
         let update = [(ReasonStateField::CurrentCandidate, ReasonStateValue::Int(7))];
-        assert!(structure
-            .apply_reasoning_state_update(Some("ru:x"), &update, &[])
-            .is_none());
+        assert!(!structure.apply_reasoning_state_update(Some(RuRef(0)), &update, &[]));
         assert_eq!(structure.reasoning_state_trace().diagnostics, ["RUS-005"]);
     }
 

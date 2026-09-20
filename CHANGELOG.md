@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Reduced the Lightweight RUS hot-path cost without changing semantics, state,
+  causal graph, artifacts, or hashes: typed state and transitions (fixed field
+  array, change bitmask, RU/Evidence by index), lazy JSON artifacts and causal
+  provenance built in the response phase, typed causal relations, and
+  `serde_json`-free streaming state/transition hashes. Overhead against
+  executable RU `full` fell from +18%/+44% to about +2%/+6% (Lightweight RUS /
+  State Causality) with zero hot-path allocations per transition. Adds the
+  response-phase metrics `state_transition_materialization_ns`,
+  `provenance_materialization_ns`, `transition_hash_ns`, `state_hash_ns`, an
+  in-process profile harness, `scripts/profile_reasoning_state.py`, an extended
+  `scripts/benchmark_reasoning_state.py` (baseline/optimized comparison,
+  equivalence, determinism, graphs), and a permanent R0-digest regression test.
 - Added Lightweight RUS v0.1: a runtime-owned `RuntimeReasoningState`
   (`remaining`, `search_bound`, `current_candidate`, `active_constraint_count`,
   `goal_status`) with deterministic revisions, atomic multi-field updates,

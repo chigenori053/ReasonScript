@@ -246,6 +246,13 @@ and a no-op update creates nothing. `metadata.reasoning_state` reports the final
 state, its canonical SHA-256 `hash`, the `initial_hash`, update/no-op/changed-field
 metrics, `reasoning_state_runtime_ns`, and `RUS-001`..`RUS-005` diagnostics.
 
+The reasoning state is held in a typed, allocation-free form while the program
+runs; transition IDs, before/after JSON, and relation provenance are built when
+the response is constructed. `runtime_execution_ns` therefore excludes that work,
+which is reported separately as `state_hash_ns`,
+`state_transition_materialization_ns`, `provenance_materialization_ns`, and
+`transition_hash_ns`.
+
 State changes when an Executable RU completes, keyed by its operation, and the
 transition's `source_ru` and `evidence_refs` are that RU and the Evidence it just
 produced:

@@ -98,14 +98,12 @@ ACTIVE→REACHED`; factors 7 × 11; final `remaining 11, search_bound 3`.
   events has no Evidence (the legacy adapter does not create it, and changing it would
   change existing Full/Count hashes), so `state_evidence_coverage` is below 1.0 for
   event-driven runs (N=77: 0.25). §51 allows this; the metric reports it.
-- **Overhead is above the reference targets** (§133/§134, reference only). Release
-  build, host boundary, trace off, 5 factorization cases, total against
-  `executable_reason_units=full`: Lightweight RUS +16–19%, with State Causality
-  +45%. Measured internal cost is ~0.57 µs per transition for the state and ~0.5 µs
-  for causality (per-transition strings, maps, and provenance JSON), not the clock
-  reads. The candidates are lazy relation/provenance construction at trace time and
-  interned field names; not done because v0.1 is correctness-first.
+- **Overhead.** v0.1 measured Lightweight RUS at +16–19% and with State Causality +45%
+  against `executable_reason_units=full`, above the §133/§134 reference targets. The
+  runtime-representation work in
+  [ReasonScript_Lightweight_RUS_Runtime_Optimization_v0_1.md](ReasonScript_Lightweight_RUS_Runtime_Optimization_v0_1.md)
+  brought this to about +2% and +6% with identical artifacts and hashes.
 - **Not a formal benchmark.** `scripts/benchmark_reasoning_state.py` records
-  `working_tree_dirty`, `source_commit`, and `runtime_binary_sha256`; the recorded
-  run had `working_tree_dirty = true`, so it needs a re-run on a clean commit (§136).
+  `working_tree_dirty`, `source_commit`, and `runtime_binary_sha256`; the recorded runs had
+  `working_tree_dirty = true`, so they need a re-run on a clean commit (§136).
 - Count-compatible state causality, state read tracking, and persistence remain P1 (§157).

@@ -1,7 +1,10 @@
 use crate::causal::CausalRelation;
+use crate::reason_structure::ExecutableKind;
 pub use crate::reasoning_state::StateTransition;
+use crate::reasoning_state::{
+    transition_hash, ReasonStateField, RefResolver, RuRef, RuntimeStateTransition,
+};
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::time::Instant;
 
@@ -38,6 +41,10 @@ pub struct StateCausalityMetrics {
     pub state_termination_count: u64,
     pub state_transition_coverage: f64,
     pub state_evidence_coverage: f64,
+    /// Response-construction phase costs (outside `runtime_execution_ns`).
+    pub state_transition_materialization_ns: u64,
+    pub provenance_materialization_ns: u64,
+    pub transition_hash_ns: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -50,13 +57,41 @@ pub struct StateCausalityTrace {
     pub diagnostics: Vec<&'static str>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum StateRelationKind {
+    CausesStateChange,
+    Enables,
+    Terminates,
+}
+
+impl StateRelationKind {
+    fn name(self) -> &'static str {
+        match self {
+            Self::CausesStateChange => "CAUSES_STATE_CHANGE",
+            Self::Enables => "ENABLES",
+            Self::Terminates => "TERMINATES",
+        }
+    }
+}
+
+/// Runtime form of a state relation: which transition, which RU, and how they
+/// relate. `CAUSES_STATE_CHANGE` runs RU → transition; `ENABLES` and
+/// `TERMINATES` run transition → RU. IDs and provenance JSON are produced only
+/// when the causal trace is built.
+#[derive(Clone, Copy, Debug)]
+struct RuntimeStateRelation {
+    kind: StateRelationKind,
+    transition: u32,
+    ru: RuRef,
+}
+
 /// Causal projection of transitions produced by `RuntimeReasoningState`.
 /// It owns no reasoning state: it only records transitions and relations.
 #[derive(Default)]
 pub struct StateCausality {
     mode: StateCausalityMode,
-    transitions: Vec<StateTransition>,
-    relations: Vec<CausalRelation>,
+    transitions: Vec<RuntimeStateTransition>,
+    relations: Vec<RuntimeStateRelation>,
     runtime_ns: u64,
 }
 
@@ -69,108 +104,141 @@ impl StateCausality {
         self.mode.enabled()
     }
 
-    pub(crate) fn transitions(&self) -> &[StateTransition] {
+    pub(crate) fn transitions(&self) -> &[RuntimeStateTransition] {
         &self.transitions
     }
 
     /// Records a transition and, in `full` mode, its `CAUSES_STATE_CHANGE` relation.
-    pub fn observe(&mut self, transition: StateTransition) {
+    pub fn observe(&mut self, transition: RuntimeStateTransition) {
         if !self.enabled() {
             return;
         }
         let started = Instant::now();
         if self.mode == StateCausalityMode::Full {
-            self.relations.push(state_relation(
-                &transition.source_ru,
-                &transition.id,
-                "CAUSES_STATE_CHANGE",
-                &transition,
-            ));
+            self.relations.push(RuntimeStateRelation {
+                kind: StateRelationKind::CausesStateChange,
+                transition: self.transitions.len() as u32,
+                ru: transition.source_ru,
+            });
         }
         self.transitions.push(transition);
         self.runtime_ns += started.elapsed().as_nanos() as u64;
     }
 
-    pub fn link_next_ru(&mut self, ru_ref: &str, ru_kind: &str) {
+    /// Links the latest transition to an RU that starts after it.
+    pub fn link_next_ru(&mut self, ru: RuRef, kind: ExecutableKind) {
         if self.mode != StateCausalityMode::Full {
             return;
         }
         let Some(transition) = self.transitions.last() else {
             return;
         };
-        let kind = if transition
-            .changed_fields
-            .iter()
-            .any(|field| field == "goal_status")
-            && ru_kind == "TERMINATION_CHECK"
+        let kind = if transition.changed.contains(ReasonStateField::GoalStatus)
+            && kind == ExecutableKind::TerminationCheck
         {
-            "TERMINATES"
-        } else if enables(&transition.changed_fields, ru_kind) {
-            "ENABLES"
+            StateRelationKind::Terminates
+        } else if transition.changed.0 & reads(kind) != 0 {
+            StateRelationKind::Enables
         } else {
             return;
         };
-        let relation = state_relation(&transition.id, ru_ref, kind, transition);
-        self.relations.push(relation);
+        self.relations.push(RuntimeStateRelation {
+            kind,
+            transition: self.transitions.len() as u32 - 1,
+            ru,
+        });
     }
 
-    pub fn trace(&self, diagnostics: Vec<&'static str>) -> StateCausalityTrace {
-        let transition_count = self.transitions.len();
-        let with_source = self
+    pub fn trace(
+        &self,
+        resolver: &dyn RefResolver,
+        diagnostics: Vec<&'static str>,
+    ) -> StateCausalityTrace {
+        let started = Instant::now();
+        let transitions: Vec<StateTransition> = self
             .transitions
+            .iter()
+            .map(|transition| transition.to_artifact(resolver))
+            .collect();
+        let state_transition_materialization_ns = started.elapsed().as_nanos() as u64;
+        let started = Instant::now();
+        let relations: Vec<CausalRelation> = self
+            .relations
+            .iter()
+            .map(|relation| {
+                let transition = &transitions[relation.transition as usize];
+                let ru = resolver.ru_id(relation.ru);
+                let (source, target) = match relation.kind {
+                    StateRelationKind::CausesStateChange => (ru, transition.id.as_str()),
+                    _ => (transition.id.as_str(), ru),
+                };
+                state_relation(source, target, relation.kind.name(), transition)
+            })
+            .collect();
+        let provenance_materialization_ns = started.elapsed().as_nanos() as u64;
+        let started = Instant::now();
+        let state_transition_hash = transition_hash(&self.transitions, resolver);
+        let transition_hash_ns = started.elapsed().as_nanos() as u64;
+        let transition_count = transitions.len();
+        let with_source = transitions
             .iter()
             .filter(|transition| !transition.source_ru.is_empty())
             .count();
-        let with_evidence = self
-            .transitions
+        let with_evidence = transitions
             .iter()
             .filter(|transition| !transition.evidence_refs.is_empty())
             .count();
+        let count_kind = |kind| {
+            self.relations
+                .iter()
+                .filter(|relation| relation.kind == kind)
+                .count() as u64
+        };
         StateCausalityTrace {
             mode: match self.mode {
                 StateCausalityMode::Off => "off",
                 StateCausalityMode::Trace => "trace",
                 StateCausalityMode::Full => "full",
             },
-            transitions: self.transitions.clone(),
-            relations: self.relations.clone(),
             metrics: StateCausalityMetrics {
                 state_transition_count: transition_count as u64,
-                state_changed_field_count: self
-                    .transitions
+                state_changed_field_count: transitions
                     .iter()
                     .map(|transition| transition.changed_fields.len() as u64)
                     .sum(),
                 state_causality_runtime_ns: self.runtime_ns,
-                state_causal_relation_count: self.relations.len() as u64,
-                state_enablement_count: self
-                    .relations
-                    .iter()
-                    .filter(|relation| relation.relation_kind == "ENABLES")
-                    .count() as u64,
-                state_termination_count: self
-                    .relations
-                    .iter()
-                    .filter(|relation| relation.relation_kind == "TERMINATES")
-                    .count() as u64,
+                state_causal_relation_count: relations.len() as u64,
+                state_enablement_count: count_kind(StateRelationKind::Enables),
+                state_termination_count: count_kind(StateRelationKind::Terminates),
                 state_transition_coverage: ratio(with_source, transition_count),
                 state_evidence_coverage: ratio(with_evidence, transition_count),
+                state_transition_materialization_ns,
+                provenance_materialization_ns,
+                transition_hash_ns,
             },
-            hashes: BTreeMap::from([("state_transition_hash", transition_hash(&self.transitions))]),
+            hashes: BTreeMap::from([("state_transition_hash", state_transition_hash)]),
+            transitions,
+            relations,
             diagnostics,
         }
     }
 }
 
-fn enables(fields: &[String], kind: &str) -> bool {
-    fields.iter().any(|field| match field.as_str() {
-        "current_candidate" => kind == "VERIFICATION",
-        "remaining" | "search_bound" => {
-            matches!(kind, "HYPOTHESIS" | "VERIFICATION" | "GOAL_EVALUATION")
+/// Fields each RU kind reads (the v0.1 semantic mapping): a transition that
+/// changes one of them `ENABLES` the next RU of that kind. Goal-status changes
+/// instead `TERMINATE` a termination check.
+fn reads(kind: ExecutableKind) -> u8 {
+    use ReasonStateField as F;
+    match kind {
+        ExecutableKind::Hypothesis | ExecutableKind::GoalEvaluation => {
+            F::Remaining.bit() | F::SearchBound.bit()
         }
-        "active_constraint_count" => kind == "CONSTRAINT_DERIVATION",
-        _ => false,
-    })
+        ExecutableKind::Verification => {
+            F::Remaining.bit() | F::SearchBound.bit() | F::CurrentCandidate.bit()
+        }
+        ExecutableKind::ConstraintDerivation => F::ActiveConstraintCount.bit(),
+        ExecutableKind::TerminationCheck => 0,
+    }
 }
 
 fn state_relation(
@@ -202,13 +270,6 @@ fn state_relation(
     }
 }
 
-fn transition_hash(transitions: &[StateTransition]) -> String {
-    format!(
-        "sha256:{:x}",
-        Sha256::digest(serde_json::to_vec(transitions).unwrap())
-    )
-}
-
 fn ratio(numerator: usize, denominator: usize) -> f64 {
     if denominator == 0 {
         1.0
@@ -220,8 +281,10 @@ fn ratio(numerator: usize, denominator: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reasoning_state::tests::TestResolver;
     use crate::reasoning_state::{
-        ReasonStateField as F, ReasonStateValue as V, ReasoningStateMode, RuntimeReasoningState,
+        EvidenceRef, ReasonStateField as F, ReasonStateValue as V, ReasoningStateMode,
+        RuntimeReasoningState,
     };
 
     #[test]
@@ -237,18 +300,12 @@ mod tests {
             let updates = [(F::Remaining, V::Int(11)), (F::SearchBound, V::Int(3))];
             causality.observe(
                 state
-                    .apply(
-                        Some("ru:verification:1"),
-                        &updates,
-                        &["evidence:factor:7".to_owned()],
-                    )
+                    .apply(Some(RuRef(0)), &updates, &[EvidenceRef(0)])
                     .unwrap(),
             );
-            assert!(state
-                .apply(Some("ru:verification:1"), &updates, &[])
-                .is_none());
-            causality.link_next_ru("ru:goal-evaluation:2", "GOAL_EVALUATION");
-            causality.trace(state.diagnostics())
+            assert!(state.apply(Some(RuRef(0)), &updates, &[]).is_none());
+            causality.link_next_ru(RuRef(1), ExecutableKind::GoalEvaluation);
+            causality.trace(&TestResolver, state.diagnostics())
         };
         let (first, second) = (run(), run());
         assert_eq!(first.transitions.len(), 1);
@@ -258,20 +315,90 @@ mod tests {
         );
         let kinds: Vec<_> = first.relations.iter().map(|r| r.relation_kind).collect();
         assert_eq!(kinds, ["CAUSES_STATE_CHANGE", "ENABLES"]);
+        assert_eq!(
+            (
+                &first.relations[0].source_ref,
+                &first.relations[0].target_ref
+            ),
+            (&"ru:a".to_owned(), &"state-transition:00000001".to_owned())
+        );
+        assert_eq!(
+            (
+                &first.relations[1].source_ref,
+                &first.relations[1].target_ref
+            ),
+            (&"state-transition:00000001".to_owned(), &"ru:b".to_owned())
+        );
         assert_eq!(first.relations[0].provenance["state_revision_after"], 1);
+        assert_eq!(first.relations[0].provenance["state_revision_before"], 0);
+        assert_eq!(
+            first.relations[0].provenance["changed_fields"],
+            serde_json::json!(["remaining", "search_bound"])
+        );
         assert_eq!(first.hashes, second.hashes);
         assert_eq!(first.metrics.state_transition_coverage, 1.0);
         assert_eq!(first.metrics.state_evidence_coverage, 1.0);
+        assert_eq!(first.metrics.state_enablement_count, 1);
+    }
+
+    #[test]
+    fn semantic_mapping_and_termination_follow_the_changed_mask() {
+        let mut state = RuntimeReasoningState::default();
+        state.set_mode(ReasoningStateMode::Lightweight);
+        let mut causality = StateCausality::default();
+        causality.set_mode(StateCausalityMode::Full);
+        let mut step = |updates: &[(F, V)], causality: &mut StateCausality| {
+            causality.observe(state.apply(Some(RuRef(0)), updates, &[]).unwrap());
+        };
+        step(&[(F::CurrentCandidate, V::Int(7))], &mut causality);
+        causality.link_next_ru(RuRef(1), ExecutableKind::Verification);
+        causality.link_next_ru(RuRef(2), ExecutableKind::Hypothesis);
+        step(&[(F::ActiveConstraintCount, V::Int(1))], &mut causality);
+        causality.link_next_ru(RuRef(2), ExecutableKind::ConstraintDerivation);
+        causality.link_next_ru(RuRef(3), ExecutableKind::GoalEvaluation);
+        step(
+            &[(
+                F::GoalStatus,
+                V::Goal(crate::reasoning_state::GoalStatus::Reached),
+            )],
+            &mut causality,
+        );
+        causality.link_next_ru(RuRef(3), ExecutableKind::TerminationCheck);
+        let relations = causality.trace(&TestResolver, Vec::new()).relations;
+        let triples: Vec<_> = relations
+            .iter()
+            .map(|r| {
+                (
+                    r.relation_kind,
+                    r.source_ref.as_str(),
+                    r.target_ref.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            triples,
+            [
+                ("CAUSES_STATE_CHANGE", "ru:a", "state-transition:00000001"),
+                ("ENABLES", "state-transition:00000001", "ru:b"),
+                ("CAUSES_STATE_CHANGE", "ru:a", "state-transition:00000002"),
+                ("ENABLES", "state-transition:00000002", "ru:c"),
+                ("CAUSES_STATE_CHANGE", "ru:a", "state-transition:00000003"),
+                ("TERMINATES", "state-transition:00000003", "ru:d"),
+            ]
+        );
     }
 
     #[test]
     fn off_mode_records_nothing() {
         let mut state = RuntimeReasoningState::default();
         let transition = state
-            .apply(Some("ru:x"), &[(F::CurrentCandidate, V::Int(7))], &[])
+            .apply(Some(RuRef(0)), &[(F::CurrentCandidate, V::Int(7))], &[])
             .unwrap();
         let mut causality = StateCausality::default();
         causality.observe(transition);
-        assert!(causality.trace(Vec::new()).transitions.is_empty());
+        assert!(causality
+            .trace(&TestResolver, Vec::new())
+            .transitions
+            .is_empty());
     }
 }

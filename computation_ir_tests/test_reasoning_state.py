@@ -440,6 +440,47 @@ def test_filter_without_accepted_rows_creates_no_goal_or_termination():
     assert relations(payload, "TERMINATES") == []
 
 
+# --- Hash / artifact compatibility with the pre-optimization runtime ---------------
+
+R0_DIGESTS = json.loads((HERE / "golden_reasoning_state" / "r0_digests.json").read_text())
+
+
+def without_timing(value):
+    """The response minus wall-clock fields."""
+    if isinstance(value, dict):
+        return {k: without_timing(v) for k, v in value.items() if not k.endswith("_ns") and k != "counterfactual_cost_ratio"}
+    if isinstance(value, list):
+        return [without_timing(v) for v in value]
+    return value
+
+
+def test_responses_and_hashes_are_identical_to_the_pre_optimization_runtime():
+    hash_paths = {
+        "reasoning_state_hash": ("reasoning_state", "hash"),
+        "initial_hash": ("reasoning_state", "initial_hash"),
+        "state_transition_hash": ("state_causality", "hashes", "state_transition_hash"),
+        "causal_observation_hash": ("causal_bridge", "observation_hash"),
+        "causal_relation_hash": ("causal_trace", "hashes", "causal_relation_hash"),
+    }
+    assert R0_DIGESTS["context"] == GOLDEN["context"] and len(R0_DIGESTS["cases"]) == 94
+    for n, expected in R0_DIGESTS["cases"].items():
+        payload = factorize(int(n), limits={"max_loop_iterations": 1_000_000})
+        for name, path in hash_paths.items():
+            value = payload["metadata"]
+            for key in path:
+                value = value[key]
+            assert value == expected["hashes"][name], (n, name)
+        digest = hashlib.sha256(json.dumps(without_timing(payload), separators=(",", ":")).encode()).hexdigest()
+        assert digest == expected["response_sha256"], n
+
+
+def test_response_phase_metrics_are_reported_and_the_hot_path_reports_zero_json():
+    payload = factorize(84)
+    for name in ("state_transition_materialization_ns", "provenance_materialization_ns", "transition_hash_ns"):
+        assert payload["metadata"]["state_causality"]["metrics"][name] >= 0
+    assert state(payload)["metrics"]["state_hash_ns"] >= 0
+
+
 # --- Schemas --------------------------------------------------------------------
 
 

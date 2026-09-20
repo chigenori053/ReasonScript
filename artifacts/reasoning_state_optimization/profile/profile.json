@@ -1,0 +1,387 @@
+{
+  "cases": [
+    77,
+    997,
+    10007,
+    30030,
+    10403
+  ],
+  "in_process": {
+    "R0": {
+      "77": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 3000,
+          "state_revisions": 0,
+          "run_ns": 22625,
+          "run_allocations": 739,
+          "materialize_ns": 1833,
+          "materialize_allocations": 23
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 3000,
+          "state_revisions": 8,
+          "run_ns": 27334,
+          "run_allocations": 873,
+          "materialize_ns": 1917,
+          "materialize_allocations": 23,
+          "hot_path_allocations_per_transition": 16.75
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 3000,
+          "state_revisions": 8,
+          "run_ns": 32375,
+          "run_allocations": 1136,
+          "materialize_ns": 11167,
+          "materialize_allocations": 329,
+          "hot_path_allocations_per_transition": 49.62
+        }
+      },
+      "997": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 3000,
+          "state_revisions": 0,
+          "run_ns": 86458,
+          "run_allocations": 2877,
+          "materialize_ns": 1916,
+          "materialize_allocations": 23
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 3000,
+          "state_revisions": 31,
+          "run_ns": 99916,
+          "run_allocations": 3328,
+          "materialize_ns": 1958,
+          "materialize_allocations": 23,
+          "hot_path_allocations_per_transition": 14.55
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 3000,
+          "state_revisions": 31,
+          "run_ns": 119208,
+          "run_allocations": 4275,
+          "materialize_ns": 35541,
+          "materialize_allocations": 1097,
+          "hot_path_allocations_per_transition": 45.1
+        }
+      },
+      "10007": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 3000,
+          "state_revisions": 0,
+          "run_ns": 271875,
+          "run_allocations": 9029,
+          "materialize_ns": 1958,
+          "materialize_allocations": 23
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 3000,
+          "state_revisions": 100,
+          "run_ns": 308458,
+          "run_allocations": 10446,
+          "materialize_ns": 2000,
+          "materialize_allocations": 23,
+          "hot_path_allocations_per_transition": 14.17
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 3000,
+          "state_revisions": 100,
+          "run_ns": 377167,
+          "run_allocations": 13467,
+          "materialize_ns": 109208,
+          "materialize_allocations": 3445,
+          "hot_path_allocations_per_transition": 44.38
+        }
+      },
+      "30030": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 3000,
+          "state_revisions": 0,
+          "run_ns": 45208,
+          "run_allocations": 1490,
+          "materialize_ns": 1875,
+          "materialize_allocations": 23
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 3000,
+          "state_revisions": 16,
+          "run_ns": 53625,
+          "run_allocations": 1772,
+          "materialize_ns": 1917,
+          "materialize_allocations": 23,
+          "hot_path_allocations_per_transition": 17.62
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 3000,
+          "state_revisions": 16,
+          "run_ns": 68583,
+          "run_allocations": 2478,
+          "materialize_ns": 23916,
+          "materialize_allocations": 806,
+          "hot_path_allocations_per_transition": 61.75
+        }
+      },
+      "10403": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 3000,
+          "state_revisions": 0,
+          "run_ns": 270417,
+          "run_allocations": 9126,
+          "materialize_ns": 1917,
+          "materialize_allocations": 23
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 3000,
+          "state_revisions": 102,
+          "run_ns": 313625,
+          "run_allocations": 10576,
+          "materialize_ns": 1958,
+          "materialize_allocations": 23,
+          "hot_path_allocations_per_transition": 14.22
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 3000,
+          "state_revisions": 102,
+          "run_ns": 387792,
+          "run_allocations": 13667,
+          "materialize_ns": 111292,
+          "materialize_allocations": 3528,
+          "hot_path_allocations_per_transition": 44.52
+        }
+      }
+    },
+    "R4": {
+      "77": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 3000,
+          "state_revisions": 0,
+          "run_ns": 23084,
+          "run_allocations": 739,
+          "materialize_ns": 1416,
+          "materialize_allocations": 13
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 3000,
+          "state_revisions": 8,
+          "run_ns": 23375,
+          "run_allocations": 739,
+          "materialize_ns": 1416,
+          "materialize_allocations": 13,
+          "hot_path_allocations_per_transition": 0.0
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 3000,
+          "state_revisions": 8,
+          "run_ns": 23750,
+          "run_allocations": 744,
+          "materialize_ns": 12167,
+          "materialize_allocations": 348,
+          "hot_path_allocations_per_transition": 0.62
+        }
+      },
+      "997": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 3000,
+          "state_revisions": 0,
+          "run_ns": 86666,
+          "run_allocations": 2877,
+          "materialize_ns": 1417,
+          "materialize_allocations": 13
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 3000,
+          "state_revisions": 31,
+          "run_ns": 89417,
+          "run_allocations": 2877,
+          "materialize_ns": 1458,
+          "materialize_allocations": 13,
+          "hot_path_allocations_per_transition": 0.0
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 3000,
+          "state_revisions": 31,
+          "run_ns": 90459,
+          "run_allocations": 2886,
+          "materialize_ns": 41042,
+          "materialize_allocations": 1206,
+          "hot_path_allocations_per_transition": 0.29
+        }
+      },
+      "10007": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 3000,
+          "state_revisions": 0,
+          "run_ns": 269208,
+          "run_allocations": 9029,
+          "materialize_ns": 1417,
+          "materialize_allocations": 13
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 3000,
+          "state_revisions": 100,
+          "run_ns": 275000,
+          "run_allocations": 9029,
+          "materialize_ns": 1458,
+          "materialize_allocations": 13,
+          "hot_path_allocations_per_transition": 0.0
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 3000,
+          "state_revisions": 100,
+          "run_ns": 281875,
+          "run_allocations": 9042,
+          "materialize_ns": 128250,
+          "materialize_allocations": 3828,
+          "hot_path_allocations_per_transition": 0.13
+        }
+      },
+      "30030": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 3000,
+          "state_revisions": 0,
+          "run_ns": 45459,
+          "run_allocations": 1490,
+          "materialize_ns": 1416,
+          "materialize_allocations": 13
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 3000,
+          "state_revisions": 16,
+          "run_ns": 49792,
+          "run_allocations": 1490,
+          "materialize_ns": 1458,
+          "materialize_allocations": 13,
+          "hot_path_allocations_per_transition": 0.0
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 3000,
+          "state_revisions": 16,
+          "run_ns": 47583,
+          "run_allocations": 1498,
+          "materialize_ns": 26792,
+          "materialize_allocations": 876,
+          "hot_path_allocations_per_transition": 0.5
+        }
+      },
+      "10403": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 3000,
+          "state_revisions": 0,
+          "run_ns": 273667,
+          "run_allocations": 9126,
+          "materialize_ns": 1417,
+          "materialize_allocations": 13
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 3000,
+          "state_revisions": 102,
+          "run_ns": 276334,
+          "run_allocations": 9126,
+          "materialize_ns": 1458,
+          "materialize_allocations": 13,
+          "hot_path_allocations_per_transition": 0.0
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 3000,
+          "state_revisions": 102,
+          "run_ns": 280917,
+          "run_allocations": 9139,
+          "materialize_ns": 131625,
+          "materialize_allocations": 3920,
+          "hot_path_allocations_per_transition": 0.13
+        }
+      }
+    }
+  },
+  "sample": {
+    "R0": {
+      "samples_main": 3793,
+      "samples_run_calculations": 2431,
+      "inclusive_samples": {
+        "RuntimeReasoningState::apply": 161,
+        "RuntimeReasoningState::effect_of": 9,
+        "StateCausality::observe": 280,
+        "StateCausality::link_next_ru": 225,
+        "state_relation (provenance JSON)": 435,
+        "StateCausality::trace": 571,
+        "state_hash": 7,
+        "transition_hash": 0,
+        "to_artifact": 0,
+        "serde_json serialization": 55,
+        "serde_json::to_value": 62,
+        "BTreeMap": 213,
+        "String clone/alloc": 0,
+        "Value clone/drop": 604
+      },
+      "self_samples_by_category": {
+        "malloc/free": 1516,
+        "other": 783,
+        "hash map/index map": 450,
+        "memmove/memset": 366,
+        "sha256": 233,
+        "clock": 172,
+        "serde_json": 160
+      },
+      "self_samples_total": 3680
+    },
+    "R4": {
+      "samples_main": 3825,
+      "samples_run_calculations": 2104,
+      "inclusive_samples": {
+        "RuntimeReasoningState::apply": 31,
+        "RuntimeReasoningState::effect_of": 2,
+        "StateCausality::observe": 40,
+        "StateCausality::link_next_ru": 0,
+        "state_relation (provenance JSON)": 508,
+        "StateCausality::trace": 1006,
+        "state_hash": 1,
+        "transition_hash": 49,
+        "to_artifact": 91,
+        "serde_json serialization": 7,
+        "serde_json::to_value": 90,
+        "BTreeMap": 75,
+        "String clone/alloc": 0,
+        "Value clone/drop": 516
+      },
+      "self_samples_by_category": {
+        "malloc/free": 1456,
+        "other": 853,
+        "hash map/index map": 513,
+        "memmove/memset": 359,
+        "sha256": 349,
+        "serde_json": 105,
+        "clock": 89
+      },
+      "self_samples_total": 3724
+    }
+  }
+}
