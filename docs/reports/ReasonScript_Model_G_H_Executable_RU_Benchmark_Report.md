@@ -7,10 +7,10 @@
 - ReasonScript: `ReasonScript 0.5.5.15
 Install Foundation 1.1
 Runtime 0.5.5.15`
-- Commit: `1b8a8b1c3a35032a5b9e102a041789840148e0fd`
+- Commit: `85a1f23569293523cb6335de111ce9afcea278f2`
 - Runtime: `/Users/chigenori/development/ReasonScript/ReasonRuntime/target/release/reason-runtime-host` (release)
 - Compiler: `rustc 1.93.1 (01f6ddf75 2026-02-11)`
-- Date: `2026-09-20T01:28:11.387550+00:00`
+- Date: `2026-09-20T08:39:42.506086+00:00`
 
 ## Dataset and models
 
@@ -21,11 +21,11 @@ The fixed Executable RU Microbenchmark Dataset v1 contains 117 cases. Model G us
 - Semantic equivalence: PASS
 - RU/lifecycle determinism and count/full hash equivalence: PASS
 - Invalid lifecycle transitions: 0
-- Median RUOR H0 / H1 / H2 / H3: 3.1285 / 2.6722 / 1.9476 / 1.9512
-- H3 p90 / max: 2.1514 / 2.2415
-- Median canonical / total speedup: 0.9348 / 1.3550
+- Median RUOR H0 / H1 / H2 / H3: 3.1285 / 2.6722 / 1.9476 / 1.9485
+- H3 p90 / max: 2.0676 / 2.2410
+- Median canonical / total speedup: 0.9507 / 1.3730
 - Serializer fallbacks / canonical visits: 0 / 38472
-- H3 regressions above H2 +10%: 30
+- H3 regressions above H2 +10%: 11
 - Median VIO-H3 / AOR-H3: 1.0000 / 1.0000
 - Native / legacy RU ratio: 1.0000 / 0.0000
 - Median RUVMR: 0.0370
@@ -46,6 +46,6 @@ The fixed Executable RU Microbenchmark Dataset v1 contains 117 cases. Model G us
 
 ## Conclusion and next step
 
-RUS gate: **HOLD**. Hash v2 gate: **START**. Recommended next step: **RU Semantic Hash Contract v2 design**. Working tree dirty during measurement: **True**. Runtime binary SHA-256: `281a24cc2063164b66079dd7483f4a43ca9fa50ff9a1f15474f55d5bd8a1358c`.
+RUS gate: **HOLD**. Hash v2 gate: **START**. Recommended next step: **RU Semantic Hash Contract v2 design**. Working tree dirty during measurement: **True**. Runtime binary SHA-256: `fe411b3becd04eafb7b9fb1e85736a4592df3cc244f542364cd6b5ca13024fc2`.
 
 Reproduce with `python3 scripts/benchmark_executable_ru.py --binary /Users/chigenori/development/ReasonScript/ReasonRuntime/target/release/reason-runtime-host`. Machine-readable evidence is in `artifacts/executable_ru_benchmark/comparison.csv` and `summary.json`; six SVG graphs are in `graphs/`.

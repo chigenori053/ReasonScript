@@ -233,7 +233,7 @@ def test_executable_reason_units_extend_reason_structure_without_changing_result
     assert {unit["source"] for unit in trace["reason_units"]} == {"runtime", "legacy_reasoning_event"}
     assert all(unit["lifecycle"][:2] == ["CREATED", "ACTIVE"] for unit in trace["reason_units"])
     assert all(unit["lifecycle"][-1] == "COMPLETED" for unit in trace["reason_units"])
-    assert all(relation["kind"] == "PRODUCES" for relation in trace["relations"])
+    assert {relation["kind"] for relation in trace["relations"]} == {"PRODUCES", "REQUIRES"}
     assert len({run.metadata["reason_unit_trace"]["ru_sequence_hash"] for run in full_runs}) == 1
     assert len({run.metadata["reason_unit_trace"]["ru_lifecycle_hash"] for run in full_runs}) == 1
 

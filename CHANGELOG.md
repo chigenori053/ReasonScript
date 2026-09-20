@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added the Native RU-Causal Bridge, including runtime `REQUIRES` relations,
+  typed native observation projection, external/native/merge selection,
+  deterministic observation hashes, bridge diagnostics and metrics, and
+  automatic Evidence-level causal evaluation of executed Reason Units.
 - Added deterministic causal relation evaluation for Evidence dependencies,
   suppression-based counterfactual necessity, `CAUSES`/`PREVENTS`
   classification, bounded chain traversal, causal hashes, metrics, schemas,

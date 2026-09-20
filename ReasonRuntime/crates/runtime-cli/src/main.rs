@@ -24,6 +24,9 @@ use std::process::ExitCode;
 use reasonscript_computation_ir::causal::{
     evaluate as evaluate_causal, CausalConfig, CausalMode, CausalObservation,
 };
+use reasonscript_computation_ir::causal_bridge::{
+    external as external_causal, merge as merge_causal, CausalObservationSource,
+};
 use reasonscript_computation_ir::reason_structure::{ExecutableMode, ReasonUnitMode};
 use reasonscript_computation_ir::state_trace::{TraceConfig, TraceMode};
 use reasonscript_computation_ir::{
@@ -326,6 +329,39 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(32) as usize,
     };
+    let causal_source_name = request
+        .pointer("/context/causal_observation_source")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("external");
+    let Some(causal_source) = CausalObservationSource::parse(causal_source_name) else {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-004",
+            "causal_observation_source must be external, native, or merge",
+        );
+    };
+    if matches!(
+        causal_source,
+        CausalObservationSource::Native | CausalObservationSource::Merge
+    ) && executable_reason_unit_mode == ExecutableMode::Off
+    {
+        return fail_request(
+            request_id,
+            "CAUSAL-BRIDGE-007",
+            "native causal observations require executable Reason Units",
+        );
+    }
+    if matches!(
+        causal_source,
+        CausalObservationSource::Native | CausalObservationSource::Merge
+    ) && executable_reason_unit_mode != ExecutableMode::Full
+    {
+        return fail_request(
+            request_id,
+            "CAUSAL-BRIDGE-008",
+            "native causal observations require executable_reason_units=full",
+        );
+    }
     vm.configure_trace(trace_config, semantic_events);
     vm.configure_reason_units(reason_unit_mode);
     vm.configure_executable_reason_units(executable_reason_unit_mode);
@@ -333,7 +369,15 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
     match vm.run_calculations(&program) {
         Ok(calculations) => {
             let runtime_execution_ns = execution_started.elapsed().as_nanos() as u64;
-            let mut causal_trace = evaluate_causal(&causal_observations, &causal_config);
+            let causal_bridge = match causal_source {
+                CausalObservationSource::External => external_causal(causal_observations),
+                CausalObservationSource::Native => vm.causal_bridge(causal_source),
+                CausalObservationSource::Merge => merge_causal(
+                    vm.causal_bridge(CausalObservationSource::Native),
+                    &causal_observations,
+                ),
+            };
+            let mut causal_trace = evaluate_causal(&causal_bridge.observations, &causal_config);
             causal_trace.metrics.normal_runtime_ns = runtime_execution_ns;
             causal_trace.metrics.counterfactual_cost_ratio = if runtime_execution_ns == 0 {
                 None
@@ -396,6 +440,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "reason_structure_trace": reason_structure_trace,
                         "reason_unit_trace": reason_unit_trace,
                         "causal_trace": causal_trace,
+                        "causal_bridge": causal_bridge,
                         "tensor_metadata": tensor_metadata,
                         "console_output": vm.console_events(),
                         "reason_object_metadata": [],

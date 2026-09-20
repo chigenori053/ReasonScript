@@ -206,6 +206,17 @@ depth 8 and counterfactual evaluation to 32 runs, configurable through
 `max_causal_depth` and `max_counterfactual_runs`. Bounds report
 `CAUSAL-CYCLE-001` and `CAUSAL-BUDGET-001` without unbounded traversal.
 
+`context.causal_observation_source` selects `external` (the compatible
+default), `native`, or `merge`. Native mode projects observations directly
+from typed Executable RU, Evidence, and ReasonRelation data after execution;
+it does not deserialize `reason_unit_trace`. It requires
+`executable_reason_units: "full"`. Runtime `relation.filter` records candidate
+Evidence and a `REQUIRES` edge from each verification RU, allowing the bridge
+to produce native dependencies without hand-written `causal_observations`.
+`metadata.causal_bridge` reports the projected observations, deterministic
+SHA-256 observation hash, diagnostics, coverage, and separately timed bridge
+cost. This remains Evidence-level counterfactual evaluation, not VM replay.
+
 These new collection and event APIs execute in the native Rust host. The Python
 interpreters retain their earlier reference API surface.
 

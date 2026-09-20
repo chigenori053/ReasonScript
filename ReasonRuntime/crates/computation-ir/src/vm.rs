@@ -14,6 +14,9 @@ use std::collections::{HashMap, VecDeque};
 use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
+use crate::causal_bridge::{
+    project as project_causal, CausalBridgeProjection, CausalObservationSource,
+};
 use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
 use crate::reason_structure::{
     ExecutableKind, ExecutableMode, ReasonStructure, ReasonUnitMode, ReasonUnitSource,
@@ -295,6 +298,10 @@ impl<'a> Vm<'a> {
 
     pub fn reason_structure_trace(&self) -> serde_json::Value {
         self.reason_structure.borrow().trace()
+    }
+
+    pub fn causal_bridge(&self, source: CausalObservationSource) -> CausalBridgeProjection {
+        project_causal(&self.reason_structure.borrow(), source)
     }
 
     pub fn trace_diagnostics(&self) -> Vec<serde_json::Value> {
@@ -1334,14 +1341,15 @@ impl<'a> Vm<'a> {
                         subject.clone(),
                         serde_json::json!({"candidate_index": index}),
                     );
+                    let hypothesis_ref = self.reason_structure.borrow().executable_ref(&hypothesis);
                     self.reason_structure
                         .borrow_mut()
                         .finish_executable(
                             hypothesis,
                             TerminalStatus::Completed,
                             serde_json::json!({"adopted": true}),
-                            None,
-                            serde_json::Value::Null,
+                            Some("CANDIDATE_ADOPTED"),
+                            subject.clone(),
                         )
                         .map_err(|code| {
                             RuntimeError::new(code, "invalid Reason Unit lifecycle transition")
@@ -1353,6 +1361,35 @@ impl<'a> Vm<'a> {
                         subject,
                         serde_json::json!({"candidate_index": index}),
                     );
+                    let verification_ref =
+                        self.reason_structure.borrow().executable_ref(&verification);
+                    if let (Some(hypothesis_ref), Some(verification_ref)) =
+                        (hypothesis_ref, verification_ref)
+                    {
+                        let evidence_ref = self
+                            .reason_structure
+                            .borrow()
+                            .evidence_ref_for_ru(&hypothesis_ref)
+                            .ok_or_else(|| {
+                                RuntimeError::new(
+                                    "CAUSAL-BRIDGE-001",
+                                    "candidate Evidence was not recorded",
+                                )
+                            })?;
+                        self.reason_structure
+                            .borrow_mut()
+                            .record_reason_relation("REQUIRES", &verification_ref, &evidence_ref)
+                            .map_err(|code| {
+                                RuntimeError::new(code, "invalid native causal relation")
+                            })?;
+                    } else {
+                        self.reason_structure
+                            .borrow_mut()
+                            .record_reason_relation("REQUIRES", "", "")
+                            .map_err(|code| {
+                                RuntimeError::new(code, "invalid native causal relation")
+                            })?;
+                    }
                     scoped.borrow_mut().insert(binding.clone(), row.clone());
                     self.relation_rows_scanned
                         .set(self.relation_rows_scanned.get() + 1);

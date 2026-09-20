@@ -40,6 +40,7 @@
         "reason_units": {"enum": ["off", "ru", "ru_rus", "ru_rus_ruo"]},
         "executable_reason_units": {"enum": ["off", "count", "full"]},
         "causal_evaluation": {"enum": ["off", "dependency", "counterfactual", "full"]},
+        "causal_observation_source": {"enum": ["external", "native", "merge"]},
         "max_causal_depth": {"type": "integer", "minimum": 0},
         "max_counterfactual_runs": {"type": "integer", "minimum": 0},
         "causal_observations": {

@@ -32,7 +32,7 @@ impl CausalMode {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CausalObservation {
     pub ru_id: String,
     #[serde(default)]

@@ -358,17 +358,17 @@ fn write_json_string_fragment(writer: &mut CanonicalFragment, value: &str) {
 }
 
 #[derive(Debug)]
-struct ExecutableReasonUnit {
-    id: String,
+pub(crate) struct ExecutableReasonUnit {
+    pub(crate) id: String,
     semantic_signature: String,
     kind: ExecutableKind,
-    source: ReasonUnitSource,
+    pub(crate) source: ReasonUnitSource,
     subject: serde_json::Value,
     input: serde_json::Value,
     output: serde_json::Value,
     evidence_refs: Vec<String>,
     status: &'static str,
-    terminal_status: Option<TerminalStatus>,
+    pub(crate) terminal_status: Option<TerminalStatus>,
     lifecycle_revision: u64,
     lifecycle: Vec<&'static str>,
 }
@@ -441,6 +441,71 @@ impl ReasonStructure {
 
     pub fn set_executable_mode(&mut self, mode: ExecutableMode) {
         self.executable_mode = mode;
+    }
+
+    pub(crate) fn executable_mode(&self) -> ExecutableMode {
+        self.executable_mode
+    }
+
+    pub(crate) fn executable_causal_parts(
+        &self,
+    ) -> (
+        &[ExecutableReasonUnit],
+        &[serde_json::Value],
+        &[serde_json::Value],
+    ) {
+        (
+            &self.executable_units,
+            &self.executable_evidence,
+            &self.executable_relations,
+        )
+    }
+
+    pub(crate) fn executable_ref(&self, handle: &Option<ExecutableHandle>) -> Option<String> {
+        let ExecutableHandle::Full(index) = handle.as_ref()? else {
+            return None;
+        };
+        self.executable_units
+            .get(*index)
+            .map(|unit| unit.id.clone())
+    }
+
+    pub(crate) fn evidence_ref_for_ru(&self, ru_ref: &str) -> Option<String> {
+        self.executable_evidence.iter().rev().find_map(|evidence| {
+            (evidence["source_ru"].as_str() == Some(ru_ref))
+                .then(|| evidence["id"].as_str().map(str::to_owned))
+                .flatten()
+        })
+    }
+
+    pub(crate) fn record_reason_relation(
+        &mut self,
+        kind: &str,
+        source_ref: &str,
+        target_ref: &str,
+    ) -> Result<(), &'static str> {
+        const KINDS: &[&str] = &[
+            "PRODUCES", "REQUIRES", "ENABLES", "PREVENTS", "DERIVES", "VERIFIES", "REJECTS",
+            "UPDATES",
+        ];
+        if !KINDS.contains(&kind) {
+            return Err("CAUSAL-BRIDGE-005");
+        }
+        if self.executable_mode == ExecutableMode::Count {
+            self.executable_metrics[17] += 1;
+            return Ok(());
+        }
+        if self.executable_mode != ExecutableMode::Full {
+            return Ok(());
+        }
+        self.executable_relations.push(serde_json::json!({
+            "id": format!("relation:ru:{:08}", self.executable_relations.len() + 1),
+            "kind": kind,
+            "source_ref": source_ref,
+            "target_ref": target_ref,
+        }));
+        self.executable_metrics[17] += 1;
+        Ok(())
     }
 
     pub(crate) fn begin_executable(
