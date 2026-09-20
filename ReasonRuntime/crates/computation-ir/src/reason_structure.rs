@@ -44,13 +44,13 @@ pub enum TerminalStatus {
 }
 
 #[derive(Clone, Debug)]
-pub enum ExecutableHandle {
+pub(crate) enum ExecutableHandle {
     Count {
         sequence: u64,
         kind: ExecutableKind,
         operation: Cow<'static, str>,
-        subject: serde_json::Value,
-        input: serde_json::Value,
+        subject: CanonicalFragment,
+        input: CanonicalFragment,
     },
     Full(usize),
 }
@@ -107,8 +107,8 @@ impl RollingJsonArrayHash {
         &mut self,
         kind: ExecutableKind,
         operation: &str,
-        subject: &serde_json::Value,
-        input: &serde_json::Value,
+        subject: &CanonicalFragment,
+        input: &CanonicalFragment,
         terminal: TerminalStatus,
     ) {
         self.begin_item();
@@ -117,15 +117,15 @@ impl RollingJsonArrayHash {
         self.write(b"|");
         write_json_string_content(self, operation);
         self.write(b"|");
-        write_canonical_escaped(self, subject);
+        write_json_string_bytes(self, subject.as_slice());
         self.write(b"|");
-        write_canonical_escaped(self, input);
+        write_json_string_bytes(self, input.as_slice());
         self.write(b"\",\"");
         self.write(executable_kind(kind).as_bytes());
         self.write(b"\",\"");
         self.write(terminal_status(terminal).as_bytes());
         self.write(b"\",");
-        write_canonical(self, subject);
+        self.write(subject.as_slice());
         self.write(b"]");
     }
 
@@ -136,24 +136,44 @@ impl RollingJsonArrayHash {
     }
 }
 
-struct HashWriter<'a>(&'a mut RollingJsonArrayHash);
+#[derive(Clone, Debug)]
+pub(crate) struct CanonicalFragment {
+    inline: [u8; 128],
+    len: usize,
+    overflow: Option<Vec<u8>>,
+    visits: u64,
+}
 
-impl Write for HashWriter<'_> {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        self.0.write(bytes);
-        Ok(bytes.len())
+impl CanonicalFragment {
+    fn new(value: &serde_json::Value) -> Self {
+        let mut fragment = Self {
+            inline: [0; 128],
+            len: 0,
+            overflow: None,
+            visits: 0,
+        };
+        write_canonical_fragment(&mut fragment, value);
+        fragment
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
+    fn as_slice(&self) -> &[u8] {
+        self.overflow.as_deref().unwrap_or(&self.inline[..self.len])
     }
 }
 
-struct EscapedHashWriter<'a>(&'a mut RollingJsonArrayHash);
-
-impl Write for EscapedHashWriter<'_> {
+impl Write for CanonicalFragment {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        write_json_string_bytes(self.0, bytes);
+        if let Some(overflow) = &mut self.overflow {
+            overflow.extend_from_slice(bytes);
+        } else if self.len + bytes.len() <= self.inline.len() {
+            self.inline[self.len..self.len + bytes.len()].copy_from_slice(bytes);
+            self.len += bytes.len();
+        } else {
+            let mut overflow = Vec::with_capacity((self.len + bytes.len()).next_power_of_two());
+            overflow.extend_from_slice(&self.inline[..self.len]);
+            overflow.extend_from_slice(bytes);
+            self.overflow = Some(overflow);
+        }
         Ok(bytes.len())
     }
 
@@ -230,29 +250,40 @@ fn write_json_string_bytes(hash: &mut RollingJsonArrayHash, bytes: &[u8]) {
     }
 }
 
-fn write_canonical(hash: &mut RollingJsonArrayHash, value: &serde_json::Value) {
-    write_canonical_to(&mut HashWriter(hash), value);
-}
-
-fn write_canonical_escaped(hash: &mut RollingJsonArrayHash, value: &serde_json::Value) {
-    write_canonical_to(&mut EscapedHashWriter(hash), value);
-}
-
-fn write_canonical_to<W: Write>(writer: &mut W, value: &serde_json::Value) {
+fn write_canonical_fragment(writer: &mut CanonicalFragment, value: &serde_json::Value) {
+    writer.visits += 1;
     match value {
         serde_json::Value::Null => writer.write_all(b"null").unwrap(),
         serde_json::Value::Bool(value) => writer
             .write_all(if *value { b"true" } else { b"false" })
             .unwrap(),
-        serde_json::Value::Number(value) => serde_json::to_writer(writer, value).unwrap(),
-        serde_json::Value::String(value) => serde_json::to_writer(writer, value).unwrap(),
+        serde_json::Value::Number(value) => {
+            if let Some(value) = value.as_i64() {
+                write_i64_fragment(writer, value);
+            } else if let Some(value) = value.as_u64() {
+                write_u64_fragment(writer, value);
+            } else {
+                let mut buffer = ryu::Buffer::new();
+                let encoded = buffer.format_finite(value.as_f64().unwrap()).as_bytes();
+                if let Some(exponent) = encoded.iter().position(|byte| *byte == b'e') {
+                    writer.write_all(&encoded[..=exponent]).unwrap();
+                    if encoded.get(exponent + 1) != Some(&b'-') {
+                        writer.write_all(b"+").unwrap();
+                    }
+                    writer.write_all(&encoded[exponent + 1..]).unwrap();
+                } else {
+                    writer.write_all(encoded).unwrap();
+                }
+            }
+        }
+        serde_json::Value::String(value) => write_json_string_fragment(writer, value),
         serde_json::Value::Array(values) => {
             writer.write_all(b"[").unwrap();
             for (index, value) in values.iter().enumerate() {
                 if index > 0 {
                     writer.write_all(b",").unwrap();
                 }
-                write_canonical_to(writer, value);
+                write_canonical_fragment(writer, value);
             }
             writer.write_all(b"]").unwrap();
         }
@@ -262,13 +293,68 @@ fn write_canonical_to<W: Write>(writer: &mut W, value: &serde_json::Value) {
                 if index > 0 {
                     writer.write_all(b",").unwrap();
                 }
-                serde_json::to_writer(&mut *writer, key).unwrap();
+                write_json_string_fragment(writer, key);
                 writer.write_all(b":").unwrap();
-                write_canonical_to(writer, value);
+                write_canonical_fragment(writer, value);
             }
             writer.write_all(b"}").unwrap();
         }
     }
+}
+
+fn write_i64_fragment(writer: &mut CanonicalFragment, value: i64) {
+    if value < 0 {
+        writer.write_all(b"-").unwrap();
+    }
+    write_u64_fragment(writer, value.unsigned_abs());
+}
+
+fn write_u64_fragment(writer: &mut CanonicalFragment, value: u64) {
+    let mut buffer = [0_u8; 20];
+    let start = decimal_u64(value, &mut buffer);
+    writer.write_all(&buffer[start..]).unwrap();
+}
+
+fn write_json_string_fragment(writer: &mut CanonicalFragment, value: &str) {
+    writer.write_all(b"\"").unwrap();
+    let bytes = value.as_bytes();
+    let mut start = 0;
+    for (index, byte) in bytes.iter().copied().enumerate() {
+        let escape = match byte {
+            b'"' => Some(b"\\\"".as_slice()),
+            b'\\' => Some(b"\\\\".as_slice()),
+            b'\x08' => Some(b"\\b".as_slice()),
+            b'\t' => Some(b"\\t".as_slice()),
+            b'\n' => Some(b"\\n".as_slice()),
+            b'\x0c' => Some(b"\\f".as_slice()),
+            b'\r' => Some(b"\\r".as_slice()),
+            0x00..=0x1f => None,
+            _ => continue,
+        };
+        if start < index {
+            writer.write_all(&bytes[start..index]).unwrap();
+        }
+        if let Some(escape) = escape {
+            writer.write_all(escape).unwrap();
+        } else {
+            const HEX: &[u8; 16] = b"0123456789abcdef";
+            writer
+                .write_all(&[
+                    b'\\',
+                    b'u',
+                    b'0',
+                    b'0',
+                    HEX[(byte >> 4) as usize],
+                    HEX[(byte & 15) as usize],
+                ])
+                .unwrap();
+        }
+        start = index + 1;
+    }
+    if start < bytes.len() {
+        writer.write_all(&bytes[start..]).unwrap();
+    }
+    writer.write_all(b"\"").unwrap();
 }
 
 #[derive(Debug)]
@@ -339,7 +425,7 @@ pub struct ReasonStructure {
     executable_relations: Vec<serde_json::Value>,
     executable_sequence: Vec<serde_json::Value>,
     executable_lifecycle: Vec<serde_json::Value>,
-    executable_metrics: [u64; 18],
+    executable_metrics: [u64; 21],
     executable_active: Vec<u64>,
     executable_sequence_hash: RollingJsonArrayHash,
     executable_lifecycle_hash: RollingJsonArrayHash,
@@ -357,7 +443,7 @@ impl ReasonStructure {
         self.executable_mode = mode;
     }
 
-    pub fn begin_executable(
+    pub(crate) fn begin_executable(
         &mut self,
         kind: ExecutableKind,
         source: ReasonUnitSource,
@@ -378,6 +464,9 @@ impl ReasonStructure {
             ReasonUnitSource::LegacyReasoningEvent => self.executable_metrics[14] += 1,
         }
         if self.executable_mode == ExecutableMode::Count {
+            let subject = CanonicalFragment::new(&subject);
+            let input = CanonicalFragment::new(&input);
+            self.executable_metrics[18] += subject.visits + input.visits;
             self.executable_lifecycle_hash
                 .lifecycle(kind, sequence, "CREATED", 0);
             self.executable_lifecycle_hash
@@ -421,7 +510,7 @@ impl ReasonStructure {
         Some(ExecutableHandle::Full(self.executable_units.len() - 1))
     }
 
-    pub fn finish_executable(
+    pub(crate) fn finish_executable(
         &mut self,
         handle: Option<ExecutableHandle>,
         terminal: TerminalStatus,
@@ -463,6 +552,7 @@ impl ReasonStructure {
             }
             self.executable_sequence_hash
                 .sequence(kind, &operation, &subject, &input, terminal);
+            self.executable_metrics[19] += 1; // subject canonical fragment reused
             self.finish_counters(terminal, evidence_kind.is_some());
             return Ok(());
         }
@@ -756,7 +846,10 @@ impl ReasonStructure {
                 "ru_active_count": self.executable_active.len(),
                 "ru_hash_update_count": self.executable_sequence_hash.updates + self.executable_lifecycle_hash.updates,
                 "ru_hash_bytes": self.executable_sequence_hash.bytes + self.executable_lifecycle_hash.bytes + 2,
-                "ru_canonicalization_count": self.executable_metrics[2].saturating_mul(3),
+                "ru_canonicalization_count": self.executable_metrics[2].saturating_mul(2),
+                "ru_canonical_value_visits": self.executable_metrics[18],
+                "ru_canonical_cache_hits": self.executable_metrics[19],
+                "ru_serializer_fallback_count": self.executable_metrics[20],
                 "ru_serialized_bytes": if self.executable_mode == ExecutableMode::Full { serialized_len(&self.executable_units.iter().map(executable_json).collect::<Vec<_>>()) } else { 0 },
                 "ruvmr": if self.executable_metrics[2] == 0 { serde_json::Value::Null } else { serde_json::json!(vm_instruction_count as f64 / self.executable_metrics[2] as f64) },
                 "ru_sequence_hash": sequence_hash,
@@ -1174,6 +1267,11 @@ mod tests {
             serde_json::json!(true),
             serde_json::json!(i64::MIN),
             serde_json::json!(u64::MAX),
+            serde_json::json!(0.0),
+            serde_json::json!(-0.0),
+            serde_json::json!(1.5),
+            serde_json::json!(1.0e-12),
+            serde_json::json!(1.0e100),
             serde_json::json!(-12.5),
             serde_json::json!("quote \" slash \\ line\n雪"),
             serde_json::json!([]),
@@ -1205,7 +1303,10 @@ mod tests {
             };
             let count = run(ExecutableMode::Count);
             let full = run(ExecutableMode::Full);
-            assert_eq!(count["ru_sequence_hash"], full["ru_sequence_hash"]);
+            assert_eq!(
+                count["ru_sequence_hash"], full["ru_sequence_hash"],
+                "{subject:?}"
+            );
             assert_eq!(count["ru_lifecycle_hash"], full["ru_lifecycle_hash"]);
         }
     }
@@ -1230,5 +1331,21 @@ mod tests {
             trace["ru_lifecycle_hash"],
             "sha256:8fc292f6f4d053b76e6777bd473c9e24db4b883ab8a2d8e480737ca2e6275b55"
         );
+    }
+
+    #[test]
+    fn executable_hash_v1_preserves_serde_json_object_order_contract() {
+        let mut first = serde_json::Map::new();
+        first.insert("a".into(), serde_json::json!(1));
+        first.insert("b".into(), serde_json::json!(2));
+        let mut second = serde_json::Map::new();
+        second.insert("b".into(), serde_json::json!(2));
+        second.insert("a".into(), serde_json::json!(1));
+        for value in [
+            serde_json::Value::Object(first),
+            serde_json::Value::Object(second),
+        ] {
+            assert_eq!(canonical(&value), serde_json::to_string(&value).unwrap());
+        }
     }
 }

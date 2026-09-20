@@ -176,6 +176,10 @@ and structural inspection. Count-mode canonical JSON and semantic signatures
 are streamed directly into the SHA-256 v1 contract; Count and Full therefore
 produce identical sequence and lifecycle hashes without constructing the
 intermediate signature or RU-ID strings in the Count hot path.
+Subject and input values are canonicalized once into an inline fragment and
+reused for both v1 signature and sequence positions; fragments larger than 128
+bytes use a bounded fallback allocation. The specialized encoder covers JSON
+numbers, strings, arrays, and objects without generic serializer calls.
 `ReasonStructure` creates and activates native units before candidate predicate
 evaluation, then verifies or rejects and completes them afterward. Explicit
 `reasoning.event` calls remain compatible through synthetic units marked

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added inline canonical fragments for executable RU Count mode, traversing
+  subject/input values once, reusing their v1 bytes, and eliminating generic
+  JSON serialization from the hot path (with deterministic float formatting).
 - Streamed Count-mode semantic signatures, canonical JSON values, RU IDs, and
   lifecycle/sequence records directly into the compatible SHA-256 v1 hash,
   removing hot-path signature and ID string materialization.

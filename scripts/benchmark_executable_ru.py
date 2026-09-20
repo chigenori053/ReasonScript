@@ -31,6 +31,8 @@ OLD_COMPARISON = DEFAULT_OUT / "count_old_baseline.csv"
 OLD_SUMMARY = DEFAULT_OUT / "count_old_baseline.json"
 H1_COMPARISON = DEFAULT_OUT / "count_fast_path_baseline.csv"
 H1_SUMMARY = DEFAULT_OUT / "count_fast_path_baseline.json"
+H2_COMPARISON = DEFAULT_OUT / "semantic_hash_baseline.csv"
+H2_SUMMARY = DEFAULT_OUT / "semantic_hash_baseline.json"
 REPORT = ROOT / "docs/reports/ReasonScript_Model_G_H_Executable_RU_Benchmark_Report.md"
 CLASSES = (
     "prime", "semiprime", "composite", "highly_composite", "repeated_factor",
@@ -150,7 +152,7 @@ def execute(ir: dict, binary: Path, mode: str) -> tuple[dict, dict, dict]:
     return outcome.calculation_results, metrics, outcome.metadata.get("reason_unit_trace", {})
 
 
-def benchmark_case(case: dict, binary: Path, warmup: int, samples: int, old: dict | None = None, h1: dict | None = None) -> dict:
+def benchmark_case(case: dict, binary: Path, warmup: int, samples: int, old: dict | None = None, h1: dict | None = None, h2: dict | None = None) -> dict:
     ir = lower_program(parse(source_for(case)))
     for _ in range(warmup):
         execute(ir, binary, "off")
@@ -201,11 +203,15 @@ def benchmark_case(case: dict, binary: Path, warmup: int, samples: int, old: dic
         runtime_H1=float(h1["runtime_H_fast"]) if h1 else None,
         RUOR_H1=float(h1["RUOR_fast"]) if h1 else None,
         runtime_H_fast=h["runtime_execution_ns"],
-        runtime_H2=h["runtime_execution_ns"],
+        runtime_H2=float(h2["runtime_H2"]) if h2 else None,
+        runtime_H3=h["runtime_execution_ns"],
         RUOR_fast=ratio(h["runtime_execution_ns"], g["runtime_execution_ns"]),
-        RUOR_H2=ratio(h["runtime_execution_ns"], g["runtime_execution_ns"]),
+        RUOR_H2=float(h2["RUOR_H2"]) if h2 else None,
+        RUOR_H3=ratio(h["runtime_execution_ns"], g["runtime_execution_ns"]),
         FastPathSpeedup=ratio(float(old["runtime_H"]), h["runtime_execution_ns"]) if old else None,
         SemanticHashSpeedup=ratio(float(h1["runtime_H_fast"]), h["runtime_execution_ns"]) if h1 else None,
+        CanonicalFastSpeedup=ratio(float(h2["runtime_H2"]), h["runtime_execution_ns"]) if h2 else None,
+        TotalRUSpeedup=ratio(float(old["runtime_H"]), h["runtime_execution_ns"]) if old else None,
         VIO_fast=ratio(h["vm_instruction_count"], g["vm_instruction_count"]),
         allocation_H_fast=h["allocated_bytes"], AOR_fast=ratio(h["allocated_bytes"], g["allocated_bytes"]),
         ru_sequence_hash_count=trace_h.get("ru_sequence_hash"),
@@ -213,6 +219,9 @@ def benchmark_case(case: dict, binary: Path, warmup: int, samples: int, old: dic
         ru_lifecycle_hash_count=trace_h.get("ru_lifecycle_hash"),
         ru_lifecycle_hash_full=trace_full.get("ru_lifecycle_hash"),
         ru_hash_bytes=runs_h[-1].get("ru_hash_bytes", 0),
+        ru_hash_update_count=runs_h[-1].get("ru_hash_update_count", 0),
+        ru_canonical_value_visits=runs_h[-1].get("ru_canonical_value_visits", 0),
+        ru_serializer_fallback_count=runs_h[-1].get("ru_serializer_fallback_count", 0),
     )
     comparable = [name for name in RU_METRICS if name in metrics_full]
     row["metrics_equal"] = all(runs_h[-1][name] == metrics_full[name] for name in comparable)
@@ -252,7 +261,7 @@ def environment(binary: Path) -> dict:
     }
 
 
-def summarize(rows: list[dict], deterministic: bool, env: dict, warmup: int, samples: int, old_summary: dict | None = None, h1_summary: dict | None = None) -> dict:
+def summarize(rows: list[dict], deterministic: bool, env: dict, warmup: int, samples: int, old_summary: dict | None = None, h1_summary: dict | None = None, h2_summary: dict | None = None) -> dict:
     values = lambda name: [float(row[name]) for row in rows if row[name] is not None]
     total_created = sum(row["ru_created_H"] for row in rows)
     total_native = sum(row["ru_native_H"] for row in rows)
@@ -282,9 +291,15 @@ def summarize(rows: list[dict], deterministic: bool, env: dict, warmup: int, sam
         "median_AOR": statistics.median(values("AOR_fast")), "median_PMOR": statistics.median(values("PMOR")),
         "median_RUOR_old": old_summary.get("median_RUOR") if old_summary else None,
         "median_RUOR_H1": h1_summary.get("median_RUOR_fast") if h1_summary else None,
-        "median_RUOR_H2": statistics.median(values("RUOR_H2")),
-        "p90_RUOR_H2": percentile(values("RUOR_H2"), .9),
-        "max_RUOR_H2": max(values("RUOR_H2")),
+        "median_RUOR_H2": h2_summary.get("median_RUOR_H2") if h2_summary else None,
+        "median_RUOR_H3": statistics.median(values("RUOR_H3")),
+        "p90_RUOR_H3": percentile(values("RUOR_H3"), .9),
+        "max_RUOR_H3": max(values("RUOR_H3")),
+        "median_canonical_fast_speedup": statistics.median(values("CanonicalFastSpeedup")),
+        "median_total_ru_speedup": statistics.median(values("TotalRUSpeedup")),
+        "serializer_fallback_total": sum(row["ru_serializer_fallback_count"] for row in rows),
+        "canonical_value_visits": sum(row["ru_canonical_value_visits"] for row in rows),
+        "h3_regression_cases": sum(row["runtime_H3"] > row["runtime_H2"] * 1.10 for row in rows),
         "median_semantic_hash_speedup": statistics.median(values("SemanticHashSpeedup")),
         "median_VIO_H2": statistics.median(values("VIO_fast")),
         "median_AOR_H2": statistics.median(values("AOR_fast")),
@@ -305,7 +320,8 @@ def summarize(rows: list[dict], deterministic: bool, env: dict, warmup: int, sam
         "benchmark_commit": env["benchmark_commit"], "runtime_binary_sha256": env["runtime_binary_sha256"],
         "performance_gate": "PASS" if statistics.median(values("RUOR_fast")) <= 1.50 else "HOLD" if statistics.median(values("RUOR_fast")) < 2.0 else "FAIL",
         "rus_gate": "PASS" if all(list(judgements.values())[:5]) and statistics.median(values("RUOR_fast")) <= 1.50 else "HOLD",
-        "next_step": "RUS" if statistics.median(values("RUOR_fast")) <= 1.50 else "Further RU optimization",
+        "hash_v2_gate": "NOT_NEEDED" if statistics.median(values("RUOR_fast")) <= 1.50 else "START",
+        "next_step": "RUS" if statistics.median(values("RUOR_fast")) <= 1.50 else "RU Semantic Hash Contract v2 design",
     }
 
 
@@ -334,16 +350,16 @@ def write_artifacts(rows: list[dict], summary: dict, out: Path) -> None:
     (out / "summary.json").write_text(stable_json(summary), encoding="utf-8")
     graphs = out / "graphs"; graphs.mkdir(exist_ok=True)
     specifications = (
-        ("ruor_h1_vs_h2.svg", "RUOR H1 vs H2", [(row["RUOR_H1"], row["RUOR_H2"]) for row in rows], "RUOR H1", "RUOR H2"),
-        ("runtime_g_h1_h2.svg", "Runtime G / H1 / H2", [(i * 3 + series, value) for i, row in enumerate(rows) for series, value in enumerate((row["runtime_G"], row["runtime_H1"], row["runtime_H2"]))], "case series", "ns"),
-        ("ru_count_vs_h2_runtime.svg", "RU count vs H2 runtime", [(row["ru_created_H"], row["runtime_H2"]) for row in rows], "RU count", "ns"),
-        ("ru_count_vs_h2_ruor.svg", "RU count vs H2 RUOR", [(row["ru_created_H"], row["RUOR_H2"]) for row in rows], "RU count", "RUOR H2"),
-        ("semantic_hash_speedup.svg", "Semantic Hash speedup by case", [(i, row["SemanticHashSpeedup"]) for i, row in enumerate(rows)], "case", "speedup"),
-        ("hash_bytes_vs_runtime.svg", "Hash bytes vs H2 runtime", [(row["ru_hash_bytes"], row["runtime_H2"]) for row in rows], "hash bytes", "ns"),
+        ("ruor_h2_vs_h3.svg", "RUOR H2 vs H3", [(row["RUOR_H2"], row["RUOR_H3"]) for row in rows], "RUOR H2", "RUOR H3"),
+        ("runtime_g_h2_h3.svg", "Runtime G / H2 / H3", [(i * 3 + series, value) for i, row in enumerate(rows) for series, value in enumerate((row["runtime_G"], row["runtime_H2"], row["runtime_H3"]))], "case series", "ns"),
+        ("ru_count_vs_h3_ruor.svg", "RU count vs H3 RUOR", [(row["ru_created_H"], row["RUOR_H3"]) for row in rows], "RU count", "RUOR H3"),
+        ("canonical_fast_speedup.svg", "Canonical Fast speedup", [(i, row["CanonicalFastSpeedup"]) for i, row in enumerate(rows)], "case", "speedup"),
+        ("canonical_visits_vs_runtime.svg", "Canonical visits vs H3 runtime", [(row["ru_canonical_value_visits"], row["runtime_H3"]) for row in rows], "canonical visits", "ns"),
+        ("hash_updates_vs_runtime.svg", "Hash updates vs H3 runtime", [(row["ru_hash_update_count"], row["runtime_H3"]) for row in rows], "hash updates", "ns"),
     )
     for name, title, points, x_label, y_label in specifications:
         write_svg(graphs / name, title, points, x_label, y_label)
-    filenames = ["comparison.csv", "summary.json", "count_old_baseline.csv", "count_old_baseline.json", "count_fast_path_baseline.csv", "count_fast_path_baseline.json", *(f"graphs/{item[0]}" for item in specifications)]
+    filenames = ["comparison.csv", "summary.json", "count_old_baseline.csv", "count_old_baseline.json", "count_fast_path_baseline.csv", "count_fast_path_baseline.json", "semantic_hash_baseline.csv", "semantic_hash_baseline.json", *(f"graphs/{item[0]}" for item in specifications)]
     manifest = artifact_manifest(filenames, generator="benchmark_executable_ru.py", language_version="0.5")
     artifact_info = artifact_summary(filenames, generator="benchmark_executable_ru.py", language_version="0.5")
     (out / "artifact_manifest.json").write_text(stable_json(manifest), encoding="utf-8")
@@ -368,17 +384,19 @@ def write_report(summary: dict, out: Path) -> None:
 
 ## Dataset and models
 
-The fixed Executable RU Microbenchmark Dataset v1 contains {summary['cases_total']} cases. Model G uses executable RU `off`; H1 is the frozen Count Fast Path baseline; H2 uses the Semantic Hash / Canonicalization Fast Path in public `count` mode. All other runtime settings and IR are identical. Warmup is {summary['warmup']} and samples are {summary['samples']}; G/H2 order alternates by sample. Allocation metrics are the runtime's deterministic managed-allocation proxy, not process heap telemetry.
+The fixed Executable RU Microbenchmark Dataset v1 contains {summary['cases_total']} cases. Model G uses executable RU `off`; H1 and H2 are frozen Count and Semantic Hash baselines; H3 uses Canonicalization Deduplication / Serializer Elimination in public `count` mode. All other runtime settings and IR are identical. Warmup is {summary['warmup']} and samples are {summary['samples']}; G/H3 order alternates by sample. Allocation metrics are the runtime's deterministic managed-allocation proxy, not process heap telemetry.
 
 ## Results
 
 - Semantic equivalence: {'PASS' if summary['semantic_equivalence_pass'] else 'FAIL'}
 - RU/lifecycle determinism and count/full hash equivalence: {'PASS' if summary['determinism_pass'] and summary['hash_equivalence'] else 'FAIL'}
 - Invalid lifecycle transitions: {summary['invalid_lifecycle_total']}
-- Median RUOR old / H1 / H2: {summary['median_RUOR_old']:.4f} / {summary['median_RUOR_H1']:.4f} / {summary['median_RUOR_H2']:.4f}
-- H2 p90 / max: {summary['p90_RUOR_H2']:.4f} / {summary['max_RUOR_H2']:.4f}
-- Median Semantic Hash speedup: {summary['median_semantic_hash_speedup']:.4f}
-- Median VIO-H2 / AOR-H2: {summary['median_VIO_H2']:.4f} / {summary['median_AOR_H2']:.4f}
+- Median RUOR H0 / H1 / H2 / H3: {summary['median_RUOR_old']:.4f} / {summary['median_RUOR_H1']:.4f} / {summary['median_RUOR_H2']:.4f} / {summary['median_RUOR_H3']:.4f}
+- H3 p90 / max: {summary['p90_RUOR_H3']:.4f} / {summary['max_RUOR_H3']:.4f}
+- Median canonical / total speedup: {summary['median_canonical_fast_speedup']:.4f} / {summary['median_total_ru_speedup']:.4f}
+- Serializer fallbacks / canonical visits: {summary['serializer_fallback_total']} / {summary['canonical_value_visits']}
+- H3 regressions above H2 +10%: {summary['h3_regression_cases']}
+- Median VIO-H3 / AOR-H3: {summary['median_VIO_fast']:.4f} / {summary['median_AOR_fast']:.4f}
 - Native / legacy RU ratio: {summary['native_ru_ratio']:.4f} / {summary['legacy_ru_ratio']:.4f}
 - Median RUVMR: {summary['median_RUVMR']:.4f}
 
@@ -388,7 +406,7 @@ The fixed Executable RU Microbenchmark Dataset v1 contains {summary['cases_total
 
 ## Conclusion and next step
 
-RUS gate: **{summary['rus_gate']}**. Recommended next step: **{summary['next_step']}**. Working tree dirty during measurement: **{summary['working_tree_dirty']}**. Runtime binary SHA-256: `{summary['runtime_binary_sha256']}`.
+RUS gate: **{summary['rus_gate']}**. Hash v2 gate: **{summary['hash_v2_gate']}**. Recommended next step: **{summary['next_step']}**. Working tree dirty during measurement: **{summary['working_tree_dirty']}**. Runtime binary SHA-256: `{summary['runtime_binary_sha256']}`.
 
 Reproduce with `python3 scripts/benchmark_executable_ru.py --binary {env['runtime_binary_path']}`. Machine-readable evidence is in `{out.relative_to(ROOT)}/comparison.csv` and `summary.json`; six SVG graphs are in `graphs/`.
 """, encoding="utf-8")
@@ -414,6 +432,9 @@ def main() -> int:
     with H1_COMPARISON.open(newline="", encoding="utf-8") as stream:
         h1_rows = {row["test_id"]: row for row in csv.DictReader(stream)}
     h1_summary = json.loads(H1_SUMMARY.read_text(encoding="utf-8"))
+    with H2_COMPARISON.open(newline="", encoding="utf-8") as stream:
+        h2_rows = {row["test_id"]: row for row in csv.DictReader(stream)}
+    h2_summary = json.loads(H2_SUMMARY.read_text(encoding="utf-8"))
     binary = (args.binary or find_binary())
     if binary is None:
         parser.error("runtime host not found; build ReasonRuntime first")
@@ -422,9 +443,9 @@ def main() -> int:
     warmup, samples = (0, 1) if args.quick else (args.warmup, args.samples)
     if warmup < 0 or samples < 1:
         parser.error("warmup must be non-negative and samples must be positive")
-    rows = [benchmark_case(case, binary, warmup, samples, old_rows.get(case["test_id"]), h1_rows.get(case["test_id"])) for case in selected]
+    rows = [benchmark_case(case, binary, warmup, samples, old_rows.get(case["test_id"]), h1_rows.get(case["test_id"]), h2_rows.get(case["test_id"])) for case in selected]
     deterministic = determinism(selected, binary)
-    summary = summarize(rows, deterministic, environment(binary), warmup, samples, old_summary, h1_summary)
+    summary = summarize(rows, deterministic, environment(binary), warmup, samples, old_summary, h1_summary, h2_summary)
     write_artifacts(rows, summary, args.out.resolve())
     if not args.quick:
         write_report(summary, args.out.resolve())
