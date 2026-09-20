@@ -37,7 +37,9 @@ def test_canonical_ci_and_github_test_share_the_full_test_platform():
     assert DEFAULT_TEST_COMMAND[1:] == ("scripts/test_platform.py", "test")
 
     steps = test_platform._steps_for("test", quick=False, passthrough=[])
-    pytest_paths = [step.command[3] for step in steps if step.command[1:3] == ["-m", "pytest"]]
+    pytest_steps = [step for step in steps if step.command[1:3] == ["-m", "pytest"]]
+    assert len(pytest_steps) == 1
+    pytest_paths = pytest_steps[0].command[3:]
 
     assert "tests" in pytest_paths
     assert "language_surface_release_tests" in pytest_paths
@@ -45,6 +47,22 @@ def test_canonical_ci_and_github_test_share_the_full_test_platform():
     assert "tests/golden" not in pytest_paths
     assert "tests/compatibility" not in pytest_paths
     assert len(pytest_paths) == len(set(pytest_paths))
+
+
+def test_integration_target_includes_native_causality_boundaries():
+    steps = test_platform._steps_for("integration", quick=False, passthrough=[])
+
+    assert [step.name for step in steps] == [
+        "cargo:build:ReasonRuntime:reason-runtime-host",
+        "pytest:integration",
+    ]
+    assert "computation_ir_tests/test_native_causal_bridge.py" in steps[1].command
+    assert "computation_ir_tests/test_native_state_causality.py" in steps[1].command
+
+
+def test_ci_workflows_do_not_build_native_host_twice():
+    for name in ("test.yml", "ci.yml"):
+        assert "cargo build --manifest-path ReasonRuntime/Cargo.toml --bin reason-runtime-host" not in _workflow(name)
 
 
 def test_ci_report_sums_all_test_platform_subsuite_results():

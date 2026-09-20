@@ -39,6 +39,4 @@ jobs:
               cargo fetch --manifest-path "$manifest"
             fi
           done
-      - name: Build native runtime host
-        run: cargo build --manifest-path ReasonRuntime/Cargo.toml --bin reason-runtime-host
       - run: python3 scripts/test_platform.py test

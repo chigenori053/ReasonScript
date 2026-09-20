@@ -51,6 +51,8 @@ PYTEST_GROUPS = {
         "agent_layer_phase1_tests",
         "calculation_integration_tests",
         "code_viewer_phase1_tests",
+        "computation_ir_tests/test_native_causal_bridge.py",
+        "computation_ir_tests/test_native_state_causality.py",
         "execution_architecture_phase1_tests",
         "execution_architecture_phase2_tests",
         "ide_phase1_tests",
@@ -161,6 +163,8 @@ def _steps_for(target: str, *, quick: bool, passthrough: list[str]) -> list[Step
         )
     if target == "release-check":
         return _build_steps() + _steps_for("test", quick=quick, passthrough=passthrough)
+    if target == "integration":
+        return _native_runtime_host_build_steps() + _pytest_steps(target, passthrough)
     if target in PYTEST_GROUPS:
         return _pytest_steps(target, passthrough)
     raise AssertionError(f"unknown target: {target}")
@@ -186,9 +190,13 @@ def _pytest_steps_for_groups(groups: tuple[str, ...], passthrough: list[str]) ->
             for other in candidates
         )
     ]
+    if not paths:
+        return []
     return [
-        Step(f"pytest:{path}", [sys.executable, "-m", "pytest", path, *passthrough])
-        for path in paths
+        Step(
+            f"pytest:{'+'.join(groups)}",
+            [sys.executable, "-m", "pytest", *paths, *passthrough],
+        )
     ]
 
 
@@ -198,15 +206,22 @@ def _rust_test_steps() -> list[Step]:
         for crate in RUST_TEST_CRATES:
             if (ROOT / crate / "Cargo.toml").exists():
                 if crate == "ReasonRuntime":
-                    steps.append(
-                        Step(
-                            "cargo:build:ReasonRuntime:reason-runtime-host",
-                            ["cargo", "build", "--bin", "reason-runtime-host"],
-                            ROOT / crate,
-                        )
-                    )
+                    steps.extend(_native_runtime_host_build_steps())
                 steps.append(Step(f"cargo:test:{crate}", ["cargo", "test"], ROOT / crate))
     return steps
+
+
+def _native_runtime_host_build_steps() -> list[Step]:
+    runtime = ROOT / "ReasonRuntime"
+    if not _has("cargo") or not (runtime / "Cargo.toml").exists():
+        return []
+    return [
+        Step(
+            "cargo:build:ReasonRuntime:reason-runtime-host",
+            ["cargo", "build", "--bin", "reason-runtime-host"],
+            runtime,
+        )
+    ]
 
 
 def _fmt_steps(*, check_only: bool = False) -> list[Step]:
