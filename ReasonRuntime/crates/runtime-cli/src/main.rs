@@ -27,6 +27,7 @@ use reasonscript_computation_ir::causal::{
 use reasonscript_computation_ir::causal_bridge::{
     external as external_causal, merge as merge_causal, CausalObservationSource,
 };
+use reasonscript_computation_ir::reason_objects::ReasonObjectsMode;
 use reasonscript_computation_ir::reason_structure::{ExecutableMode, ReasonUnitMode};
 use reasonscript_computation_ir::reasoning_state::ReasoningStateMode;
 use reasonscript_computation_ir::state_causality::StateCausalityMode;
@@ -336,6 +337,42 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             "reasoning state requires executable_reason_units=full",
         );
     }
+    let reason_objects_name = request
+        .pointer("/context/reason_objects")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("off");
+    let Some(reason_objects_mode) = ReasonObjectsMode::parse(reason_objects_name) else {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-004",
+            "reason_objects must be off, rus, or rus_ruo",
+        );
+    };
+    if reason_objects_mode.enabled() {
+        if executable_reason_unit_mode != ExecutableMode::Full {
+            return fail_request(
+                request_id,
+                "RUO-001",
+                "reason objects require executable_reason_units=full",
+            );
+        }
+        if !(reasoning_state_mode.enabled() || state_causality_mode.enabled()) {
+            return fail_request(
+                request_id,
+                "RUO-002",
+                "reason objects require reasoning_state=lightweight or state_causality != off",
+            );
+        }
+        if reason_objects_mode == ReasonObjectsMode::RusRuo
+            && state_causality_mode != StateCausalityMode::Full
+        {
+            return fail_request(
+                request_id,
+                "RUO-002",
+                "rus_ruo requires state_causality=full for causal relation references",
+            );
+        }
+    }
     let causal_mode_name = request
         .pointer("/context/causal_evaluation")
         .and_then(serde_json::Value::as_str)
@@ -406,6 +443,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
     // State causality auto-enables the reasoning state, so set this first.
     vm.configure_reasoning_state(reasoning_state_mode);
     vm.configure_state_causality(state_causality_mode);
+    vm.configure_reason_objects(reason_objects_mode);
     let execution_started = Instant::now();
     match vm.run_calculations(&program) {
         Ok(calculations) => {
@@ -424,6 +462,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             if state_causality_mode == StateCausalityMode::Full {
                 causal_trace.extend_relations(state_causality.relations.clone());
             }
+            let reason_objects = vm.reason_objects_trace(&causal_trace.relations);
             causal_trace.metrics.normal_runtime_ns = runtime_execution_ns;
             causal_trace.metrics.counterfactual_cost_ratio = if runtime_execution_ns == 0 {
                 None
@@ -466,37 +505,42 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                     runtime_execution_ns.into(),
                 )]);
             }
-            println!(
-                "{}",
-                serde_json::json!({
-                    "schema": RESULT_SCHEMA,
-                    "request_id": request_id,
-                    "ok": true,
-                    "execution_mode": "rust",
-                    "calculation_results": results,
+            let mut payload = serde_json::json!({
+                "schema": RESULT_SCHEMA,
+                "request_id": request_id,
+                "ok": true,
+                "execution_mode": "rust",
+                "calculation_results": results,
+                "console_output": vm.console_events(),
+                "diagnostics": [],
+                "metadata": {
+                    "host_profile": HOST_PROFILE,
+                    "trace": combined_trace,
+                    "loop_trace": loop_trace,
+                    "tensor_trace": tensor_trace,
+                    "vision_trace": vision_trace,
+                    "reasoning_trace": reasoning_trace,
+                    "reason_structure_trace": reason_structure_trace,
+                    "reason_unit_trace": reason_unit_trace,
+                    "causal_trace": causal_trace,
+                    "causal_bridge": causal_bridge,
+                    "state_causality": state_causality,
+                    "reasoning_state": reasoning_state,
+                    "tensor_metadata": tensor_metadata,
                     "console_output": vm.console_events(),
-                    "diagnostics": [],
-                    "metadata": {
-                        "host_profile": HOST_PROFILE,
-                        "trace": combined_trace,
-                        "loop_trace": loop_trace,
-                        "tensor_trace": tensor_trace,
-                        "vision_trace": vision_trace,
-                        "reasoning_trace": reasoning_trace,
-                        "reason_structure_trace": reason_structure_trace,
-                        "reason_unit_trace": reason_unit_trace,
-                        "causal_trace": causal_trace,
-                        "causal_bridge": causal_bridge,
-                        "state_causality": state_causality,
-                        "reasoning_state": reasoning_state,
-                        "tensor_metadata": tensor_metadata,
-                        "console_output": vm.console_events(),
-                        "reason_object_metadata": [],
-                        "trace_diagnostics": vm.trace_diagnostics(),
-                        "runtime_metrics": runtime_metrics,
-                    },
-                })
-            );
+                    "reason_object_metadata": [],
+                    "trace_diagnostics": vm.trace_diagnostics(),
+                    "runtime_metrics": runtime_metrics,
+                },
+            });
+            // RUS / RUO are added only when requested, so a response without them is unchanged.
+            if let Some(objects) = reason_objects {
+                payload["metadata"]["rus"] = serde_json::json!(objects.rus);
+                if let Some(ruo) = objects.ruo {
+                    payload["metadata"]["ruo"] = serde_json::json!(ruo);
+                }
+            }
+            println!("{payload}");
             ExitCode::SUCCESS
         }
         Err(error) => fail_runtime_request(request_id, &error),

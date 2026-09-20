@@ -43,6 +43,7 @@
         "causal_observation_source": {"enum": ["external", "native", "merge"]},
         "state_causality": {"enum": ["off", "trace", "full"]},
         "reasoning_state": {"enum": ["off", "lightweight"]},
+        "reason_objects": {"enum": ["off", "rus", "rus_ruo"]},
         "max_causal_depth": {"type": "integer", "minimum": 0},
         "max_counterfactual_runs": {"type": "integer", "minimum": 0},
         "causal_observations": {

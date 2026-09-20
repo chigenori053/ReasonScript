@@ -2,6 +2,8 @@ use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::io::{self, Write};
 
+use crate::causal::CausalRelation;
+use crate::reason_objects::{self, ObjectSources, ReasonObjectsMode, ReasonObjectsTrace};
 use crate::reasoning_state::{
     EvidenceRef, ReasoningStateMode, ReasoningStateTrace, RefResolver, RuRef,
     RuntimeReasoningState, StateEffect, StateUpdate,
@@ -366,18 +368,20 @@ fn write_json_string_fragment(writer: &mut CanonicalFragment, value: &str) {
 #[derive(Debug)]
 pub(crate) struct ExecutableReasonUnit {
     pub(crate) id: String,
-    semantic_signature: String,
+    pub(crate) semantic_signature: String,
     operation: Cow<'static, str>,
     kind: ExecutableKind,
     pub(crate) source: ReasonUnitSource,
     subject: serde_json::Value,
     input: serde_json::Value,
     output: serde_json::Value,
-    evidence_refs: Vec<String>,
+    pub(crate) evidence_refs: Vec<String>,
     status: &'static str,
     pub(crate) terminal_status: Option<TerminalStatus>,
     lifecycle_revision: u64,
-    lifecycle: Vec<&'static str>,
+    pub(crate) lifecycle: Vec<&'static str>,
+    /// Reasoning-state revision when the RU began (its RUS before).
+    pub(crate) state_before: u32,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -438,6 +442,7 @@ pub struct ReasonStructure {
     executable_lifecycle_hash: RollingJsonArrayHash,
     reasoning_state: RuntimeReasoningState,
     state_causality: StateCausality,
+    reason_objects: ReasonObjectsMode,
 }
 
 impl ReasonStructure {
@@ -470,6 +475,32 @@ impl ReasonStructure {
         self.reasoning_state.enabled()
     }
 
+    /// RUS / RUO projection mode. Projection needs every transition, so any
+    /// enabled mode keeps them even when state causality reports nothing.
+    pub fn set_reason_objects_mode(&mut self, mode: ReasonObjectsMode) {
+        self.reason_objects = mode;
+        self.state_causality.set_retain(mode.enabled());
+    }
+
+    /// Builds the RUS (and RUO) artifacts from the runtime tables; `causal` are
+    /// the final causal relations with their canonical IDs.
+    pub fn reason_objects_trace(&self, causal: &[CausalRelation]) -> Option<ReasonObjectsTrace> {
+        self.reason_objects.enabled().then(|| {
+            reason_objects::project(
+                &ObjectSources {
+                    units: &self.executable_units,
+                    evidence: &self.executable_evidence,
+                    relations: &self.executable_relations,
+                    state: &self.reasoning_state,
+                    transitions: self.state_causality.transitions(),
+                },
+                self,
+                self.reason_objects,
+                causal,
+            )
+        })
+    }
+
     /// The only gateway through which reasoning state is mutated: the state
     /// diffs the update itself and the resulting transition is projected into
     /// state causality. Returns whether the state changed.
@@ -500,7 +531,9 @@ impl ReasonStructure {
         match effect {
             StateEffect::Initialize(values) => {
                 // Refusals are recorded as RUS diagnostics by the state itself.
-                let _ = self.reasoning_state.initialize(&values);
+                if self.reasoning_state.initialize(&values).is_ok() {
+                    self.reasoning_state.set_initial_source_ru(source_ru);
+                }
             }
             StateEffect::Update1(updates) => {
                 self.apply_reasoning_state_update(Some(source_ru), &updates, evidence);
@@ -653,6 +686,7 @@ impl ReasonStructure {
             terminal_status: None,
             lifecycle_revision: 1,
             lifecycle: vec!["CREATED", "ACTIVE"],
+            state_before: self.reasoning_state.revision() as u32,
         };
         self.executable_lifecycle
             .push(serde_json::json!([id, "CREATED", 0]));
@@ -1092,7 +1126,7 @@ fn executable_operation(operation: &str) -> Cow<'static, str> {
     }
 }
 
-fn terminal_status(status: TerminalStatus) -> &'static str {
+pub(crate) fn terminal_status(status: TerminalStatus) -> &'static str {
     match status {
         TerminalStatus::Verified => "VERIFIED",
         TerminalStatus::Rejected => "REJECTED",

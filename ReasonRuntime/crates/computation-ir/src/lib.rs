@@ -10,6 +10,7 @@ pub mod causal_bridge;
 pub mod console_dispatch;
 pub mod ir;
 pub mod optimizer_dispatch;
+pub mod reason_objects;
 pub mod reason_structure;
 pub mod reasoning_state;
 pub mod relation_dispatch;

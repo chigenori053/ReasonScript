@@ -25,6 +25,7 @@ HOST = RUNTIME / "target/debug/reason-runtime-host"
 PYTHON_TESTS = [
     "computation_ir_tests/test_reasoning_state.py",
     "computation_ir_tests/test_native_state_causality.py",
+    "computation_ir_tests/test_reason_objects.py",
 ]
 
 # (gate, name, file, original text, mutated text)
@@ -62,6 +63,28 @@ MUTATIONS = [
      "        if position > 0 {\n            buf.push(b',');\n        }\n        buf.push(b'\"');\n"
      "        buf.extend_from_slice(field.name().as_bytes());\n        buf.extend_from_slice(b\"\\\":\");\n"
      "        fields[field.index()].write_json(&mut buf);"),
+    # RUS / RUO projection
+    ("objects", "RUO before/after swapped", "reason_objects.rs",
+     "rus_before_ref: rus_id(before),\n            rus_after_ref: rus_id(after),",
+     "rus_before_ref: rus_id(after),\n            rus_after_ref: rus_id(before),"),
+    ("objects", "RUS parent revision wrong", "reason_objects.rs",
+     "parent_revision: Some(revision - 1),", "parent_revision: Some(revision.saturating_sub(2)),"),
+    ("objects", "RUO Evidence refs dropped", "reason_objects.rs",
+     "            evidence_refs,\n            relation_refs,", "            evidence_refs: Vec::new(),\n            relation_refs,"),
+    ("objects", "RUO omits the transition's causal relations", "reason_objects.rs",
+     "if let Some(revision) = updated_at[index] {", "if let Some(revision) = updated_at[index].filter(|_| false) {"),
+    ("objects", "RUS sequence hash skips a state", "reason_objects.rs",
+     "record_hash(states, |buf, state| {", "record_hash(&states[1..], |buf, state| {"),
+    ("objects", "RU state binding shifted", "reason_objects.rs",
+     "let before = u64::from(unit.state_before);", "let before = u64::from(unit.state_before.saturating_sub(1));"),
+    ("objects", "RU begin revision not recorded", "reason_structure.rs",
+     "state_before: self.reasoning_state.revision() as u32,", "state_before: 0,"),
+    ("objects", "initial source RU not recorded", "reason_structure.rs",
+     "self.reasoning_state.set_initial_source_ru(source_ru);", "let _ = source_ru;"),
+    ("objects", "transitions not retained for RUS-only mode", "state_causality.rs",
+     "if !self.enabled() && !self.retain {", "if !self.enabled() {"),
+    ("objects", "retained transitions leak into state causality", "state_causality.rs",
+     "let reported: &[RuntimeStateTransition] = if self.enabled() {", "let reported: &[RuntimeStateTransition] = if self.enabled() || self.retain {"),
     ("extra", "verification stops reading current_candidate", "state_causality.rs",
      "F::Remaining.bit() | F::SearchBound.bit() | F::CurrentCandidate.bit()", "F::Remaining.bit() | F::SearchBound.bit()"),
 ]
@@ -99,8 +122,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", type=Path)
     args = parser.parse_args()
+    before = {file: (SRC / file).read_bytes() for _, _, file, _, _ in MUTATIONS}
     results = [run_mutant(*mutation) for mutation in MUTATIONS]
-    restored = build() and sh(["git", "diff", "--quiet", "--", "ReasonRuntime/crates"]).returncode == 0
+    restored = build() and all((SRC / file).read_bytes() == content for file, content in before.items())
     summary = {
         "mutants": len(results),
         "detected": sum(r["outcome"] == "detected" for r in results),

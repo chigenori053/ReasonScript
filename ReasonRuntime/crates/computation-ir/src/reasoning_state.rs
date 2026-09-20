@@ -254,6 +254,35 @@ impl ReasonStateValue {
     }
 }
 
+impl Serialize for ReasonStateValue {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Self::None => serializer.serialize_none(),
+            Self::Int(value) => serializer.serialize_i64(*value),
+            Self::Bool(value) => serializer.serialize_bool(*value),
+            Self::Goal(status) => serializer.serialize_str(status.as_str()),
+            Self::String(value) => serializer.serialize_str(value),
+            Self::Json(value) => value.serialize(serializer),
+        }
+    }
+}
+
+/// The five fields serialized as a JSON object in external-name order, without
+/// building a map.
+#[derive(Clone, Debug)]
+pub struct FieldsView(pub(crate) Fields);
+
+impl Serialize for FieldsView {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(Some(ReasonStateField::COUNT))?;
+        for field in ReasonStateField::BY_NAME {
+            map.serialize_entry(field.name(), &self.0[field.index()])?;
+        }
+        map.end()
+    }
+}
+
 pub type StateUpdate = (ReasonStateField, ReasonStateValue);
 
 /// Public artifact form of a transition (the `state_transition` schema).
@@ -479,7 +508,7 @@ pub(crate) enum StateEffect {
     Update2([StateUpdate; 2]),
 }
 
-type Fields = [ReasonStateValue; ReasonStateField::COUNT];
+pub(crate) type Fields = [ReasonStateValue; ReasonStateField::COUNT];
 
 #[derive(Clone, Debug)]
 pub struct RuntimeReasoningState {
@@ -487,6 +516,8 @@ pub struct RuntimeReasoningState {
     revision: u64,
     fields: Fields,
     initial_fields: Fields,
+    /// The RU that constructed the initial state, if any (revision 0).
+    initial_source_ru: Option<RuRef>,
     metrics: ReasoningStateMetrics,
     diagnostics: Vec<&'static str>,
 }
@@ -501,6 +532,7 @@ impl Default for RuntimeReasoningState {
             revision: 0,
             initial_fields: fields.clone(),
             fields,
+            initial_source_ru: None,
             metrics: ReasoningStateMetrics::default(),
             diagnostics: Vec::new(),
         }
@@ -554,6 +586,18 @@ impl RuntimeReasoningState {
             ReasonStateValue::Goal(status) => status,
             _ => GoalStatus::Active,
         }
+    }
+
+    pub(crate) fn initial_fields(&self) -> &Fields {
+        &self.initial_fields
+    }
+
+    pub(crate) fn initial_source_ru(&self) -> Option<RuRef> {
+        self.initial_source_ru
+    }
+
+    pub(crate) fn set_initial_source_ru(&mut self, source: RuRef) {
+        self.initial_source_ru = Some(source);
     }
 
     pub(crate) fn diagnose(&mut self, code: &'static str) {
@@ -799,8 +843,15 @@ impl RuntimeReasoningState {
     }
 }
 
+/// Applies a transition's after values to a field array (RUS projection replay).
+pub(crate) fn apply_after(fields: &mut Fields, transition: &RuntimeStateTransition) {
+    for field in transition.changed.by_name() {
+        fields[field.index()] = transition.after(field).clone();
+    }
+}
+
 /// `{"revision":R,"fields":{...}}` with fields in external-name order.
-fn state_hash(revision: u64, fields: &Fields) -> String {
+pub(crate) fn state_hash(revision: u64, fields: &Fields) -> String {
     let mut buf = Vec::with_capacity(160);
     buf.extend_from_slice(b"{\"revision\":");
     push_u64(&mut buf, revision, 0);

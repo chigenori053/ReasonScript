@@ -1,0 +1,364 @@
+{
+  "schema": "reasonscript-reason-objects-benchmark/1.0",
+  "baseline_commit_note": "baseline binary = main before the RUS/RUO projection",
+  "head": "b7fa74b370a16a9ba512742aff5227496b4e9d7a",
+  "working_tree_dirty": true,
+  "formal_evaluation": false,
+  "binaries": {
+    "baseline_r4": {
+      "file": "main-r4-host",
+      "runtime_binary_sha256": "16cff3ce8f9b2d6df40bd5975143c85dc3f99cecc76e4e393e57d32d21563998"
+    },
+    "projection": {
+      "file": "obj-host",
+      "runtime_binary_sha256": "437059dbfeb9dcc52cfd429c2ed417e37b4d894bc611d6fea03547a48f578746"
+    }
+  },
+  "compiler_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "cpu_architecture": "arm64",
+  "build_profile": "release",
+  "date": "2026-09-20T22:38:51+00:00",
+  "warmup": 3,
+  "samples": 25,
+  "hot_path_overhead_vs_r4": {
+    "rus": -0.02587779805082102,
+    "rus_ruo": -0.02402516867150506
+  },
+  "hot_path_reference_targets": {
+    "rus": 0.05,
+    "rus_ruo": 0.1
+  },
+  "hot_path_verdict": {
+    "rus": "PASS",
+    "rus_ruo": "PASS"
+  },
+  "hold": false,
+  "hot_path_per_case": {
+    "77": {
+      "rus": -0.06138613861386144,
+      "rus_ruo": -0.06997227722772281
+    },
+    "997": {
+      "rus": -0.01834061135371179,
+      "rus_ruo": 0.004946724890829701
+    },
+    "10007": {
+      "rus": -0.010963769963093895,
+      "rus_ruo": -0.009694776623923596
+    },
+    "30030": {
+      "rus": -0.04633204633204635,
+      "rus_ruo": -0.04805148005148008
+    },
+    "10403": {
+      "rus": -0.031924196277495764,
+      "rus_ruo": -0.03508358714043991
+    }
+  },
+  "hot_path_regression_guard_projection_off_vs_baseline": {
+    "aggregate_ratio": 0.9869506642109053,
+    "limit": 1.1,
+    "ok": true
+  },
+  "end_to_end_wall_overhead_vs_r4": {
+    "rus": 0.08299004167464008,
+    "rus_ruo": 0.18497346962598682
+  },
+  "end_to_end_reference_target": 0.2,
+  "end_to_end_note": "whole host process wall time (startup, execution, projection, serialization, printing)",
+  "cases": {
+    "77": {
+      "hot_path_ns": {
+        "baseline_r4": 68125,
+        "r4": 63125,
+        "rus": 59250,
+        "rus_ruo": 58708
+      },
+      "wall_ns": {
+        "baseline_r4": 2688709,
+        "r4": 2613542,
+        "rus": 2710625,
+        "rus_ruo": 2774708
+      },
+      "transitions": 8,
+      "rus_states": 9,
+      "ruo_objects": 15,
+      "projection_ns": {
+        "rus_materialization_ns": 11667,
+        "rus_hash_ns": 11666,
+        "ruo_materialization_ns": 19458,
+        "ruo_hash_ns": 11750
+      }
+    },
+    "997": {
+      "hot_path_ns": {
+        "baseline_r4": 150458,
+        "r4": 143125,
+        "rus": 140500,
+        "rus_ruo": 143833
+      },
+      "wall_ns": {
+        "baseline_r4": 3675250,
+        "r4": 3638083,
+        "rus": 3854958,
+        "rus_ruo": 4131875
+      },
+      "transitions": 31,
+      "rus_states": 32,
+      "ruo_objects": 63,
+      "projection_ns": {
+        "rus_materialization_ns": 29708,
+        "rus_hash_ns": 39250,
+        "ruo_materialization_ns": 35333,
+        "ruo_hash_ns": 44208
+      }
+    },
+    "10007": {
+      "hot_path_ns": {
+        "baseline_r4": 363875,
+        "r4": 360916,
+        "rus": 356959,
+        "rus_ruo": 357417
+      },
+      "wall_ns": {
+        "baseline_r4": 6588500,
+        "r4": 6442292,
+        "rus": 7148791,
+        "rus_ruo": 8043500
+      },
+      "transitions": 100,
+      "rus_states": 101,
+      "ruo_objects": 201,
+      "projection_ns": {
+        "rus_materialization_ns": 93292,
+        "rus_hash_ns": 118250,
+        "ruo_materialization_ns": 109875,
+        "ruo_hash_ns": 137375
+      }
+    },
+    "30030": {
+      "hot_path_ns": {
+        "baseline_r4": 102750,
+        "r4": 97125,
+        "rus": 92625,
+        "rus_ruo": 92458
+      },
+      "wall_ns": {
+        "baseline_r4": 3115416,
+        "r4": 3097917,
+        "rus": 3218084,
+        "rus_ruo": 3345750
+      },
+      "transitions": 16,
+      "rus_states": 17,
+      "ruo_objects": 31,
+      "projection_ns": {
+        "rus_materialization_ns": 21625,
+        "rus_hash_ns": 21083,
+        "ruo_materialization_ns": 23583,
+        "ruo_hash_ns": 23958
+      }
+    },
+    "10403": {
+      "hot_path_ns": {
+        "baseline_r4": 362125,
+        "r4": 369375,
+        "rus": 357583,
+        "rus_ruo": 356416
+      },
+      "wall_ns": {
+        "baseline_r4": 6632458,
+        "r4": 6558209,
+        "rus": 7272416,
+        "rus_ruo": 8188375
+      },
+      "transitions": 102,
+      "rus_states": 103,
+      "ruo_objects": 203,
+      "projection_ns": {
+        "rus_materialization_ns": 94875,
+        "rus_hash_ns": 128709,
+        "ruo_materialization_ns": 119125,
+        "ruo_hash_ns": 139042
+      }
+    }
+  },
+  "in_process": {
+    "77": {
+      "causality": {
+        "config": "causality",
+        "iterations": 2000,
+        "state_revisions": 8,
+        "run_ns": 23625,
+        "run_allocations": 744,
+        "materialize_ns": 12167,
+        "materialize_allocations": 348,
+        "objects_ns": 0,
+        "objects_allocations": 0
+      },
+      "objects_rus": {
+        "config": "objects_rus",
+        "iterations": 2000,
+        "state_revisions": 8,
+        "run_ns": 23875,
+        "run_allocations": 744,
+        "materialize_ns": 39125,
+        "materialize_allocations": 762,
+        "objects_ns": 27000,
+        "objects_allocations": 414
+      },
+      "objects_ruo": {
+        "config": "objects_ruo",
+        "iterations": 2000,
+        "state_revisions": 8,
+        "run_ns": 23958,
+        "run_allocations": 744,
+        "materialize_ns": 61542,
+        "materialize_allocations": 1052,
+        "objects_ns": 49375,
+        "objects_allocations": 704
+      }
+    },
+    "997": {
+      "causality": {
+        "config": "causality",
+        "iterations": 2000,
+        "state_revisions": 31,
+        "run_ns": 88500,
+        "run_allocations": 2886,
+        "materialize_ns": 40250,
+        "materialize_allocations": 1206,
+        "objects_ns": 0,
+        "objects_allocations": 0
+      },
+      "objects_rus": {
+        "config": "objects_rus",
+        "iterations": 2000,
+        "state_revisions": 31,
+        "run_ns": 88875,
+        "run_allocations": 2886,
+        "materialize_ns": 138000,
+        "materialize_allocations": 2673,
+        "objects_ns": 97667,
+        "objects_allocations": 1467
+      },
+      "objects_ruo": {
+        "config": "objects_ruo",
+        "iterations": 2000,
+        "state_revisions": 31,
+        "run_ns": 90917,
+        "run_allocations": 2886,
+        "materialize_ns": 225666,
+        "materialize_allocations": 3821,
+        "objects_ns": 185167,
+        "objects_allocations": 2615
+      }
+    },
+    "10007": {
+      "causality": {
+        "config": "causality",
+        "iterations": 2000,
+        "state_revisions": 100,
+        "run_ns": 276458,
+        "run_allocations": 9042,
+        "materialize_ns": 127833,
+        "materialize_allocations": 3828,
+        "objects_ns": 0,
+        "objects_allocations": 0
+      },
+      "objects_rus": {
+        "config": "objects_rus",
+        "iterations": 2000,
+        "state_revisions": 100,
+        "run_ns": 281042,
+        "run_allocations": 9042,
+        "materialize_ns": 432042,
+        "materialize_allocations": 8470,
+        "objects_ns": 304750,
+        "objects_allocations": 4642
+      },
+      "objects_ruo": {
+        "config": "objects_ruo",
+        "iterations": 2000,
+        "state_revisions": 100,
+        "run_ns": 280459,
+        "run_allocations": 9042,
+        "materialize_ns": 719375,
+        "materialize_allocations": 12105,
+        "objects_ns": 592375,
+        "objects_allocations": 8277
+      }
+    },
+    "30030": {
+      "causality": {
+        "config": "causality",
+        "iterations": 2000,
+        "state_revisions": 16,
+        "run_ns": 47209,
+        "run_allocations": 1498,
+        "materialize_ns": 26625,
+        "materialize_allocations": 876,
+        "objects_ns": 0,
+        "objects_allocations": 0
+      },
+      "objects_rus": {
+        "config": "objects_rus",
+        "iterations": 2000,
+        "state_revisions": 16,
+        "run_ns": 47584,
+        "run_allocations": 1498,
+        "materialize_ns": 84167,
+        "materialize_allocations": 1859,
+        "objects_ns": 57292,
+        "objects_allocations": 983
+      },
+      "objects_ruo": {
+        "config": "objects_ruo",
+        "iterations": 2000,
+        "state_revisions": 16,
+        "run_ns": 47875,
+        "run_allocations": 1498,
+        "materialize_ns": 131875,
+        "materialize_allocations": 2458,
+        "objects_ns": 104917,
+        "objects_allocations": 1582
+      }
+    },
+    "10403": {
+      "causality": {
+        "config": "causality",
+        "iterations": 2000,
+        "state_revisions": 102,
+        "run_ns": 273917,
+        "run_allocations": 9139,
+        "materialize_ns": 130041,
+        "materialize_allocations": 3920,
+        "objects_ns": 0,
+        "objects_allocations": 0
+      },
+      "objects_rus": {
+        "config": "objects_rus",
+        "iterations": 2000,
+        "state_revisions": 102,
+        "run_ns": 284750,
+        "run_allocations": 9139,
+        "materialize_ns": 443000,
+        "materialize_allocations": 8661,
+        "objects_ns": 312125,
+        "objects_allocations": 4741
+      },
+      "objects_ruo": {
+        "config": "objects_ruo",
+        "iterations": 2000,
+        "state_revisions": 102,
+        "run_ns": 283875,
+        "run_allocations": 9139,
+        "materialize_ns": 732792,
+        "materialize_allocations": 12340,
+        "objects_ns": 602833,
+        "objects_allocations": 8420
+      }
+    }
+  }
+}

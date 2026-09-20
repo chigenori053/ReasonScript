@@ -277,6 +277,18 @@ reports semantic events with `reasoning.event`, and the runtime derives
 `FACTOR_CONFIRMED` Evidence, which `ENABLES` the goal-evaluation RU, whose
 `goal_status ACTIVE → REACHED` transition `TERMINATES` the termination check.
 
+### RUS / RUO projection
+
+`context.reason_objects` is `off` (default), `rus`, or `rus_ruo`. It projects the runtime reasoning state into
+explicit objects in the response phase only; the hot path, existing artifacts, and existing hashes are unchanged, and
+with `off` the response is byte-identical to before. `rus` adds `metadata.rus` (one immutable
+`reason-unit-state/0.1` per state revision, the `READS_STATE` / `UPDATES` / `DERIVES_STATE` relations, and
+`rus_sequence_hash` / `rus_relation_hash`); `rus_ruo` also adds `metadata.ruo` (one `reason-unit-object/0.1` per
+Executable RU binding it to its RUS before/after, Evidence, ReasonRelation, and causal relation references, plus
+`ruo_graph_hash`). It requires `executable_reason_units: "full"` (`RUO-001`) and the reasoning state (`RUO-002`);
+`rus_ruo` also requires `state_causality: "full"`. Schemas: `schemas/rus.schema.json`, `schemas/ruo.schema.json`.
+See `docs/specifications/ReasonScript_RUS_RUO_Runtime_Integration_v0_1.md`.
+
 These new collection and event APIs execute in the native Rust host. The Python
 interpreters retain their earlier reference API surface.
 

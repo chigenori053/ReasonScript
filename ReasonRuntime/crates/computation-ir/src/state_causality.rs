@@ -90,6 +90,9 @@ struct RuntimeStateRelation {
 #[derive(Default)]
 pub struct StateCausality {
     mode: StateCausalityMode,
+    /// Keep transitions even while the mode is `off` (RUS projection needs them);
+    /// the state causality artifact still reports nothing in that case.
+    retain: bool,
     transitions: Vec<RuntimeStateTransition>,
     relations: Vec<RuntimeStateRelation>,
     runtime_ns: u64,
@@ -104,13 +107,17 @@ impl StateCausality {
         self.mode.enabled()
     }
 
+    pub(crate) fn set_retain(&mut self, retain: bool) {
+        self.retain = retain;
+    }
+
     pub(crate) fn transitions(&self) -> &[RuntimeStateTransition] {
         &self.transitions
     }
 
     /// Records a transition and, in `full` mode, its `CAUSES_STATE_CHANGE` relation.
     pub fn observe(&mut self, transition: RuntimeStateTransition) {
-        if !self.enabled() {
+        if !self.enabled() && !self.retain {
             return;
         }
         let started = Instant::now();
@@ -154,9 +161,14 @@ impl StateCausality {
         resolver: &dyn RefResolver,
         diagnostics: Vec<&'static str>,
     ) -> StateCausalityTrace {
+        // While only retained for RUS projection, the artifact stays empty.
+        let reported: &[RuntimeStateTransition] = if self.enabled() {
+            &self.transitions
+        } else {
+            &[]
+        };
         let started = Instant::now();
-        let transitions: Vec<StateTransition> = self
-            .transitions
+        let transitions: Vec<StateTransition> = reported
             .iter()
             .map(|transition| transition.to_artifact(resolver))
             .collect();
@@ -177,7 +189,7 @@ impl StateCausality {
             .collect();
         let provenance_materialization_ns = started.elapsed().as_nanos() as u64;
         let started = Instant::now();
-        let state_transition_hash = transition_hash(&self.transitions, resolver);
+        let state_transition_hash = transition_hash(reported, resolver);
         let transition_hash_ns = started.elapsed().as_nanos() as u64;
         let transition_count = transitions.len();
         let with_source = transitions

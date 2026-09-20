@@ -14,10 +14,12 @@ use std::collections::{HashMap, VecDeque};
 use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
+use crate::causal::CausalRelation;
 use crate::causal_bridge::{
     project as project_causal, CausalBridgeProjection, CausalObservationSource,
 };
 use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
+use crate::reason_objects::{ReasonObjectsMode, ReasonObjectsTrace};
 use crate::reason_structure::{
     ExecutableKind, ExecutableMode, ReasonStructure, ReasonUnitMode, ReasonUnitSource,
     TerminalStatus,
@@ -300,6 +302,12 @@ impl<'a> Vm<'a> {
             .set_reasoning_state_mode(mode);
     }
 
+    pub fn configure_reason_objects(&mut self, mode: ReasonObjectsMode) {
+        self.reason_structure
+            .borrow_mut()
+            .set_reason_objects_mode(mode);
+    }
+
     pub fn configure_state_causality(&mut self, mode: StateCausalityMode) {
         self.reason_structure
             .borrow_mut()
@@ -320,6 +328,12 @@ impl<'a> Vm<'a> {
 
     pub fn state_causality_trace(&self) -> StateCausalityTrace {
         self.reason_structure.borrow().state_causality_trace()
+    }
+
+    /// RUS / RUO artifacts, when `reason_objects` is enabled. `causal` are the
+    /// final causal relations (with canonical IDs) the RUOs reference.
+    pub fn reason_objects_trace(&self, causal: &[CausalRelation]) -> Option<ReasonObjectsTrace> {
+        self.reason_structure.borrow().reason_objects_trace(causal)
     }
 
     pub fn reasoning_state_trace(&self) -> ReasoningStateTrace {

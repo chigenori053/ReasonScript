@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! cargo run --release -p reasonscript-computation-runtime-cli --example reasoning_state_profile \
-//!     -- <program.json> <normal|ru_full|lightweight|causality> [iterations]
+//!     -- <program.json> <normal|ru_full|lightweight|causality|objects_rus|objects_ruo> [iterations]
 //! ```
 //!
 //! Reports, per phase, the median time and the allocation count of executing the
@@ -10,6 +10,7 @@
 //! artifacts and hashes (`materialize`, the response-construction phase). Attach
 //! `sample <pid>` to it for a call-graph profile.
 
+use reasonscript_computation_ir::reason_objects::ReasonObjectsMode;
 use reasonscript_computation_ir::reason_structure::{ExecutableMode, ReasonUnitMode};
 use reasonscript_computation_ir::reasoning_state::ReasoningStateMode;
 use reasonscript_computation_ir::state_causality::StateCausalityMode;
@@ -59,6 +60,11 @@ fn main() {
     let program = decode(&program_value.to_string()).unwrap();
     let config = args.get(2).map_or("causality", String::as_str);
     let iterations: usize = args.get(3).map_or(2000, |value| value.parse().unwrap());
+    let objects = match config {
+        "objects_rus" => ReasonObjectsMode::Rus,
+        "objects_ruo" => ReasonObjectsMode::RusRuo,
+        _ => ReasonObjectsMode::Off,
+    };
     let (executable, state, causality) = match config {
         "normal" => (
             ExecutableMode::Off,
@@ -75,7 +81,7 @@ fn main() {
             ReasoningStateMode::Lightweight,
             StateCausalityMode::Off,
         ),
-        "causality" => (
+        "causality" | "objects_rus" | "objects_ruo" => (
             ExecutableMode::Full,
             ReasoningStateMode::Off,
             StateCausalityMode::Full,
@@ -84,6 +90,7 @@ fn main() {
     };
     let (mut run_ns, mut run_allocs, mut materialize_ns, mut materialize_allocs) =
         (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    let (mut objects_ns, mut objects_allocs) = (Vec::new(), Vec::new());
     let mut transitions = 0;
     for iteration in 0..iterations + iterations / 10 {
         let mut vm = Vm::with_runtime_context(
@@ -102,6 +109,7 @@ fn main() {
         vm.configure_executable_reason_units(executable);
         vm.configure_reasoning_state(state);
         vm.configure_state_causality(causality);
+        vm.configure_reason_objects(objects);
         let allocations = ALLOCATIONS.load(Ordering::Relaxed);
         let started = Instant::now();
         black_box(vm.run_calculations(&program).unwrap());
@@ -110,11 +118,25 @@ fn main() {
         let allocations = ALLOCATIONS.load(Ordering::Relaxed);
         let started = Instant::now();
         let artifacts = (vm.state_causality_trace(), vm.reasoning_state_trace());
+        // The response path numbers the state relations before the RUOs reference them.
+        let objects_started = Instant::now();
+        let objects_allocations = ALLOCATIONS.load(Ordering::Relaxed);
+        let projected = objects.enabled().then(|| {
+            let mut relations = artifacts.0.relations.clone();
+            for (index, relation) in relations.iter_mut().enumerate() {
+                relation.id = format!("causal-relation:{:08}", index + 1);
+            }
+            vm.reason_objects_trace(&relations)
+        });
+        let objects_elapsed = objects_started.elapsed().as_nanos() as u64;
+        let objects_alloc = ALLOCATIONS.load(Ordering::Relaxed) - objects_allocations;
         let materialized = started.elapsed().as_nanos() as u64;
         let materialize_allocations = ALLOCATIONS.load(Ordering::Relaxed) - allocations;
         transitions = artifacts.1.revision;
-        black_box(artifacts);
+        black_box((artifacts, projected));
         if iteration >= iterations / 10 {
+            objects_ns.push(objects_elapsed);
+            objects_allocs.push(objects_alloc);
             run_ns.push(elapsed);
             run_allocs.push(run_allocations);
             materialize_ns.push(materialized);
@@ -139,6 +161,8 @@ fn main() {
             "run_allocations": median(&mut run_allocs),
             "materialize_ns": median(&mut materialize_ns),
             "materialize_allocations": median(&mut materialize_allocs),
+            "objects_ns": median(&mut objects_ns),
+            "objects_allocations": median(&mut objects_allocs),
         })
     );
 }

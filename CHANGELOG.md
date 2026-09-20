@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Added the RUS / RUO Runtime Integration v0.1 (`context.reason_objects`: `off` default, `rus`, `rus_ruo`):
+  the runtime reasoning state is projected into immutable RUS objects per revision and one RUO per
+  Executable RU (RUS before/after, Evidence, ReasonRelation and causal references), with the new
+  `rus_sequence_hash`, `rus_relation_hash`, and `ruo_graph_hash`, schemas `reason-unit-state/0.1` and
+  `reason-unit-object/0.1`, and `RUO-001`..`006` / `RUS-PROJ-001`..`003` diagnostics. Built in the response
+  phase only: no extra hot-path allocations, existing artifacts and hashes unchanged (94 R0 digests identical
+  with the mode off). Informal benchmark (dirty tree): hot path within noise, whole-process wall time +8.3% (RUS)
+  and +18.5% (RUS + RUO). See `docs/specifications/ReasonScript_RUS_RUO_Runtime_Integration_v0_1.md`.
 - Merged Lightweight RUS R4 to `main`: `RuntimeReasoningState`, typed `StateTransition`,
   and State Causality are now the canonical reasoning-state runtime (experimental but integrated;
   `reasoning_state` and `state_causality` stay off by default). Formal benchmark on arm64 macOS:
