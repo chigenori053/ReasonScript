@@ -9,26 +9,29 @@ only the runtime representation moved.
 
 Host boundary, release build, `runtime_execution_ns` against
 `executable_reason_units=full`, aggregate over the corpus 77 / 997 / 10007 /
-30030 / 10403, 3 warm-ups + 25 interleaved samples:
+30030 / 10403, 3 warm-ups + 25 interleaved samples. R0 and R4 are the **formal
+evaluation** (clean tree, commit `6627ad64`, `artifacts/reasoning_state_optimization/summary.json`);
+R1 and R3 are intermediate builds that cannot be rebuilt from a commit, so they come from the
+last dirty-tree run:
 
 | Stage | Change | Lightweight RUS | State Causality |
 | --- | --- | --- | --- |
-| R0 | Lightweight RUS v0.1 (commit `111f199a`) | +18.5% | +43.2% |
-| R1 | typed state / transition, field bitmask, no BTreeMap | +3.7% | +39.2% |
-| R3 | + lazy artifacts, typed relations, lazy provenance (R2 and R3 together) | +3.7% | +7.9% |
-| R4 | + streaming hashes, `Rc` for structured values | **+2.9%** | **+6.7%** |
+| R0 | Lightweight RUS v0.1 (commit `111f199a`) | +18.1% | +43.8% |
+| R1 | typed state / transition, field bitmask, no BTreeMap | +3.7% (dirty run) | +39.2% (dirty run) |
+| R3 | + lazy artifacts, typed relations, lazy provenance (R2 and R3 together) | +3.7% (dirty run) | +7.9% (dirty run) |
+| R4 | + streaming hashes, `Rc` for structured values | **+3.1%** | **+6.6%** |
 
-Targets (§141): RUS ≤ 10% and State Causality ≤ 20% → **PASS** on the aggregate and on
-every case (per-case RUS 1.3–3.5%, State Causality 5.4–8.7%). Four full runs of the
-benchmark put the R4 aggregate at 2.2–4.0% (RUS) and 6.1–7.8% (State Causality) and R0 at
-18–19% and 43–44%; the table is the last run, which is what
-`artifacts/reasoning_state_optimization/summary.json` holds. That run had
-`working_tree_dirty = true`, so it is **not a formal evaluation** (Gate G, §140) — see
-"Open items".
+Targets (§141): RUS ≤ 10% and State Causality ≤ 20% → **PASS** (Gate G met: `working_tree_dirty = false`,
+binary SHA-256 `16cff3ce8f9b2d6d…`, rustc 1.93.1, arm64).
+Aggregate median is 3.8% / 7.3%, and every case passes
+(per-case RUS 0.9–6.8%, State Causality 3.8–10.5%; the highest are the short
+30030 run, 16 transitions in ~100 µs). Four earlier dirty-tree runs put the R4 aggregate at
+2.2–4.0% (RUS) and 6.1–7.8% (State Causality) and R0 at 18–19% and 43–44%, so the run-to-run
+spread is about ±1–2 points. No case is slower than 110% of R0.
 
 The moved work is not the saved work. In-process (run + response construction, same
-harness for both builds), R4 / R0 is **0.84** for State Causality (run alone 0.74,
-response construction alone 1.17) and 0.88 for Lightweight RUS. Hot-path allocations per
+harness for both builds), R4 / R0 is **0.85** for State Causality (run alone 0.75,
+response construction alone 1.19) and 0.88 for Lightweight RUS. Hot-path allocations per
 transition fell from 14–18 (RUS) and 44–62 (State Causality) to 0.0 and 0.1–0.6 (only
 `Vec` growth).
 
@@ -89,6 +92,7 @@ goal-status bit on a termination check — no string comparison.
 | E Determinism | 3 runs, all five hashes, `test_group_m_…` and the benchmark |
 | F Replay from artifacts only | `test_state_hash_is_canonical_and_history_replays_from_artifacts_alone`, plus Rust `replay` and a `debug_assert!` |
 | Streaming = serde | Rust `streamed_canonical_bytes_equal_the_serde_artifact_bytes`, `streamed_state_hash_equals_the_serde_canonical_hash` (negative/extreme ints, escapes, control characters, Unicode, floats, nested JSON, 0–3 Evidence refs) |
+| G Clean benchmark | `summary.json`: `working_tree_dirty = false`, `formal_evaluation = true`, source/benchmark commit `6627ad64`; R4 rebuilt from the committed tree is byte-identical (SHA-256) to the binary used in the earlier runs |
 | C Mutations | all detected — the four from §61 (no-op detection off, stale `search_bound`, double revision, rejected verification updating state) and the §62 additions (changed-field bit omitted, wrong source RU, wrong Evidence index, provenance missing the revision, transition hash missing a transition), plus: verification no longer reading `current_candidate`, `ENABLES` linked to the wrong transition, state hash dropping `goal_status`. Every mutant fails the Python suite; the last one that the Rust suite missed (wrong `ENABLES` transition) now fails a strengthened Rust test too |
 
 ## Phase 0 profile (§52–§55)
@@ -121,14 +125,11 @@ clock.
 
 ## Open items
 
-- **Formal benchmark (Gate G, §99, §140).** All numbers above come from a dirty working
-  tree. Commit, then run
-  `scripts/benchmark_reasoning_state.py --binary R0=<r0 host> --binary R4=<host> --baseline-commit 111f199a`
-  on release builds; the binaries do not change. The script records commit, dirty flag,
-  binary SHA-256, compiler, OS, CPU, profile, and date (§100), and writes `summary.json`,
-  `comparison.csv`, and graphs A–F.
-- The R0 host for comparison is `git archive 111f199a ReasonRuntime` built with
-  `cargo build --release -p reasonscript-computation-runtime-cli`.
+- Reproducing the formal run: build R0 from `git archive 111f199a ReasonRuntime`
+  (`cargo build --release -p reasonscript-computation-runtime-cli`) and R4 from the commit,
+  then `scripts/benchmark_reasoning_state.py --binary R0=<r0 host> --binary R4=<host> --baseline-commit 111f199a`
+  on a clean tree. The script records commit, dirty flag, binary SHA-256, compiler, OS, CPU,
+  profile, and date (§100), and writes `summary.json`, `comparison.csv`, and graphs A–F.
 - P1 (§133) not done: subject sharing for structured candidates, response-construction
-  optimization (it is 17% slower than R0 while the total is 16% faster), Count-mode
+  optimization (it is 19% slower than R0 while the total is 15% faster), Count-mode
   Lightweight RUS, allocator measurement beyond the harness's counting allocator.

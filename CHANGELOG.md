@@ -7,7 +7,7 @@
   array, change bitmask, RU/Evidence by index), lazy JSON artifacts and causal
   provenance built in the response phase, typed causal relations, and
   `serde_json`-free streaming state/transition hashes. Overhead against
-  executable RU `full` fell from +18%/+44% to about +2%/+6% (Lightweight RUS /
+  executable RU `full` fell from +18%/+44% to +3%/+7% (Lightweight RUS /
   State Causality) with zero hot-path allocations per transition. Adds the
   response-phase metrics `state_transition_materialization_ns`,
   `provenance_materialization_ns`, `transition_hash_ns`, `state_hash_ns`, an

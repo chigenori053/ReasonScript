@@ -102,8 +102,5 @@ ACTIVE→REACHED`; factors 7 × 11; final `remaining 11, search_bound 3`.
   against `executable_reason_units=full`, above the §133/§134 reference targets. The
   runtime-representation work in
   [ReasonScript_Lightweight_RUS_Runtime_Optimization_v0_1.md](ReasonScript_Lightweight_RUS_Runtime_Optimization_v0_1.md)
-  brought this to about +2% and +6% with identical artifacts and hashes.
-- **Not a formal benchmark.** `scripts/benchmark_reasoning_state.py` records
-  `working_tree_dirty`, `source_commit`, and `runtime_binary_sha256`; the recorded runs had
-  `working_tree_dirty = true`, so they need a re-run on a clean commit (§136).
+  brought this to +3% and +7% (formal, clean-tree evaluation) with identical artifacts and hashes.
 - Count-compatible state causality, state read tracking, and persistence remain P1 (§157).
