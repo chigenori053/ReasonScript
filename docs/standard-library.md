@@ -224,14 +224,58 @@ state transitions; `full` also adds `CAUSES_STATE_CHANGE`, `ENABLES`, and
 `TERMINATES` relations to `metadata.causal_trace`. Both enabled modes require
 `executable_reason_units: "full"` so every transition has a native source RU.
 
-The initial runtime contract observes `relation.filter` state used by native
-factorization-style reasoning: `current_candidate`,
-`active_constraint_count`, and `goal_status`. Empty diffs are omitted and
-rejected verification does not create a factor-confirmed state change.
-`metadata.state_causality` contains monotonic revisions, before/after values,
-Evidence provenance, coverage metrics, separately measured runtime cost, and a
-deterministic `state_transition_hash`. This is observed state causality, not
-state-level VM counterfactual replay.
+Transitions are produced by the runtime reasoning state described below, never
+assembled by callers. Empty diffs are omitted and rejected verification does not
+create a factor-confirmed state change. `metadata.state_causality` contains
+monotonic revisions, before/after values, Evidence provenance, coverage metrics,
+separately measured runtime cost, and a deterministic `state_transition_hash`.
+Relation provenance carries `state_revision_before`, `state_revision_after`, and
+`changed_fields`. This is observed state causality, not state-level VM
+counterfactual replay.
+
+### Runtime reasoning state (Lightweight RUS)
+
+Lightweight RUS R4 is merged to `main` and is the canonical reasoning-state runtime. It is an experimental but
+integrated capability: `context.reasoning_state` and `context.state_causality` remain `off` by default, and
+their semantics, artifacts, and hashes are a stable contract.
+
+`context.reasoning_state` is `off` (default) or `lightweight`; any enabled
+`state_causality` mode turns it on automatically. Both require
+`executable_reason_units: "full"` (`RUS-005` otherwise). The runtime owns five
+fields: `remaining`, `search_bound`, `current_candidate`,
+`active_constraint_count`, and `goal_status` (`ACTIVE`, `REACHED`, `FAILED`,
+`INSUFFICIENT`). State starts at revision 0 and only an update that changes a
+value increments the revision; a multi-field update is one atomic transition
+and a no-op update creates nothing. `metadata.reasoning_state` reports the final
+state, its canonical SHA-256 `hash`, the `initial_hash`, update/no-op/changed-field
+metrics, `reasoning_state_runtime_ns`, and `RUS-001`..`RUS-005` diagnostics.
+
+The reasoning state is held in a typed, allocation-free form while the program
+runs; transition IDs, before/after JSON, and relation provenance are built when
+the response is constructed. `runtime_execution_ns` therefore excludes that work,
+which is reported separately as `state_hash_ns`,
+`state_transition_materialization_ns`, `provenance_materialization_ns`, and
+`transition_hash_ns`.
+
+State changes when an Executable RU completes, keyed by its operation, and the
+transition's `source_ru` and `evidence_refs` are that RU and the Evidence it just
+produced:
+
+| RU operation (event / native) | State effect |
+| --- | --- |
+| `REASON_STATE_CREATED` (subject = target `n`) | initialize `remaining=n`, `search_bound=isqrt(n)`, `goal_status=ACTIVE` (revision 0, no transition; refused with `RUS-004` after any transition) |
+| `HYPOTHESIS_CREATED`, `CANDIDATE_GENERATED`, native `CANDIDATE_ADOPTED` | `current_candidate = subject` |
+| `HYPOTHESIS_VERIFIED` (subject = factor `f`) | `remaining = remaining / f`, `search_bound = isqrt(remaining)` in one transition; only after initialization, and `f` must divide `remaining` (`RUS-003`, no update, otherwise) |
+| `EVIDENCE_ADDED`, native verified `CANDIDATE_PREDICATE` | `active_constraint_count += 1` |
+| `GOAL_UPDATED`, `TERMINATION_INFERRED`, native `FILTER_GOAL` | `goal_status = REACHED` |
+
+`relation.filter` emits these RUs natively; a factorization program only
+reports semantic events with `reasoning.event`, and the runtime derives
+`remaining`, `search_bound`, revisions, transitions, and relations itself. For
+`n = 77` that yields `current_candidate → 7`, then one transition
+`remaining 77 → 11, search_bound 8 → 3` sourced from the verification RU and its
+`FACTOR_CONFIRMED` Evidence, which `ENABLES` the goal-evaluation RU, whose
+`goal_status ACTIVE → REACHED` transition `TERMINATES` the termination check.
 
 These new collection and event APIs execute in the native Rust host. The Python
 interpreters retain their earlier reference API surface.

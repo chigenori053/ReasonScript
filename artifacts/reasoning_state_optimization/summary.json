@@ -1,0 +1,764 @@
+{
+  "schema": "reasonscript-reasoning-state-optimization/1.0",
+  "baseline_commit": "111f199a290292e2108d629742d7a1456c1fdc5e",
+  "optimized_commit": "6627ad6442e6d4db7e4273b44346ad990d83e3e2",
+  "source_commit": "6627ad6442e6d4db7e4273b44346ad990d83e3e2",
+  "benchmark_commit": "6627ad6442e6d4db7e4273b44346ad990d83e3e2",
+  "dirty": false,
+  "working_tree_dirty": false,
+  "formal_evaluation": true,
+  "binaries": {
+    "R0": {
+      "file": "r0-host",
+      "runtime_binary_sha256": "158266d8c26b9e08791a2ee7999183e796b2f626561ec3ce544236359d6d37be"
+    },
+    "R4": {
+      "file": "final-host",
+      "runtime_binary_sha256": "16cff3ce8f9b2d6df40bd5975143c85dc3f99cecc76e4e393e57d32d21563998"
+    }
+  },
+  "compiler_version": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "cpu_architecture": "arm64",
+  "build_profile": "release",
+  "date": "2026-09-20T12:44:09+00:00",
+  "warmup": 3,
+  "samples": 25,
+  "timing_boundary": "runtime_execution_ns (run_calculations), identical for every binary",
+  "baseline_label": "R0",
+  "optimized_label": "R4",
+  "overhead": {
+    "R0": {
+      "per_case": {
+        "77": {
+          "lightweight_rus": 0.22683209144179983,
+          "state_causality": 0.3911054040367503
+        },
+        "997": {
+          "lightweight_rus": 0.20796937799043058,
+          "state_causality": 0.4076555023923445
+        },
+        "10007": {
+          "lightweight_rus": 0.1388076923076924,
+          "state_causality": 0.4314585798816568
+        },
+        "30030": {
+          "lightweight_rus": 0.2662312353100973,
+          "state_causality": 0.5201790544131717
+        },
+        "10403": {
+          "lightweight_rus": 0.18269959454478446,
+          "state_causality": 0.44403391079985255
+        }
+      },
+      "aggregate": {
+        "lightweight_rus": 0.18056597542072517,
+        "state_causality": 0.43824950485855885
+      },
+      "median": {
+        "lightweight_rus": 0.20796937799043058,
+        "state_causality": 0.4314585798816568
+      },
+      "total_runtime_execution_ns": {
+        "normal": 303916,
+        "ru_full": 947709,
+        "lightweight_rus": 1118833,
+        "state_causality": 1363042,
+        "state_causality_native_causal": 1363082
+      }
+    },
+    "R4": {
+      "per_case": {
+        "77": {
+          "lightweight_rus": 0.05292703862660941,
+          "state_causality": 0.07153648068669538
+        },
+        "997": {
+          "lightweight_rus": 0.03668861712135474,
+          "state_causality": 0.07306114769520233
+        },
+        "10007": {
+          "lightweight_rus": 0.008729140669767377,
+          "state_causality": 0.0383023406662768
+        },
+        "30030": {
+          "lightweight_rus": 0.06758888888888892,
+          "state_causality": 0.10463333333333336
+        },
+        "10403": {
+          "lightweight_rus": 0.037835264523598866,
+          "state_causality": 0.07922337058576345
+        }
+      },
+      "aggregate": {
+        "lightweight_rus": 0.030995423779562215,
+        "state_causality": 0.06570507673483506
+      },
+      "median": {
+        "lightweight_rus": 0.037835264523598866,
+        "state_causality": 0.07306114769520233
+      },
+      "total_runtime_execution_ns": {
+        "normal": 309624,
+        "ru_full": 965207,
+        "lightweight_rus": 995124,
+        "state_causality": 1028626,
+        "state_causality_native_causal": 1037500
+      }
+    }
+  },
+  "rus_overhead": {
+    "before": 0.18056597542072517,
+    "after": 0.030995423779562215
+  },
+  "state_causality_overhead": {
+    "before": 0.43824950485855885,
+    "after": 0.06570507673483506
+  },
+  "verdicts": {
+    "lightweight_rus": "PASS",
+    "state_causality": "PASS"
+  },
+  "performance_gate": "PASS",
+  "regression_guard_over_110_percent_of_baseline": [],
+  "component_timings_ns": {
+    "R0": {
+      "77": {
+        "normal_runtime_ns": 77625,
+        "reasoning_state_runtime_ns": 6917,
+        "state_causality_runtime_ns": 5666,
+        "causal_bridge_runtime_ns": 4875,
+        "causal_evaluation_ns": 6541
+      },
+      "997": {
+        "normal_runtime_ns": 182416,
+        "reasoning_state_runtime_ns": 15914,
+        "state_causality_runtime_ns": 17206,
+        "causal_bridge_runtime_ns": 19334,
+        "causal_evaluation_ns": 29500
+      },
+      "10007": {
+        "normal_runtime_ns": 482958,
+        "reasoning_state_runtime_ns": 39625,
+        "state_causality_runtime_ns": 51037,
+        "causal_bridge_runtime_ns": 51375,
+        "causal_evaluation_ns": 95709
+      },
+      "30030": {
+        "normal_runtime_ns": 129291,
+        "reasoning_state_runtime_ns": 13663,
+        "state_causality_runtime_ns": 12665,
+        "causal_bridge_runtime_ns": 10625,
+        "causal_evaluation_ns": 15458
+      },
+      "10403": {
+        "normal_runtime_ns": 490792,
+        "reasoning_state_runtime_ns": 42199,
+        "state_causality_runtime_ns": 52248,
+        "causal_bridge_runtime_ns": 52041,
+        "causal_evaluation_ns": 97416
+      }
+    },
+    "R4": {
+      "77": {
+        "normal_runtime_ns": 64166,
+        "reasoning_state_runtime_ns": 1166,
+        "state_causality_runtime_ns": 1125,
+        "causal_bridge_runtime_ns": 7375,
+        "causal_evaluation_ns": 8083,
+        "state_transition_materialization_ns": 4917,
+        "provenance_materialization_ns": 8834,
+        "transition_hash_ns": 5375,
+        "state_hash_ns": 1208
+      },
+      "997": {
+        "normal_runtime_ns": 145333,
+        "reasoning_state_runtime_ns": 1626,
+        "state_causality_runtime_ns": 3457,
+        "causal_bridge_runtime_ns": 20375,
+        "causal_evaluation_ns": 31667,
+        "state_transition_materialization_ns": 8459,
+        "provenance_materialization_ns": 22583,
+        "transition_hash_ns": 15833,
+        "state_hash_ns": 1292
+      },
+      "10007": {
+        "normal_runtime_ns": 361292,
+        "reasoning_state_runtime_ns": 3413,
+        "state_causality_runtime_ns": 10707,
+        "causal_bridge_runtime_ns": 50541,
+        "causal_evaluation_ns": 99458,
+        "state_transition_materialization_ns": 25167,
+        "provenance_materialization_ns": 71041,
+        "transition_hash_ns": 47416,
+        "state_hash_ns": 1417
+      },
+      "30030": {
+        "normal_runtime_ns": 98542,
+        "reasoning_state_runtime_ns": 1418,
+        "state_causality_runtime_ns": 2250,
+        "causal_bridge_runtime_ns": 13291,
+        "causal_evaluation_ns": 16500,
+        "state_transition_materialization_ns": 6292,
+        "provenance_materialization_ns": 17334,
+        "transition_hash_ns": 10208,
+        "state_hash_ns": 1292
+      },
+      "10403": {
+        "normal_runtime_ns": 368167,
+        "reasoning_state_runtime_ns": 3415,
+        "state_causality_runtime_ns": 11166,
+        "causal_bridge_runtime_ns": 51833,
+        "causal_evaluation_ns": 107125,
+        "state_transition_materialization_ns": 26625,
+        "provenance_materialization_ns": 73333,
+        "transition_hash_ns": 48833,
+        "state_hash_ns": 1375
+      }
+    }
+  },
+  "hash_equivalence": {
+    "all_hashes_equal": true,
+    "hash_matches": {
+      "reasoning_state_hash": 94,
+      "initial_hash": 94,
+      "state_transition_hash": 94,
+      "causal_observation_hash": 94,
+      "causal_relation_hash": 94
+    },
+    "cases": 94
+  },
+  "semantic_equivalence": {
+    "cases": 94,
+    "identical_responses": 94,
+    "mismatched_n": [],
+    "hash_matches": {
+      "reasoning_state_hash": 94,
+      "initial_hash": 94,
+      "state_transition_hash": 94,
+      "causal_observation_hash": 94,
+      "causal_relation_hash": 94
+    },
+    "all_hashes_equal": true,
+    "semantic_equivalence": true
+  },
+  "determinism": {
+    "runs_per_case": 3,
+    "cases": [
+      84,
+      10007
+    ],
+    "stable": true
+  },
+  "in_process": {
+    "R0": {
+      "77": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 2000,
+          "state_revisions": 0,
+          "run_ns": 22667,
+          "run_allocations": 739,
+          "materialize_ns": 1875,
+          "materialize_allocations": 23
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 2000,
+          "state_revisions": 8,
+          "run_ns": 26542,
+          "run_allocations": 873,
+          "materialize_ns": 1833,
+          "materialize_allocations": 23
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 2000,
+          "state_revisions": 8,
+          "run_ns": 31959,
+          "run_allocations": 1136,
+          "materialize_ns": 11166,
+          "materialize_allocations": 329
+        }
+      },
+      "997": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 2000,
+          "state_revisions": 0,
+          "run_ns": 86958,
+          "run_allocations": 2877,
+          "materialize_ns": 1916,
+          "materialize_allocations": 23
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 2000,
+          "state_revisions": 31,
+          "run_ns": 96625,
+          "run_allocations": 3328,
+          "materialize_ns": 1875,
+          "materialize_allocations": 23
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 2000,
+          "state_revisions": 31,
+          "run_ns": 115500,
+          "run_allocations": 4275,
+          "materialize_ns": 34916,
+          "materialize_allocations": 1097
+        }
+      },
+      "10007": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 2000,
+          "state_revisions": 0,
+          "run_ns": 268375,
+          "run_allocations": 9029,
+          "materialize_ns": 1875,
+          "materialize_allocations": 23
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 2000,
+          "state_revisions": 100,
+          "run_ns": 310333,
+          "run_allocations": 10446,
+          "materialize_ns": 2000,
+          "materialize_allocations": 23
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 2000,
+          "state_revisions": 100,
+          "run_ns": 366083,
+          "run_allocations": 13467,
+          "materialize_ns": 103541,
+          "materialize_allocations": 3445
+        }
+      },
+      "30030": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 2000,
+          "state_revisions": 0,
+          "run_ns": 44542,
+          "run_allocations": 1490,
+          "materialize_ns": 1833,
+          "materialize_allocations": 23
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 2000,
+          "state_revisions": 16,
+          "run_ns": 51833,
+          "run_allocations": 1772,
+          "materialize_ns": 1875,
+          "materialize_allocations": 23
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 2000,
+          "state_revisions": 16,
+          "run_ns": 67125,
+          "run_allocations": 2478,
+          "materialize_ns": 23459,
+          "materialize_allocations": 806
+        }
+      },
+      "10403": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 2000,
+          "state_revisions": 0,
+          "run_ns": 268458,
+          "run_allocations": 9126,
+          "materialize_ns": 1875,
+          "materialize_allocations": 23
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 2000,
+          "state_revisions": 102,
+          "run_ns": 308334,
+          "run_allocations": 10576,
+          "materialize_ns": 1958,
+          "materialize_allocations": 23
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 2000,
+          "state_revisions": 102,
+          "run_ns": 376625,
+          "run_allocations": 13667,
+          "materialize_ns": 109084,
+          "materialize_allocations": 3528
+        }
+      }
+    },
+    "R4": {
+      "77": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 2000,
+          "state_revisions": 0,
+          "run_ns": 24125,
+          "run_allocations": 739,
+          "materialize_ns": 1500,
+          "materialize_allocations": 13
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 2000,
+          "state_revisions": 8,
+          "run_ns": 21708,
+          "run_allocations": 739,
+          "materialize_ns": 1334,
+          "materialize_allocations": 13
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 2000,
+          "state_revisions": 8,
+          "run_ns": 23709,
+          "run_allocations": 744,
+          "materialize_ns": 12083,
+          "materialize_allocations": 348
+        }
+      },
+      "997": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 2000,
+          "state_revisions": 0,
+          "run_ns": 85875,
+          "run_allocations": 2877,
+          "materialize_ns": 1416,
+          "materialize_allocations": 13
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 2000,
+          "state_revisions": 31,
+          "run_ns": 88708,
+          "run_allocations": 2877,
+          "materialize_ns": 1417,
+          "materialize_allocations": 13
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 2000,
+          "state_revisions": 31,
+          "run_ns": 87333,
+          "run_allocations": 2886,
+          "materialize_ns": 40125,
+          "materialize_allocations": 1206
+        }
+      },
+      "10007": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 2000,
+          "state_revisions": 0,
+          "run_ns": 262834,
+          "run_allocations": 9029,
+          "materialize_ns": 1416,
+          "materialize_allocations": 13
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 2000,
+          "state_revisions": 100,
+          "run_ns": 269041,
+          "run_allocations": 9029,
+          "materialize_ns": 1417,
+          "materialize_allocations": 13
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 2000,
+          "state_revisions": 100,
+          "run_ns": 272000,
+          "run_allocations": 9042,
+          "materialize_ns": 125583,
+          "materialize_allocations": 3828
+        }
+      },
+      "30030": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 2000,
+          "state_revisions": 0,
+          "run_ns": 44916,
+          "run_allocations": 1490,
+          "materialize_ns": 1375,
+          "materialize_allocations": 13
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 2000,
+          "state_revisions": 16,
+          "run_ns": 43583,
+          "run_allocations": 1490,
+          "materialize_ns": 1334,
+          "materialize_allocations": 13
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 2000,
+          "state_revisions": 16,
+          "run_ns": 46000,
+          "run_allocations": 1498,
+          "materialize_ns": 26250,
+          "materialize_allocations": 876
+        }
+      },
+      "10403": {
+        "ru_full": {
+          "config": "ru_full",
+          "iterations": 2000,
+          "state_revisions": 0,
+          "run_ns": 269500,
+          "run_allocations": 9126,
+          "materialize_ns": 1416,
+          "materialize_allocations": 13
+        },
+        "lightweight": {
+          "config": "lightweight",
+          "iterations": 2000,
+          "state_revisions": 102,
+          "run_ns": 273792,
+          "run_allocations": 9126,
+          "materialize_ns": 1458,
+          "materialize_allocations": 13
+        },
+        "causality": {
+          "config": "causality",
+          "iterations": 2000,
+          "state_revisions": 102,
+          "run_ns": 284458,
+          "run_allocations": 9139,
+          "materialize_ns": 132125,
+          "materialize_allocations": 3920
+        }
+      }
+    }
+  },
+  "in_process_end_to_end": {
+    "total_ns": {
+      "R0": {
+        "ru_full": 700374,
+        "lightweight": 803208,
+        "causality": 1239458
+      },
+      "R4": {
+        "ru_full": 694373,
+        "lightweight": 703792,
+        "causality": 1049666
+      }
+    },
+    "optimized_over_baseline": {
+      "ru_full": 0.9914317207663335,
+      "lightweight": 0.8762263324070477,
+      "causality": 0.8468750050425267
+    },
+    "run_ns_optimized_over_baseline": {
+      "ru_full": 0.9945730824891461,
+      "lightweight": 0.8779903914362068,
+      "causality": 0.7453316229530802
+    },
+    "materialize_ns_optimized_over_baseline": {
+      "ru_full": 0.7598677192233838,
+      "lightweight": 0.729483282674772,
+      "causality": 1.1913767073283104
+    }
+  },
+  "timings_ns": {
+    "R0": {
+      "77": {
+        "normal": 24333,
+        "ru_full": 55292,
+        "lightweight_rus": 67834,
+        "state_causality": 76917,
+        "state_causality_native_causal": 77625,
+        "components_ns": {
+          "normal_runtime_ns": 77625,
+          "reasoning_state_runtime_ns": 6917,
+          "state_causality_runtime_ns": 5666,
+          "causal_bridge_runtime_ns": 4875,
+          "causal_evaluation_ns": 6541
+        },
+        "transitions": 8,
+        "relations": 16
+      },
+      "997": {
+        "normal": 44333,
+        "ru_full": 130625,
+        "lightweight_rus": 157791,
+        "state_causality": 183875,
+        "state_causality_native_causal": 182416,
+        "components_ns": {
+          "normal_runtime_ns": 182416,
+          "reasoning_state_runtime_ns": 15914,
+          "state_causality_runtime_ns": 17206,
+          "causal_bridge_runtime_ns": 19334,
+          "causal_evaluation_ns": 29500
+        },
+        "transitions": 31,
+        "relations": 62
+      },
+      "10007": {
+        "normal": 100958,
+        "ru_full": 338000,
+        "lightweight_rus": 384917,
+        "state_causality": 483833,
+        "state_causality_native_causal": 482958,
+        "components_ns": {
+          "normal_runtime_ns": 482958,
+          "reasoning_state_runtime_ns": 39625,
+          "state_causality_runtime_ns": 51037,
+          "causal_bridge_runtime_ns": 51375,
+          "causal_evaluation_ns": 95709
+        },
+        "transitions": 100,
+        "relations": 200
+      },
+      "30030": {
+        "normal": 33125,
+        "ru_full": 84667,
+        "lightweight_rus": 107208,
+        "state_causality": 128709,
+        "state_causality_native_causal": 129291,
+        "components_ns": {
+          "normal_runtime_ns": 129291,
+          "reasoning_state_runtime_ns": 13663,
+          "state_causality_runtime_ns": 12665,
+          "causal_bridge_runtime_ns": 10625,
+          "causal_evaluation_ns": 15458
+        },
+        "transitions": 16,
+        "relations": 40
+      },
+      "10403": {
+        "normal": 101167,
+        "ru_full": 339125,
+        "lightweight_rus": 401083,
+        "state_causality": 489708,
+        "state_causality_native_causal": 490792,
+        "components_ns": {
+          "normal_runtime_ns": 490792,
+          "reasoning_state_runtime_ns": 42199,
+          "state_causality_runtime_ns": 52248,
+          "causal_bridge_runtime_ns": 52041,
+          "causal_evaluation_ns": 97416
+        },
+        "transitions": 102,
+        "relations": 204
+      }
+    },
+    "R4": {
+      "77": {
+        "normal": 25208,
+        "ru_full": 58250,
+        "lightweight_rus": 61333,
+        "state_causality": 62417,
+        "state_causality_native_causal": 64166,
+        "components_ns": {
+          "normal_runtime_ns": 64166,
+          "reasoning_state_runtime_ns": 1166,
+          "state_causality_runtime_ns": 1125,
+          "causal_bridge_runtime_ns": 7375,
+          "causal_evaluation_ns": 8083,
+          "state_transition_materialization_ns": 4917,
+          "provenance_materialization_ns": 8834,
+          "transition_hash_ns": 5375,
+          "state_hash_ns": 1208
+        },
+        "transitions": 8,
+        "relations": 16
+      },
+      "997": {
+        "normal": 44542,
+        "ru_full": 132875,
+        "lightweight_rus": 137750,
+        "state_causality": 142583,
+        "state_causality_native_causal": 145333,
+        "components_ns": {
+          "normal_runtime_ns": 145333,
+          "reasoning_state_runtime_ns": 1626,
+          "state_causality_runtime_ns": 3457,
+          "causal_bridge_runtime_ns": 20375,
+          "causal_evaluation_ns": 31667,
+          "state_transition_materialization_ns": 8459,
+          "provenance_materialization_ns": 22583,
+          "transition_hash_ns": 15833,
+          "state_hash_ns": 1292
+        },
+        "transitions": 31,
+        "relations": 62
+      },
+      "10007": {
+        "normal": 102833,
+        "ru_full": 343791,
+        "lightweight_rus": 346792,
+        "state_causality": 356959,
+        "state_causality_native_causal": 361292,
+        "components_ns": {
+          "normal_runtime_ns": 361292,
+          "reasoning_state_runtime_ns": 3413,
+          "state_causality_runtime_ns": 10707,
+          "causal_bridge_runtime_ns": 50541,
+          "causal_evaluation_ns": 99458,
+          "state_transition_materialization_ns": 25167,
+          "provenance_materialization_ns": 71041,
+          "transition_hash_ns": 47416,
+          "state_hash_ns": 1417
+        },
+        "transitions": 100,
+        "relations": 200
+      },
+      "30030": {
+        "normal": 33500,
+        "ru_full": 90000,
+        "lightweight_rus": 96083,
+        "state_causality": 99417,
+        "state_causality_native_causal": 98542,
+        "components_ns": {
+          "normal_runtime_ns": 98542,
+          "reasoning_state_runtime_ns": 1418,
+          "state_causality_runtime_ns": 2250,
+          "causal_bridge_runtime_ns": 13291,
+          "causal_evaluation_ns": 16500,
+          "state_transition_materialization_ns": 6292,
+          "provenance_materialization_ns": 17334,
+          "transition_hash_ns": 10208,
+          "state_hash_ns": 1292
+        },
+        "transitions": 16,
+        "relations": 40
+      },
+      "10403": {
+        "normal": 103541,
+        "ru_full": 340291,
+        "lightweight_rus": 353166,
+        "state_causality": 367250,
+        "state_causality_native_causal": 368167,
+        "components_ns": {
+          "normal_runtime_ns": 368167,
+          "reasoning_state_runtime_ns": 3415,
+          "state_causality_runtime_ns": 11166,
+          "causal_bridge_runtime_ns": 51833,
+          "causal_evaluation_ns": 107125,
+          "state_transition_materialization_ns": 26625,
+          "provenance_materialization_ns": 73333,
+          "transition_hash_ns": 48833,
+          "state_hash_ns": 1375
+        },
+        "transitions": 102,
+        "relations": 204
+      }
+    }
+  }
+}

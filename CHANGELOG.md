@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+- Merged Lightweight RUS R4 to `main`: `RuntimeReasoningState`, typed `StateTransition`,
+  and State Causality are now the canonical reasoning-state runtime (experimental but integrated;
+  `reasoning_state` and `state_causality` stay off by default). Formal benchmark on arm64 macOS:
+  aggregate +3.1% / +6.6% (Lightweight RUS / State Causality) against executable RU `full`, with
+  identical responses and hashes to the v0.1 baseline (`111f199a`) for all 94 checked cases; the
+  post-merge verification measured +1.4% / +5.1%.
+  Baseline `111f199a`, optimized `6627ad64`, benchmark artifacts `70c28958`. See
+  `docs/reports/ReasonScript_Lightweight_RUS_R4_Merge_Report.md`.
+- Reduced the Lightweight RUS hot-path cost without changing semantics, state,
+  causal graph, artifacts, or hashes: typed state and transitions (fixed field
+  array, change bitmask, RU/Evidence by index), lazy JSON artifacts and causal
+  provenance built in the response phase, typed causal relations, and
+  `serde_json`-free streaming state/transition hashes. Overhead against
+  executable RU `full` fell from +18%/+44% to +3%/+7% (Lightweight RUS /
+  State Causality) with zero hot-path allocations per transition. Adds the
+  response-phase metrics `state_transition_materialization_ns`,
+  `provenance_materialization_ns`, `transition_hash_ns`, `state_hash_ns`, an
+  in-process profile harness, `scripts/profile_reasoning_state.py`, an extended
+  `scripts/benchmark_reasoning_state.py` (baseline/optimized comparison,
+  equivalence, determinism, graphs), and a permanent R0-digest regression test.
+- Added Lightweight RUS v0.1: a runtime-owned `RuntimeReasoningState`
+  (`remaining`, `search_bound`, `current_candidate`, `active_constraint_count`,
+  `goal_status`) with deterministic revisions, atomic multi-field updates,
+  no-op detection, automatic diffs, automatic `StateTransition` generation with
+  RU/Evidence provenance, a canonical `reasoning_state_hash`, `RUS-001`..`RUS-005`
+  diagnostics, and `context.reasoning_state` (auto-enabled by state causality).
+  State causality now only projects transitions; the manual before/after
+  `record_state_transition` hooks were removed, `relation.filter` completes a
+  real goal-evaluation RU, and real factorization drives `remaining` /
+  `search_bound` from runtime state. Adds the `reasoning_state` schema,
+  a golden factorization dataset, and an overhead benchmark.
 - Added native state causality for runtime-observed factorization state diffs,
   including monotonic transitions, RU/Evidence provenance,
   `CAUSES_STATE_CHANGE`/`ENABLES`/`TERMINATES` relations, deterministic hashes,

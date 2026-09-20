@@ -2,6 +2,10 @@ use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::io::{self, Write};
 
+use crate::reasoning_state::{
+    EvidenceRef, ReasoningStateMode, ReasoningStateTrace, RefResolver, RuRef,
+    RuntimeReasoningState, StateEffect, StateUpdate,
+};
 use crate::state_causality::{StateCausality, StateCausalityMode, StateCausalityTrace};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -363,6 +367,7 @@ fn write_json_string_fragment(writer: &mut CanonicalFragment, value: &str) {
 pub(crate) struct ExecutableReasonUnit {
     pub(crate) id: String,
     semantic_signature: String,
+    operation: Cow<'static, str>,
     kind: ExecutableKind,
     pub(crate) source: ReasonUnitSource,
     subject: serde_json::Value,
@@ -431,6 +436,7 @@ pub struct ReasonStructure {
     executable_active: Vec<u64>,
     executable_sequence_hash: RollingJsonArrayHash,
     executable_lifecycle_hash: RollingJsonArrayHash,
+    reasoning_state: RuntimeReasoningState,
     state_causality: StateCausality,
 }
 
@@ -446,27 +452,81 @@ impl ReasonStructure {
         self.executable_mode = mode;
     }
 
+    pub fn set_reasoning_state_mode(&mut self, mode: ReasoningStateMode) {
+        self.reasoning_state.set_mode(mode);
+    }
+
+    /// Enabling state causality also enables the reasoning state it projects,
+    /// so configure the reasoning state first.
     pub fn set_state_causality_mode(&mut self, mode: StateCausalityMode) {
         self.state_causality.set_mode(mode);
+        if mode.enabled() {
+            self.reasoning_state
+                .set_mode(ReasoningStateMode::Lightweight);
+        }
     }
 
-    pub(crate) fn state_causality_enabled(&self) -> bool {
-        self.state_causality.enabled()
+    pub(crate) fn reasoning_state_enabled(&self) -> bool {
+        self.reasoning_state.enabled()
     }
 
-    pub(crate) fn record_state_transition(
+    /// The only gateway through which reasoning state is mutated: the state
+    /// diffs the update itself and the resulting transition is projected into
+    /// state causality. Returns whether the state changed.
+    pub(crate) fn apply_reasoning_state_update(
         &mut self,
-        source_ru: Option<&str>,
-        before: &serde_json::Value,
-        after: &serde_json::Value,
-        evidence_refs: &[String],
-    ) -> Option<String> {
-        self.state_causality
-            .record(source_ru, before, after, evidence_refs)
+        source_ru: Option<RuRef>,
+        updates: &[StateUpdate],
+        evidence: &[EvidenceRef],
+    ) -> bool {
+        if !self.reasoning_state.enabled() {
+            self.reasoning_state.diagnose("RUS-005");
+            return false;
+        }
+        let Some(transition) = self.reasoning_state.apply(source_ru, updates, evidence) else {
+            return false;
+        };
+        self.state_causality.observe(transition);
+        true
+    }
+
+    fn apply_state_effect(
+        &mut self,
+        source_ru: RuRef,
+        effect: StateEffect,
+        evidence: Option<EvidenceRef>,
+    ) {
+        let evidence = evidence.as_slice();
+        match effect {
+            StateEffect::Initialize(values) => {
+                // Refusals are recorded as RUS diagnostics by the state itself.
+                let _ = self.reasoning_state.initialize(&values);
+            }
+            StateEffect::Update1(updates) => {
+                self.apply_reasoning_state_update(Some(source_ru), &updates, evidence);
+            }
+            StateEffect::Update2(updates) => {
+                self.apply_reasoning_state_update(Some(source_ru), &updates, evidence);
+            }
+        }
+    }
+
+    pub fn reasoning_state_trace(&self) -> ReasoningStateTrace {
+        debug_assert!(
+            !self.state_causality.enabled()
+                || RuntimeReasoningState::replay(
+                    &self.reasoning_state.initial_state(),
+                    self.state_causality.transitions()
+                )
+                .is_ok_and(|replayed| replayed.hash() == self.reasoning_state.hash()),
+            "recorded transitions must replay to the final reasoning state"
+        );
+        self.reasoning_state.trace()
     }
 
     pub fn state_causality_trace(&self) -> StateCausalityTrace {
-        self.state_causality.trace()
+        self.state_causality
+            .trace(self, self.reasoning_state.diagnostics())
     }
 
     pub(crate) fn executable_mode(&self) -> ExecutableMode {
@@ -582,6 +642,7 @@ impl ReasonStructure {
         let unit = ExecutableReasonUnit {
             id: id.clone(),
             semantic_signature,
+            operation: executable_operation(operation),
             kind,
             source,
             subject,
@@ -599,7 +660,7 @@ impl ReasonStructure {
             .push(serde_json::json!([id, "ACTIVE", 1]));
         self.executable_units.push(unit);
         self.state_causality
-            .link_next_ru(&id, executable_kind(kind));
+            .link_next_ru(RuRef(self.executable_units.len() as u32 - 1), kind);
         Some(ExecutableHandle::Full(self.executable_units.len() - 1))
     }
 
@@ -681,6 +742,7 @@ impl ReasonStructure {
                 unit.lifecycle_revision
             ]));
         }
+        let mut evidence_ref = None;
         if let Some(kind) = evidence_kind {
             let evidence_id = format!("evidence:ru:{:08}", self.executable_evidence.len() + 1);
             unit.evidence_refs.push(evidence_id.clone());
@@ -697,6 +759,7 @@ impl ReasonStructure {
                 "source_ref": unit.id,
                 "target_ref": evidence_id,
             }));
+            evidence_ref = Some(EvidenceRef(self.executable_evidence.len() as u32 - 1));
         }
         self.executable_sequence.push(serde_json::json!([
             unit.semantic_signature,
@@ -704,6 +767,20 @@ impl ReasonStructure {
             terminal_status(terminal),
             unit.subject
         ]));
+        if self.reasoning_state.enabled() {
+            let unit = &self.executable_units[index];
+            match self.reasoning_state.effect_of(
+                &unit.operation,
+                terminal == TerminalStatus::Verified,
+                &unit.subject,
+            ) {
+                Ok(Some(effect)) => {
+                    self.apply_state_effect(RuRef(index as u32), effect, evidence_ref);
+                }
+                Ok(None) => {}
+                Err(code) => self.reasoning_state.diagnose(code),
+            }
+        }
         self.finish_counters(terminal, evidence_kind.is_some());
         Ok(())
     }
@@ -957,6 +1034,18 @@ impl ReasonStructure {
     }
 }
 
+impl RefResolver for ReasonStructure {
+    fn ru_id(&self, ru: RuRef) -> &str {
+        &self.executable_units[ru.0 as usize].id
+    }
+
+    fn evidence_id(&self, evidence: EvidenceRef) -> &str {
+        self.executable_evidence[evidence.0 as usize]["id"]
+            .as_str()
+            .unwrap_or_default()
+    }
+}
+
 fn executable_kind(kind: ExecutableKind) -> &'static str {
     match kind {
         ExecutableKind::Hypothesis => "HYPOTHESIS",
@@ -1171,6 +1260,7 @@ fn hypothesis_hash(units: &[serde_json::Value], evidence: &[serde_json::Value]) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reasoning_state::{ReasonStateField, ReasonStateValue};
 
     #[test]
     fn explicit_layers_are_incremental_and_deterministic() {
@@ -1402,6 +1492,117 @@ mod tests {
             );
             assert_eq!(count["ru_lifecycle_hash"], full["ru_lifecycle_hash"]);
         }
+    }
+
+    fn reasoning_structure(state_causality: StateCausalityMode) -> ReasonStructure {
+        let mut structure = ReasonStructure::default();
+        structure.set_executable_mode(ExecutableMode::Full);
+        structure.set_reasoning_state_mode(ReasoningStateMode::Off);
+        structure.set_state_causality_mode(state_causality);
+        structure
+    }
+
+    #[test]
+    fn ru_completion_mutates_reasoning_state_through_the_single_gateway() {
+        let run = || {
+            let mut structure = reasoning_structure(StateCausalityMode::Full);
+            for (event, subject) in [
+                ("REASON_STATE_CREATED", 77),
+                ("HYPOTHESIS_CREATED", 5),
+                ("HYPOTHESIS_REJECTED", 5),
+                ("HYPOTHESIS_CREATED", 7),
+                ("HYPOTHESIS_VERIFIED", 7),
+                ("GOAL_UPDATED", 77),
+                ("TERMINATION_INFERRED", 77),
+            ] {
+                structure
+                    .record_legacy_executable(
+                        event,
+                        serde_json::json!(subject),
+                        serde_json::json!(true),
+                    )
+                    .unwrap();
+            }
+            structure
+        };
+        let structure = run();
+        let state = structure.reasoning_state_trace();
+        assert_eq!(state.revision, 4);
+        assert_eq!(state.fields["remaining"], 11);
+        assert_eq!(state.fields["search_bound"], 3);
+        assert_eq!(state.fields["current_candidate"], 7);
+        assert_eq!(state.fields["goal_status"], "REACHED");
+        assert!(state.diagnostics.is_empty());
+        assert_eq!(state.metrics.reasoning_state_noop_update_count, 1);
+        let causality = structure.state_causality_trace();
+        let sequence: Vec<_> = causality
+            .transitions
+            .iter()
+            .map(|t| t.changed_fields.clone())
+            .collect();
+        assert_eq!(
+            sequence,
+            [
+                vec!["current_candidate"],
+                vec!["current_candidate"],
+                vec!["remaining", "search_bound"],
+                vec!["goal_status"],
+            ]
+        );
+        assert_eq!(
+            causality.transitions[2].source_ru,
+            "ru:verification:00000005"
+        );
+        assert_eq!(
+            causality.transitions[2].evidence_refs,
+            ["evidence:ru:00000002"]
+        );
+        let kinds: Vec<_> = causality
+            .relations
+            .iter()
+            .map(|r| r.relation_kind)
+            .collect();
+        assert!(kinds.contains(&"TERMINATES") && kinds.contains(&"ENABLES"));
+        assert_eq!(state.hash, run().reasoning_state_trace().hash);
+        assert_eq!(causality.hashes, run().state_causality_trace().hashes);
+    }
+
+    #[test]
+    fn inconsistent_verification_and_late_initialization_are_diagnosed_not_applied() {
+        let mut structure = reasoning_structure(StateCausalityMode::Trace);
+        let mut event = |name: &str, subject: i64| {
+            structure
+                .record_legacy_executable(name, serde_json::json!(subject), serde_json::json!(true))
+                .unwrap()
+        };
+        event("REASON_STATE_CREATED", 77);
+        event("HYPOTHESIS_VERIFIED", 5); // 5 does not divide 77
+        event("HYPOTHESIS_CREATED", 7);
+        event("REASON_STATE_CREATED", 12); // revision is no longer 0
+        let state = structure.reasoning_state_trace();
+        assert_eq!(
+            (state.revision, &state.fields["remaining"]),
+            (1, &serde_json::json!(77))
+        );
+        assert_eq!(state.diagnostics, ["RUS-003", "RUS-004"]);
+    }
+
+    #[test]
+    fn reasoning_state_off_ignores_effects_and_rejects_direct_updates() {
+        let mut structure = ReasonStructure::default();
+        structure.set_executable_mode(ExecutableMode::Full);
+        structure
+            .record_legacy_executable(
+                "HYPOTHESIS_CREATED",
+                serde_json::json!(7),
+                serde_json::json!(null),
+            )
+            .unwrap();
+        assert_eq!(structure.reasoning_state_trace().revision, 0);
+        assert!(structure.reasoning_state_trace().diagnostics.is_empty());
+        let update = [(ReasonStateField::CurrentCandidate, ReasonStateValue::Int(7))];
+        assert!(!structure.apply_reasoning_state_update(Some(RuRef(0)), &update, &[]));
+        assert_eq!(structure.reasoning_state_trace().diagnostics, ["RUS-005"]);
     }
 
     #[test]

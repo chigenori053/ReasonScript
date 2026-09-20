@@ -1,0 +1,752 @@
+{
+  "schema": "reasonscript-reasoning-state-merge-verification/1.0",
+  "main_base_commit": "e5c82679bf37230ef7593201c8298b4d8d2ff4e4",
+  "baseline_commit": "111f199a290292e2108d629742d7a1456c1fdc5e",
+  "r4_source_commit": "6627ad6442e6d4db7e4273b44346ad990d83e3e2",
+  "r4_benchmark_commit": "70c2895828079214ce2f5ddb11e7975f4dd0b79e",
+  "merge_commit": "7054afe5d4eef20baac3ae585bcf5bced7cc2fb2",
+  "integration_head": "7b9ec5736d0a4996b4cd741265a5ca49818be26c",
+  "working_tree_dirty": false,
+  "rust_tests": {
+    "rustfmt": {
+      "pass": true,
+      "workspace_clean": false,
+      "drift_in_changed_files": [],
+      "pre_existing_drift_outside_this_integration": [
+        "ReasonRuntime/crates/reason-object-core/src/lib.rs"
+      ]
+    },
+    "clippy_ci_parity": {
+      "pass": true,
+      "command": "cargo clippy --all-targets -- -A warnings -A clippy::overly_complex_bool_expr"
+    },
+    "clippy": {
+      "pass": true,
+      "warnings": 8,
+      "warnings_in_r4_files": [],
+      "note": "warnings that remain are pre-existing (identical on main)"
+    },
+    "cargo_test_workspace": {
+      "pass": true,
+      "passed": 71,
+      "failed": 0
+    },
+    "cargo_test_computation_ir": {
+      "pass": true,
+      "passed": 46,
+      "failed": 0
+    },
+    "replay_rust": {
+      "pass": true,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "python_tests": {
+    "computation_ir_tests": {
+      "returncode": 0,
+      "passed": 393,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "errors": 0,
+      "seconds": 26.7,
+      "pass": true
+    },
+    "full_repository": {
+      "returncode": 0,
+      "passed": 2580,
+      "failed": 0,
+      "skipped": 5,
+      "deselected": 2,
+      "errors": 0,
+      "seconds": 95.8,
+      "pass": true,
+      "deselected_environment_tests": {
+        "tests/lsp/test_vscode_extension_contract.py::test_vscode_extension_typescript_compiles_cleanly": {
+          "returncode": 1,
+          "classified": "known-environment-failure"
+        },
+        "vscode_extension_phase1_4_tests/test_vscode_extension_phase1_4.py::VSCodeExtensionPhase14Tests::test_vsxp14_003_dependency_presence": {
+          "returncode": 1,
+          "classified": "known-environment-failure"
+        }
+      }
+    }
+  },
+  "golden": {
+    "returncode": 0,
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "deselected": 111,
+    "errors": 0,
+    "seconds": 0.3,
+    "pass": true
+  },
+  "differential": {
+    "returncode": 0,
+    "passed": 88,
+    "failed": 0,
+    "skipped": 0,
+    "deselected": 28,
+    "errors": 0,
+    "seconds": 1.0,
+    "pass": true
+  },
+  "r0_compatibility": {
+    "digest_test": {
+      "returncode": 0,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 115,
+      "errors": 0,
+      "seconds": 1.1,
+      "pass": true
+    },
+    "cases": 94,
+    "identical_responses": 94
+  },
+  "hash_equivalence": {
+    "r0_vs_post_merge": {
+      "cases": 94,
+      "identical_responses": 94,
+      "mismatched_n": [],
+      "hash_matches": {
+        "reasoning_state_hash": 94,
+        "initial_hash": 94,
+        "state_transition_hash": 94,
+        "causal_observation_hash": 94,
+        "causal_relation_hash": 94
+      },
+      "all_hashes_equal": true,
+      "semantic_equivalence": true
+    },
+    "pre_merge_vs_post_merge": {
+      "cases": 94,
+      "identical_responses": 94,
+      "mismatched_n": [],
+      "hash_matches": {
+        "reasoning_state_hash": 94,
+        "initial_hash": 94,
+        "state_transition_hash": 94,
+        "causal_observation_hash": 94,
+        "causal_relation_hash": 94
+      },
+      "all_hashes_equal": true,
+      "semantic_equivalence": true
+    }
+  },
+  "response_equivalence": {
+    "identical_responses": 94,
+    "cases": 94,
+    "key_order_sensitive": true,
+    "pre_merge_vs_post_merge_identical": 94
+  },
+  "determinism": {
+    "runs_per_case": 3,
+    "cases": [
+      84,
+      10007
+    ],
+    "stable": true
+  },
+  "replay": {
+    "python": {
+      "returncode": 0,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 115,
+      "errors": 0,
+      "seconds": 0.2,
+      "pass": true
+    },
+    "rust": {
+      "pass": true,
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "mutation": {
+    "mutants": 12,
+    "detected": 12,
+    "detected_by_rust": 12,
+    "detected_by_python": 12,
+    "sources_restored": true,
+    "results": [
+      {
+        "gate": "existing",
+        "name": "no-op detection disabled",
+        "file": "reasoning_state.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "existing",
+        "name": "stale search_bound",
+        "file": "reasoning_state.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "existing",
+        "name": "double revision increment",
+        "file": "reasoning_state.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "existing",
+        "name": "rejected verification modifies state",
+        "file": "reasoning_state.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "r4",
+        "name": "changed field bit missing",
+        "file": "reasoning_state.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "r4",
+        "name": "wrong source RU",
+        "file": "reason_structure.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "r4",
+        "name": "wrong Evidence index",
+        "file": "reason_structure.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "r4",
+        "name": "missing revision provenance",
+        "file": "state_causality.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "r4",
+        "name": "transition hash missing transition",
+        "file": "reasoning_state.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "r4",
+        "name": "wrong ENABLES transition",
+        "file": "state_causality.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "r4",
+        "name": "state hash missing goal_status",
+        "file": "reasoning_state.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      },
+      {
+        "gate": "extra",
+        "name": "verification stops reading current_candidate",
+        "file": "state_causality.rs",
+        "rust_detected": true,
+        "python_detected": true,
+        "outcome": "detected"
+      }
+    ],
+    "all_detected": true
+  },
+  "schema_validation": {
+    "returncode": 0,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "deselected": 114,
+    "errors": 0,
+    "seconds": 1.0,
+    "pass": true
+  },
+  "performance": {
+    "timings_ns": {
+      "R0": {
+        "77": {
+          "normal": 26542,
+          "ru_full": 59541,
+          "lightweight_rus": 76250,
+          "state_causality": 83042,
+          "state_causality_native_causal": 84667,
+          "components_ns": {
+            "normal_runtime_ns": 84667,
+            "reasoning_state_runtime_ns": 7457,
+            "state_causality_runtime_ns": 5918,
+            "causal_bridge_runtime_ns": 5541,
+            "causal_evaluation_ns": 7375
+          },
+          "transitions": 8,
+          "relations": 16
+        },
+        "997": {
+          "normal": 47875,
+          "ru_full": 133958,
+          "lightweight_rus": 163250,
+          "state_causality": 194542,
+          "state_causality_native_causal": 192625,
+          "components_ns": {
+            "normal_runtime_ns": 192625,
+            "reasoning_state_runtime_ns": 16333,
+            "state_causality_runtime_ns": 17169,
+            "causal_bridge_runtime_ns": 20916,
+            "causal_evaluation_ns": 31875
+          },
+          "transitions": 31,
+          "relations": 62
+        },
+        "10007": {
+          "normal": 102958,
+          "ru_full": 337959,
+          "lightweight_rus": 404166,
+          "state_causality": 499292,
+          "state_causality_native_causal": 505917,
+          "components_ns": {
+            "normal_runtime_ns": 505917,
+            "reasoning_state_runtime_ns": 41377,
+            "state_causality_runtime_ns": 53710,
+            "causal_bridge_runtime_ns": 56750,
+            "causal_evaluation_ns": 104833
+          },
+          "transitions": 100,
+          "relations": 200
+        },
+        "30030": {
+          "normal": 35667,
+          "ru_full": 89375,
+          "lightweight_rus": 112083,
+          "state_causality": 134334,
+          "state_causality_native_causal": 135667,
+          "components_ns": {
+            "normal_runtime_ns": 135667,
+            "reasoning_state_runtime_ns": 13585,
+            "state_causality_runtime_ns": 12873,
+            "causal_bridge_runtime_ns": 11583,
+            "causal_evaluation_ns": 16209
+          },
+          "transitions": 16,
+          "relations": 40
+        },
+        "10403": {
+          "normal": 105125,
+          "ru_full": 357000,
+          "lightweight_rus": 414459,
+          "state_causality": 504958,
+          "state_causality_native_causal": 515125,
+          "components_ns": {
+            "normal_runtime_ns": 515125,
+            "reasoning_state_runtime_ns": 43671,
+            "state_causality_runtime_ns": 53789,
+            "causal_bridge_runtime_ns": 56958,
+            "causal_evaluation_ns": 103375
+          },
+          "transitions": 102,
+          "relations": 204
+        }
+      },
+      "R4_pre_merge": {
+        "77": {
+          "normal": 26791,
+          "ru_full": 62875,
+          "lightweight_rus": 66042,
+          "state_causality": 67083,
+          "state_causality_native_causal": 67959,
+          "components_ns": {
+            "normal_runtime_ns": 67959,
+            "reasoning_state_runtime_ns": 1374,
+            "state_causality_runtime_ns": 1250,
+            "causal_bridge_runtime_ns": 8667,
+            "causal_evaluation_ns": 8333,
+            "state_transition_materialization_ns": 4459,
+            "provenance_materialization_ns": 7958,
+            "transition_hash_ns": 5500,
+            "state_hash_ns": 1250
+          },
+          "transitions": 8,
+          "relations": 16
+        },
+        "997": {
+          "normal": 48166,
+          "ru_full": 139750,
+          "lightweight_rus": 142459,
+          "state_causality": 150292,
+          "state_causality_native_causal": 148583,
+          "components_ns": {
+            "normal_runtime_ns": 148583,
+            "reasoning_state_runtime_ns": 1792,
+            "state_causality_runtime_ns": 3499,
+            "causal_bridge_runtime_ns": 21750,
+            "causal_evaluation_ns": 33500,
+            "state_transition_materialization_ns": 8833,
+            "provenance_materialization_ns": 22958,
+            "transition_hash_ns": 16166,
+            "state_hash_ns": 1375
+          },
+          "transitions": 31,
+          "relations": 62
+        },
+        "10007": {
+          "normal": 103458,
+          "ru_full": 354583,
+          "lightweight_rus": 361792,
+          "state_causality": 369333,
+          "state_causality_native_causal": 371667,
+          "components_ns": {
+            "normal_runtime_ns": 371667,
+            "reasoning_state_runtime_ns": 3414,
+            "state_causality_runtime_ns": 11416,
+            "causal_bridge_runtime_ns": 54750,
+            "causal_evaluation_ns": 107041,
+            "state_transition_materialization_ns": 26833,
+            "provenance_materialization_ns": 76042,
+            "transition_hash_ns": 52000,
+            "state_hash_ns": 1500
+          },
+          "transitions": 100,
+          "relations": 200
+        },
+        "30030": {
+          "normal": 37041,
+          "ru_full": 95166,
+          "lightweight_rus": 99250,
+          "state_causality": 102084,
+          "state_causality_native_causal": 103125,
+          "components_ns": {
+            "normal_runtime_ns": 103125,
+            "reasoning_state_runtime_ns": 1624,
+            "state_causality_runtime_ns": 2168,
+            "causal_bridge_runtime_ns": 13875,
+            "causal_evaluation_ns": 17542,
+            "state_transition_materialization_ns": 6292,
+            "provenance_materialization_ns": 17375,
+            "transition_hash_ns": 10541,
+            "state_hash_ns": 1334
+          },
+          "transitions": 16,
+          "relations": 40
+        },
+        "10403": {
+          "normal": 106958,
+          "ru_full": 352667,
+          "lightweight_rus": 363625,
+          "state_causality": 373042,
+          "state_causality_native_causal": 381709,
+          "components_ns": {
+            "normal_runtime_ns": 381709,
+            "reasoning_state_runtime_ns": 3577,
+            "state_causality_runtime_ns": 10871,
+            "causal_bridge_runtime_ns": 55791,
+            "causal_evaluation_ns": 111250,
+            "state_transition_materialization_ns": 27833,
+            "provenance_materialization_ns": 78583,
+            "transition_hash_ns": 53709,
+            "state_hash_ns": 1500
+          },
+          "transitions": 102,
+          "relations": 204
+        }
+      },
+      "R4_post_merge": {
+        "77": {
+          "normal": 27625,
+          "ru_full": 63125,
+          "lightweight_rus": 66375,
+          "state_causality": 66958,
+          "state_causality_native_causal": 66666,
+          "components_ns": {
+            "normal_runtime_ns": 66666,
+            "reasoning_state_runtime_ns": 1331,
+            "state_causality_runtime_ns": 1125,
+            "causal_bridge_runtime_ns": 8375,
+            "causal_evaluation_ns": 7750,
+            "state_transition_materialization_ns": 4583,
+            "provenance_materialization_ns": 8375,
+            "transition_hash_ns": 5375,
+            "state_hash_ns": 1291
+          },
+          "transitions": 8,
+          "relations": 16
+        },
+        "997": {
+          "normal": 47250,
+          "ru_full": 137125,
+          "lightweight_rus": 141666,
+          "state_causality": 149791,
+          "state_causality_native_causal": 150291,
+          "components_ns": {
+            "normal_runtime_ns": 150291,
+            "reasoning_state_runtime_ns": 1834,
+            "state_causality_runtime_ns": 3499,
+            "causal_bridge_runtime_ns": 22209,
+            "causal_evaluation_ns": 32792,
+            "state_transition_materialization_ns": 8750,
+            "provenance_materialization_ns": 24125,
+            "transition_hash_ns": 16250,
+            "state_hash_ns": 1292
+          },
+          "transitions": 31,
+          "relations": 62
+        },
+        "10007": {
+          "normal": 107375,
+          "ru_full": 359625,
+          "lightweight_rus": 355834,
+          "state_causality": 371167,
+          "state_causality_native_causal": 372917,
+          "components_ns": {
+            "normal_runtime_ns": 372917,
+            "reasoning_state_runtime_ns": 3459,
+            "state_causality_runtime_ns": 10791,
+            "causal_bridge_runtime_ns": 54625,
+            "causal_evaluation_ns": 106375,
+            "state_transition_materialization_ns": 27041,
+            "provenance_materialization_ns": 76458,
+            "transition_hash_ns": 52208,
+            "state_hash_ns": 1458
+          },
+          "transitions": 100,
+          "relations": 200
+        },
+        "30030": {
+          "normal": 35959,
+          "ru_full": 94042,
+          "lightweight_rus": 97917,
+          "state_causality": 104583,
+          "state_causality_native_causal": 101375,
+          "components_ns": {
+            "normal_runtime_ns": 101375,
+            "reasoning_state_runtime_ns": 1707,
+            "state_causality_runtime_ns": 2126,
+            "causal_bridge_runtime_ns": 14209,
+            "causal_evaluation_ns": 17125,
+            "state_transition_materialization_ns": 6667,
+            "provenance_materialization_ns": 17583,
+            "transition_hash_ns": 10250,
+            "state_hash_ns": 1375
+          },
+          "transitions": 16,
+          "relations": 40
+        },
+        "10403": {
+          "normal": 105417,
+          "ru_full": 359541,
+          "lightweight_rus": 365917,
+          "state_causality": 372791,
+          "state_causality_native_causal": 379125,
+          "components_ns": {
+            "normal_runtime_ns": 379125,
+            "reasoning_state_runtime_ns": 3581,
+            "state_causality_runtime_ns": 11047,
+            "causal_bridge_runtime_ns": 56833,
+            "causal_evaluation_ns": 109208,
+            "state_transition_materialization_ns": 27667,
+            "provenance_materialization_ns": 76042,
+            "transition_hash_ns": 53500,
+            "state_hash_ns": 1417
+          },
+          "transitions": 102,
+          "relations": 204
+        }
+      }
+    },
+    "overhead": {
+      "R0": {
+        "per_case": {
+          "77": {
+            "lightweight_rus": 0.28063015401152147,
+            "state_causality": 0.39470280982852146
+          },
+          "997": {
+            "lightweight_rus": 0.21866555188939807,
+            "state_causality": 0.45226115648188236
+          },
+          "10007": {
+            "lightweight_rus": 0.19590246154119284,
+            "state_causality": 0.47737447441849445
+          },
+          "30030": {
+            "lightweight_rus": 0.2540755244755244,
+            "state_causality": 0.5030377622377622
+          },
+          "10403": {
+            "lightweight_rus": 0.1609495798319327,
+            "state_causality": 0.41444817927170874
+          }
+        },
+        "aggregate": {
+          "lightweight_rus": 0.19673604797547228,
+          "state_causality": 0.44827184191983704
+        },
+        "median": {
+          "lightweight_rus": 0.21866555188939807,
+          "state_causality": 0.45226115648188236
+        },
+        "total_runtime_execution_ns": {
+          "normal": 318167,
+          "ru_full": 977833,
+          "lightweight_rus": 1170208,
+          "state_causality": 1416168,
+          "state_causality_native_causal": 1434001
+        }
+      },
+      "R4_pre_merge": {
+        "per_case": {
+          "77": {
+            "lightweight_rus": 0.050369781312127326,
+            "state_causality": 0.06692644135188863
+          },
+          "997": {
+            "lightweight_rus": 0.019384615384615334,
+            "state_causality": 0.07543470483005366
+          },
+          "10007": {
+            "lightweight_rus": 0.020330923930363287,
+            "state_causality": 0.041598158964191834
+          },
+          "30030": {
+            "lightweight_rus": 0.0429144862661035,
+            "state_causality": 0.07269402938024094
+          },
+          "10403": {
+            "lightweight_rus": 0.031071804279958037,
+            "state_causality": 0.057774047472545
+          }
+        },
+        "aggregate": {
+          "lightweight_rus": 0.0279859229623467,
+          "state_causality": 0.05650814245389002
+        },
+        "median": {
+          "lightweight_rus": 0.031071804279958037,
+          "state_causality": 0.06692644135188863
+        },
+        "total_runtime_execution_ns": {
+          "normal": 322414,
+          "ru_full": 1005041,
+          "lightweight_rus": 1033168,
+          "state_causality": 1061834,
+          "state_causality_native_causal": 1073043
+        }
+      },
+      "R4_post_merge": {
+        "per_case": {
+          "77": {
+            "lightweight_rus": 0.05148514851485153,
+            "state_causality": 0.060720792079207886
+          },
+          "997": {
+            "lightweight_rus": 0.03311577028258883,
+            "state_causality": 0.09236827711941653
+          },
+          "10007": {
+            "lightweight_rus": -0.010541536322558165,
+            "state_causality": 0.0320945429266597
+          },
+          "30030": {
+            "lightweight_rus": 0.04120499351353657,
+            "state_causality": 0.11208821590353257
+          },
+          "10403": {
+            "lightweight_rus": 0.017733721606159047,
+            "state_causality": 0.03685254254730341
+          }
+        },
+        "aggregate": {
+          "lightweight_rus": 0.014061756875963338,
+          "state_causality": 0.051143707978031694
+        },
+        "median": {
+          "lightweight_rus": 0.03311577028258883,
+          "state_causality": 0.060720792079207886
+        },
+        "total_runtime_execution_ns": {
+          "normal": 323626,
+          "ru_full": 1013458,
+          "lightweight_rus": 1027709,
+          "state_causality": 1065290,
+          "state_causality_native_causal": 1070374
+        }
+      }
+    },
+    "post_merge_aggregate": {
+      "lightweight_rus": 0.014061756875963338,
+      "state_causality": 0.051143707978031694
+    },
+    "gate": {
+      "lightweight_rus_le_10pct": true,
+      "state_causality_le_20pct": true
+    },
+    "regression_guard": {
+      "rule": "post-merge R4 <= pre-merge R4 x 1.10",
+      "aggregate_ratio_post_over_pre": {
+        "normal": 1.0037591419727432,
+        "ru_full": 1.008374782720307,
+        "lightweight_rus": 0.9947162513744134,
+        "state_causality": 1.003254746033749,
+        "state_causality_native_causal": 0.9975126812252632
+      },
+      "aggregate_ok": true,
+      "cases_over_110_percent": []
+    }
+  },
+  "provenance": {
+    "baseline_binary_sha256": "158266d8c26b9e08791a2ee7999183e796b2f626561ec3ce544236359d6d37be",
+    "pre_merge_binary_sha256": "16cff3ce8f9b2d6df40bd5975143c85dc3f99cecc76e4e393e57d32d21563998",
+    "post_merge_binary_sha256": "16cff3ce8f9b2d6df40bd5975143c85dc3f99cecc76e4e393e57d32d21563998",
+    "post_merge_binary_identical_to_pre_merge": true,
+    "compiler": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "cpu_architecture": "arm64",
+    "build_profile": "release",
+    "warmup": 3,
+    "samples": 25,
+    "date": "2026-09-20T13:11:01+00:00"
+  },
+  "gates": {
+    "rust_tests": true,
+    "rustfmt": true,
+    "clippy": true,
+    "python_computation_ir": true,
+    "python_full_repository": true,
+    "golden": true,
+    "differential_n_2_89": true,
+    "r0_compatibility_94": true,
+    "hashes_equivalent": true,
+    "response_equivalence": true,
+    "determinism": true,
+    "replay": true,
+    "mutation": true,
+    "schema_validation": true,
+    "performance": true,
+    "regression_guard": true,
+    "clean_tree": true
+  },
+  "failed_gates": [],
+  "verification": "PASS",
+  "ci": "checked on the pull request before merging (see docs/reports/ReasonScript_Lightweight_RUS_R4_Merge_Report.md)"
+}

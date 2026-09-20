@@ -1,0 +1,328 @@
+{
+ "schema": "reasonscript-reasoning-state-golden/1.0",
+ "context": {
+  "executable_reason_units": "full",
+  "causal_evaluation": "counterfactual",
+  "causal_observation_source": "native",
+  "state_causality": "full"
+ },
+ "cases": [
+  {
+   "n": 49,
+   "factors": [
+    7,
+    7
+   ],
+   "revision_count": 8,
+   "changed_field_sequence": [
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "remaining",
+     "search_bound"
+    ],
+    [
+     "goal_status"
+    ]
+   ],
+   "final_state": {
+    "remaining": 7,
+    "search_bound": 2,
+    "current_candidate": 7,
+    "active_constraint_count": 0,
+    "goal_status": "REACHED"
+   },
+   "factor_steps": [
+    {
+     "factor": 7,
+     "remaining": [
+      49,
+      7
+     ],
+     "search_bound": [
+      7,
+      2
+     ]
+    }
+   ],
+   "enables_after_factor": [
+    "GOAL_EVALUATION"
+   ]
+  },
+  {
+   "n": 77,
+   "factors": [
+    7,
+    11
+   ],
+   "revision_count": 8,
+   "changed_field_sequence": [
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "remaining",
+     "search_bound"
+    ],
+    [
+     "goal_status"
+    ]
+   ],
+   "final_state": {
+    "remaining": 11,
+    "search_bound": 3,
+    "current_candidate": 7,
+    "active_constraint_count": 0,
+    "goal_status": "REACHED"
+   },
+   "factor_steps": [
+    {
+     "factor": 7,
+     "remaining": [
+      77,
+      11
+     ],
+     "search_bound": [
+      8,
+      3
+     ]
+    }
+   ],
+   "enables_after_factor": [
+    "GOAL_EVALUATION"
+   ]
+  },
+  {
+   "n": 84,
+   "factors": [
+    2,
+    2,
+    3,
+    7
+   ],
+   "revision_count": 6,
+   "changed_field_sequence": [
+    [
+     "current_candidate"
+    ],
+    [
+     "remaining",
+     "search_bound"
+    ],
+    [
+     "remaining",
+     "search_bound"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "remaining",
+     "search_bound"
+    ],
+    [
+     "goal_status"
+    ]
+   ],
+   "final_state": {
+    "remaining": 7,
+    "search_bound": 2,
+    "current_candidate": 3,
+    "active_constraint_count": 0,
+    "goal_status": "REACHED"
+   },
+   "factor_steps": [
+    {
+     "factor": 2,
+     "remaining": [
+      84,
+      42
+     ],
+     "search_bound": [
+      9,
+      6
+     ]
+    },
+    {
+     "factor": 2,
+     "remaining": [
+      42,
+      21
+     ],
+     "search_bound": [
+      6,
+      4
+     ]
+    },
+    {
+     "factor": 3,
+     "remaining": [
+      21,
+      7
+     ],
+     "search_bound": [
+      4,
+      2
+     ]
+    }
+   ],
+   "enables_after_factor": [
+    "HYPOTHESIS",
+    "HYPOTHESIS",
+    "GOAL_EVALUATION"
+   ]
+  },
+  {
+   "n": 97,
+   "factors": [
+    97
+   ],
+   "revision_count": 9,
+   "changed_field_sequence": [
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "goal_status"
+    ]
+   ],
+   "final_state": {
+    "remaining": 97,
+    "search_bound": 9,
+    "current_candidate": 9,
+    "active_constraint_count": 0,
+    "goal_status": "REACHED"
+   },
+   "factor_steps": [],
+   "enables_after_factor": []
+  },
+  {
+   "n": 221,
+   "factors": [
+    13,
+    17
+   ],
+   "revision_count": 14,
+   "changed_field_sequence": [
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "current_candidate"
+    ],
+    [
+     "remaining",
+     "search_bound"
+    ],
+    [
+     "goal_status"
+    ]
+   ],
+   "final_state": {
+    "remaining": 17,
+    "search_bound": 4,
+    "current_candidate": 13,
+    "active_constraint_count": 0,
+    "goal_status": "REACHED"
+   },
+   "factor_steps": [
+    {
+     "factor": 13,
+     "remaining": [
+      221,
+      17
+     ],
+     "search_bound": [
+      14,
+      4
+     ]
+    }
+   ],
+   "enables_after_factor": [
+    "GOAL_EVALUATION"
+   ]
+  }
+ ]
+}
