@@ -136,6 +136,15 @@ pub struct RuoTrace {
 pub struct ReasonObjectsTrace {
     pub rus: RusTrace,
     pub ruo: Option<RuoTrace>,
+    /// ReasonRelations (`relation:ru:*`) referenced by the RUOs.
+    pub reason_relation_count: u64,
+}
+
+/// Which Executable RUs a relevant projection keeps (`keep[i]` for unit `i`).
+pub(crate) struct Keep<'a> {
+    pub unit: &'a [bool],
+    /// Per causal relation (index into `causal`).
+    pub causal: &'a [bool],
 }
 
 /// Read-only view of the runtime tables the projection is built from.
@@ -158,7 +167,7 @@ fn transition_id(revision: u64) -> String {
 /// Canonical record encoding for the RUS / RUO hashes: a compact JSON array of
 /// fixed-position records, streamed into SHA-256 (no artifact tree is
 /// serialized). A state's fields are committed by its `semantic_state_hash`.
-fn push_str(buf: &mut Vec<u8>, value: &str) {
+pub(crate) fn push_str(buf: &mut Vec<u8>, value: &str) {
     if value
         .bytes()
         .all(|b| (0x20..0x7f).contains(&b) && b != b'"' && b != b'\\')
@@ -178,7 +187,7 @@ fn push_opt(buf: &mut Vec<u8>, value: Option<&str>) {
     }
 }
 
-fn push_list<S: AsRef<str>>(buf: &mut Vec<u8>, values: &[S]) {
+pub(crate) fn push_list<S: AsRef<str>>(buf: &mut Vec<u8>, values: &[S]) {
     buf.push(b'[');
     for (index, value) in values.iter().enumerate() {
         if index > 0 {
@@ -290,11 +299,39 @@ fn ids(values: &[serde_json::Value]) -> impl Iterator<Item = &str> {
     values.iter().filter_map(|value| value["id"].as_str())
 }
 
+/// Per RU: the revision its own transition produced, and (before, after) RUS.
+pub(crate) fn unit_bindings(
+    units: &[ExecutableReasonUnit],
+    transitions: &[RuntimeStateTransition],
+) -> (Vec<Option<u64>>, Vec<(u64, u64)>) {
+    let mut updated_at: Vec<Option<u64>> = vec![None; units.len()];
+    for transition in transitions {
+        let RuRef(index) = transition.source_ru;
+        if let Some(slot) = updated_at.get_mut(index as usize) {
+            *slot = Some(transition.revision_after());
+        }
+    }
+    let bindings = units
+        .iter()
+        .zip(&updated_at)
+        .map(|(unit, updated)| {
+            let before = u64::from(unit.state_before);
+            (before, updated.unwrap_or(before))
+        })
+        .collect();
+    (updated_at, bindings)
+}
+
+/// `keep` selects a relevant view: dropped RUs, and everything only they own
+/// (RUOs, their READS_STATE relations, ReasonRelations, Evidence), are left out;
+/// `causal` must already be the relations that view keeps. IDs stay those of the
+/// full projection.
 pub(crate) fn project(
     sources: &ObjectSources,
     resolver: &dyn RefResolver,
     mode: ReasonObjectsMode,
     causal: &[CausalRelation],
+    keep: Option<&Keep>,
 ) -> ReasonObjectsTrace {
     let started = Instant::now();
     let units = sources.units;
@@ -317,14 +354,10 @@ pub(crate) fn project(
         transition_ref: None,
         semantic_state_hash: state_hash(0, &fields),
     });
-    let mut updated_at: Vec<Option<u64>> = vec![None; units.len()];
+    let (updated_at, bindings) = unit_bindings(units, transitions);
     for transition in transitions {
         apply_after(&mut fields, transition);
         let revision = transition.revision_after();
-        let RuRef(index) = transition.source_ru;
-        if let Some(slot) = updated_at.get_mut(index as usize) {
-            *slot = Some(revision);
-        }
         let mut evidence_refs: Vec<String> = transition
             .evidence
             .as_slice()
@@ -354,48 +387,54 @@ pub(crate) fn project(
         rus_diagnostics.push("RUS-PROJ-002");
     }
 
-    // Each RU's RUS before (state when it began) and after (its own transition, if any).
-    let bindings: Vec<(u64, u64)> = units
-        .iter()
-        .zip(&updated_at)
-        .map(|(unit, updated)| {
-            let before = u64::from(unit.state_before);
-            (before, updated.unwrap_or(before))
-        })
-        .collect();
+    let kept = |index: usize| keep.is_none_or(|keep| keep.unit[index]);
 
-    // State-level relations, in RU execution order.
+    // State-level relations, in RU execution order. Numbering follows the full
+    // projection, so a relevant view refers to the same relation IDs.
     let mut relations: Vec<RusRelation> = Vec::with_capacity(units.len() * 2);
     let mut relation_indexes: Vec<[u32; 3]> = vec![[u32::MAX; 3]; units.len()];
-    fn push_relation(
-        relations: &mut Vec<RusRelation>,
-        kind: &'static str,
-        source: String,
-        target: String,
-    ) -> u32 {
+    let mut number = 0_usize;
+    let mut push_relation = |relations: &mut Vec<RusRelation>,
+                             keep_it: bool,
+                             kind: &'static str,
+                             source: &dyn Fn() -> String,
+                             target: &dyn Fn() -> String|
+     -> u32 {
+        number += 1;
+        if !keep_it {
+            return u32::MAX;
+        }
         relations.push(RusRelation {
-            id: format!("relation:rus:{:08}", relations.len() + 1),
+            id: format!("relation:rus:{number:08}"),
             kind,
-            source_ref: source,
-            target_ref: target,
+            source_ref: source(),
+            target_ref: target(),
         });
         relations.len() as u32 - 1
-    }
+    };
     for (index, (unit, (before, after))) in units.iter().zip(&bindings).enumerate() {
+        let keep_it = kept(index);
         relation_indexes[index][0] = push_relation(
             &mut relations,
+            keep_it,
             "READS_STATE",
-            rus_id(*before),
-            unit.id.clone(),
+            &|| rus_id(*before),
+            &|| unit.id.clone(),
         );
         if updated_at[index].is_some() {
-            relation_indexes[index][1] =
-                push_relation(&mut relations, "UPDATES", unit.id.clone(), rus_id(*after));
+            relation_indexes[index][1] = push_relation(
+                &mut relations,
+                keep_it,
+                "UPDATES",
+                &|| unit.id.clone(),
+                &|| rus_id(*after),
+            );
             relation_indexes[index][2] = push_relation(
                 &mut relations,
+                keep_it,
                 "DERIVES_STATE",
-                rus_id(*after - 1),
-                rus_id(*after),
+                &|| rus_id(*after - 1),
+                &|| rus_id(*after),
             );
         }
     }
@@ -407,8 +446,9 @@ pub(crate) fn project(
     rus_hashes.insert("rus_relation_hash", rus_relation_hash(&relations));
     let rus_hash_ns = elapsed(started);
 
+    let mut reason_relation_count = 0_u64;
     let ruo = (mode == ReasonObjectsMode::RusRuo).then(|| {
-        project_objects(
+        let (trace, count) = project_objects(
             sources,
             causal,
             &states,
@@ -416,11 +456,19 @@ pub(crate) fn project(
             &bindings,
             &relation_indexes,
             &updated_at,
-        )
+            keep,
+        );
+        reason_relation_count = count;
+        trace
     });
 
     // Referential integrity of the RUS side: RU, Evidence, and transition references.
-    let ru_ids: HashSet<&str> = units.iter().map(|unit| unit.id.as_str()).collect();
+    let ru_ids: HashSet<&str> = units
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| kept(*index))
+        .map(|(_, unit)| unit.id.as_str())
+        .collect();
     let evidence_ids: HashSet<&str> = ids(sources.evidence).collect();
     let rus_ids: HashSet<&str> = states.iter().map(|s| s.id.as_str()).collect();
     let known = |id: &str| ru_ids.contains(id) || rus_ids.contains(id);
@@ -460,6 +508,7 @@ pub(crate) fn project(
             diagnostics: rus_diagnostics,
         },
         ruo,
+        reason_relation_count,
     }
 }
 
@@ -472,7 +521,8 @@ fn project_objects(
     bindings: &[(u64, u64)],
     relation_indexes: &[[u32; 3]],
     updated_at: &[Option<u64>],
-) -> RuoTrace {
+    keep: Option<&Keep>,
+) -> (RuoTrace, u64) {
     let started = Instant::now();
     let units = sources.units;
     let mut diagnostics: Vec<&'static str> = Vec::new();
@@ -482,12 +532,32 @@ fn project_objects(
         }
     };
 
+    let kept = |index: usize| keep.is_none_or(|keep| keep.unit[index]);
+    // IDs owned by dropped RUs: the RU and its Evidence.
+    let mut dropped_ends: HashSet<&str> = HashSet::new();
+    if keep.is_some() {
+        for (index, unit) in units.iter().enumerate() {
+            if !kept(index) {
+                dropped_ends.insert(unit.id.as_str());
+                dropped_ends.extend(unit.evidence_refs.iter().map(String::as_str));
+            }
+        }
+    }
     // ReasonRelations that touch an RU (as source or target), in table order.
     let mut reason_by_end: HashMap<&str, Vec<&str>> = HashMap::with_capacity(units.len());
+    let mut reason_relation_count = 0_u64;
     for relation in sources.relations {
         let Some(id) = relation["id"].as_str() else {
             continue;
         };
+        if ["source_ref", "target_ref"].iter().any(|end| {
+            relation[*end]
+                .as_str()
+                .is_some_and(|end| dropped_ends.contains(end))
+        }) {
+            continue;
+        }
+        reason_relation_count += 1;
         for end in ["source_ref", "target_ref"] {
             if let Some(end) = relation[end].as_str() {
                 let refs = reason_by_end.entry(end).or_default();
@@ -498,8 +568,12 @@ fn project_objects(
         }
     }
     // Causal relations by endpoint (RU or state-transition ID).
+    let kept_causal = |index: usize| keep.is_none_or(|keep| keep.causal[index]);
     let mut causal_by_end: HashMap<&str, Vec<&str>> = HashMap::with_capacity(units.len());
-    for relation in causal {
+    for (index, relation) in causal.iter().enumerate() {
+        if !kept_causal(index) {
+            continue;
+        }
         for end in [relation.source_ref.as_str(), relation.target_ref.as_str()] {
             let refs = causal_by_end.entry(end).or_default();
             if refs.last() != Some(&relation.id.as_str()) {
@@ -510,6 +584,9 @@ fn project_objects(
 
     let mut objects = Vec::with_capacity(units.len());
     for (index, unit) in units.iter().enumerate() {
+        if !kept(index) {
+            continue;
+        }
         let (before, after) = bindings[index];
         let mut evidence_refs = unit.evidence_refs.clone();
         evidence_refs.sort();
@@ -556,13 +633,23 @@ fn project_objects(
     let ruo_materialization_ns = elapsed(started);
 
     // Referential integrity: every reference must resolve.
-    let ru_ids: HashSet<&str> = units.iter().map(|unit| unit.id.as_str()).collect();
+    let ru_ids: HashSet<&str> = units
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| kept(*index))
+        .map(|(_, unit)| unit.id.as_str())
+        .collect();
     let rus_ids: HashSet<&str> = states.iter().map(|s| s.id.as_str()).collect();
     let evidence_ids: HashSet<&str> = ids(sources.evidence).collect();
     let relation_ids: HashSet<&str> = ids(sources.relations)
         .chain(rus_relations.iter().map(|r| r.id.as_str()))
         .collect();
-    let causal_ids: HashSet<&str> = causal.iter().map(|r| r.id.as_str()).collect();
+    let causal_ids: HashSet<&str> = causal
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| kept_causal(*index))
+        .map(|(_, r)| r.id.as_str())
+        .collect();
     let mut seen: HashSet<&str> = HashSet::with_capacity(objects.len());
     let mut dangling = 0_u64;
     for object in &objects {
@@ -603,18 +690,21 @@ fn project_objects(
     let mut hashes = BTreeMap::new();
     hashes.insert("ruo_graph_hash", ruo_graph_hash(&objects));
     let ruo_hash_ns = elapsed(started);
-    RuoTrace {
-        schema: RUO_SCHEMA,
-        metrics: RuoMetrics {
-            ruo_count: objects.len() as u64,
-            ruo_materialization_ns,
-            ruo_hash_ns,
-            dangling_reference_count: dangling,
+    (
+        RuoTrace {
+            schema: RUO_SCHEMA,
+            metrics: RuoMetrics {
+                ruo_count: objects.len() as u64,
+                ruo_materialization_ns,
+                ruo_hash_ns,
+                dangling_reference_count: dangling,
+            },
+            objects,
+            hashes,
+            diagnostics,
         },
-        objects,
-        hashes,
-        diagnostics,
-    }
+        reason_relation_count,
+    )
 }
 
 #[cfg(test)]
@@ -662,6 +752,75 @@ mod tests {
         let (structure, causal) =
             factorization(StateCausalityMode::Full, ReasonObjectsMode::RusRuo);
         structure.reason_objects_trace(&causal).unwrap()
+    }
+
+    #[test]
+    fn a_relevant_projection_leaves_out_relations_that_touch_a_dropped_ru() {
+        let (structure, causal) =
+            factorization(StateCausalityMode::Full, ReasonObjectsMode::RusRuo);
+        let sources = structure.object_sources();
+        let units = sources.units;
+        // The rejected verification (index 2) is dropped; a relation ties a kept RU to its Evidence.
+        let dropped = 2;
+        assert_eq!(
+            units[dropped].terminal_status,
+            Some(crate::reason_structure::TerminalStatus::Rejected)
+        );
+        let mut relations = sources.relations.to_vec();
+        relations.push(serde_json::json!({
+            "id": "relation:ru:99999999",
+            "kind": "REQUIRES",
+            "source_ref": units[0].id,
+            "target_ref": units[dropped].evidence_refs[0],
+        }));
+        let with_bridge = ObjectSources {
+            units: sources.units,
+            evidence: sources.evidence,
+            relations: &relations,
+            state: sources.state,
+            transitions: sources.transitions,
+        };
+        let unit: Vec<bool> = (0..units.len()).map(|i| i != dropped).collect();
+        let keep_causal = vec![true; causal.len()];
+        let keep = Keep {
+            unit: &unit,
+            causal: &keep_causal,
+        };
+        let relevant = project(
+            &with_bridge,
+            &structure,
+            ReasonObjectsMode::RusRuo,
+            &causal,
+            Some(&keep),
+        );
+        let full = project(
+            &with_bridge,
+            &structure,
+            ReasonObjectsMode::RusRuo,
+            &causal,
+            None,
+        );
+        let refs_of = |trace: &ReasonObjectsTrace| -> Vec<String> {
+            trace
+                .ruo
+                .as_ref()
+                .unwrap()
+                .objects
+                .iter()
+                .flat_map(|o| o.relation_refs.clone())
+                .collect()
+        };
+        assert!(refs_of(&full).contains(&"relation:ru:99999999".to_owned()));
+        assert!(!refs_of(&relevant).contains(&"relation:ru:99999999".to_owned()));
+        assert_eq!(
+            relevant.ruo.as_ref().unwrap().objects.len(),
+            units.len() - 1
+        );
+        assert_eq!(
+            relevant.reason_relation_count + 2,
+            full.reason_relation_count
+        );
+        assert_eq!(relevant.ruo.unwrap().metrics.dangling_reference_count, 0);
     }
 
     #[test]

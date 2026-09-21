@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added Causal Relevance Filtering v0.1 (`context.causal_relevance`: `off` default, `annotate`, `filter`): a
+  post-execution, goal-seeded backward traversal of the causal graph classifies every RU as `ESSENTIAL`, `SUPPORTING`,
+  `EXCLUSION`, `UNRESOLVED`, or `NOISE` (with reason codes), and `filter` projects a relevant RUS / RUO view that drops
+  only `NOISE`, with `causal_relevance_hash` / `relevant_ruo_graph_hash`, schema `causal_relevance.schema.json`, and
+  `REL-001`..`008` diagnostics. Full View, hashes, and the execution hot path are unchanged (fail-open on any doubt).
+  Canonical factorization has almost no noise, so the view only pays for its analysis on noisy traces; see
+  `docs/specifications/ReasonScript_Causal_Relevance_Filtering_v0_1.md`.
 - Added the RUS / RUO Runtime Integration v0.1 (`context.reason_objects`: `off` default, `rus`, `rus_ruo`):
   the runtime reasoning state is projected into immutable RUS objects per revision and one RUO per
   Executable RU (RUS before/after, Evidence, ReasonRelation and causal references), with the new

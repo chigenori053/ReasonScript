@@ -27,6 +27,7 @@ use reasonscript_computation_ir::causal::{
 use reasonscript_computation_ir::causal_bridge::{
     external as external_causal, merge as merge_causal, CausalObservationSource,
 };
+use reasonscript_computation_ir::causal_relevance::{RelevanceConfig, RelevanceMode};
 use reasonscript_computation_ir::reason_objects::ReasonObjectsMode;
 use reasonscript_computation_ir::reason_structure::{ExecutableMode, ReasonUnitMode};
 use reasonscript_computation_ir::reasoning_state::ReasoningStateMode;
@@ -384,6 +385,57 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             "causal_evaluation must be off, dependency, counterfactual, or full",
         );
     };
+    let relevance_name = request
+        .pointer("/context/causal_relevance")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("off");
+    let Some(relevance_mode) = RelevanceMode::parse(relevance_name) else {
+        return fail_request(
+            request_id,
+            "RTH-PROTO-004",
+            "causal_relevance must be off, annotate, or filter",
+        );
+    };
+    let relevance_roots: Vec<String> = match serde_json::from_value(
+        request
+            .pointer("/context/causal_relevance_roots")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!([])),
+    ) {
+        Ok(roots) => roots,
+        Err(_) => {
+            return fail_request(
+                request_id,
+                "RTH-PROTO-004",
+                "causal_relevance_roots must be an array of IDs",
+            )
+        }
+    };
+    if relevance_mode.enabled() {
+        if causal_mode == CausalMode::Off {
+            return fail_request(
+                request_id,
+                "REL-007",
+                "causal_relevance requires causal_evaluation != off",
+            );
+        }
+        if relevance_mode == RelevanceMode::Filter {
+            if executable_reason_unit_mode != ExecutableMode::Full {
+                return fail_request(
+                    request_id,
+                    "RUO-001",
+                    "the relevant view requires executable_reason_units=full",
+                );
+            }
+            if state_causality_mode != StateCausalityMode::Full {
+                return fail_request(
+                    request_id,
+                    "RUO-002",
+                    "the relevant view requires state_causality=full",
+                );
+            }
+        }
+    }
     let causal_observations: Vec<CausalObservation> = match serde_json::from_value(
         request
             .pointer("/context/causal_observations")
@@ -444,6 +496,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
     vm.configure_reasoning_state(reasoning_state_mode);
     vm.configure_state_causality(state_causality_mode);
     vm.configure_reason_objects(reason_objects_mode);
+    vm.configure_causal_relevance(relevance_mode);
     let execution_started = Instant::now();
     match vm.run_calculations(&program) {
         Ok(calculations) => {
@@ -463,6 +516,15 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                 causal_trace.extend_relations(state_causality.relations.clone());
             }
             let reason_objects = vm.reason_objects_trace(&causal_trace.relations);
+            let causal_relevance = vm.causal_relevance_trace(
+                &causal_trace,
+                &causal_bridge.observations,
+                &RelevanceConfig {
+                    max_depth: causal_config.max_causal_depth,
+                    user_roots: relevance_roots,
+                },
+                reason_objects.as_ref(),
+            );
             causal_trace.metrics.normal_runtime_ns = runtime_execution_ns;
             causal_trace.metrics.counterfactual_cost_ratio = if runtime_execution_ns == 0 {
                 None
@@ -539,6 +601,9 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                 if let Some(ruo) = objects.ruo {
                     payload["metadata"]["ruo"] = serde_json::json!(ruo);
                 }
+            }
+            if let Some(relevance) = causal_relevance {
+                payload["metadata"]["causal_relevance"] = serde_json::json!(relevance);
             }
             println!("{payload}");
             ExitCode::SUCCESS

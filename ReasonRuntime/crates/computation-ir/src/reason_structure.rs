@@ -2,7 +2,8 @@ use sha2::{Digest, Sha256};
 use std::borrow::Cow;
 use std::io::{self, Write};
 
-use crate::causal::CausalRelation;
+use crate::causal::{CausalObservation, CausalRelation, CausalTrace};
+use crate::causal_relevance::{self, CausalRelevanceTrace, RelevanceConfig, RelevanceMode};
 use crate::reason_objects::{self, ObjectSources, ReasonObjectsMode, ReasonObjectsTrace};
 use crate::reasoning_state::{
     EvidenceRef, ReasoningStateMode, ReasoningStateTrace, RefResolver, RuRef,
@@ -370,7 +371,7 @@ pub(crate) struct ExecutableReasonUnit {
     pub(crate) id: String,
     pub(crate) semantic_signature: String,
     operation: Cow<'static, str>,
-    kind: ExecutableKind,
+    pub(crate) kind: ExecutableKind,
     pub(crate) source: ReasonUnitSource,
     subject: serde_json::Value,
     input: serde_json::Value,
@@ -443,6 +444,7 @@ pub struct ReasonStructure {
     reasoning_state: RuntimeReasoningState,
     state_causality: StateCausality,
     reason_objects: ReasonObjectsMode,
+    relevance: RelevanceMode,
 }
 
 impl ReasonStructure {
@@ -479,7 +481,48 @@ impl ReasonStructure {
     /// enabled mode keeps them even when state causality reports nothing.
     pub fn set_reason_objects_mode(&mut self, mode: ReasonObjectsMode) {
         self.reason_objects = mode;
-        self.state_causality.set_retain(mode.enabled());
+        self.state_causality
+            .set_retain(mode.enabled() || self.relevance.enabled());
+    }
+
+    /// Causal relevance analysis reads every transition, like the projection.
+    pub fn set_causal_relevance_mode(&mut self, mode: RelevanceMode) {
+        self.relevance = mode;
+        self.state_causality
+            .set_retain(mode.enabled() || self.reason_objects.enabled());
+    }
+
+    pub(crate) fn object_sources(&self) -> ObjectSources<'_> {
+        ObjectSources {
+            units: &self.executable_units,
+            evidence: &self.executable_evidence,
+            relations: &self.executable_relations,
+            state: &self.reasoning_state,
+            transitions: self.state_causality.transitions(),
+        }
+    }
+
+    /// Classifies every RU by causal relevance to the goal (and, in `filter`
+    /// mode, projects the relevant RUS / RUO view). `full` is the full projection
+    /// when it was requested, used only for size accounting.
+    pub fn causal_relevance_trace(
+        &self,
+        causal: &CausalTrace,
+        observations: &[CausalObservation],
+        config: &RelevanceConfig,
+        full: Option<&ReasonObjectsTrace>,
+    ) -> Option<CausalRelevanceTrace> {
+        self.relevance.enabled().then(|| {
+            causal_relevance::build(
+                &self.object_sources(),
+                self,
+                self.relevance,
+                causal,
+                observations,
+                config,
+                full,
+            )
+        })
     }
 
     /// Builds the RUS (and RUO) artifacts from the runtime tables; `causal` are
@@ -487,16 +530,11 @@ impl ReasonStructure {
     pub fn reason_objects_trace(&self, causal: &[CausalRelation]) -> Option<ReasonObjectsTrace> {
         self.reason_objects.enabled().then(|| {
             reason_objects::project(
-                &ObjectSources {
-                    units: &self.executable_units,
-                    evidence: &self.executable_evidence,
-                    relations: &self.executable_relations,
-                    state: &self.reasoning_state,
-                    transitions: self.state_causality.transitions(),
-                },
+                &self.object_sources(),
                 self,
                 self.reason_objects,
                 causal,
+                None,
             )
         })
     }

@@ -7,6 +7,7 @@
 
 pub mod causal;
 pub mod causal_bridge;
+pub mod causal_relevance;
 pub mod console_dispatch;
 pub mod ir;
 pub mod optimizer_dispatch;

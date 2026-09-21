@@ -26,6 +26,7 @@ PYTHON_TESTS = [
     "computation_ir_tests/test_reasoning_state.py",
     "computation_ir_tests/test_native_state_causality.py",
     "computation_ir_tests/test_reason_objects.py",
+    "computation_ir_tests/test_causal_relevance.py",
 ]
 
 # (gate, name, file, original text, mutated text)
@@ -85,6 +86,35 @@ MUTATIONS = [
      "if !self.enabled() && !self.retain {", "if !self.enabled() {"),
     ("objects", "retained transitions leak into state causality", "state_causality.rs",
      "let reported: &[RuntimeStateTransition] = if self.enabled() {", "let reported: &[RuntimeStateTransition] = if self.enabled() || self.retain {"),
+    # Causal relevance classification and the relevant view
+    ("relevance", "CAUSES classified as noise", "causal_relevance.rs",
+     '("CAUSES", "CONFIRMED") => {', '("CAUSES", "CONFIRMED") => Edge::Temporal,\n        ("NEVER", "CONFIRMED") => {'),
+    ("relevance", "CONFLICT classified as noise", "causal_relevance.rs",
+     '(_, "CONFLICT") => Edge::Unresolved(ReasonCode::Conflict),', '(_, "CONFLICT") => Edge::Temporal,'),
+    ("relevance", "search exclusion candidate removed", "causal_relevance.rs",
+     "bits |= ReasonCode::SearchExclusion.bit();\n                        raise(RelevanceClass::Exclusion, &mut class);",
+     "bits |= ReasonCode::SearchExclusion.bit();"),
+    ("relevance", "goal root removed", "causal_relevance.rs",
+     'roots.push((unit.id.clone(), index as u32, "GOAL_EVALUATION"));', "let _ = index;"),
+    ("relevance", "wrong causal edge traversed (forward)", "causal_relevance.rs",
+     "let (source, _, edge) = edges[*edge_index as usize];\n            if !edge.traversable() {\n                continue;\n            }\n            let next",
+     "let (_, source, edge) = edges[*edge_index as usize];\n            if !edge.traversable() {\n                continue;\n            }\n            let next"),
+    ("relevance", "temporal adjacency propagates relevance", "causal_relevance.rs",
+     "!matches!(self, Self::Temporal | Self::Unresolved(_))", "!matches!(self, Self::Unresolved(_))"),
+    ("relevance", "depth limit ignored", "causal_relevance.rs", "if next > limit {", "if false {"),
+    ("relevance", "missing root not fail-open", "causal_relevance.rs", "if roots.is_empty() {", "if false {"),
+    ("relevance", "state cause only supporting", "causal_relevance.rs",
+     "Self::StateCause | Self::Updates => (Essential, ReasonCode::StateCause),", "Self::StateCause | Self::Updates => (Supporting, ReasonCode::StateCause),"),
+    ("relevance", "unresolved never applied", "causal_relevance.rs",
+     "if class > RelevanceClass::Unresolved && unresolved {", "if false && class > RelevanceClass::Unresolved && unresolved {"),
+    ("relevance", "reason codes missing from the hash", "causal_relevance.rs",
+     "crate::reason_objects::push_list(&mut buf, &codes);", "crate::reason_objects::push_list(&mut buf, &Vec::<&str>::new());"),
+    ("relevance", "temporal relations kept in the relevant view", "causal_relevance.rs",
+     'relation.relation_kind != "TEMPORAL"\n            && !self.dropped', 'true\n            && !self.dropped'),
+    ("relevance", "noise never dropped from the relevant view", "causal_relevance.rs",
+     "fail_open || classification.keeps_unit(index)", "true"),
+    ("relevance", "dropped RU still owns its relations", "reason_objects.rs",
+     "if keep.is_some() {\n        for (index, unit) in units.iter().enumerate() {", "if false {\n        for (index, unit) in units.iter().enumerate() {"),
     ("extra", "verification stops reading current_candidate", "state_causality.rs",
      "F::Remaining.bit() | F::SearchBound.bit() | F::CurrentCandidate.bit()", "F::Remaining.bit() | F::SearchBound.bit()"),
 ]
@@ -121,9 +151,12 @@ def run_mutant(gate: str, name: str, file: str, old: str, new: str) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", type=Path)
+    parser.add_argument("--gate", action="append", help="run only these gates (repeatable)")
+    parser.add_argument("--name", help="run only mutants whose name contains this text")
     args = parser.parse_args()
-    before = {file: (SRC / file).read_bytes() for _, _, file, _, _ in MUTATIONS}
-    results = [run_mutant(*mutation) for mutation in MUTATIONS]
+    mutations = [m for m in MUTATIONS if (not args.gate or m[0] in args.gate) and (not args.name or args.name in m[1])]
+    before = {file: (SRC / file).read_bytes() for _, _, file, _, _ in mutations}
+    results = [run_mutant(*mutation) for mutation in mutations]
     restored = build() and all((SRC / file).read_bytes() == content for file, content in before.items())
     summary = {
         "mutants": len(results),

@@ -14,10 +14,11 @@ use std::collections::{HashMap, VecDeque};
 use std::path::{Component, Path, PathBuf};
 use std::rc::Rc;
 
-use crate::causal::CausalRelation;
+use crate::causal::{CausalObservation, CausalRelation, CausalTrace};
 use crate::causal_bridge::{
     project as project_causal, CausalBridgeProjection, CausalObservationSource,
 };
+use crate::causal_relevance::{CausalRelevanceTrace, RelevanceConfig, RelevanceMode};
 use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
 use crate::reason_objects::{ReasonObjectsMode, ReasonObjectsTrace};
 use crate::reason_structure::{
@@ -334,6 +335,25 @@ impl<'a> Vm<'a> {
     /// final causal relations (with canonical IDs) the RUOs reference.
     pub fn reason_objects_trace(&self, causal: &[CausalRelation]) -> Option<ReasonObjectsTrace> {
         self.reason_structure.borrow().reason_objects_trace(causal)
+    }
+
+    pub fn configure_causal_relevance(&mut self, mode: RelevanceMode) {
+        self.reason_structure
+            .borrow_mut()
+            .set_causal_relevance_mode(mode);
+    }
+
+    /// Causal relevance classification (and relevant view), when enabled.
+    pub fn causal_relevance_trace(
+        &self,
+        causal: &CausalTrace,
+        observations: &[CausalObservation],
+        config: &RelevanceConfig,
+        full: Option<&ReasonObjectsTrace>,
+    ) -> Option<CausalRelevanceTrace> {
+        self.reason_structure
+            .borrow()
+            .causal_relevance_trace(causal, observations, config, full)
     }
 
     pub fn reasoning_state_trace(&self) -> ReasoningStateTrace {

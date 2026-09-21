@@ -289,6 +289,23 @@ Executable RU binding it to its RUS before/after, Evidence, ReasonRelation, and 
 `rus_ruo` also requires `state_causality: "full"`. Schemas: `schemas/rus.schema.json`, `schemas/ruo.schema.json`.
 See `docs/specifications/ReasonScript_RUS_RUO_Runtime_Integration_v0_1.md`.
 
+### Causal relevance
+
+`context.causal_relevance` is `off` (default), `annotate`, or `filter`. It is post-execution observation only: nothing
+that ran, no state, transition, Evidence, causal judgement, or existing hash changes, and with `off` the response is
+byte-identical. It requires `causal_evaluation != off` (`REL-007`); `filter` also requires
+`executable_reason_units: "full"` (`RUO-001`) and `state_causality: "full"` (`RUO-002`).
+
+The causal graph is walked backwards from the relevance roots (Termination and GoalEvaluation RUs, the final RUS, the
+`goal_status` transition, and optional `context.causal_relevance_roots`), bounded by `max_causal_depth`, and every RU is
+classified `ESSENTIAL`, `SUPPORTING`, `EXCLUSION`, `UNRESOLVED`, or `NOISE` with machine-readable reason codes.
+`metadata.causal_relevance` holds the roots, the classification of every RU (execution order), metrics, and
+`causal_relevance_hash`. `filter` adds `relevant`: a relevant RUS / RUO view that refers to the full view's IDs and leaves
+out only `NOISE` RUs (and what only they own, and bare `TEMPORAL` relations), with `relevant_ruo_graph_hash`. A missing
+root, dangling reference, exceeded depth, conflict, or exhausted counterfactual budget resolves to `UNRESOLVED`, never to
+a removal. Schema: `schemas/causal_relevance.schema.json`. See
+`docs/specifications/ReasonScript_Causal_Relevance_Filtering_v0_1.md`.
+
 These new collection and event APIs execute in the native Rust host. The Python
 interpreters retain their earlier reference API surface.
 
