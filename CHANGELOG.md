@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.5.6.1] - 2026-09-21
+
 - Made the CI Test plan independent of the checkout path and of local install state
   (`docs/specifications/ReasonScript_CI_Test_Consistency_v0_1.md`): repository-root checks use content markers,
   the VS Code extension tests skip locally without `node_modules` but fail under `CI=true`, and

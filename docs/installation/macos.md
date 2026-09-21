@@ -1,6 +1,6 @@
 # Installing on macOS
 
-The V0.5.5.15 prebuilt package supports Apple Silicon (`arm64`). Download the
+The V0.5.6.1 prebuilt package supports Apple Silicon (`arm64`). Download the
 ZIP and SHA-256 sidecar from the GitHub Release, verify them with `shasum -a 256
 -c`, then pass the ZIP to `reason update --package`.
 
