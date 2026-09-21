@@ -19,6 +19,7 @@ Coverage:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import unittest
 import zipfile
@@ -127,6 +128,10 @@ class VSCodeExtensionPhase14Tests(unittest.TestCase):
     # -------------------------------------------------------------------------
     # VSXP14-003  Dependency Presence Validation
     # -------------------------------------------------------------------------
+    @unittest.skipIf(
+        not (EXT / "node_modules").exists() and not os.environ.get("CI"),
+        "vscode-extension dependencies are not installed (run `npm ci` in vscode-extension); CI always installs them",
+    )
     def test_vsxp14_003_dependency_presence(self):
         """node_modules に activation-critical な依存関係が存在すること."""
         critical_modules = [

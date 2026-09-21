@@ -472,14 +472,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn repo_root_ends_with_reasonscript() {
+    fn repo_root_is_the_reasonscript_repository() {
+        // Identify the root by its contents: the checkout directory may be named anything
+        // (a fork, a worktree, `ReasonScript-main`).
         let root = resolve_repo_root().expect("should resolve");
-        let name = root.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        assert_eq!(
-            name, "ReasonScript",
-            "repo root should be 'ReasonScript', got: {}",
-            root.display()
-        );
+        for marker in ["frontend", "toolchain", "ReasonRuntime"] {
+            assert!(
+                root.join(marker).is_dir(),
+                "repo root {} should contain '{}'",
+                root.display(),
+                marker
+            );
+        }
     }
 
     #[test]
