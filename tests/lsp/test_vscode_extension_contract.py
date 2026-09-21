@@ -12,8 +12,11 @@ Validates that:
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXTENSION_DIR = REPO_ROOT / "vscode-extension"
@@ -87,6 +90,12 @@ def test_workspace_and_extension_actionable_executable_handling() -> None:
     assert "Open Settings" in extension_code
 
 
+# The check needs the extension's dependencies (`npm ci`). CI always installs them, so it stays
+# strict there; elsewhere a checkout without `node_modules` skips instead of failing.
+@pytest.mark.skipif(
+    not (EXTENSION_DIR / "node_modules").exists() and not os.environ.get("CI"),
+    reason="vscode-extension dependencies are not installed (run `npm ci` in vscode-extension)",
+)
 def test_vscode_extension_typescript_compiles_cleanly() -> None:
     result = subprocess.run(
         ["npm", "run", "check"],
