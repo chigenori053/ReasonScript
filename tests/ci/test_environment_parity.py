@@ -144,7 +144,7 @@ def test_environment_checks_are_not_scattered_over_the_tests():
 def _requirements(vscode_ready: bool):
     return lambda: [
         test_platform.Requirement("Python", True, "3", "", required_locally=True),
-        test_platform.Requirement("Rust", True, "cargo", "Rust tests are skipped"),
+        test_platform.Requirement("Rust", True, "rustc; cargo", "", required_locally=True),
         test_platform.Requirement(
             "VSCode deps", vscode_ready, "vscode-extension/node_modules",
             "VS Code extension tests are skipped; run `npm ci --prefix vscode-extension`"),
@@ -172,6 +172,24 @@ def test_preflight_passes_when_everything_is_ready(monkeypatch):
         assert test_platform.preflight(ci=ci, out=io.StringIO()) == 0
 
 
+def test_missing_rust_fails_local_and_ci_preflight(monkeypatch):
+    monkeypatch.setattr(
+        test_platform,
+        "preflight_requirements",
+        lambda: [test_platform.Requirement("Rust", False, "cargo not found", "", required_locally=True)],
+    )
+    for ci, message in ((False, "MISSING (required)"), (True, "MISSING (required in CI)")):
+        out = io.StringIO()
+        assert test_platform.preflight(ci=ci, out=out) == 1
+        assert message in out.getvalue()
+
+
+def test_rust_toolchain_requires_rustc_and_cargo(monkeypatch):
+    monkeypatch.setattr(env.shutil, "which", lambda command: None if command == "cargo" else f"/bin/{command}")
+    ready, detail = env.rust_toolchain()
+    assert ready is False and detail == "cargo not found"
+
+
 def test_preflight_runs_before_the_environment_dependent_targets():
     assert {"test", "release-check", "integration"} <= set(test_platform.PREFLIGHT_TARGETS)
 
@@ -185,6 +203,44 @@ def test_only_the_full_plan_requires_the_ci_mandatory_groups():
     assert "REASONSCRIPT_REQUIRE_MANDATORY" not in next(s for s in partial if s.name.startswith("pytest")).env
     filtered = test_platform._steps_for("test", quick=False, passthrough=["-k", "x"])
     assert "REASONSCRIPT_REQUIRE_MANDATORY" not in next(s for s in filtered if s.name.startswith("pytest")).env
+
+
+def test_full_plan_orders_and_requires_both_rust_groups():
+    steps = test_platform._steps_for("test", quick=False, passthrough=[])
+    names = [step.name for step in steps]
+    assert names[:3] == [
+        "cargo:build:ReasonRuntime:reason-runtime-host",
+        "cargo:test:apps/reasonscript-ide/src-tauri",
+        "cargo:test:ReasonRuntime",
+    ]
+    assert set(test_platform.REQUIRED_RUST_STEPS.values()) <= set(names)
+
+
+def test_full_plan_guard_rejects_an_unscheduled_rust_group(monkeypatch, capsys):
+    called = False
+
+    def run(*args, **kwargs):
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr(test_platform.subprocess, "run", run)
+    steps = [test_platform.Step("cargo:test:ReasonRuntime", ["cargo", "test"])]
+    assert test_platform._run_steps(steps, required_steps=test_platform.REQUIRED_RUST_STEPS) == 1
+    assert called is False
+    assert "rust-tauri" in capsys.readouterr().err
+
+
+def test_full_plan_reports_both_rust_groups_executed(monkeypatch, capsys):
+    monkeypatch.setattr(
+        test_platform.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0),
+    )
+    steps = [test_platform.Step(step, ["true"]) for step in test_platform.REQUIRED_RUST_STEPS.values()]
+    assert test_platform._run_steps(steps, required_steps=test_platform.REQUIRED_RUST_STEPS) == 0
+    output = capsys.readouterr().out
+    assert "rust-tauri          executed" in output
+    assert "rust-reason-runtime executed" in output
 
 
 # --- skip classification and the CI skip guard -----------------------------------------------------------------
@@ -273,3 +329,4 @@ def test_npm_ci_runs_in_the_extension_directory_before_the_test_plan(workflow, c
 def test_github_actions_do_not_define_their_own_test_list():
     for workflow in ("test.yml", "ci.yml"):
         assert "pytest" not in _workflow(workflow), workflow
+        assert "cargo test" not in _workflow(workflow), workflow

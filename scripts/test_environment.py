@@ -11,6 +11,8 @@ Actions cannot drift apart (CI Test Consistency / Environment Parity v0.1):
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 import unittest
 from collections.abc import Mapping
 from pathlib import Path
@@ -39,6 +41,21 @@ CI_REQUIRED_TESTS = {
         "VSCodeExtensionPhase14Tests::test_vsxp14_003_dependency_presence"
     ),
 }
+
+
+def rust_toolchain() -> tuple[bool, str]:
+    """Whether the complete core Rust toolchain is available, plus version evidence."""
+    versions = []
+    for command in ("rustc", "cargo"):
+        if shutil.which(command) is None:
+            return False, f"{command} not found"
+        completed = subprocess.run(
+            [command, "--version"], text=True, capture_output=True, check=False
+        )
+        if completed.returncode != 0:
+            return False, f"{command} --version failed"
+        versions.append(completed.stdout.strip())
+    return True, "; ".join(versions)
 
 
 def is_ci(env: Mapping[str, str] | None = None) -> bool:
