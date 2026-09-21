@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Made the CI Test plan independent of the checkout path and of local install state
+  (`docs/specifications/ReasonScript_CI_Test_Consistency_v0_1.md`): repository-root checks use content markers,
+  the VS Code extension tests skip locally without `node_modules` but fail under `CI=true`, and
+  `scripts/test_platform.py` gained a dependency preflight, a skip-classifying test summary, and a CI guard for
+  required groups. `scripts/test_platform.py test` stays the single entrypoint for Local, GitHub Actions, and `./reason ci`.
+  The canonical full plan now requires `rustc` and `cargo`, builds the runtime host first, and verifies that both
+  Tauri and ReasonRuntime Rust test groups actually executed.
 - Merged Lightweight RUS R4 to `main`: `RuntimeReasoningState`, typed `StateTransition`,
   and State Causality are now the canonical reasoning-state runtime (experimental but integrated;
   `reasoning_state` and `state_causality` stay off by default). Formal benchmark on arm64 macOS:

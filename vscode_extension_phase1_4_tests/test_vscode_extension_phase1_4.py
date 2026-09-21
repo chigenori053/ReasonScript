@@ -24,6 +24,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
+from scripts import test_environment
+
 ROOT = Path(__file__).resolve().parents[1]
 EXT = ROOT / "vscode-extension"
 VSIX_PATH = EXT / "reasonscript-0.1.7.vsix"
@@ -129,6 +131,8 @@ class VSCodeExtensionPhase14Tests(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_vsxp14_003_dependency_presence(self):
         """node_modules に activation-critical な依存関係が存在すること."""
+        # Needs `npm ci`: skips locally without node_modules, fails under CI.
+        test_environment.require_vscode_dependencies()
         critical_modules = [
             "vscode-languageclient",
             "vscode-jsonrpc",

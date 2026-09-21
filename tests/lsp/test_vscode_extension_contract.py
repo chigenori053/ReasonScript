@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 import subprocess
 
+from scripts import test_environment
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXTENSION_DIR = REPO_ROOT / "vscode-extension"
 PACKAGE_JSON = EXTENSION_DIR / "package.json"
@@ -88,6 +90,8 @@ def test_workspace_and_extension_actionable_executable_handling() -> None:
 
 
 def test_vscode_extension_typescript_compiles_cleanly() -> None:
+    # Needs `npm ci`: skips locally without node_modules, fails under CI.
+    test_environment.require_vscode_dependencies()
     result = subprocess.run(
         ["npm", "run", "check"],
         cwd=EXTENSION_DIR,

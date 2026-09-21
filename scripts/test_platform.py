@@ -14,10 +14,13 @@ import os
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from scripts import test_environment  # noqa: E402  (one place for every environment decision)
 
 PYTEST_GROUPS = {
     "unit": [
@@ -89,6 +92,9 @@ PYTEST_GROUPS = {
     ],
 }
 
+# Targets that run the environment-dependent test groups.
+PREFLIGHT_TARGETS = ("test", "release-check", "integration")
+
 RUST_CRATES = [
     "HybridRuntime",
     "RuntimeReal",
@@ -105,6 +111,11 @@ RUST_TEST_CRATES = [
     "ReasonRuntime",
 ]
 
+REQUIRED_RUST_STEPS = {
+    "rust-tauri": "cargo:test:apps/reasonscript-ide/src-tauri",
+    "rust-reason-runtime": "cargo:test:ReasonRuntime",
+}
+
 NPM_PROJECTS = [
     "apps/reasonscript-ide/ui",
 ]
@@ -116,6 +127,58 @@ class Step:
     command: list[str]
     cwd: Path = ROOT
     optional: bool = False
+    env: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Requirement:
+    """A dependency of the test plan: always required, or only under CI."""
+
+    name: str
+    ready: bool
+    detail: str
+    local_note: str  # what a local run does without it
+    required_locally: bool = False
+
+
+def preflight_requirements() -> list[Requirement]:
+    extension = test_environment.vscode_extension_dir(ROOT)
+    rust_ready, rust_detail = test_environment.rust_toolchain()
+    return [
+        Requirement("Python", sys.version_info >= (3, 10), sys.version.split()[0], "", required_locally=True),
+        Requirement("Rust", rust_ready, rust_detail, "", required_locally=True),
+        Requirement("Node", _has("node"), "node", "VS Code extension tests are skipped"),
+        Requirement("npm", _has("npm"), "npm", "VS Code extension tests are skipped"),
+        Requirement(
+            "VSCode deps",
+            test_environment.has_vscode_dependencies(ROOT),
+            f"{extension.name}/node_modules",
+            f"VS Code extension tests are skipped; run `npm ci --prefix {extension.name}`",
+        ),
+    ]
+
+
+def preflight(*, ci: bool | None = None, out=None) -> int:
+    """Report what the test plan depends on; under CI a missing dependency fails before any test."""
+    ci = test_environment.is_ci() if ci is None else ci
+    out = out or sys.stdout
+    failed = False
+    print(f"Test environment preflight ({'CI' if ci else 'local'} mode)", file=out)
+    for requirement in preflight_requirements():
+        if requirement.ready:
+            status = "READY"
+        elif ci or requirement.required_locally:
+            status, failed = "MISSING (required)" if not ci else "MISSING (required in CI)", True
+        else:
+            status = f"MISSING (local optional: {requirement.local_note})"
+        print(f"  {requirement.name:<12} {status}", file=out)
+    print("  Runtime host BUILT BY THE PLAN (cargo build --bin reason-runtime-host)", file=out)
+    print("  Core required groups:", file=out)
+    for group in REQUIRED_RUST_STEPS:
+        print(f"    {group:<19} REQUIRED", file=out)
+    if failed:
+        print("Preflight FAILED: declared dependencies are missing; install them before the test plan.", file=out)
+    return 1 if failed else 0
 
 
 def main() -> int:
@@ -137,13 +200,19 @@ def main() -> int:
             "playground",
             "build",
             "release-check",
+            "preflight",
         ],
     )
     parser.add_argument("pytest_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(raw_args)
 
+    if args.target == "preflight":
+        return preflight()
+    if args.target in PREFLIGHT_TARGETS and preflight():
+        return 1
     steps = _steps_for(args.target, quick=quick, passthrough=args.pytest_args)
-    return _run_steps(steps)
+    required_steps = REQUIRED_RUST_STEPS if args.target in ("test", "release-check") else {}
+    return _run_steps(steps, required_steps=required_steps)
 
 
 def _steps_for(target: str, *, quick: bool, passthrough: list[str]) -> list[Step]:
@@ -196,18 +265,27 @@ def _pytest_steps_for_groups(groups: tuple[str, ...], passthrough: list[str]) ->
         Step(
             f"pytest:{'+'.join(groups)}",
             [sys.executable, "-m", "pytest", *paths, *passthrough],
+            env=_pytest_report_env(full_plan=not passthrough and "unit" in groups and "integration" in groups),
         )
     ]
 
 
+def _pytest_report_env(*, full_plan: bool) -> dict[str, str]:
+    """Skip classification and the CI skip guard (`scripts/test_report.py`) for pytest steps."""
+    addopts = " ".join(part for part in (os.environ.get("PYTEST_ADDOPTS", ""), "-p scripts.test_report") if part)
+    env = {"PYTEST_ADDOPTS": addopts}
+    if full_plan:
+        env["REASONSCRIPT_REQUIRE_MANDATORY"] = "1"
+    return env
+
+
 def _rust_test_steps() -> list[Step]:
-    steps: list[Step] = []
-    if _has("cargo"):
-        for crate in RUST_TEST_CRATES:
-            if (ROOT / crate / "Cargo.toml").exists():
-                if crate == "ReasonRuntime":
-                    steps.extend(_native_runtime_host_build_steps())
-                steps.append(Step(f"cargo:test:{crate}", ["cargo", "test"], ROOT / crate))
+    if not _has("cargo"):
+        raise RuntimeError("Rust/Cargo is required by the canonical full test plan")
+    steps = _native_runtime_host_build_steps()
+    for crate in RUST_TEST_CRATES:
+        if (ROOT / crate / "Cargo.toml").exists():
+            steps.append(Step(f"cargo:test:{crate}", ["cargo", "test"], ROOT / crate))
     return steps
 
 
@@ -313,20 +391,34 @@ def _build_steps() -> list[Step]:
     return steps
 
 
-def _run_steps(steps: list[Step]) -> int:
+def _run_steps(steps: list[Step], *, required_steps: dict[str, str] | None = None) -> int:
+    required_steps = required_steps or {}
+    scheduled = {step.name for step in steps}
+    missing = [group for group, step in required_steps.items() if step not in scheduled]
+    if missing:
+        print(f"Required Rust test groups not scheduled: {', '.join(missing)}", file=sys.stderr)
+        return 1
     if not steps:
         print("No matching test-platform steps were found.")
         return 0
-    env = os.environ.copy()
-    env.setdefault("PYTHONPATH", str(ROOT))
+    base_env = os.environ.copy()
+    base_env.setdefault("PYTHONPATH", str(ROOT))
+    executed: set[str] = set()
     for step in steps:
         print(f"==> {step.name}: {' '.join(step.command)}", flush=True)
-        result = subprocess.run(step.command, cwd=step.cwd, env=env)
+        result = subprocess.run(step.command, cwd=step.cwd, env={**base_env, **step.env})
         if result.returncode != 0:
             if step.optional:
                 print(f"Optional step failed: {step.name}", file=sys.stderr)
                 continue
             return result.returncode
+        executed.add(step.name)
+    if required_steps:
+        print("Rust required groups:")
+        for group, step in required_steps.items():
+            print(f"  {group:<19} {'executed' if step in executed else 'not executed'}")
+        if any(step not in executed for step in required_steps.values()):
+            return 1
     return 0
 
 
