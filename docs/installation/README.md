@@ -8,14 +8,15 @@ Linux.
 
 ## Platform support
 
-| Platform | v0.5.6.1 distribution status | Installation path |
+| Platform | Distribution status | Installation path |
 | --- | --- | --- |
-| macOS Apple Silicon (`arm64`) | Official prebuilt package | GitHub Release ZIP or source |
+| macOS Apple Silicon (`arm64`) | v0.5.5.15 prebuilt package; v0.5.6.2 source | GitHub Release ZIP or source |
 | Linux | No official prebuilt package; exercised by repository CI | Source only |
 | Windows 11 | No official package; device certification pending | Experimental source installer |
 
-Only the macOS arm64 ZIP attached to the v0.5.6.1 GitHub Release is a
-certified prebuilt distribution. Source-install instructions for other
+The latest published macOS arm64 ZIP is attached to the
+[v0.5.5.15 GitHub Release](https://github.com/chigenori053/ReasonScript/releases/tag/v0.5.5.15).
+Source-install instructions for other
 platforms do not imply release-package certification.
 
 ## macOS and Linux

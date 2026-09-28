@@ -1826,7 +1826,7 @@ def _array_call_name(value: CallExpressionNode) -> str | None:
 
 def _validate_array_call(value: CallExpressionNode) -> None:
     method = _array_call_name(value)
-    if method not in ("append", "concat", "builder"):
+    if method not in ("append", "prepend", "concat", "builder"):
         raise SurfaceValidationError("COLL-001 unknown array standard function")
     if len(value.arguments) != (0 if method == "builder" else 2):
         raise SurfaceValidationError(f"COLL-001 array.{method} argument count mismatch")
@@ -2247,6 +2247,35 @@ def _expression_type(
                 collection_type.element_type,
                 item_type,
                 "COLL-003 array.append element type mismatch",
+            )
+            return collection_type
+        if _array_call_name(value) == "prepend":
+            if len(value.arguments) != 2:
+                raise SurfaceValidationError(
+                    "COLL-001 array.prepend argument count mismatch"
+                )
+            collection_type = _expression_type(
+                value.arguments[0].expression
+                if isinstance(value.arguments[0], ExpressionNode)
+                else value.arguments[0],
+                symbols,
+                bindings,
+            )
+            item_type = _expression_type(
+                value.arguments[1].expression
+                if isinstance(value.arguments[1], ExpressionNode)
+                else value.arguments[1],
+                symbols,
+                bindings,
+            )
+            if not isinstance(collection_type, ArrayTypeNode):
+                raise SurfaceValidationError(
+                    "COLL-002 array.prepend first argument must be an array"
+                )
+            _require_type_equal(
+                collection_type.element_type,
+                item_type,
+                "COLL-003 array.prepend element type mismatch",
             )
             return collection_type
         if _array_call_name(value) == "concat":

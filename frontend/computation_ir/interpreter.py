@@ -429,6 +429,14 @@ def _eval_expr(node: dict[str, Any], env: dict[str, Any], ctx: _Context, call_de
         import copy
 
         return [*collection, copy.deepcopy(item)]
+    if op == "call_array_prepend":
+        collection = _eval_expr(node["collection"], env, ctx, call_depth)
+        item = _eval_expr(node["item"], env, ctx, call_depth)
+        if not isinstance(collection, list):
+            raise IntegratedRuntimeError("RT-CALL-002", "array.prepend first argument must be an array")
+        import copy
+
+        return [copy.deepcopy(item), *collection]
     if op == "call_array_concat":
         left = _eval_expr(node["left"], env, ctx, call_depth)
         right = _eval_expr(node["right"], env, ctx, call_depth)

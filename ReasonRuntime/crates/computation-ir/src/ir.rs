@@ -311,6 +311,13 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
+    #[serde(rename = "call_array_prepend")]
+    CallArrayPrepend {
+        collection: Box<Expr>,
+        item: Box<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "call_array_concat")]
     CallArrayConcat {
         left: Box<Expr>,
@@ -403,6 +410,7 @@ impl Expr {
             | Expr::CallSemanticEvent { source_span, .. }
             | Expr::CallReasoning { source_span, .. }
             | Expr::CallArrayAppend { source_span, .. }
+            | Expr::CallArrayPrepend { source_span, .. }
             | Expr::CallArrayConcat { source_span, .. }
             | Expr::CallString { source_span, .. }
             | Expr::CallConsole { source_span, .. }

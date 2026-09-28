@@ -1087,6 +1087,29 @@ def _expression(
             isinstance(value.callee, MemberAccessNode)
             and isinstance(value.callee.object, IdentifierNode)
             and value.callee.object.name == "array"
+            and value.callee.member == "prepend"
+        ):
+            if len(value.arguments) != 2:
+                raise IntegratedRuntimeError(
+                    "RT-CALL-002", "array.prepend expects two arguments"
+                )
+            collection = _expression(
+                value.arguments[0], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            item = _expression(
+                value.arguments[1], env, runtime, vision_runtime,
+                functions, max_call_depth, call_depth,
+            )
+            if not isinstance(collection, list):
+                raise IntegratedRuntimeError(
+                    "RT-CALL-002", "array.prepend first argument must be an array"
+                )
+            return [copy.deepcopy(item), *collection]
+        if (
+            isinstance(value.callee, MemberAccessNode)
+            and isinstance(value.callee.object, IdentifierNode)
+            and value.callee.object.name == "array"
             and value.callee.member == "concat"
         ):
             if len(value.arguments) != 2:

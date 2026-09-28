@@ -908,6 +908,21 @@ def _parse_enum(cursor: _Cursor) -> EnumDeclarationNode:
 
 
 def _parse_function(cursor: _Cursor) -> FunctionDeclarationNode:
+    compact = re.fullmatch(
+        r"(?:(pub|export)\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)"
+        r"(?:\s*(?:->|:)\s*(.+?))?\s*\{\s*(.*?)\s*\}",
+        cursor.current(),
+    )
+    if compact:
+        cursor.take()
+        body = compact.group(5)
+        return FunctionDeclarationNode(
+            compact.group(2),
+            _parameters(compact.group(3)),
+            (_parse_simple(body, context="function"),) if body else (),
+            Visibility.PUBLIC if compact.group(1) else Visibility.PRIVATE,
+            _type_annotation(compact.group(4)) if compact.group(4) else None,
+        )
     signature = _collect_function_signature(cursor)
     match = re.fullmatch(
         r"(?:(pub|export)\s+)?fn\s+([A-Za-z_]\w*)\s*\(([^)]*)\)"

@@ -8,6 +8,8 @@ different `calculations` or different error codes.
 """
 
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 
 from frontend.computation_ir.differential import assert_same_outcome
 from frontend.computation_ir.lowering import LoweringError, lower_program
@@ -217,6 +219,62 @@ class CollectionsAndStructsTests(unittest.TestCase):
 """
         )
         self.assertEqual(outcome.calculations["Answer"], [1, 2, 3])
+
+    def test_array_prepend_builtin(self):
+        outcome = assert_same_outcome(
+            """module M {
+  calculation Answer {
+    result = array.prepend([2, 3], 1)
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], [1, 2, 3])
+
+    def test_array_prepend_evaluates_collection_before_item(self):
+        source = """module M {
+  fn Values() -> [int] {
+    Console.log("values")
+    return [2, 3]
+  }
+  fn Item() -> int {
+    Console.log("item")
+    return 1
+  }
+  calculation Answer {
+    result = array.prepend(Values(), Item())
+  }
+}
+"""
+        output = StringIO()
+        with redirect_stdout(output):
+            outcome = assert_same_outcome(source)
+        self.assertEqual(outcome.calculations["Answer"], [1, 2, 3])
+        self.assertEqual(output.getvalue(), "values\nitem\nvalues\nitem\n")
+
+    def test_compact_function_declaration(self):
+        outcome = assert_same_outcome(
+            """module M {
+  fn One() -> int { return 1 }
+  calculation Answer {
+    result = One()
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], 1)
+
+    def test_backslash_line_continuation(self):
+        outcome = assert_same_outcome(
+            """module M {
+  calculation Answer {
+    result = 1 + """ + "\\" + """
+      2
+  }
+}
+"""
+        )
+        self.assertEqual(outcome.calculations["Answer"], 3)
 
 
 class TensorInteropTests(unittest.TestCase):

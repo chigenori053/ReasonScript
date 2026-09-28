@@ -1637,6 +1637,28 @@ impl<'a> Vm<'a> {
                     )),
                 }
             }
+            Expr::CallArrayPrepend {
+                collection, item, ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let collection_value = self.eval_expr(collection, env, call_depth)?;
+                self.push_temporary_root(collection_value.clone());
+                let item_value = self.eval_expr(item, env, call_depth)?;
+                match collection_value {
+                    Value::Array(items) => {
+                        let mut new_items = items.borrow().clone();
+                        new_items.insert(0, item_value.deep_clone());
+                        Ok(Value::Array(Rc::new(RefCell::new(new_items))))
+                    }
+                    other => Err(RuntimeError::new(
+                        "RT-CALL-002",
+                        format!(
+                            "array.prepend first argument must be an array, got {}",
+                            other.type_name()
+                        ),
+                    )),
+                }
+            }
             Expr::CallArrayConcat { left, right, .. } => {
                 let _guard = TempRootGuard::new(self);
                 let left_value = self.eval_expr(left, env, call_depth)?;

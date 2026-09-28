@@ -10,6 +10,13 @@
 - Added bounded Vision/Geometry task dispatch through the native cluster runtime.
   Existing Vision 0.1 observations and MIRP 0.1 graph interfaces are retained.
 
+## [0.5.6.2] - 2026-09-22
+
+- Accept compact one-line function declarations, `array.prepend`, and explicit
+  backslash line continuations in ReasonScript source.
+- Evaluate `array.prepend` arguments in source order in both Python and native
+  IR execution.
+
 ## [0.5.6.1] - 2026-09-21
 
 - Made the CI Test plan independent of the checkout path and of local install state

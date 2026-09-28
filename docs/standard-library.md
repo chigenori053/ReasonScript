@@ -132,7 +132,9 @@ one lifetime: after any alias finishes, subsequent append/finish calls fail
 with `COLL-005`. A builder is an opaque transient handle in traces; its visible
 state is its length and finished status. Its finished Array is traced normally.
 
-Ordinary `array.append` retains its existing copy semantics. Repeated full
+`array.prepend(values, item)` returns a new array with a snapshot of `item`
+before the existing values. Ordinary `array.append` retains its existing copy
+semantics. Repeated full
 filters still cost the sum of all scanned rows; use bulk pruning when a meaningful
 new condition is learned, rather than filtering once to remove every tested row.
 

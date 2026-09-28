@@ -282,6 +282,7 @@ def _expr_is_pure_function_body(
         "call_semantic_event",
         "call_reasoning",
         "call_array_append",
+        "call_array_prepend",
         "call_array_concat",
         "call_string",
         "assert",
@@ -540,7 +541,7 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_relation":
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
-    if op == "call_array_append":
+    if op in ("call_array_append", "call_array_prepend"):
         return {**expr, "collection": _fold_expr(expr["collection"]), "item": _fold_expr(expr["item"])}
     if op == "call_array_concat":
         return {**expr, "left": _fold_expr(expr["left"]), "right": _fold_expr(expr["right"])}
@@ -847,7 +848,7 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
         for argument in expr["arguments"]:
             _collect_reads(argument, out)
         return
-    if op == "call_array_append":
+    if op in ("call_array_append", "call_array_prepend"):
         _collect_reads(expr["collection"], out)
         _collect_reads(expr["item"], out)
         return
@@ -905,7 +906,7 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         return all(_is_side_effect_free(argument) for argument in expr["arguments"])
     if op == "call_function":
         return False  # a user function's body may call tensor.save; conservative
-    if op == "call_array_append":
+    if op in ("call_array_append", "call_array_prepend"):
         return _is_side_effect_free(expr["collection"]) and _is_side_effect_free(expr["item"])
     if op == "call_array_concat":
         return _is_side_effect_free(expr["left"]) and _is_side_effect_free(expr["right"])
@@ -1004,7 +1005,7 @@ def _is_cse_eligible(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
     if op in {"relation_filter", "array_builder", "call_array_builder", "call_semantic_event"}:
         return False
-    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function", "call_array_append", "call_array_concat", "assert", "assert_eq"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function", "call_array_append", "call_array_prepend", "call_array_concat", "assert", "assert_eq"):
         return False  # never dedupe calls: see module docstring
     if op == "const" or op == "local":
         return True

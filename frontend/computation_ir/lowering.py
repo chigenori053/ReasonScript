@@ -910,6 +910,19 @@ def _lower_call(value: CallExpressionNode, declared_functions: _Scope) -> dict[s
         isinstance(value.callee, MemberAccessNode)
         and isinstance(value.callee.object, IdentifierNode)
         and value.callee.object.name == "array"
+        and value.callee.member == "prepend"
+    ):
+        if len(value.arguments) != 2:
+            raise LoweringError("IR-LOWER-007", "array.prepend expects two arguments")
+        return {
+            "op": "call_array_prepend",
+            "collection": _lower_expression(value.arguments[0], declared_functions),
+            "item": _lower_expression(value.arguments[1], declared_functions),
+        }
+    if (
+        isinstance(value.callee, MemberAccessNode)
+        and isinstance(value.callee.object, IdentifierNode)
+        and value.callee.object.name == "array"
         and value.callee.member == "concat"
     ):
         if len(value.arguments) != 2:

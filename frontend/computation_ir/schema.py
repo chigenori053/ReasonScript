@@ -58,6 +58,7 @@ EXPRESSION_OPS = (
     "call_semantic_event",
     "call_reasoning",
     "call_array_append",
+    "call_array_prepend",
     "call_array_concat",
     "call_string",
     "call_console",

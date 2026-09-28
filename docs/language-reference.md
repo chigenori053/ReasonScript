@@ -242,6 +242,12 @@ return a compatible value. A calculation should produce one compatible
 `result`; dependencies between calculations are resolved deterministically and
 cycles are rejected.
 
+A function with one statement may be written on one line:
+
+```reasonscript
+fn Double(value: int) -> int { return value * 2 }
+```
+
 ## Control flow
 
 ### Conditions
