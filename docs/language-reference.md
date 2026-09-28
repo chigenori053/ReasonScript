@@ -108,9 +108,11 @@ calculation Answer -> int {
 }
 ```
 
-`int(value)` truncates a numeric value toward zero. `float(value)` converts a
-numeric value to floating point. A user-declared function with either name
-shadows the built-in cast.
+`int(value)` truncates a numeric value toward zero; `int` of an `int` is the
+identity, and a `float` whose truncation is outside the 64-bit `int` range fails
+with `RT-NUM-CONVERSION`. `float(value)` converts a numeric value to the nearest
+floating-point value. A user-declared function with either name shadows the
+built-in cast. See [Numeric semantics](#numeric-semantics).
 
 ## Literals and expressions
 
@@ -171,7 +173,48 @@ From highest to lowest precedence:
 
 Operators of equal precedence associate left to right. Parentheses override
 precedence. `/` always produces a `float`, including for two integer operands.
-`//` is a comment token and is not integer division.
+`//` is a comment token and is not integer division. Arithmetic and ordering
+comparisons accept any mix of `int` and `float` operands; see
+[Numeric semantics](#numeric-semantics).
+
+### Numeric semantics
+
+`int` is a signed 64-bit integer. `float` is an IEEE-754 binary64 value that is
+always finite: ReasonScript has no `NaN` or infinity values.
+
+| Expression | Result |
+| --- | --- |
+| `int OP int` (`+`, `-`, `*`, `%`) | `int` |
+| `float OP float`, `int OP float`, `float OP int` | `float` (the `int` operand is converted first) |
+| any `/` | `float` |
+
+- Integer arithmetic that leaves the 64-bit range fails with `RT-NUM-OVERFLOW`;
+  it never wraps.
+- A float operation whose result would exceed the finite range (for example
+  `1.0e308 * 10.0` or `math.exp(1000.0)`) fails with `RT-NUM-OVERFLOW`. An
+  operation that would produce `NaN` fails with `RT-NUM-NONFINITE`.
+- Division or remainder by zero (`int` or `float`) fails with `RT-ARITH-001`.
+- Underflow is defined: a result too small to represent becomes a subnormal
+  value or a signed zero, as in IEEE-754 (`1.0e-300 * 1.0e-300` is `0.0`).
+  `-0.0` is preserved and compares equal to `0.0`.
+- `%` takes the sign of the divisor for both `int` and `float`.
+- Float literals must be finite and integer literals must fit 64 bits
+  (`EX-V001`).
+
+Comparisons between `int` and `float` (`1 < 1.5`, `2.0 >= 2`, `3 == 3.0`)
+compare exact mathematical values, so an `int` is never rounded before it is
+compared. Other comparisons still require operands of the same type.
+
+`==` on floats is exact: `0.1 + 0.2 == 0.3` is `false`, because neither side is
+exactly representable in binary floating point. Use
+`math.approx_equal(a, b, tolerance)` for tolerance-based comparison; `==` never
+applies a tolerance.
+
+The canonical text of a `float` (used by `serialize.json`) is locale
+independent: `0.0` and `-0.0` for zeros; the shortest round-trip digits in
+positional notation, always with a `.`, for magnitudes in `[1e-7, 1e21)` (for
+example `0.30000000000000004`, `2.0`); and the shortest round-trip scientific
+form otherwise (for example `1e21`, `1.5e-8`).
 
 Calls, member access, and indexing bind more tightly than these operators:
 
@@ -360,6 +403,11 @@ ambient behavior:
 - `array.builder()` — transient bulk array construction with `append` and `finish`.
 - `reasoning.event` — semantic reasoning steps and evidence.
 - `string.*` — string operations.
+- `math.*` — scalar math (`abs`, `min`, `max`, `floor`, `ceil`, `round`,
+  `sqrt`, `sin`, `cos`, `tan`, `log`, `exp`, `approx_equal`).
+- `sequence.range` — bounded numeric sequences.
+- `serialize.json` — canonical JSON text for data values.
+- `artifact.write_text` — permission-checked UTF-8 file output.
 - `vision.*` — deterministic Vision runtime integration.
 - `ruo.*` — ReasonUnit Object inspection, snapshots, queries, and transactions.
 

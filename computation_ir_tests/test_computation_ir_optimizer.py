@@ -223,8 +223,10 @@ class LoopInvariantCodeMotionTests(OptimizerParityMixin, unittest.TestCase):
                 let i = 0
                 let total = 0
                 while i < 3 {
-                    let factor = base * 2
-                    total = total + factor
+                    let enabled = base > 2 && base < 10
+                    if enabled {
+                        total = total + base
+                    }
                     i = i + 1
                 }
                 result = total
@@ -234,7 +236,7 @@ class LoopInvariantCodeMotionTests(OptimizerParityMixin, unittest.TestCase):
 
     def test_total_invariant_computation_is_hoisted(self):
         optimized, results = self.assert_parity(self.SOURCE)
-        self.assertEqual(results, {"Answer": 24})
+        self.assertEqual(results, {"Answer": 12})
         entry = next(block for block in optimized["functions"][0]["blocks"] if ".entry_" in block["id"])
         self.assertTrue(any(str(item.get("target", "")).startswith("__opt_licm_") for item in entry["instructions"]))
 
@@ -243,6 +245,24 @@ class LoopInvariantCodeMotionTests(OptimizerParityMixin, unittest.TestCase):
         before = interpret_program(ir).to_dict()["loop_trace"]
         after = interpret_program(optimize_program(ir)).to_dict()["loop_trace"]
         self.assertEqual(before, after)
+
+    def test_potentially_overflowing_arithmetic_is_not_hoisted(self):
+        source = """
+            module M {
+                calculation Answer {
+                    let limit = 9223372036854775807
+                    let i = 0
+                    while i < 0 {
+                        let unsafe = limit * 2
+                        i = i + 1
+                    }
+                    result = 1
+                }
+            }
+        """
+        optimized, results = self.assert_parity(source)
+        self.assertEqual(results, {"Answer": 1})
+        self.assertNotIn("__opt_licm_", repr(optimized))
 
     def test_potentially_trapping_division_is_not_hoisted(self):
         source = """

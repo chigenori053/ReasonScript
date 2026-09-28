@@ -1,0 +1,7 @@
+{
+  "category": "Valid",
+  "expected": "pass",
+  "id": "GT-003",
+  "language_version": "0.7",
+  "name": "numeric_data_foundation"
+}

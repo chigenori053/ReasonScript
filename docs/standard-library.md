@@ -293,6 +293,147 @@ string.slice(value, start, end)
 
 String calls are pure and positional.
 
+## Math
+
+Scalar functions over `int` and `float` values. They do not create Tensors.
+Mixed `int`/`float` arguments follow the language's
+[numeric semantics](language-reference.md#numeric-semantics).
+
+| Call | Result type | Notes |
+| --- | --- | --- |
+| `math.abs(x)` | type of `x` | `math.abs` of the minimum `int` fails with `RT-NUM-OVERFLOW`. |
+| `math.min(a, b)`, `math.max(a, b)` | `int` if both are `int`, otherwise `float` | A tie returns `a`. |
+| `math.floor(x)`, `math.ceil(x)` | type of `x` | |
+| `math.round(x)` | type of `x` | Halfway cases round away from zero (`2.5 → 3.0`, `-2.5 → -3.0`). |
+| `math.sqrt(x)` | `float` | `x < 0` fails with `MATH-004`. |
+| `math.sin(x)`, `math.cos(x)`, `math.tan(x)` | `float` | Radians. |
+| `math.log(x)` | `float` | Natural logarithm; `x <= 0` fails with `MATH-004`. |
+| `math.exp(x)` | `float` | A result beyond the finite range fails with `RT-NUM-OVERFLOW`. |
+| `math.approx_equal(a, b, tolerance)` | `bool` | `abs(a - b) <= tolerance`; a negative tolerance fails with `MATH-004`. |
+
+Transcendental functions use the host's binary64 implementation; compare their
+results with `math.approx_equal` rather than `==`.
+
+```reasonscript
+calculation Hypotenuse -> float {
+  result = math.sqrt(3 * 3 + 4.0 * 4.0)
+}
+```
+
+Diagnostics: `MATH-001` unknown function, `MATH-002` argument count, `MATH-003`
+argument type (reported by `reason check` when the types are known), and
+`MATH-004` domain error.
+
+## Sequence
+
+```text
+sequence.range(start, end, step)
+```
+
+Returns an array of the values `start + step * i` for `i = 0, 1, 2, ...` that
+lie before `end` in the direction of `step`: `start` is inclusive and `end` is
+exclusive. The result is `[int]` when all three arguments are `int`, and
+`[float]` otherwise. Each element is computed from its index rather than by
+repeated addition, so rounding error does not accumulate.
+
+| Call | Result |
+| --- | --- |
+| `sequence.range(0, 5, 1)` | `[0, 1, 2, 3, 4]` |
+| `sequence.range(5, 0, -1)` | `[5, 4, 3, 2, 1]` |
+| `sequence.range(0.0, 1.0, 0.25)` | `[0.0, 0.25, 0.5, 0.75]` |
+| `sequence.range(0, 0, 1)`, `sequence.range(0, 5, -1)` | `[]` — a step that points away from `end` produces an empty sequence |
+| `sequence.range(0, 5, 0)` | `SEQ-004` — a zero step fails immediately (statically when it is a literal) |
+
+A sequence may contain at most `max_sequence_elements` elements (default
+1,000,000, configurable through the runtime request's
+`context.limits.max_sequence_elements`). Larger requests fail with `SEQ-005`
+before any memory is allocated. `SEQ-003` reports a non-numeric argument.
+
+## Serialization
+
+```text
+serialize.json(value) -> string
+```
+
+Returns canonical JSON text for a value, without writing anything:
+
+| Value | JSON |
+| --- | --- |
+| `int` | decimal integer |
+| `float` | canonical float text (`0.0`, `-0.0`, `2.5`, `1e21`, `1.5e-8`) |
+| `bool`, `null` | `true`/`false`, `null` |
+| `string` | JSON string |
+| array | JSON array in element order |
+| struct | JSON object of its fields, keys in ascending code-point order (the struct name is not included) |
+| `some(x)` / `none` | the JSON for `x` / `null` |
+| enum value | the string `"Enum.Variant"` |
+
+The output has no insignificant whitespace, is UTF-8 (non-ASCII characters are
+written as-is), and escapes `"`, `\`, and control characters (`\n`, `\t`, `\r`,
+`\b`, `\f`, otherwise `\u00xx`). Serializing equal values always produces
+identical text. Runtime handles such as Tensors, array builders, ReasonUnit
+Objects, and Vision results cannot be serialized (`SER-003`); nesting deeper
+than 256 levels fails with `SER-004`.
+
+## Artifacts
+
+```text
+artifact.write_text(path, content)
+artifact.write_text(path, content, overwrite)
+```
+
+Writes `content` as UTF-8 to `path` and returns an `ArtifactResult` with the
+fields `path` (the normalized relative path) and `bytes_written`. Writing
+requires the write capability (`reason run --allow-write`); without it the call
+fails with `ART-004`.
+
+- `path` is relative to the artifact root: the runtime resource root, which is
+  the source file's directory for `reason run file.rsn` and the project root for
+  project runs. Absolute paths, `.` and `..` segments, empty segments,
+  backslashes, and directories that resolve outside the root through symbolic
+  links are rejected with `ART-005`.
+- The parent directory must already exist (`ART-007`); directories are never
+  created implicitly.
+- An existing file is replaced only when `overwrite` is `true`; otherwise the
+  call fails with `ART-006` and the file is left unchanged.
+- The content is written to a temporary file in the target directory and then
+  published by an atomic link or rename, so a failed write never leaves a
+  partial artifact under the target name.
+- Content larger than 64 MiB (`context.limits.max_artifact_text_bytes`) fails
+  with `ART-008`; I/O failures report `ART-009`.
+
+Serialization and persistence stay separate:
+
+```reasonscript
+struct Dataset {
+  name: string
+  x: [float]
+  y: [float]
+}
+
+fn Wave(x: float) -> float {
+  return math.sin(x)
+}
+
+calculation Written -> int {
+  let xs = sequence.range(0.0, 10.0, 0.1)
+  let ys = array.builder()
+  for x in xs {
+    ys.append(Wave(x))
+  }
+  let dataset = Dataset { name: "sin", x: xs, y: ys.finish() }
+  let written = artifact.write_text("dataset.json", serialize.json(dataset))
+  result = written.bytes_written
+}
+```
+
+```sh
+reason run dataset.rsn --allow-write --json
+```
+
+The `math`, `sequence`, `serialize`, and `artifact` namespaces execute in the
+native Rust host only.
+
 ## Console & Standard Output (標準出力 API)
 
 ReasonScript provides native standard output APIs independent of any JavaScript or host environment. JavaScript runtime APIs such as `Js.log` are strictly unsupported and rejected with diagnostic `NAM-2004`.

@@ -325,6 +325,14 @@ pub enum Expr {
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
+    /// `math.*`, `sequence.*`, `serialize.*`, and `artifact.*` calls.
+    #[serde(rename = "call_foundation")]
+    CallFoundation {
+        function_id: String,
+        arguments: Vec<Expr>,
+        #[serde(default)]
+        source_span: Option<serde_json::Value>,
+    },
     #[serde(rename = "call_console")]
     CallConsole {
         function_id: String,
@@ -405,6 +413,7 @@ impl Expr {
             | Expr::CallArrayAppend { source_span, .. }
             | Expr::CallArrayConcat { source_span, .. }
             | Expr::CallString { source_span, .. }
+            | Expr::CallFoundation { source_span, .. }
             | Expr::CallConsole { source_span, .. }
             | Expr::CallFunction { source_span, .. }
             | Expr::CallCast { source_span, .. }

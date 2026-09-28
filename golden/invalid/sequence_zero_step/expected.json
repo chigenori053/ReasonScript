@@ -1,0 +1,51 @@
+{
+  "artifacts": {
+    "ast": {
+      "keys": [],
+      "present": true,
+      "schema": null
+    },
+    "execution_plan": {
+      "present": false
+    },
+    "knowledge": {
+      "present": false
+    },
+    "reason_ir": {
+      "present": true
+    },
+    "semantic_ast": {
+      "present": false
+    },
+    "simulation": {
+      "present": false
+    },
+    "validation": {
+      "keys": [
+        "errors",
+        "generated_at",
+        "ok",
+        "schema_version",
+        "tree"
+      ],
+      "present": true,
+      "schema": "validation-report/0.3"
+    }
+  },
+  "diagnostics": [
+    {
+      "category": "CLI",
+      "code": "CLI-000",
+      "severity": "ERROR"
+    }
+  ],
+  "expected": "fail",
+  "ok": false,
+  "runtime": {
+    "execution_plan_keys": [],
+    "goal_reached": null,
+    "knowledge_count": null
+  },
+  "schema": "reasonscript-golden-expected/1.0",
+  "version": "1.0"
+}

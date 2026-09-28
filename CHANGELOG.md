@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Added the general-purpose numeric and data foundation. Mixed `int`/`float`
+  arithmetic now promotes to `float` in the native runtime (previously
+  `2 + 0.5 * 4` passed `reason check` and failed with `IR-EXEC-008`), and mixed
+  comparisons (`1 < 1.5`, `3 == 3.0`) compare exact values instead of failing
+  `TYPE-V005`. Integer and float overflow report `RT-NUM-OVERFLOW` instead of
+  wrapping, returning infinity, or failing IR decoding with `IR-DECODE-001`;
+  `int()` of an out-of-range float reports `RT-NUM-CONVERSION`, and `int()` of
+  an `int` no longer round-trips through `float`. Float values are always finite,
+  underflow and `-0.0` are defined, and float `%` now returns a zero with the
+  divisor's sign. New namespaces: `math.*` scalar functions with `MATH-004`
+  domain errors, bounded index-based `sequence.range` (`SEQ-004`/`SEQ-005`),
+  canonical `serialize.json`, and permission-checked, atomic
+  `artifact.write_text` returning `ArtifactResult`. The optimizer no longer
+  hoists `+`, `-`, `*`, or negation out of loops, since they can now trap.
+  Golden cases `GT-003` (`valid/numeric_data_foundation`) and `GT-004`
+  (`invalid/sequence_zero_step`) were added for the new behavior.
+
 ## [0.5.6.1] - 2026-09-21
 
 - Made the CI Test plan independent of the checkout path and of local install state
