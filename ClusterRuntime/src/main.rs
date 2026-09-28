@@ -38,7 +38,9 @@ fn run() -> Result<i32, String> {
     let args: Vec<String> = env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("");
     if command == "visual"
-        || (command == "dynamic" && args.get(1).map(String::as_str) == Some("visual"))
+        || command == "runtime"
+        || (command == "dynamic"
+            && matches!(args.get(1).map(String::as_str), Some("visual" | "runtime")))
     {
         let envelope = read_stdin_json()?;
         let tasks: Vec<reasonscript_cluster_runtime::visual::RuntimeTask> =
@@ -58,7 +60,7 @@ fn run() -> Result<i32, String> {
             }
             Err(error) => {
                 print_value(
-                    &serde_json::json!({"status":if error.starts_with("RESOURCE_LIMIT") {"RESOURCE_LIMIT"} else {"ERROR"},"error":error}),
+                    &serde_json::json!({"status":if error.starts_with("RESOURCE_LIMIT") {"RESOURCE_LIMIT"} else if error.starts_with("UNSUPPORTED_RUNTIME") {"UNSUPPORTED"} else {"ERROR"},"error":error}),
                 )?;
                 return Ok(1);
             }

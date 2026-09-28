@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/runtime-task-1.0.json",
+  "title": "ReasonScript RuntimeTask 1.0",
+  "type": "object",
+  "required": ["schema_version", "task_id", "runtime_type", "goal", "input_state", "dependencies", "provenance"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-runtime-task/1.0"},
+    "task_id": {"type": "string", "minLength": 1},
+    "runtime_type": {"type": "string", "minLength": 1},
+    "goal": {"type": "string", "minLength": 1},
+    "input_state": {},
+    "dependencies": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "resource_hint": {"type": "object", "additionalProperties": true},
+    "provenance": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

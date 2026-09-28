@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/runtime-output-1.0.json",
+  "title": "ReasonScript RuntimeOutput 1.0",
+  "type": "object",
+  "required": ["schema_version", "task_id", "runtime_type", "status", "output_state", "semantic_state", "provenance", "trace", "metrics"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-runtime-output/1.0"},
+    "task_id": {"type": "string", "minLength": 1},
+    "runtime_type": {"type": "string", "minLength": 1},
+    "status": {"enum": ["COMPLETED", "UNKNOWN", "CONFLICT", "UNSUPPORTED", "RESOURCE_LIMIT", "ERROR"]},
+    "output_state": {},
+    "semantic_state": {},
+    "provenance": {"type": "array", "items": {"type": "string"}},
+    "trace": {"type": "object"},
+    "metrics": {"type": "object"},
+    "observation": {},
+    "geometry_state": {}
+  },
+  "additionalProperties": false
+}

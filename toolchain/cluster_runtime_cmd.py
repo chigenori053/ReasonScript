@@ -19,8 +19,8 @@ def run(command: str, args: list[str], project_root: Path) -> int:
         _usage()
         return 1
     subcommand = args[0]
-    if subcommand == "visual":
-        return _run_visual(args[1:], project_root, ["visual"])
+    if subcommand in {"visual", "runtime"}:
+        return _run_visual(args[1:], project_root, [subcommand])
     if subcommand == "dynamic":
         return _run_dynamic(args[1:], project_root)
     if subcommand == "validate":
@@ -116,8 +116,8 @@ def _run_dynamic(args: list[str], project_root: Path) -> int:
         _usage()
         return 1
     subcommand = args[0]
-    if subcommand == "visual":
-        return _run_visual(args[1:], project_root, ["dynamic", "visual"])
+    if subcommand in {"visual", "runtime"}:
+        return _run_visual(args[1:], project_root, ["dynamic", subcommand])
     if subcommand == "validate":
         target = _positional(args[1:])
         return _invoke(project_root, ["dynamic", "validate", str(_path(project_root, target))]) if target else 1
@@ -208,4 +208,5 @@ def _usage() -> None:
     print("       reason cluster dynamic <plan|run|simulate|compare> <source.rsn> --dynamic-config <dynamic.json> [--json]")
     print("       reason cluster dynamic validate <artifact-dir> [--json]")
     print("       reason cluster dynamic test-model --scenario <name> --workers <count> [--json]")
+    print("       reason cluster dynamic runtime <tasks.json> [--json]")
     print("       reason cluster dynamic visual <tasks.json> [--json]")

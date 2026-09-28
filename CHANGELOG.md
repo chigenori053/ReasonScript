@@ -2233,3 +2233,8 @@ First integrated ReasonScript Platform alpha release.
 - Fixed installed `reason check` failing with `ModuleNotFoundError: playground`.
 - Fixed install validation accepting incomplete or repository-dependent distributions.
 - Fixed relative source and artifact paths resolving against the installed distribution root.
+
+- DynamicClusterRuntime Integration v1.0: registered Vision and Geometry adapters
+  now share a versioned task/output contract, deterministic workload scheduler,
+  canonical worker trace, and explicit resource/uncertainty outcomes. The
+  `reason cluster dynamic runtime` command is available alongside the Visual alias.

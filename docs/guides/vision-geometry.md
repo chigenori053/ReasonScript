@@ -73,3 +73,29 @@ Machine contracts are in
 [`visual_spatial_observation.schema.json`](../../schemas/visual_spatial_observation.schema.json)
 and [`geometry_state.schema.json`](../../schemas/geometry_state.schema.json).
 The existing Vision 0.1 observation and MIRP 0.1 graph contracts remain valid.
+
+## Generic runtime orchestration
+
+`reason cluster dynamic runtime <tasks.json> --json` dispatches registered
+runtimes through the same bounded scheduler. `dynamic visual` remains an alias.
+Each task uses `schema_version: "reasonscript-runtime-task/1.0"`; older Vision
+and Geometry task files without that field remain accepted by the native CLI.
+`runtime_type` currently supports `VISION` and `GEOMETRY`. An unknown value
+returns `UNSUPPORTED_RUNTIME` with status `UNSUPPORTED`.
+
+The registry validates tasks and lets each adapter estimate work, decompose
+units, execute, and canonicalize its output. The scheduler selects `CLUSTER`
+when estimated operations exceed `local_threshold`, there is more than one
+parallel unit, and `max_workers` exceeds one; otherwise it selects `LOCAL`.
+The decision and workload are returned in `scheduling`. Workers use canonical
+IDs `worker:<runtime_type>:<task_id>`, and results are merged by task identity.
+Semantic output and trace do not depend on the number of workers or task input
+order. A cluster worker is a local thread, not a remote machine.
+
+`task_outputs` contain the versioned runtime envelope: status, domain
+`output_state`, MIRP-compatible `semantic_state`, provenance, trace, and
+operation metrics. `COMPLETED`, `UNKNOWN`, and `CONFLICT` remain distinct.
+A limit or timeout returns `RESOURCE_LIMIT`, with `TIMEOUT` in the error for
+timeouts. The machine contracts are
+[`runtime_task.schema.json`](../../schemas/runtime_task.schema.json) and
+[`runtime_output.schema.json`](../../schemas/runtime_output.schema.json).
