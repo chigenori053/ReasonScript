@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Clarified the canonical RuntimeTask 1.0 schema: `resource_hint` is required in newly authored generic tasks. Legacy JSON without this field remains accepted by the compatibility CLI.
+
 - Added a versioned spatial Vision observation and native Geometry runtime with
   explicit image coordinates, deterministic relations, geometry operations,
   provenance, UNKNOWN/CONFLICT preservation, and MIRP graph projection.

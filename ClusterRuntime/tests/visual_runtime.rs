@@ -222,9 +222,7 @@ fn canonical_artifacts_match_across_workers_order_and_repetitions() {
                     .unwrap();
                     assert_eq!(run.decision, if workers == 1 { "local" } else { "cluster" });
                     let canonical = json!({"geometry_state":run.geometry_state,"semantic_state":run.semantic_state,
-                    "outputs":run.task_outputs.iter().map(|output| json!({"task_id":output.task_id,
-                        "output_state":output.output_state,"semantic_state":output.semantic_state,
-                        "provenance":output.provenance,"trace":output.trace,"status":output.status})).collect::<Vec<_>>()});
+                        "outputs":run.task_outputs});
                     if let Some(ref value) = expected {
                         assert_eq!(&canonical, value);
                     } else {
@@ -425,4 +423,49 @@ fn elapsed_timeout_and_output_memory_are_explicit_limits() {
     )
     .unwrap_err()
     .contains("memory budget"));
+}
+
+#[test]
+fn memory_and_state_boundaries_are_inclusive() {
+    let tasks = vec![tasks().remove(0)];
+    let run = run_visual(&tasks, &VisualLimits::default()).unwrap();
+    let memory = serde_json::to_vec(&run).unwrap().len();
+    let state = memory.max(
+        run.task_outputs
+            .iter()
+            .map(|output| serde_json::to_vec(output).unwrap().len())
+            .max()
+            .unwrap(),
+    );
+    assert_eq!(
+        run_visual(
+            &tasks,
+            &VisualLimits {
+                max_memory: memory,
+                max_state_size: state,
+                ..VisualLimits::default()
+            }
+        )
+        .unwrap()
+        .status,
+        run.status
+    );
+    assert!(run_visual(
+        &tasks,
+        &VisualLimits {
+            max_memory: memory - 1,
+            ..VisualLimits::default()
+        }
+    )
+    .unwrap_err()
+    .starts_with("RESOURCE_LIMIT"));
+    assert!(run_visual(
+        &tasks,
+        &VisualLimits {
+            max_state_size: state - 1,
+            ..VisualLimits::default()
+        }
+    )
+    .unwrap_err()
+    .starts_with("RESOURCE_LIMIT"));
 }

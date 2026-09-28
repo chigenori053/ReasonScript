@@ -3,7 +3,7 @@
   "$id": "https://reasonscript.dev/schemas/runtime-task-1.0.json",
   "title": "ReasonScript RuntimeTask 1.0",
   "type": "object",
-  "required": ["schema_version", "task_id", "runtime_type", "goal", "input_state", "dependencies", "provenance"],
+  "required": ["schema_version", "task_id", "runtime_type", "goal", "input_state", "dependencies", "resource_hint", "provenance"],
   "properties": {
     "schema_version": {"const": "reasonscript-runtime-task/1.0"},
     "task_id": {"type": "string", "minLength": 1},

@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 import jsonschema
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -12,9 +13,9 @@ def test_generic_runtime_contract_and_cli(tmp_path):
     observation = json.loads((ROOT / "tests/fixtures/vision_runtime/solar_observation.json").read_text())
     tasks = [
         {"schema_version": "reasonscript-runtime-task/1.0", "task_id": "generated-vision", "runtime_type": "VISION",
-         "goal": "EXTRACT_OBJECTS", "input_state": observation, "dependencies": [], "provenance": ["source"]},
+         "goal": "EXTRACT_OBJECTS", "input_state": observation, "dependencies": [], "resource_hint": {}, "provenance": ["source"]},
         {"schema_version": "reasonscript-runtime-task/1.0", "task_id": "generated-geometry", "runtime_type": "GEOMETRY",
-         "goal": "CALCULATE_SPATIAL_RELATIONS", "input_state": None, "dependencies": ["generated-vision"], "provenance": []},
+         "goal": "CALCULATE_SPATIAL_RELATIONS", "input_state": None, "dependencies": ["generated-vision"], "resource_hint": {}, "provenance": []},
     ]
     task_schema = json.loads((ROOT / "schemas/runtime_task.schema.json").read_text())
     output_schema = json.loads((ROOT / "schemas/runtime_output.schema.json").read_text())
@@ -38,3 +39,21 @@ def test_generic_runtime_contract_and_cli(tmp_path):
                             cwd=ROOT, text=True, capture_output=True)
     assert result.returncode != 0
     assert json.loads(result.stdout)["status"] == "UNSUPPORTED"
+
+
+def test_canonical_task_schema_rejects_missing_and_future_fields():
+    schema = json.loads((ROOT / "schemas/runtime_task.schema.json").read_text())
+    task = {"schema_version": "reasonscript-runtime-task/1.0", "task_id": "generated",
+            "runtime_type": "GEOMETRY", "goal": "CALCULATE_SPATIAL_RELATIONS",
+            "input_state": None, "dependencies": [], "resource_hint": {}, "provenance": []}
+    jsonschema.validate(task, schema)
+    for field in task:
+        invalid = task.copy()
+        del invalid[field]
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(invalid, schema)
+    for version in ("reasonscript-runtime-task/2.0", "future"):
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate({**task, "schema_version": version}, schema)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate({**task, "dependencies": ["same", "same"]}, schema)
