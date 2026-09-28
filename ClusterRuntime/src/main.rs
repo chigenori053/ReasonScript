@@ -37,6 +37,33 @@ fn main() {
 fn run() -> Result<i32, String> {
     let args: Vec<String> = env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("");
+    if command == "visual"
+        || (command == "dynamic" && args.get(1).map(String::as_str) == Some("visual"))
+    {
+        let envelope = read_stdin_json()?;
+        let tasks: Vec<reasonscript_cluster_runtime::visual::RuntimeTask> =
+            serde_json::from_value(envelope["tasks"].clone())
+                .map_err(|e| format!("VGR-CLI-001: {e}"))?;
+        let limits: reasonscript_cluster_runtime::visual::VisualLimits =
+            if envelope["limits"].is_null() {
+                Default::default()
+            } else {
+                serde_json::from_value(envelope["limits"].clone())
+                    .map_err(|e| format!("VGR-CLI-002: {e}"))?
+            };
+        match reasonscript_cluster_runtime::visual::run_visual(&tasks, &limits) {
+            Ok(result) => {
+                print_value(&serde_json::to_value(result).map_err(|e| e.to_string())?)?;
+                return Ok(0);
+            }
+            Err(error) => {
+                print_value(
+                    &serde_json::json!({"status":if error.starts_with("RESOURCE_LIMIT") {"RESOURCE_LIMIT"} else {"ERROR"},"error":error}),
+                )?;
+                return Ok(1);
+            }
+        }
+    }
     if command == "uera-plan" {
         let envelope = read_stdin_json()?;
         let execution_plan = envelope

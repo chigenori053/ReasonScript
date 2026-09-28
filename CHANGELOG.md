@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added a versioned spatial Vision observation and native Geometry runtime with
+  explicit image coordinates, deterministic relations, geometry operations,
+  provenance, UNKNOWN/CONFLICT preservation, and MIRP graph projection.
+- Added bounded Vision/Geometry task dispatch through the native cluster runtime.
+  Existing Vision 0.1 observations and MIRP 0.1 graph interfaces are retained.
+
 ## [0.5.6.1] - 2026-09-21
 
 - Made the CI Test plan independent of the checkout path and of local install state

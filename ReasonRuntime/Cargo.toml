@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/reason-object-core",
     "crates/vision-core",
+    "crates/geometry-core",
     "crates/tensor-core",
     "crates/reasoning-core",
     "crates/computation-ir",

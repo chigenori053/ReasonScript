@@ -10,6 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
+pub mod spatial;
+
 pub const PROFILE: &str = "reasonscript-vision-runtime/0.1";
 pub const OBSERVATION_PROFILE: &str = "reasonscript-vision-observation/0.1";
 pub const TENSOR_PROFILE: &str = "ruo.tensor/1.0";
@@ -869,6 +871,41 @@ mod tests {
                 .unwrap_err()
                 .code,
             "VIS-RUN-001"
+        );
+    }
+
+    #[test]
+    fn spatial_projection_is_observational_and_canonical() {
+        let mut first = observation();
+        let mut second = first.detections[0].clone();
+        second.detection_id = "det:mars:42".into();
+        second.track_id = "mars-01".into();
+        first.detections.push(second);
+        let projected = spatial::observe_spatial(&first).unwrap();
+        assert_eq!(projected.coordinate_system.origin, "TOP_LEFT");
+        assert_eq!(projected.coordinate_system.y_direction, "DOWN");
+        assert!(projected.observed_relations.is_empty());
+        assert!(projected
+            .objects
+            .iter()
+            .all(|o| o.bounding_box.is_some() && o.centroid.is_some() && !o.provenance.is_empty()));
+        first.detections.reverse();
+        assert_eq!(projected, spatial::observe_spatial(&first).unwrap());
+    }
+
+    #[test]
+    fn spatial_projection_position_and_empty_boundary() {
+        let mut input = observation();
+        let object = spatial::observe_spatial(&input).unwrap().objects.remove(0);
+        assert_eq!(object.bounding_box, Some([412.0, 218.0, 42.0, 42.0]));
+        assert_eq!(object.centroid, Some([433.0, 239.0]));
+        input.detections.clear();
+        assert!(spatial::observe_spatial(&input).unwrap().objects.is_empty());
+        let mut invalid = observation();
+        invalid.detections[0].bounding_box[2] = -1.0;
+        assert_eq!(
+            spatial::observe_spatial(&invalid).unwrap_err().code,
+            "VIS-DET-005"
         );
     }
 }

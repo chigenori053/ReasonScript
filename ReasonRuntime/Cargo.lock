@@ -188,6 +188,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "reasonscript-geometry-runtime"
+version = "0.1.0"
+dependencies = [
+ "reasonscript-vision-runtime",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "reasonscript-native-reasonunit-runtime"
 version = "0.1.0"
 dependencies = [

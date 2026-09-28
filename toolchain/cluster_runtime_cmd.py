@@ -19,6 +19,8 @@ def run(command: str, args: list[str], project_root: Path) -> int:
         _usage()
         return 1
     subcommand = args[0]
+    if subcommand == "visual":
+        return _run_visual(args[1:], project_root, ["visual"])
     if subcommand == "dynamic":
         return _run_dynamic(args[1:], project_root)
     if subcommand == "validate":
@@ -63,8 +65,9 @@ def run(command: str, args: list[str], project_root: Path) -> int:
 
 def _invoke(project_root: Path, args: list[str], stdin: dict[str, Any] | None = None) -> int:
     crate = project_root / "ClusterRuntime"
-    binary = crate / "target" / "debug" / "reason-cluster"
-    if binary.is_file():
+    binary = crate / "target" / "debug" / ("reason-cluster.exe" if os.name == "nt" else "reason-cluster")
+    sources = [*(crate / "src").rglob("*.rs"), *(project_root / "ReasonRuntime/crates/geometry-core/src").glob("*.rs"), *(project_root / "ReasonRuntime/crates/vision-core/src").glob("*.rs")]
+    if binary.is_file() and binary.stat().st_mtime_ns >= max(path.stat().st_mtime_ns for path in sources):
         command = [str(binary), *args]
     else:
         command = ["cargo", "run", "--offline", "--quiet", "--manifest-path", str(crate / "Cargo.toml"), "--bin", "reason-cluster", "--", *args]
@@ -113,6 +116,8 @@ def _run_dynamic(args: list[str], project_root: Path) -> int:
         _usage()
         return 1
     subcommand = args[0]
+    if subcommand == "visual":
+        return _run_visual(args[1:], project_root, ["dynamic", "visual"])
     if subcommand == "validate":
         target = _positional(args[1:])
         return _invoke(project_root, ["dynamic", "validate", str(_path(project_root, target))]) if target else 1
@@ -142,6 +147,19 @@ def _run_dynamic(args: list[str], project_root: Path) -> int:
     if artifacts:
         rust_args.extend(["--artifacts-dir", str(_path(project_root, artifacts))])
     return _invoke(project_root, rust_args, envelope)
+
+
+def _run_visual(args: list[str], project_root: Path, native_args: list[str]) -> int:
+    source = _positional(args)
+    if source is None:
+        _usage()
+        return 1
+    try:
+        envelope = json.loads(_path(project_root, source).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"VGR-CLI-001: {error}")
+        return 1
+    return _invoke(project_root, native_args, envelope)
 
 
 def _option(args: list[str], name: str) -> str | None:
@@ -190,3 +208,4 @@ def _usage() -> None:
     print("       reason cluster dynamic <plan|run|simulate|compare> <source.rsn> --dynamic-config <dynamic.json> [--json]")
     print("       reason cluster dynamic validate <artifact-dir> [--json]")
     print("       reason cluster dynamic test-model --scenario <name> --workers <count> [--json]")
+    print("       reason cluster dynamic visual <tasks.json> [--json]")

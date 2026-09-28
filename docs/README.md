@@ -14,6 +14,8 @@ phase-completion reports are kept in Git history instead of the public docs.
   declarations, matching, modules, and execution behavior.
 - [Standard library](standard-library.md) — runtime, Tensor, optimizer,
   relation, Vision, and RUO namespaces.
+- [Vision and geometry](guides/vision-geometry.md) — spatial observations,
+  geometric relations, MIRP projection, and clustered execution.
 - [CLI reference](reference/cli.md) — everyday project, inspection, artifact,
   and validation commands.
 

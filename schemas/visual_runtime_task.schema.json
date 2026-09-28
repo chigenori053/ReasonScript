@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/visual-runtime-task-1.0.json",
+  "title": "ReasonScript Vision/Geometry RuntimeTask 1.0",
+  "type": "object",
+  "required": ["task_id", "runtime_type", "input_state", "goal", "dependencies", "provenance"],
+  "properties": {
+    "task_id": {"type": "string", "minLength": 1},
+    "runtime_type": {"enum": ["VISION", "GEOMETRY"]},
+    "input_state": {},
+    "goal": {"enum": ["EXTRACT_OBJECTS", "CALCULATE_SPATIAL_RELATIONS"]},
+    "resource_hint": {"type": "object", "properties": {"estimated_operations": {"type": "integer", "minimum": 0}}, "additionalProperties": true},
+    "dependencies": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "provenance": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

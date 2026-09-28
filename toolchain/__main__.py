@@ -233,6 +233,10 @@ def main() -> int:
         from toolchain.vision_runtime_cmd import run
         return run(args[1:], project_root)
 
+    if command == "geometry":
+        from toolchain.geometry_runtime_cmd import run
+        return run(args[1:], project_root)
+
     if command == "visualization":
         from toolchain.visualization_runtime_cmd import run
         return run(args[1:], project_root)
@@ -330,6 +334,7 @@ def _usage() -> None:
     print("  tensor        Import, inspect, and verify canonical .rstensor files")
     print("  reasonunit-runtime Load, query, revise, project, and validate native ReasonUnit Objects")
     print("  vision        Validate observations and construct RUO/Tensor vision artifacts")
+    print("  geometry      Derive geometric state and relations from Vision observations")
     print("  visualization Project semantic scenes and render deterministic SVG artifacts")
     print("  object        Check, run, inspect, query, transact, select, project, tensor, and save ReasonUnit Objects")
     print("  reasoning-model validate <file> Validate a Reasoning Model artifact")

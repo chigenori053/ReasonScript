@@ -96,6 +96,27 @@ dependencies = [
 name = "reasonscript-cluster-runtime"
 version = "0.1.0"
 dependencies = [
+ "reasonscript-geometry-runtime",
+ "reasonscript-vision-runtime",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "reasonscript-geometry-runtime"
+version = "0.1.0"
+dependencies = [
+ "reasonscript-vision-runtime",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "reasonscript-vision-runtime"
+version = "0.1.0"
+dependencies = [
  "serde",
  "serde_json",
  "sha2",

@@ -130,6 +130,23 @@ def install(prefix: Path, json_output: bool) -> int:
                 raise RuntimeError(f"ReasonRuntime/crates/vision-core build failed: {vision_build.stderr.strip()}")
             shutil.copy2(ROOT / "ReasonRuntime" / "target" / "release" / vision_name, vision_binary)
         vision_binary.chmod(0o755)
+        geometry_name = "reason-geometry.exe" if os.name == "nt" else "reason-geometry"
+        geometry_binary = temp / "bin" / geometry_name
+        packaged_geometry = ROOT / "bin" / geometry_name
+        if packaged_geometry.is_file():
+            shutil.copy2(packaged_geometry, geometry_binary)
+        else:
+            cargo = shutil.which("cargo")
+            if not cargo:
+                raise RuntimeError("cargo is required to build the native Geometry runtime from source")
+            geometry_build = subprocess.run(
+                [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "ReasonRuntime/crates/geometry-core/Cargo.toml")],
+                text=True, capture_output=True,
+            )
+            if geometry_build.returncode:
+                raise RuntimeError(f"Geometry runtime build failed: {geometry_build.stderr.strip()}")
+            shutil.copy2(ROOT / "ReasonRuntime" / "target" / "release" / geometry_name, geometry_binary)
+        geometry_binary.chmod(0o755)
         visualization_name = "reason-visualization.exe" if os.name == "nt" else "reason-visualization"
         visualization_binary = temp / "bin" / visualization_name
         packaged_visualization = ROOT / "bin" / visualization_name

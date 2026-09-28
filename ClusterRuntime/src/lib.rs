@@ -16,6 +16,7 @@ pub mod state;
 pub mod test_model;
 pub mod uera;
 pub mod worker;
+pub mod visual;
 
 pub use config::{ClusterConfig, ExecutionConfig, Limits, NodeConfig};
 pub use planner::{build_cluster_plan, ClusterPlan, ReasonTask};

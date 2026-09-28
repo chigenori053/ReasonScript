@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/geometry-state-1.0.json",
+  "title": "ReasonScript GeometryState 1.0",
+  "type": "object",
+  "required": ["schema_version", "state_id", "coordinate_systems", "primitives", "relations", "unknowns", "conflicts", "provenance"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-geometry-state/1.0"},
+    "state_id": {"type": "string", "minLength": 1},
+    "coordinate_systems": {"type": "array", "items": {"$ref": "#/$defs/coordinate_system"}},
+    "primitives": {"type": "array", "items": {"$ref": "#/$defs/primitive"}},
+    "relations": {"type": "array", "items": {"$ref": "#/$defs/relation"}},
+    "unknowns": {"type": "array"},
+    "conflicts": {"type": "array"},
+    "provenance": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "coordinate_system": {"type": "object", "required": ["id", "origin", "x_direction", "y_direction", "unit"], "properties": {"id": {"type": "string", "minLength": 1}, "origin": {"const": "TOP_LEFT"}, "x_direction": {"const": "RIGHT"}, "y_direction": {"const": "DOWN"}, "unit": {"const": "PIXEL"}}, "additionalProperties": false},
+    "primitive": {"type": "object", "required": ["geometry_id", "geometry_type", "coordinate_system", "parameters", "provenance"], "properties": {"geometry_id": {"type": "string", "minLength": 1}, "geometry_type": {"enum": ["Point", "Vector", "Line", "Segment", "Ray", "BoundingBox", "Circle", "Arc", "Triangle", "Rectangle", "Polygon", "Transform"]}, "coordinate_system": {"type": "string", "minLength": 1}, "parameters": {"type": "object"}, "provenance": {"type": "array", "minItems": 1, "items": {"type": "string"}}}, "additionalProperties": false},
+    "relation": {"type": "object", "required": ["subject", "predicate", "object", "provenance", "rule"], "properties": {"subject": {"type": "string"}, "predicate": {"enum": ["LEFT_OF", "RIGHT_OF", "ABOVE", "BELOW", "INSIDE", "CONTAINS", "OVERLAPS", "TOUCHES", "INTERSECTS", "NEAR", "FAR", "ALIGNED_HORIZONTAL", "ALIGNED_VERTICAL"]}, "object": {"type": "string"}, "provenance": {"type": "array", "items": {"type": "string"}}, "rule": {"type": "string"}}, "additionalProperties": false}
+  }
+}

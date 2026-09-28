@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/geometry-mirp-delta-1.0.json",
+  "title": "ReasonScript Geometry MIRP Delta 1.0",
+  "type": "object",
+  "required": ["schema", "source_state", "results", "provenance"],
+  "properties": {
+    "schema": {"const": "reasonscript-geometry-mirp-delta/1.0"},
+    "source_state": {"type": "string", "minLength": 1},
+    "results": {"type": "array", "items": {"type": "object", "required": ["status", "value", "provenance"], "properties": {"status": {"enum": ["KNOWN", "UNKNOWN", "CONFLICT"]}, "value": {}, "provenance": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false}},
+    "provenance": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

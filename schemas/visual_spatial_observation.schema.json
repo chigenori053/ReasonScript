@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/visual-spatial-observation-1.0.json",
+  "title": "ReasonScript VisualObservation 1.0",
+  "type": "object",
+  "required": ["schema_version", "source_id", "coordinate_system", "objects", "observed_relations", "unknowns", "conflicts", "provenance"],
+  "properties": {
+    "schema_version": {"const": "reasonscript-visual-observation/1.0"},
+    "source_id": {"type": "string", "minLength": 1},
+    "coordinate_system": {"$ref": "#/$defs/coordinate_system"},
+    "objects": {"type": "array", "items": {"$ref": "#/$defs/object"}},
+    "observed_relations": {"type": "array"},
+    "unknowns": {"type": "array"},
+    "conflicts": {"type": "array"},
+    "provenance": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "coordinate_system": {"type": "object", "required": ["id", "origin", "x_direction", "y_direction", "unit"], "properties": {"id": {"type": "string", "minLength": 1}, "origin": {"const": "TOP_LEFT"}, "x_direction": {"const": "RIGHT"}, "y_direction": {"const": "DOWN"}, "unit": {"const": "PIXEL"}}, "additionalProperties": false},
+    "object": {"type": "object", "required": ["object_id", "object_type", "candidate_types", "bounding_box", "centroid", "contour", "keypoints", "attributes", "confidence", "uncertainty", "source", "provenance"], "properties": {"object_id": {"type": "string", "minLength": 1}, "object_type": {"type": ["string", "null"]}, "candidate_types": {"type": "array", "items": {"type": "string"}}, "bounding_box": {"oneOf": [{"type": "null"}, {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number", "minimum": 0}, {"type": "number", "minimum": 0}], "minItems": 4, "maxItems": 4}]}, "centroid": {"oneOf": [{"type": "null"}, {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}]}, "contour": {"type": "array"}, "keypoints": {"type": "object"}, "attributes": {"type": "object"}, "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1}, "uncertainty": {"type": ["number", "null"], "minimum": 0}, "source": {"type": "string"}, "provenance": {"type": "array", "minItems": 1, "items": {"type": "string"}}}, "additionalProperties": false}
+  }
+}

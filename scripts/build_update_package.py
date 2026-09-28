@@ -129,6 +129,9 @@ def _write_payload(package: Path, target_platform: str) -> Path:
     vision_name = "reason-vision.exe" if target_platform == "windows" else "reason-vision"
     shutil.copy2(ROOT / "ReasonRuntime" / "target" / "release" / vision_name, payload / "bin" / vision_name)
     (payload / "bin" / vision_name).chmod(0o755)
+    geometry_name = "reason-geometry.exe" if target_platform == "windows" else "reason-geometry"
+    shutil.copy2(ROOT / "ReasonRuntime" / "target" / "release" / geometry_name, payload / "bin" / geometry_name)
+    (payload / "bin" / geometry_name).chmod(0o755)
     visualization_build = subprocess.run(
         [cargo, "build", "--offline", "--release", "--manifest-path", str(ROOT / "VisualizationRuntime/Cargo.toml")],
         text=True, capture_output=True,

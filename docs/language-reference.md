@@ -361,6 +361,7 @@ ambient behavior:
 - `reasoning.event` — semantic reasoning steps and evidence.
 - `string.*` — string operations.
 - `vision.*` — deterministic Vision runtime integration.
+- `geometry` — CLI-only spatial projection and geometric reasoning over Vision observations.
 - `ruo.*` — ReasonUnit Object inspection, snapshots, queries, and transactions.
 
 See the [standard library reference](standard-library.md) for the public

@@ -4,5 +4,6 @@ pub mod lifecycle;
 pub mod runtime;
 pub mod test_model;
 
+pub use crate::visual;
 pub use config::DynamicConfig;
 pub use runtime::{run_dynamic, DynamicRun};
