@@ -1,0 +1,99 @@
+module NumericCollectionReadiness {
+  struct Point {
+    x: float
+    y: float
+  }
+
+  struct Metadata {
+    source: string
+    unit: string
+  }
+
+  struct Dataset {
+    name: string
+    x: [float]
+    y: [float]
+    metadata: Metadata
+  }
+
+  fn Square(value: float) -> float {
+    return value * value
+  }
+
+  calculation RealArithmetic -> bool {
+    result = 0.1 + 0.2 == 0.3
+  }
+
+  calculation FloatSequence -> [float] {
+    let builder = array.builder()
+    let i = 0
+    while i < 200 {
+      builder.append(float(i) * 0.1 - 10.0)
+      i = i + 1
+    }
+    result = builder.finish()
+  }
+
+  calculation RangeAndDataset -> Dataset {
+    let x_builder = array.builder()
+    let y_builder = array.builder()
+    let i = 0
+    while i < 100 {
+      let x = float(i) * 0.25
+      x_builder.append(x)
+      y_builder.append(Square(x))
+      i = i + 1
+    }
+    result = Dataset { name: "squares", x: x_builder.finish(), y: y_builder.finish(), metadata: Metadata { source: "native", unit: "unitless" } }
+  }
+
+  calculation PointCollection -> [Point] {
+    let builder = array.builder()
+    let i = 0
+    while i < 100 {
+      let x = float(i)
+      builder.append(Point { x: x, y: Square(x) })
+      i = i + 1
+    }
+    result = builder.finish()
+  }
+
+  calculation MapFilterReduce -> int {
+    let values = [1, 2, 3, 4, 5]
+    let total = 0
+    for value in values {
+      if value > 3 {
+        total = total + value * value
+      }
+    }
+    result = total
+  }
+
+  calculation Mapped -> [int] {
+    let builder = array.builder()
+    for value in [1, 2, 3, 4] {
+      builder.append(value * value)
+    }
+    result = builder.finish()
+  }
+
+  calculation Filtered -> [int] {
+    let builder = array.builder()
+    for value in [1, 2, 3, 4, 5] {
+      if value > 3 {
+        builder.append(value)
+      }
+    }
+    result = builder.finish()
+  }
+
+  calculation ThousandIterations -> int {
+    let i = 0
+    let sum = 0
+    while i < 1000 {
+      sum = sum + i
+      i = i + 1
+    }
+    result = sum
+  }
+}
