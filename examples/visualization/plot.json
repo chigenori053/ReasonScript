@@ -1,0 +1,19 @@
+{
+  "schema_version": "reasonscript-plot/0.1",
+  "title": "Measurements and heatmap",
+  "x_axis": {"label": "Sample"},
+  "y_axis": {"label": "Value"},
+  "series": [
+    {"kind": "line", "x": [0.5, 1.5, 2.5], "y": [0.8, 2.2, 1.4], "label": "trend", "color": "#2563eb"},
+    {"kind": "scatter", "x": [0.5, 1.5, 2.5], "y": [0.8, 2.2, 1.4], "color": "#ef4444"}
+  ],
+  "heatmap": {
+    "values": [[0.1, 0.4, 0.8], [0.2, 0.7, 1.0]],
+    "x_labels": ["A", "B", "C"],
+    "y_labels": ["low", "high"]
+  },
+  "shapes": [
+    {"kind": "circle", "x": 1.5, "y": 2.2, "radius": 0.1, "stroke": "#111827"},
+    {"kind": "text", "x": 1.6, "y": 2.3, "text": "peak"}
+  ]
+}

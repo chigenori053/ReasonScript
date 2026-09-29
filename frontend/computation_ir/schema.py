@@ -61,6 +61,7 @@ EXPRESSION_OPS = (
     "call_array_prepend",
     "call_array_concat",
     "call_string",
+    "call_foundation",
     "call_console",
     "call_function",
     "call_cast",

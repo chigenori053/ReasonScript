@@ -66,6 +66,7 @@ at all, per Phase 4's scope, and `matmul` is rank-2 / unbatched only).
 from __future__ import annotations
 
 import copy
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -73,7 +74,8 @@ _BINARY_FOLD = {
     "Add": lambda a, b: a + b,
     "Subtract": lambda a, b: a - b,
     "Multiply": lambda a, b: a * b,
-    "Divide": lambda a, b: a / b,
+    # Mirrors the runtime: both operands are converted to Float first.
+    "Divide": lambda a, b: float(a) / float(b),
     "Modulo": lambda a, b: a % b,
 }
 
@@ -285,6 +287,7 @@ def _expr_is_pure_function_body(
         "call_array_prepend",
         "call_array_concat",
         "call_string",
+        "call_foundation",
         "assert",
         "assert_eq",
     }:
@@ -479,8 +482,10 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
         operand = _fold_expr(expr["operand"])
         if _is_const(operand):
             value = operand["value"]
-            if expr["operator"] == "Negate" and isinstance(value, (int, float)) and not isinstance(value, bool):
-                return _const(operand["kind"], -value)
+            if expr["operator"] == "Negate" and _numeric(operand):
+                folded = _numeric_const(operand["kind"], -value)
+                if folded is not None:
+                    return folded
             if expr["operator"] == "Not" and isinstance(value, bool):
                 return _const("bool", not value)
         return {**expr, "operand": operand}
@@ -492,13 +497,22 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
             if fold is not None:
                 try:
                     value = fold(left["value"], right["value"])
-                except ZeroDivisionError:
+                except (ZeroDivisionError, OverflowError):
                     # Leave unfolded: the runtime raises RT-ARITH-001 at
                     # the right place instead of the optimizer having to
                     # encode "folds to an error".
                     return {**expr, "left": left, "right": right}
-                kind = "float" if expr["operator"] == "Divide" else left["kind"]
-                return _const(kind, value)
+                # GND-1 promotion: a Float operand makes the result Float.
+                kind = (
+                    "float"
+                    if expr["operator"] == "Divide" or "float" in (left["kind"], right["kind"])
+                    else "int"
+                )
+                folded = _numeric_const(kind, value)
+                if folded is not None:
+                    return folded
+                # Overflow and non-finite results stay unfolded so the
+                # runtime reports its numeric diagnostic.
         return {**expr, "left": left, "right": right}
     if op == "comparison":
         left = _fold_expr(expr["left"])
@@ -545,7 +559,7 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
         return {**expr, "collection": _fold_expr(expr["collection"]), "item": _fold_expr(expr["item"])}
     if op == "call_array_concat":
         return {**expr, "left": _fold_expr(expr["left"]), "right": _fold_expr(expr["right"])}
-    if op == "call_string":
+    if op in ("call_string", "call_foundation"):
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
     if op == "call_function":
         return {**expr, "arguments": [_fold_expr(argument) for argument in expr["arguments"]]}
@@ -553,7 +567,9 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
         argument = _fold_expr(expr["argument"])
         if _is_const(argument) and _numeric(argument):
             value = float(argument["value"]) if expr["name"] == "float" else int(argument["value"])
-            return _const("float" if expr["name"] == "float" else "int", value)
+            folded = _numeric_const("float" if expr["name"] == "float" else "int", value)
+            if folded is not None:
+                return folded
         return {**expr, "argument": argument}
     if op == "optional_some":
         return {**expr, "value": _fold_expr(expr["value"])}
@@ -565,7 +581,23 @@ def _fold_expr(expr: dict[str, Any]) -> dict[str, Any]:
 
 
 def _numeric(const_expr: dict[str, Any]) -> bool:
-    return const_expr.get("kind") in ("int", "float") and isinstance(const_expr.get("value"), (int, float))
+    value = const_expr.get("value")
+    return (
+        const_expr.get("kind") in ("int", "float")
+        and isinstance(value, (int, float))
+        and not isinstance(value, bool)
+    )
+
+
+def _numeric_const(kind: str, value: Any) -> dict[str, Any] | None:
+    """A folded constant the runtime can represent, or None to leave the
+    expression for the runtime (64-bit Int overflow, non-finite Float)."""
+    if kind == "int":
+        if isinstance(value, int) and -(2**63) <= value < 2**63:
+            return _const("int", value)
+        return None
+    value = float(value)
+    return _const("float", value) if math.isfinite(value) else None
 
 
 def _simplify_branches(blocks_by_id: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -749,15 +781,14 @@ def _is_speculatively_total(expr: dict[str, Any]) -> bool:
     if op in {"const", "local"}:
         return True
     if op == "unary":
-        return _is_speculatively_total(expr["operand"])
+        # Negating the minimum Int overflows (RT-NUM-OVERFLOW).
+        return expr.get("operator") == "Not" and _is_speculatively_total(expr["operand"])
     if op in {"comparison", "logical"}:
         return _is_speculatively_total(expr["left"]) and _is_speculatively_total(expr["right"])
-    if op == "binary":
-        return (
-            expr.get("operator") not in {"Divide", "Modulo"}
-            and _is_speculatively_total(expr["left"])
-            and _is_speculatively_total(expr["right"])
-        )
+    # Every arithmetic operator can trap: `/` and `%` on zero
+    # (RT-ARITH-001), `+`, `-`, `*` on Int or Float overflow
+    # (RT-NUM-OVERFLOW). Hoisting one out of a loop that runs zero times
+    # would raise an error the program never reaches.
     return False
 
 
@@ -844,7 +875,7 @@ def _collect_reads(expr: dict[str, Any], out: set[str]) -> None:
     if op == "member":
         _collect_reads(expr["object"], out)
         return
-    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_foundation", "call_reasoning", "call_function"):
         for argument in expr["arguments"]:
             _collect_reads(argument, out)
         return
@@ -904,6 +935,11 @@ def _is_side_effect_free(expr: dict[str, Any]) -> bool:
         # is only side-effect-*free* (safe to drop if unused), not
         # necessarily exception-free.
         return all(_is_side_effect_free(argument) for argument in expr["arguments"])
+    if op == "call_foundation":
+        # artifact.write_text writes files, and math/sequence/serialize
+        # calls report domain, resource, and overflow diagnostics that an
+        # unused binding must not silently drop.
+        return False
     if op == "call_function":
         return False  # a user function's body may call tensor.save; conservative
     if op in ("call_array_append", "call_array_prepend"):
@@ -1005,7 +1041,7 @@ def _is_cse_eligible(expr: dict[str, Any]) -> bool:
     op = expr.get("op")
     if op in {"relation_filter", "array_builder", "call_array_builder", "call_semantic_event"}:
         return False
-    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_reasoning", "call_function", "call_array_append", "call_array_prepend", "call_array_concat", "assert", "assert_eq"):
+    if op in ("call_tensor", "call_vision", "call_ruo", "call_optimizer", "call_relation", "call_string", "call_foundation", "call_reasoning", "call_function", "call_array_append", "call_array_prepend", "call_array_concat", "assert", "assert_eq"):
         return False  # never dedupe calls: see module docstring
     if op == "const" or op == "local":
         return True

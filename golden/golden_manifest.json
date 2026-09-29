@@ -1,10 +1,12 @@
 {
   "cases": [
+    "invalid/sequence_zero_step",
+    "valid/numeric_data_foundation",
     "valid/single_calculation",
     "valid/vision_language"
   ],
   "language_version": "0.5",
   "schema": "reasonscript-golden-tests/1.0",
-  "total_cases": 2,
+  "total_cases": 4,
   "version": "1.0"
 }

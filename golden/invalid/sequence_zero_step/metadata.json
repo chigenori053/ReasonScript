@@ -1,0 +1,7 @@
+{
+  "category": "Invalid",
+  "expected": "fail",
+  "id": "GT-004",
+  "language_version": "0.7",
+  "name": "sequence_zero_step"
+}

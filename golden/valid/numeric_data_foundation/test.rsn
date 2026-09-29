@@ -1,0 +1,24 @@
+module NumericDataFoundation {
+  struct Dataset {
+    name: string
+    x: [float]
+    y: [float]
+  }
+
+  fn Wave(x: float) -> float {
+    return math.sin(x) + 1 * 0.5
+  }
+
+  calculation Encoded -> string {
+    let xs = sequence.range(0.0, 1.0, 0.25)
+    let ys = array.builder()
+    for x in xs {
+      ys.append(Wave(x))
+    }
+    result = serialize.json(Dataset { name: "sin", x: xs, y: ys.finish() })
+  }
+
+  calculation MixedComparison -> bool {
+    result = 3 == 3.0 && 1 < 1.5
+  }
+}

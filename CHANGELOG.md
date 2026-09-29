@@ -10,6 +10,35 @@
 - Added bounded Vision/Geometry task dispatch through the native cluster runtime.
   Existing Vision 0.1 observations and MIRP 0.1 graph interfaces are retained.
 
+- Started the native visualization toolkit with `reason visualization plot`:
+  deterministic SVG output for line, scatter, bar, drawing shapes, and labeled
+  heatmaps, using a versioned JSON plot input.
+
+- Preserved unsigned JSON integers after member access, corrected
+  `math.approx_equal` at large integer boundaries, and restored all-point
+  native validation of generated sine datasets.
+
+- Preserved unsigned JSON integers above `i64::MAX` in `serialize.json` instead
+  of rounding them through `float`; final foundation validation now checks
+  signed and unsigned boundaries and three-run dataset determinism across sizes.
+
+- Added the general-purpose numeric and data foundation. Mixed `int`/`float`
+  arithmetic now promotes to `float` in the native runtime (previously
+  `2 + 0.5 * 4` passed `reason check` and failed with `IR-EXEC-008`), and mixed
+  comparisons (`1 < 1.5`, `3 == 3.0`) compare exact values instead of failing
+  `TYPE-V005`. Integer and float overflow report `RT-NUM-OVERFLOW` instead of
+  wrapping, returning infinity, or failing IR decoding with `IR-DECODE-001`;
+  `int()` of an out-of-range float reports `RT-NUM-CONVERSION`, and `int()` of
+  an `int` no longer round-trips through `float`. Float values are always finite,
+  underflow and `-0.0` are defined, and float `%` now returns a zero with the
+  divisor's sign. New namespaces: `math.*` scalar functions with `MATH-004`
+  domain errors, bounded index-based `sequence.range` (`SEQ-004`/`SEQ-005`),
+  canonical `serialize.json`, and permission-checked, atomic
+  `artifact.write_text` returning `ArtifactResult`. The optimizer no longer
+  hoists `+`, `-`, `*`, or negation out of loops, since they can now trap.
+  Golden cases `GT-003` (`valid/numeric_data_foundation`) and `GT-004`
+  (`invalid/sequence_zero_step`) were added for the new behavior.
+
 ## [0.5.6.2] - 2026-09-22
 
 - Accept compact one-line function declarations, `array.prepend`, and explicit

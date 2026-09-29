@@ -1,0 +1,5 @@
+module SequenceZeroStep {
+  calculation Values -> [int] {
+    result = sequence.range(0, 10, 0)
+  }
+}

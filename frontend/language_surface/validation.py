@@ -23,6 +23,15 @@ from frontend.relation.integration import (
     predicate_binding,
     validate_relation_call,
 )
+from frontend.foundation.integration import (
+    ARTIFACT_RESULT_FIELDS,
+    ARTIFACT_RESULT_TYPE,
+    FOUNDATION_NAMESPACES,
+    FoundationSemanticError,
+    foundation_call_name,
+    foundation_call_type,
+    validate_foundation_call,
+)
 from frontend.string.integration import (
     StringSemanticError,
     string_call_name,
@@ -301,6 +310,7 @@ RUNTIME_RESULT_TYPES = {
     "PlanningResult",
     "Tensor",
     "TensorArtifactReceipt",
+    "ArtifactResult",
     "VisionObservation",
     "VisionBuildResult",
     # RUO-N2 opaque values are first-class surface types. They expose no
@@ -812,7 +822,7 @@ def _calculation_expression_identifiers(expression: ExpressionNode | Any) -> set
             visit(item.expression)
             return
         if isinstance(item, MemberAccessNode):
-            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo", "optimizer", "relation"}:
+            if isinstance(item.object, IdentifierNode) and item.object.name in {"array", "tensor", "ruo", "optimizer", "relation", *FOUNDATION_NAMESPACES}:
                 return
             visit(item.object)
             return
@@ -1593,7 +1603,7 @@ def _validate_calculation_expression(
                 raise SurfaceValidationError(
                     "NAM-2004 ReasonScript does not support JavaScript runtime APIs such as Js.*. Use 'Console.log' or 'print' instead."
                 )
-            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation", "reasoning", "Console"}:
+            if isinstance(value.object, IdentifierNode) and value.object.name in {"array", "tensor", "ruo", "vision", "optimizer", "relation", "reasoning", "Console", *FOUNDATION_NAMESPACES}:
                 # ``tensor`` is a standard namespace, not a user module or a
                 # mutable value. Callable resolution happens on the enclosing
                 # CallExpressionNode.
@@ -1665,6 +1675,14 @@ def _validate_calculation_expression(
                 else:
                     for argument in value.arguments:
                         visit(argument)
+                return
+            if foundation_call_name(value) is not None:
+                try:
+                    validate_foundation_call(value)
+                except FoundationSemanticError as error:
+                    raise SurfaceValidationError(str(error)) from error
+                for argument in value.arguments:
+                    visit(argument)
                 return
             if string_call_name(value) is not None:
                 try:
@@ -2105,6 +2123,15 @@ def _expression_type(
             raise SurfaceValidationError("OV-4 CannotUseOptionalAsValue")
         if left is _UNKNOWN_TYPE or right is _UNKNOWN_TYPE:
             return PrimitiveTypeNode(PrimitiveKind.BOOL)
+        numeric_kinds = {PrimitiveKind.INT, PrimitiveKind.FLOAT}
+        # Mixed Int/Float comparison compares exact numeric values.
+        if (
+            isinstance(left, PrimitiveTypeNode)
+            and isinstance(right, PrimitiveTypeNode)
+            and left.kind in numeric_kinds
+            and right.kind in numeric_kinds
+        ):
+            return PrimitiveTypeNode(PrimitiveKind.BOOL)
         if left != right:
             raise SurfaceValidationError(
                 "TYPE-V005 comparison operands must have the same type"
@@ -2142,6 +2169,16 @@ def _expression_type(
             return object_type.element_types[index]
         if isinstance(object_type, (ArrayTypeNode, SetTypeNode, MapTypeNode, TupleTypeNode)) and value.member == "length":
             return PrimitiveTypeNode(PrimitiveKind.INT)
+        if (
+            object_type == NamedTypeNode(ARTIFACT_RESULT_TYPE)
+            and not isinstance(symbols.get(ARTIFACT_RESULT_TYPE), StructDeclarationNode)
+        ):
+            field_type = ARTIFACT_RESULT_FIELDS.get(value.member)
+            if field_type is None:
+                raise SurfaceValidationError(
+                    f"TV-9 unknown field {value.member} on {ARTIFACT_RESULT_TYPE}"
+                )
+            return field_type
         if isinstance(object_type, NamedTypeNode):
             struct = symbols.get(object_type.name)
             if isinstance(struct, StructDeclarationNode):
@@ -2375,6 +2412,20 @@ def _expression_type(
                 if predicate_type != PrimitiveTypeNode(PrimitiveKind.BOOL):
                     raise SurfaceValidationError("REL-PRED-003 relation predicate must return Bool")
             return rows_type
+        foundation_function = foundation_call_name(value)
+        if foundation_function is not None:
+            try:
+                validate_foundation_call(value)
+                argument_types = [
+                    _expression_type(argument, symbols, bindings) for argument in value.arguments
+                ]
+                if foundation_function == "serialize.json" and isinstance(argument_types[0], _BuilderType):
+                    raise FoundationSemanticError(
+                        "SER-003", "serialize.json does not support ArrayBuilder values"
+                    )
+                return foundation_call_type(foundation_function, argument_types, _UNKNOWN_TYPE)
+            except FoundationSemanticError as error:
+                raise SurfaceValidationError(str(error)) from error
         string_function = string_call_name(value)
         if string_function is not None:
             try:
