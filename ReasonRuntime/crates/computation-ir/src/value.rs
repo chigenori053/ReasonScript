@@ -303,11 +303,18 @@ pub fn from_json(value: serde_json::Value) -> Value {
     match value {
         serde_json::Value::Null => Value::Null,
         serde_json::Value::Bool(value) => Value::Bool(value),
-        serde_json::Value::Number(value) => value
-            .as_i64()
-            .map(Value::Int)
-            .or_else(|| value.as_f64().map(Value::Float))
-            .unwrap_or(Value::Null),
+        serde_json::Value::Number(value) => {
+            if let Some(integer) = value.as_i64() {
+                Value::Int(integer)
+            } else if value.as_u64().is_some() {
+                // Preserve unsigned values beyond Int's range for serialization.
+                Value::Json(Rc::new(serde_json::Value::Number(value)))
+            } else if let Some(float) = value.as_f64() {
+                Value::Float(float)
+            } else {
+                Value::Json(Rc::new(serde_json::Value::Number(value)))
+            }
+        }
         serde_json::Value::String(value) => Value::String(Rc::from(value)),
         serde_json::Value::Array(values) => Value::Array(Rc::new(RefCell::new(
             values.into_iter().map(from_json).collect(),

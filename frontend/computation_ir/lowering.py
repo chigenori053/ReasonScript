@@ -12,6 +12,7 @@ handle (map/set literals and reason_object graph queries) raise
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from typing import Any
 
@@ -78,6 +79,7 @@ from frontend.language_surface.nodes import (
     WildcardPatternNode,
 )
 from frontend.relation.integration import predicate_binding, relation_call_name
+from frontend.foundation.integration import foundation_call_name
 from frontend.string.integration import string_call_name
 from frontend.tensor.integration import tensor_call_name
 from frontend.tensor.optimizers import optimizer_call_name
@@ -87,6 +89,8 @@ from frontend.console.integration import console_call_name
 from .schema import SCHEMA
 
 _SCALAR_CAST_NAMES = {"float", "int"}
+_INT_MIN = -(2**63)
+_INT_MAX = 2**63 - 1
 _ASSERT_NAMES = {"assert", "assert_eq"}
 
 
@@ -691,8 +695,12 @@ def _lower_expression(value: Any, declared_functions: _Scope) -> dict[str, Any]:
         return node
 
     if isinstance(value, IntegerLiteralNode):
+        if not _INT_MIN <= value.value <= _INT_MAX:
+            raise LoweringError("EX-V001", "IntegerLiteralNode.value must fit int64")
         return spanned({"op": "const", "kind": "int", "value": value.value})
     if isinstance(value, FloatLiteralNode):
+        if not math.isfinite(value.value):
+            raise LoweringError("EX-V001", "FloatLiteralNode.value is invalid")
         return spanned({"op": "const", "kind": "float", "value": value.value})
     if isinstance(value, BooleanLiteralNode):
         return spanned({"op": "const", "kind": "bool", "value": value.value})
@@ -857,6 +865,13 @@ def _lower_call(value: CallExpressionNode, declared_functions: _Scope) -> dict[s
         return {
             "op": "call_relation",
             "function_id": relation_function,
+            "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
+        }
+    foundation_function = foundation_call_name(value)
+    if foundation_function is not None:
+        return {
+            "op": "call_foundation",
+            "function_id": foundation_function,
             "arguments": [_lower_expression(argument, declared_functions) for argument in value.arguments],
         }
     string_function = string_call_name(value)

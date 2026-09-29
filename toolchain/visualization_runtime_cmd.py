@@ -86,8 +86,8 @@ def _validate_phase(directory: Path) -> dict[str, Any]:
 def run(args: list[str], root: Path) -> int:
     operation = args[0] if args else ""
     json_output = "--json" in args
-    if operation not in {"project", "project-vision", "validate", "verify-native", "generate", "validate-phase"}:
-        print("Usage: reason visualization <project|project-vision|validate|verify-native|generate|validate-phase> ...")
+    if operation not in {"project", "project-vision", "validate", "verify-native", "generate", "validate-phase", "plot"}:
+        print("Usage: reason visualization <project|project-vision|plot|validate|verify-native|generate|validate-phase> ...")
         return 1
     if operation == "generate":
         output = _path(_option(args, "--output") or "artifacts/semantic_visualization_runtime/v0_1")

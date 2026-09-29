@@ -273,6 +273,18 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         max_call_depth,
         max_loop_iterations,
     );
+    vm.configure_foundation_limits(
+        limit(
+            limits,
+            "max_sequence_elements",
+            reasonscript_computation_ir::foundation_dispatch::DEFAULT_MAX_SEQUENCE_ELEMENTS,
+        ),
+        limit(
+            limits,
+            "max_artifact_text_bytes",
+            reasonscript_computation_ir::foundation_dispatch::DEFAULT_MAX_ARTIFACT_TEXT_BYTES,
+        ),
+    );
     let semantic_events = request
         .pointer("/context/reasoning/semantic_events")
         .and_then(serde_json::Value::as_bool)

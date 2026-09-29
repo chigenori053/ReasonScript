@@ -67,6 +67,8 @@ pub struct Vm<'a> {
     functions: HashMap<&'a str, &'a Function>,
     max_loop_iterations: u64,
     max_call_depth: u32,
+    max_sequence_elements: usize,
+    max_artifact_text_bytes: usize,
     tensors: RefCell<reasonscript_tensor_core::TensorStore>,
     reason_objects: RefCell<HashMap<String, Value>>,
     reasoning_bindings: HashMap<String, Value>,
@@ -219,6 +221,8 @@ impl<'a> Vm<'a> {
             functions,
             max_loop_iterations,
             max_call_depth,
+            max_sequence_elements: crate::foundation_dispatch::DEFAULT_MAX_SEQUENCE_ELEMENTS,
+            max_artifact_text_bytes: crate::foundation_dispatch::DEFAULT_MAX_ARTIFACT_TEXT_BYTES,
             tensors: RefCell::new(tensors),
             reason_objects: RefCell::new(HashMap::new()),
             reasoning_bindings: program
@@ -284,6 +288,18 @@ impl<'a> Vm<'a> {
         self.trace_enabled = config.mode != TraceMode::Off;
         self.trace_config = config;
         self.semantic_events = semantic_events;
+    }
+
+    /// Resource limits for `sequence.range` and `artifact.write_text`
+    /// (`context.limits.max_sequence_elements` /
+    /// `context.limits.max_artifact_text_bytes`).
+    pub fn configure_foundation_limits(
+        &mut self,
+        max_sequence_elements: usize,
+        max_artifact_text_bytes: usize,
+    ) {
+        self.max_sequence_elements = max_sequence_elements;
+        self.max_artifact_text_bytes = max_artifact_text_bytes;
     }
 
     pub fn configure_reason_units(&mut self, mode: ReasonUnitMode) {
@@ -1120,7 +1136,12 @@ impl<'a> Vm<'a> {
             } => {
                 let value = self.eval_expr(operand, env, call_depth)?;
                 match (operator.as_str(), value) {
-                    ("Negate", Value::Int(v)) => Ok(Value::Int(-v)),
+                    ("Negate", Value::Int(v)) => v.checked_neg().map(Value::Int).ok_or_else(|| {
+                        RuntimeError::new(
+                            crate::numeric::OVERFLOW,
+                            "integer negation overflows the 64-bit Int range",
+                        )
+                    }),
                     ("Negate", Value::Float(v)) => Ok(Value::Float(-v)),
                     ("Not", Value::Bool(v)) => Ok(Value::Bool(!v)),
                     (op, other) => Err(RuntimeError::new(
@@ -1672,6 +1693,26 @@ impl<'a> Vm<'a> {
                 }
                 crate::string_dispatch::call(function_id, values)
             }
+            Expr::CallFoundation {
+                function_id,
+                arguments,
+                ..
+            } => {
+                let _guard = TempRootGuard::new(self);
+                let mut values = Vec::with_capacity(arguments.len());
+                for argument in arguments {
+                    let val = self.eval_expr(argument, env, call_depth)?;
+                    self.push_temporary_root(val.clone());
+                    values.push(val);
+                }
+                let context = crate::foundation_dispatch::FoundationContext {
+                    resource_root: &self.resource_root,
+                    filesystem_write: self.filesystem_write,
+                    max_sequence_elements: self.max_sequence_elements,
+                    max_artifact_bytes: self.max_artifact_text_bytes,
+                };
+                crate::foundation_dispatch::call(function_id, values, &context)
+            }
             Expr::CallConsole {
                 function_id,
                 arguments,
@@ -1688,24 +1729,7 @@ impl<'a> Vm<'a> {
             }
             Expr::CallCast { name, argument, .. } => {
                 let value = self.eval_expr(argument, env, call_depth)?;
-                let numeric = match value {
-                    Value::Int(v) => v as f64,
-                    Value::Float(v) => v,
-                    other => {
-                        return Err(RuntimeError::new(
-                            "RT-CALL-005",
-                            format!(
-                                "{name}() argument must be Int or Float, got {}",
-                                other.type_name()
-                            ),
-                        ))
-                    }
-                };
-                if name == "float" {
-                    Ok(Value::Float(numeric))
-                } else {
-                    Ok(Value::Int(numeric.trunc() as i64))
-                }
+                crate::numeric::cast(name, value)
             }
             Expr::CallFunction {
                 name, arguments, ..
@@ -1906,8 +1930,10 @@ fn const_value(kind: &str, value: &serde_json::Value) -> Result<Value, RuntimeEr
             .as_i64()
             .map(Value::Int)
             .ok_or_else(|| RuntimeError::new("IR-EXEC-008", "malformed int constant")),
+        // An integral float literal may arrive as a JSON integer.
         "float" => value
             .as_f64()
+            .filter(|value| value.is_finite())
             .map(Value::Float)
             .ok_or_else(|| RuntimeError::new("IR-EXEC-008", "malformed float constant")),
         "bool" => value
@@ -2044,31 +2070,70 @@ fn eval_binary(operator: &str, left: Value, right: Value) -> Result<Value, Runti
             ));
         }
     }
+    let overflow = || {
+        RuntimeError::new(
+            crate::numeric::OVERFLOW,
+            format!("integer {operator} overflows the 64-bit Int range"),
+        )
+    };
     match (operator, left, right) {
-        ("Add", Value::Int(a), Value::Int(b)) => Ok(Value::Int(a + b)),
-        ("Add", Value::Float(a), Value::Float(b)) => Ok(Value::Float(a + b)),
-        ("Subtract", Value::Int(a), Value::Int(b)) => Ok(Value::Int(a - b)),
-        ("Subtract", Value::Float(a), Value::Float(b)) => Ok(Value::Float(a - b)),
-        ("Multiply", Value::Int(a), Value::Int(b)) => Ok(Value::Int(a * b)),
-        ("Multiply", Value::Float(a), Value::Float(b)) => Ok(Value::Float(a * b)),
-        // `/` always performs true division at runtime on the Python
-        // side (Int / Int -> Float too), matching the L-006 type-checker
-        // fix in frontend/language_surface/validation.py.
-        ("Divide", Value::Int(a), Value::Int(b)) => Ok(Value::Float(a as f64 / b as f64)),
-        ("Divide", Value::Float(a), Value::Float(b)) => Ok(Value::Float(a / b)),
+        ("Add", Value::Int(a), Value::Int(b)) => {
+            a.checked_add(b).map(Value::Int).ok_or_else(overflow)
+        }
+        ("Subtract", Value::Int(a), Value::Int(b)) => {
+            a.checked_sub(b).map(Value::Int).ok_or_else(overflow)
+        }
+        ("Multiply", Value::Int(a), Value::Int(b)) => {
+            a.checked_mul(b).map(Value::Int).ok_or_else(overflow)
+        }
+        // `/` always performs true division (Int / Int -> Float too),
+        // matching the L-006 type-checker rule in
+        // frontend/language_surface/validation.py.
+        ("Divide", Value::Int(a), Value::Int(b)) => {
+            crate::numeric::finite(operator, a as f64 / b as f64).map(Value::Float)
+        }
         // Python's `%` is floor-modulo (result takes the sign of the
         // divisor), unlike Rust's `%` (truncating remainder, sign of the
         // dividend) -- rem_euclid-with-sign-correction reproduces it.
-        ("Modulo", Value::Int(a), Value::Int(b)) => Ok(Value::Int(python_mod_i64(a, b))),
-        ("Modulo", Value::Float(a), Value::Float(b)) => Ok(Value::Float(python_mod_f64(a, b))),
-        (op, left, right) => Err(RuntimeError::new(
-            "RT-TYPE-001",
-            format!(
-                "{op} is not defined for {} and {}",
-                left.type_name(),
-                right.type_name()
-            ),
-        )),
+        ("Modulo", Value::Int(a), Value::Int(b)) => {
+            if a == i64::MIN && b == -1 {
+                Ok(Value::Int(0))
+            } else {
+                Ok(Value::Int(python_mod_i64(a, b)))
+            }
+        }
+        // GND-1 numeric promotion: any Float operand promotes an Int
+        // operand to Float, so `int OP float` and `float OP int` both
+        // evaluate as `float OP float`.
+        (op, left, right) => match (
+            crate::numeric::as_f64(&left),
+            crate::numeric::as_f64(&right),
+        ) {
+            (Some(a), Some(b)) => {
+                let value = match op {
+                    "Add" => a + b,
+                    "Subtract" => a - b,
+                    "Multiply" => a * b,
+                    "Divide" => a / b,
+                    "Modulo" => python_mod_f64(a, b),
+                    other => {
+                        return Err(RuntimeError::new(
+                            "RT-TYPE-001",
+                            format!("unknown arithmetic operator: {other}"),
+                        ))
+                    }
+                };
+                crate::numeric::finite(op, value).map(Value::Float)
+            }
+            _ => Err(RuntimeError::new(
+                "RT-TYPE-001",
+                format!(
+                    "{op} is not defined for {} and {}",
+                    left.type_name(),
+                    right.type_name()
+                ),
+            )),
+        },
     }
 }
 
@@ -2083,7 +2148,10 @@ fn python_mod_i64(a: i64, b: i64) -> i64 {
 
 fn python_mod_f64(a: f64, b: f64) -> f64 {
     let remainder = a % b;
-    if remainder != 0.0 && (remainder < 0.0) != (b < 0.0) {
+    if remainder == 0.0 {
+        // A zero remainder takes the sign of the divisor, as in Python.
+        0.0_f64.copysign(b)
+    } else if (remainder < 0.0) != (b < 0.0) {
         remainder + b
     } else {
         remainder
@@ -2095,16 +2163,24 @@ pub(crate) fn eval_comparison(
     left: Value,
     right: Value,
 ) -> Result<Value, RuntimeError> {
+    let mixed = crate::numeric::compare_mixed(&left, &right);
     if operator == "Equal" {
-        return Ok(Value::Bool(left == right));
+        return Ok(Value::Bool(match mixed {
+            Some(ordering) => ordering.is_eq(),
+            None => left == right,
+        }));
     }
     if operator == "NotEqual" {
-        return Ok(Value::Bool(left != right));
+        return Ok(Value::Bool(match mixed {
+            Some(ordering) => !ordering.is_eq(),
+            None => left != right,
+        }));
     }
     let ordering = match (&left, &right) {
         (Value::Int(a), Value::Int(b)) => a.partial_cmp(b),
         (Value::Float(a), Value::Float(b)) => a.partial_cmp(b),
         (Value::String(a), Value::String(b)) => a.partial_cmp(b),
+        _ if mixed.is_some() => mixed,
         _ => {
             return Err(RuntimeError::new(
                 "RT-TYPE-001",
@@ -2188,6 +2264,16 @@ fn member_lookup(owner: Value, member: &str) -> Result<Value, RuntimeError> {
 mod tests {
     use super::*;
     use crate::ir::decode;
+
+    #[test]
+    fn json_member_preserves_unsigned_integer_for_serialization() {
+        let object = Value::Json(Rc::new(serde_json::json!({"value": u64::MAX})));
+        let member = member_lookup(object, "value").unwrap();
+        assert_eq!(
+            crate::foundation_dispatch::serialize_json(&member).unwrap(),
+            u64::MAX.to_string()
+        );
+    }
 
     #[test]
     fn python_mod_matches_python_floor_semantics() {
