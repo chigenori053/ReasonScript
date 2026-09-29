@@ -62,16 +62,19 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     ids = {item["id"] for item in manifest["components"]}
     assert {item[0] for item in COMPONENTS} <= ids
     assert "vision-runtime-v0.1" in ids
+    assert "geometry-runtime-v0.1" in ids
     assert "semantic-visualization-runtime-v0.1" in ids
     assert "reasonunit-runtime-v1.0" in ids
     assert "runtime-host-v1.0" in ids
     assert "cluster-runtime-v0.2" in ids
     assert (home / "current/ReasonRuntime/crates/vision-core/Cargo.toml").is_file()
+    assert (home / "current/ReasonRuntime/crates/geometry-core/Cargo.toml").is_file()
     assert (home / "current/ReasonRuntime/crates/reason-object-core/Cargo.toml").is_file()
     assert (home / "current/VisualizationRuntime/Cargo.toml").is_file()
     assert (home / "current/ReasonRuntime/Cargo.toml").is_file()
     assert (home / "current/ClusterRuntime/Cargo.toml").is_file()
     assert (home / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
+    assert (home / "current/bin" / ("reason-geometry.exe" if os.name == "nt" else "reason-geometry")).is_file()
     assert (home / "current/bin" / ("reason-visualization.exe" if os.name == "nt" else "reason-visualization")).is_file()
     reasonunit_binary = home / "current/bin" / (
         "reasonunit-runtime-native.exe"

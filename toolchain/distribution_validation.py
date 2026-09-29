@@ -36,6 +36,7 @@ COMPONENTS = (
     ("canonical-fixtures", "canonical_fixtures"),
     ("ml-evaluation-visualization-v0.2", "runtime/visualization/evaluation"),
     ("vision-runtime-v0.1", "ReasonRuntime/crates/vision-core"),
+    ("geometry-runtime-v0.1", "ReasonRuntime/crates/geometry-core"),
     ("semantic-visualization-runtime-v0.1", "VisualizationRuntime"),
     ("reasonunit-runtime-v1.0", "ReasonRuntime/crates/reason-object-core"),
     ("runtime-host-v1.0", "ReasonRuntime"),
@@ -69,6 +70,7 @@ INTEGRITY_ENTRY_POINTS = (
     "reason", "VERSION", "LICENSE", "scripts/reason_cli.py", "toolchain/__main__.py",
     "playground/backend/main.py", "metadata/release_manifest.json",
     "ReasonRuntime/crates/vision-core/Cargo.toml", "frontend/vision/contracts.py",
+    "ReasonRuntime/crates/geometry-core/Cargo.toml",
     "VisualizationRuntime/Cargo.toml",
     "ReasonRuntime/crates/reason-object-core/Cargo.toml",
     "ReasonRuntime/Cargo.toml",
@@ -142,6 +144,18 @@ def validate_staged_distribution(root: Path, repository_root: Path | None = None
     if not (root / "schemas/vision_observation.schema.json").is_file():
         raise DistributionError("IF-DC-006", "Vision observation schema is missing.", "vision-runtime", "schemas/vision_observation.schema.json")
     payload["vision_runtime"] = {"path": str(vision_binary), "profile": native.get("profile"), "unsafe_blocks": 0}
+    geometry_binary = _geometry_binary(root)
+    if geometry_binary is None:
+        raise DistributionError("IF-DC-001", "Required Geometry Runtime executable is missing.", "geometry-runtime", "bin/reason-geometry")
+    geometry_fixture = root / "canonical_fixtures/vision_runtime/solar_observation.json"
+    proc = subprocess.run([str(geometry_binary), "observe", str(geometry_fixture)], cwd=tempfile.gettempdir(), text=True, capture_output=True)
+    try:
+        geometry_native = json.loads(proc.stdout)
+    except json.JSONDecodeError as error:
+        raise DistributionError("IF-DC-003", "Geometry Runtime smoke output is invalid.", "geometry-runtime", str(geometry_binary)) from error
+    if proc.returncode or geometry_native.get("ok") is not True or geometry_native.get("observation", {}).get("schema_version") != "reasonscript-visual-observation/1.0":
+        raise DistributionError("IF-DC-003", "Geometry Runtime smoke validation failed.", "geometry-runtime", str(geometry_binary))
+    payload["geometry_runtime"] = {"path": str(geometry_binary), "profile": "reasonscript-visual-observation/1.0"}
     visualization_binary = _visualization_binary(root)
     if visualization_binary is None:
         raise DistributionError("IF-DC-001", "Required Semantic Visualization Runtime executable is missing.", "semantic-visualization-runtime", "bin/reason-visualization")
@@ -271,6 +285,12 @@ def _reasonunit_binary(root: Path) -> Path | None:
 def _visualization_binary(root: Path) -> Path | None:
     name = "reason-visualization.exe" if os.name == "nt" else "reason-visualization"
     candidates = (root / "bin" / name, root / "VisualizationRuntime" / "target" / "release" / name, root / "VisualizationRuntime" / "target" / "debug" / name)
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def _geometry_binary(root: Path) -> Path | None:
+    name = "reason-geometry.exe" if os.name == "nt" else "reason-geometry"
+    candidates = (root / "bin" / name, root / "ReasonRuntime" / "target" / "release" / name, root / "ReasonRuntime" / "target" / "debug" / name)
     return next((path for path in candidates if path.is_file()), None)
 
 
