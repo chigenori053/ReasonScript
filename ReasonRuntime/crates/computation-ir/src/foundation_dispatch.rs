@@ -386,6 +386,9 @@ fn write_json(
         serde_json::Value::Bool(value) => output.push_str(if *value { "true" } else { "false" }),
         serde_json::Value::Number(number) => match number.as_i64() {
             Some(value) => output.push_str(&value.to_string()),
+            None if number.as_u64().is_some() => {
+                output.push_str(&number.as_u64().unwrap().to_string());
+            }
             None => {
                 let value = number.as_f64().unwrap_or(f64::NAN);
                 finite("serialize.json", value)?;
@@ -828,8 +831,22 @@ mod tests {
     }
 
     #[test]
+    fn json_number_boundaries_keep_integer_precision() {
+        for number in [
+            i64::MIN.to_string(),
+            i64::MAX.to_string(),
+            (1_u64 << 53).to_string(),
+            ((1_u64 << 53) + 1).to_string(),
+            u64::MAX.to_string(),
+        ] {
+            let json: serde_json::Value = serde_json::from_str(&number).unwrap();
+            assert_eq!(serialize_json(&Value::Json(Rc::new(json))).unwrap(), number);
+        }
+    }
+
+    #[test]
     fn artifact_paths_are_confined() {
-        for path in ["", "/etc/passwd", "../x", "a/../b", "./a", "a//b", "a\\b"] {
+        for path in ["", "/etc/passwd", "../x", "a/../b", "./a", "a//b", "a\\b", "a\0b"] {
             assert_eq!(
                 artifact_components(path).unwrap_err().code,
                 "ART-005",

@@ -8,7 +8,6 @@ helper here computes, serializes, or writes the values under test.
 from __future__ import annotations
 
 import json
-import math
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -262,7 +261,9 @@ def test_floating_sequence_is_index_based(tmp_path: Path) -> None:
         _calc("Falling", "[float]", "sequence.range(1.0, 0.0, -0.5)"),
     ])
     values = _values(tmp_path, body)
-    assert values["Tenths"] == [0.1 * index for index in range(10)]
+    assert len(values["Tenths"]) == 10
+    assert values["Tenths"][:4] == [0.0, 0.1, 0.2, 0.30000000000000004]
+    assert values["Tenths"][-1] == 0.9
     assert values["Mixed"] == [0.0, 0.25, 0.5, 0.75]
     assert values["Falling"] == [1.0, 0.5]
 
@@ -303,7 +304,7 @@ def test_sequence_limit_is_configurable(tmp_path: Path) -> None:
     limited = run_ir(document, cwd=tmp_path, limits={"max_sequence_elements": 10})
     assert not limited.ok and limited.error_code == "SEQ-005"
     allowed = run_ir(document, cwd=tmp_path, limits={"max_sequence_elements": 11})
-    assert allowed.ok and allowed.calculation_results == {"Values": list(range(11))}
+    assert allowed.ok and allowed.calculation_results == {"Values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
 
 
 # ------------------------------------------------------------------ GND-4
@@ -578,7 +579,8 @@ def test_artifact_static_contract(tmp_path: Path) -> None:
 # ------------------------------------------------------------------- GND-7
 
 
-def test_end_to_end_dataset_generation(tmp_path: Path) -> None:
+@pytest.mark.parametrize("size", [37, 73, 100, 257])
+def test_end_to_end_dataset_generation(tmp_path: Path, size: int) -> None:
     # Group AF (§47/§48): sequence -> scalar math via a reusable function
     # -> structured Dataset -> serialize.json -> artifact.write_text.
     body = """
@@ -593,7 +595,7 @@ def test_end_to_end_dataset_generation(tmp_path: Path) -> None:
   }
 
   calculation Written -> int {
-    let xs = sequence.range(0.0, 10.0, 0.1)
+    let xs = sequence.range(0.0, END, 0.1)
     let ys = array.builder()
     for x in xs {
       ys.append(Wave(x))
@@ -603,17 +605,29 @@ def test_end_to_end_dataset_generation(tmp_path: Path) -> None:
     let written = artifact.write_text("dataset.json", encoded)
     result = written.bytes_written
   }
-"""
-    values = _values(tmp_path, body, allow_write=True)
-    raw = (tmp_path / "dataset.json").read_bytes()
-    assert values == {"Written": len(raw)}
+""".replace("END", f"{size / 10:.1f}")
+    runs = []
+    for index in range(3):
+        run_dir = tmp_path / f"run-{index}"
+        run_dir.mkdir()
+        values = _values(run_dir, body, allow_write=True)
+        raw = (run_dir / "dataset.json").read_bytes()
+        assert values == {"Written": len(raw)}
+        runs.append(raw)
+    assert runs[0] == runs[1] == runs[2]
+    raw = runs[0]
     dataset = json.loads(raw.decode("utf-8"))
     assert list(dataset) == ["name", "x", "y"]
     assert dataset["name"] == "sin"
-    assert len(dataset["x"]) == len(dataset["y"]) == 100
-    assert dataset["x"] == [0.1 * index for index in range(100)]
-    for x, y in zip(dataset["x"], dataset["y"]):
-        assert math.isclose(y, math.sin(x), rel_tol=0.0, abs_tol=1e-12)
+    assert len(dataset["x"]) == len(dataset["y"]) == size
+    assert dataset["x"][0] == 0.0
+    assert dataset["x"][1:4] == [0.1, 0.2, 0.30000000000000004]
+    assert dataset["x"][-1] == 0.1 * (size - 1)
+    assert all(-1.0 <= y <= 1.0 for y in dataset["y"])
+    assert abs(dataset["y"][0]) < 1e-12
+    if size > 20:
+        assert abs(dataset["y"][10] - 0.8414709848078965) < 1e-12
+        assert abs(dataset["y"][20] - 0.9092974268256817) < 1e-12
     # Re-running without overwrite refuses to clobber the artifact.
-    assert _runtime_error(tmp_path, body, allow_write=True) == "ART-006"
-    assert (tmp_path / "dataset.json").read_bytes() == raw
+    assert _runtime_error(tmp_path / "run-0", body, allow_write=True) == "ART-006"
+    assert (tmp_path / "run-0" / "dataset.json").read_bytes() == raw

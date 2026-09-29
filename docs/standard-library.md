@@ -368,6 +368,9 @@ Returns canonical JSON text for a value, without writing anything:
 | `some(x)` / `none` | the JSON for `x` / `null` |
 | enum value | the string `"Enum.Variant"` |
 
+JSON numeric values from runtime data keep signed and unsigned integer digits
+through `u64::MAX`; they are not rounded through `float` during serialization.
+
 The output has no insignificant whitespace, is UTF-8 (non-ASCII characters are
 written as-is), and escapes `"`, `\`, and control characters (`\n`, `\t`, `\r`,
 `\b`, `\f`, otherwise `\u00xx`). Serializing equal values always produces

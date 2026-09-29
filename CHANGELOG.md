@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserved unsigned JSON integers above `i64::MAX` in `serialize.json` instead
+  of rounding them through `float`; final foundation validation now checks
+  signed and unsigned boundaries and three-run dataset determinism across sizes.
+
 - Added the general-purpose numeric and data foundation. Mixed `int`/`float`
   arithmetic now promotes to `float` in the native runtime (previously
   `2 + 0.5 * 4` passed `reason check` and failed with `IR-EXEC-008`), and mixed
