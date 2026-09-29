@@ -64,10 +64,15 @@ def run(command: str, args: list[str], project_root: Path) -> int:
 
 
 def _invoke(project_root: Path, args: list[str], stdin: dict[str, Any] | None = None) -> int:
-    crate = project_root / "ClusterRuntime"
-    binary = crate / "target" / "debug" / ("reason-cluster.exe" if os.name == "nt" else "reason-cluster")
-    sources = [*(crate / "src").rglob("*.rs"), *(project_root / "ReasonRuntime/crates/geometry-core/src").glob("*.rs"), *(project_root / "ReasonRuntime/crates/vision-core/src").glob("*.rs")]
-    if binary.is_file() and binary.stat().st_mtime_ns >= max(path.stat().st_mtime_ns for path in sources):
+    distribution_root = Path(__file__).resolve().parents[1]
+    crate = distribution_root / "ClusterRuntime"
+    name = "reason-cluster.exe" if os.name == "nt" else "reason-cluster"
+    installed = distribution_root / "bin" / name
+    binary = crate / "target" / "debug" / name
+    sources = [*(crate / "src").rglob("*.rs"), *(distribution_root / "ReasonRuntime/crates/geometry-core/src").glob("*.rs"), *(distribution_root / "ReasonRuntime/crates/vision-core/src").glob("*.rs")]
+    if installed.is_file():
+        command = [str(installed), *args]
+    elif binary.is_file() and binary.stat().st_mtime_ns >= max(path.stat().st_mtime_ns for path in sources):
         command = [str(binary), *args]
     else:
         command = ["cargo", "run", "--offline", "--quiet", "--manifest-path", str(crate / "Cargo.toml"), "--bin", "reason-cluster", "--", *args]
@@ -97,6 +102,7 @@ def _runtime_context(project_root: Path, source_path: Path) -> dict[str, Any]:
     name = "reason-runtime-host.exe" if os.name == "nt" else "reason-runtime-host"
     home = os.environ.get("REASONSCRIPT_HOME")
     candidates = ([Path(home) / "current" / "bin" / name] if home else []) + [
+        Path(__file__).resolve().parents[1] / "bin" / name,
         project_root / "bin" / name,
         project_root / "ReasonRuntime" / "target" / "debug" / name,
         project_root / "ReasonRuntime" / "target" / "release" / name,
