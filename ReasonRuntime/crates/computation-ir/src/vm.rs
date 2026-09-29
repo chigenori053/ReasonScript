@@ -2266,6 +2266,16 @@ mod tests {
     use crate::ir::decode;
 
     #[test]
+    fn json_member_preserves_unsigned_integer_for_serialization() {
+        let object = Value::Json(Rc::new(serde_json::json!({"value": u64::MAX})));
+        let member = member_lookup(object, "value").unwrap();
+        assert_eq!(
+            crate::foundation_dispatch::serialize_json(&member).unwrap(),
+            u64::MAX.to_string()
+        );
+    }
+
+    #[test]
     fn python_mod_matches_python_floor_semantics() {
         // Python: 7 % 3 == 1, -7 % 3 == 2, 7 % -3 == -2, -7 % -3 == -1
         assert_eq!(python_mod_i64(7, 3), 1);

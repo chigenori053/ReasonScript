@@ -184,6 +184,19 @@ fn call_math(function_id: &str, args: &[Value]) -> VResult {
             if tolerance < 0.0 {
                 return Err(domain(function_id, "tolerance must be >= 0"));
             }
+            if tolerance == 0.0 {
+                let equal = numeric::compare_mixed(&args[0], &args[1])
+                    .map_or(args[0] == args[1], |order| order.is_eq());
+                return Ok(Value::Bool(equal));
+            }
+            if let (Value::Int(left), Value::Int(right)) = (&args[0], &args[1]) {
+                let distance = (i128::from(*left) - i128::from(*right)).unsigned_abs();
+                let bound = match &args[2] {
+                    Value::Int(value) => *value as u128,
+                    _ => tolerance as u128,
+                };
+                return Ok(Value::Bool(distance <= bound));
+            }
             // |a - b| may exceed the Float range for finite inputs; such a
             // difference is never within a finite tolerance.
             Ok(Value::Bool((a - b).abs() <= tolerance))
@@ -846,7 +859,16 @@ mod tests {
 
     #[test]
     fn artifact_paths_are_confined() {
-        for path in ["", "/etc/passwd", "../x", "a/../b", "./a", "a//b", "a\\b", "a\0b"] {
+        for path in [
+            "",
+            "/etc/passwd",
+            "../x",
+            "a/../b",
+            "./a",
+            "a//b",
+            "a\\b",
+            "a\0b",
+        ] {
             assert_eq!(
                 artifact_components(path).unwrap_err().code,
                 "ART-005",

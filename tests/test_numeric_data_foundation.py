@@ -148,9 +148,13 @@ def test_exact_and_approximate_float_equality(tmp_path: Path) -> None:
         _calc("Approx", "bool", "math.approx_equal(0.1 + 0.2, 0.3, 1.0e-12)"),
         _calc("Outside", "bool", "math.approx_equal(1.0, 1.1, 0.01)"),
         _calc("Boundary", "bool", "math.approx_equal(1, 1.5, 0.5)"),
+        _calc("LargeDistinct", "bool", "math.approx_equal(9007199254740992, 9007199254740993, 0)"),
+        _calc("MixedDistinct", "bool", "math.approx_equal(9007199254740993, 9007199254740992.0, 0.0)"),
+        _calc("LargeWithin", "bool", "math.approx_equal(9007199254740992, 9007199254740993, 1)"),
     ])
     assert _values(tmp_path, body) == {
         "Exact": False, "Approx": True, "Outside": False, "Boundary": True,
+        "LargeDistinct": False, "MixedDistinct": False, "LargeWithin": True,
     }
     assert _runtime_error(tmp_path, _calc("Bad", "bool", "math.approx_equal(1.0, 1.0, -0.1)")) == "MATH-004"
 
@@ -605,6 +609,14 @@ def test_end_to_end_dataset_generation(tmp_path: Path, size: int) -> None:
     let written = artifact.write_text("dataset.json", encoded)
     result = written.bytes_written
   }
+
+  calculation Expected -> [float] {
+    let ys = array.builder()
+    for x in sequence.range(0.0, END, 0.1) {
+      ys.append(math.sin(x))
+    }
+    result = ys.finish()
+  }
 """.replace("END", f"{size / 10:.1f}")
     runs = []
     for index in range(3):
@@ -612,18 +624,19 @@ def test_end_to_end_dataset_generation(tmp_path: Path, size: int) -> None:
         run_dir.mkdir()
         values = _values(run_dir, body, allow_write=True)
         raw = (run_dir / "dataset.json").read_bytes()
-        assert values == {"Written": len(raw)}
-        runs.append(raw)
+        assert values["Written"] == len(raw)
+        runs.append((values, raw))
     assert runs[0] == runs[1] == runs[2]
-    raw = runs[0]
+    values, raw = runs[0]
     dataset = json.loads(raw.decode("utf-8"))
     assert list(dataset) == ["name", "x", "y"]
     assert dataset["name"] == "sin"
-    assert len(dataset["x"]) == len(dataset["y"]) == size
+    assert len(dataset["x"]) == len(dataset["y"]) == len(values["Expected"]) == size
     assert dataset["x"][0] == 0.0
     assert dataset["x"][1:4] == [0.1, 0.2, 0.30000000000000004]
     assert dataset["x"][-1] == 0.1 * (size - 1)
     assert all(-1.0 <= y <= 1.0 for y in dataset["y"])
+    assert all(abs(actual - expected) <= 1e-12 for actual, expected in zip(dataset["y"], values["Expected"]))
     assert abs(dataset["y"][0]) < 1e-12
     if size > 20:
         assert abs(dataset["y"][10] - 0.8414709848078965) < 1e-12

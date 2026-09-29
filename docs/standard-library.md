@@ -309,7 +309,7 @@ Mixed `int`/`float` arguments follow the language's
 | `math.sin(x)`, `math.cos(x)`, `math.tan(x)` | `float` | Radians. |
 | `math.log(x)` | `float` | Natural logarithm; `x <= 0` fails with `MATH-004`. |
 | `math.exp(x)` | `float` | A result beyond the finite range fails with `RT-NUM-OVERFLOW`. |
-| `math.approx_equal(a, b, tolerance)` | `bool` | `abs(a - b) <= tolerance`; a negative tolerance fails with `MATH-004`. |
+| `math.approx_equal(a, b, tolerance)` | `bool` | `abs(a - b) <= tolerance`; integer pairs retain exact differences, and zero tolerance uses exact numeric equality. A negative tolerance fails with `MATH-004`. |
 
 Transcendental functions use the host's binary64 implementation; compare their
 results with `math.approx_equal` rather than `==`.
@@ -369,7 +369,8 @@ Returns canonical JSON text for a value, without writing anything:
 | enum value | the string `"Enum.Variant"` |
 
 JSON numeric values from runtime data keep signed and unsigned integer digits
-through `u64::MAX`; they are not rounded through `float` during serialization.
+through `u64::MAX`, including after JSON field access; they are not rounded
+through `float` during serialization.
 
 The output has no insignificant whitespace, is UTF-8 (non-ASCII characters are
 written as-is), and escapes `"`, `\`, and control characters (`\n`, `\t`, `\r`,

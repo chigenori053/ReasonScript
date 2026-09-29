@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Preserved unsigned JSON integers after member access, corrected
+  `math.approx_equal` at large integer boundaries, and restored all-point
+  native validation of generated sine datasets.
+
 - Preserved unsigned JSON integers above `i64::MAX` in `serialize.json` instead
   of rounding them through `float`; final foundation validation now checks
   signed and unsigned boundaries and three-run dataset determinism across sizes.
