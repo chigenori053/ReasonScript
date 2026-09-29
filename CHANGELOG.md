@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [0.5.6.5] - 2026-09-29
+
+- Packaged the combined numeric/data foundation, native SVG plots, and Vision,
+  Geometry, and DynamicCluster runtimes for macOS arm64. The Geometry runtime is
+  now an explicit required distribution component. Installed visualization,
+  Geometry, and Cluster commands use their packaged native binaries from any
+  working directory.
+
 - Clarified the canonical RuntimeTask 1.0 schema: `resource_hint` is required in newly authored generic tasks. Legacy JSON without this field remains accepted by the compatibility CLI.
 
 - Added a versioned spatial Vision observation and native Geometry runtime with

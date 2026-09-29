@@ -10,7 +10,7 @@ Linux.
 
 | Platform | Distribution status | Installation path |
 | --- | --- | --- |
-| macOS Apple Silicon (`arm64`) | v0.5.5.15 prebuilt package; v0.5.6.2 source | GitHub Release ZIP or source |
+| macOS Apple Silicon (`arm64`) | v0.5.5.15 published package; v0.5.6.5 source or local release-class ZIP | GitHub Release ZIP or source |
 | Linux | No official prebuilt package; exercised by repository CI | Source only |
 | Windows 11 | No official package; device certification pending | Experimental source installer |
 

@@ -1,8 +1,8 @@
 {
   "schema_version": "reasonscript-validation-profile-declaration/1.0",
-  "reason_version": "0.5.6.2",
+  "reason_version": "0.5.6.5",
   "install_foundation_version": "1.1",
-  "runtime_version": "0.5.6.2",
+  "runtime_version": "0.5.6.5",
   "commands": [
     "--version",
     "doctor",
@@ -186,6 +186,10 @@
     },
     "vision-runtime-v0.1": {
       "path": "ReasonRuntime/crates/vision-core",
+      "required": true
+    },
+    "geometry-runtime-v0.1": {
+      "path": "ReasonRuntime/crates/geometry-core",
       "required": true
     },
     "semantic-visualization-runtime-v0.1": {

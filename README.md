@@ -7,7 +7,7 @@ Rust runtime host.
 
 > **Note on Language Identity**: ReasonScript is an independent programming language. It is **not affiliated with, derived from, or compatible with ReScript, Reason, or ReasonML**. ReasonScript programs use `.rsn` source files, the canonical `reason` CLI tool, and native syntax constructs (`model`, `module`, `fn`, `calculation`, `goal`, `state`).
 
-Current source version: **v0.5.6.2** (language core `0.7`).
+Current source version: **v0.5.6.5** (language core `0.7`).
 
 ## Install
 

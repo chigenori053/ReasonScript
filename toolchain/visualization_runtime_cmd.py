@@ -36,10 +36,11 @@ def _invoke(args: list[str]) -> dict[str, Any]:
     root = Path(__file__).resolve().parents[1]
     crate = root / "VisualizationRuntime"
     binary_name = "reason-visualization.exe" if os.name == "nt" else "reason-visualization"
+    installed = root / "bin" / binary_name
     binary = crate / "target" / "debug" / binary_name
     sources = [crate / "Cargo.toml", *(crate / "src").glob("*.rs")]
     current = binary.is_file() and binary.stat().st_mtime_ns >= max(path.stat().st_mtime_ns for path in sources)
-    command = [str(binary), *args] if current else [
+    command = [str(installed if installed.is_file() else binary), *args] if installed.is_file() or current else [
         "cargo", "run", "--offline", "--quiet", "--manifest-path", str(crate / "Cargo.toml"),
         "--bin", "reason-visualization", "--", *args,
     ]

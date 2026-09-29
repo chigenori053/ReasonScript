@@ -38,6 +38,15 @@ def test_dc_001_to_003_distribution_import_closure(tmp_path):
     visualization = subprocess.run([str(home / "bin/reason"), "visualization", "verify-native", "--json"], cwd=tmp_path, env={**os.environ, "PYTHONPATH": "", "REASONSCRIPT_HOME": str(home)}, text=True, capture_output=True)
     assert visualization.returncode == 0, visualization.stdout + visualization.stderr
     assert json.loads(visualization.stdout)["profile"] == "reasonscript-semantic-visualization-runtime/0.1"
+    plot = subprocess.run([str(home / "bin/reason"), "visualization", "plot", str(installed / "examples/visualization/plot.json"), "--output", str(tmp_path / "plot.svg"), "--json"], cwd=tmp_path, env={**os.environ, "PYTHONPATH": "", "REASONSCRIPT_HOME": str(home)}, text=True, capture_output=True)
+    assert plot.returncode == 0, plot.stdout + plot.stderr
+    assert json.loads(plot.stdout)["ok"] and (tmp_path / "plot.svg").is_file()
+    geometry = subprocess.run([str(home / "bin/reason"), "geometry", "observe", str(installed / "canonical_fixtures/vision_runtime/solar_observation.json"), "--json"], cwd=tmp_path, env={**os.environ, "PYTHONPATH": "", "REASONSCRIPT_HOME": str(home)}, text=True, capture_output=True)
+    assert geometry.returncode == 0, geometry.stdout + geometry.stderr
+    assert json.loads(geometry.stdout)["ok"]
+    cluster = subprocess.run([str(home / "bin/reason"), "cluster", "test-model"], cwd=tmp_path, env={**os.environ, "PYTHONPATH": "", "REASONSCRIPT_HOME": str(home)}, text=True, capture_output=True)
+    assert cluster.returncode == 0, cluster.stdout + cluster.stderr
+    assert json.loads(cluster.stdout)["passed"]
 
 
 def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
@@ -62,16 +71,19 @@ def test_dc_004_to_011_installed_project_and_manifest(tmp_path):
     ids = {item["id"] for item in manifest["components"]}
     assert {item[0] for item in COMPONENTS} <= ids
     assert "vision-runtime-v0.1" in ids
+    assert "geometry-runtime-v0.1" in ids
     assert "semantic-visualization-runtime-v0.1" in ids
     assert "reasonunit-runtime-v1.0" in ids
     assert "runtime-host-v1.0" in ids
     assert "cluster-runtime-v0.2" in ids
     assert (home / "current/ReasonRuntime/crates/vision-core/Cargo.toml").is_file()
+    assert (home / "current/ReasonRuntime/crates/geometry-core/Cargo.toml").is_file()
     assert (home / "current/ReasonRuntime/crates/reason-object-core/Cargo.toml").is_file()
     assert (home / "current/VisualizationRuntime/Cargo.toml").is_file()
     assert (home / "current/ReasonRuntime/Cargo.toml").is_file()
     assert (home / "current/ClusterRuntime/Cargo.toml").is_file()
     assert (home / "current/bin" / ("reason-vision.exe" if os.name == "nt" else "reason-vision")).is_file()
+    assert (home / "current/bin" / ("reason-geometry.exe" if os.name == "nt" else "reason-geometry")).is_file()
     assert (home / "current/bin" / ("reason-visualization.exe" if os.name == "nt" else "reason-visualization")).is_file()
     reasonunit_binary = home / "current/bin" / (
         "reasonunit-runtime-native.exe"
