@@ -12,6 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
+pub mod plot;
+
 pub const PROFILE: &str = "reasonscript-semantic-visualization-runtime/0.1";
 pub const INPUT_PROFILE: &str = "reasonscript-semantic-visualization-input/0.1";
 pub const SCENE_PROFILE: &str = "reasonscript-semantic-visualization-ir/0.1";

@@ -1,6 +1,6 @@
 use reasonscript_semantic_visualization_runtime::{
-    project_input, project_vision, validate_scene, write_artifacts, SceneInput, VisualizationError,
-    PROFILE,
+    plot, project_input, project_vision, validate_scene, write_artifacts, SceneInput,
+    VisualizationError, PROFILE,
 };
 use reasonscript_vision_runtime::VisionObservation;
 use serde_json::{json, Value};
@@ -16,7 +16,16 @@ fn main() {
         "project" => load::<SceneInput>(args.get(2)).and_then(|input| { let scene = project_input(&input)?; output(&args, serde_json::to_value(&input).unwrap(), &scene) }),
         "project-vision" => load::<VisionObservation>(args.get(2)).and_then(|observation| { let scene = project_vision(&observation)?; output(&args, serde_json::to_value(&observation).unwrap(), &scene) }),
         "validate" => load(args.get(2)).and_then(|scene| validate_scene(&scene).map(|_| json!({"ok":true,"exit_status":0,"profile":PROFILE,"operation":"validate","scene_id":scene.scene_id}))),
-        _ => Err(VisualizationError::new("SVR-CLI-002", "usage: reason-visualization <project INPUT --output DIR|project-vision OBSERVATION --output DIR|validate SCENE|verify-native>", "cli")),
+        "plot" => load::<plot::PlotSpec>(args.get(2)).and_then(|spec| {
+            let svg = plot::render_svg(&spec)?;
+            let path = option(&args, "--output").ok_or_else(|| VisualizationError::new("SVR-CLI-003", "--output is required", "cli"))?;
+            if Path::new(path).extension().and_then(|value| value.to_str()) != Some("svg") {
+                return Err(VisualizationError::new("SVR-CLI-003", "--output must name an .svg file", "cli"));
+            }
+            fs::write(path, svg.as_bytes()).map_err(|error| VisualizationError::new("SVR-IO-001", error.to_string(), path))?;
+            Ok(json!({"ok":true,"exit_status":0,"profile":plot::PROFILE,"operation":"plot","output":path,"bytes":svg.len()}))
+        }),
+        _ => Err(VisualizationError::new("SVR-CLI-002", "usage: reason-visualization <project INPUT --output DIR|project-vision OBSERVATION --output DIR|plot SPEC --output FILE.svg|validate SCENE|verify-native>", "cli")),
     };
     match result {
         Ok(value) => println!("{}", serde_json::to_string(&value).unwrap()),

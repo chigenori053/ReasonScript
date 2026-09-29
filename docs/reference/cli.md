@@ -11,6 +11,25 @@ command is consumed by an agent, script, or CI job.
 
 Runs the canonical v0.5 validation pipeline.
 
+## Native SVG plots
+
+```sh
+./reason visualization plot examples/visualization/plot.json --output /tmp/plot.svg --json
+```
+
+`plot` reads a `reasonscript-plot/0.1` JSON specification and writes a
+deterministic SVG file. It supports numeric line, scatter, and bar series;
+rectangles, circles, and text annotations; and rectangular heatmaps with a
+color scale and optional row/column labels. An example with all three layers
+is in `examples/visualization/plot.json`. Colors use `#RRGGBB`, and coordinates
+are in data units. Axis bounds are inferred unless `x_axis.min/max` or
+`y_axis.min/max` are supplied. The output directory must already exist.
+
+This is the first native plotting surface. The existing Python visualization
+reference implementation remains available for its broader chart set and
+optional Matplotlib renderer; PNG export and a ReasonScript language API for
+these native plots are not yet provided.
+
 ## Source and Project Validation
 
 ```sh

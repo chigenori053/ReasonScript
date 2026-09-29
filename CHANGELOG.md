@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Started the native visualization toolkit with `reason visualization plot`:
+  deterministic SVG output for line, scatter, bar, drawing shapes, and labeled
+  heatmaps, using a versioned JSON plot input.
+
 - Preserved unsigned JSON integers after member access, corrected
   `math.approx_equal` at large integer boundaries, and restored all-point
   native validation of generated sine datasets.
