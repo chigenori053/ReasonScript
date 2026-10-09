@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [0.5.6.7] - 2026-10-10
+
+- Package the structural RU/RUS/RUO model, RCP Foundation P1, UNKNOWN structures and receiver profile compatibility for macOS arm64. Retain RCP 0.2; UNKNOWN structural receivers must declare `reasonscript-unknown-structure/0.1`.
+
 ### RCP 0.2 structure profile compatibility
 
 - Add explicit receiver structure-profile declarations and sender preflight. Reject UNKNOWN structural payloads before delivery to receivers without `reasonscript-unknown-structure/0.1`; omitted declarations retain base RCP 0.2 delivery. Keep message envelopes and protocol version unchanged.
