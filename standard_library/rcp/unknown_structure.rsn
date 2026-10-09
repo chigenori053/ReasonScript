@@ -1,0 +1,249 @@
+module UnknownStructure {
+  import RCPReference
+  import RCPUnknown
+  import RCPMessage
+  export struct UnknownInformation {
+    id: string
+    known_information: string
+    missing_information: string
+    evidence_refs: [string]
+    knowledge_refs: [string]
+    causal_refs: [Reference]
+  }
+  export struct UnknownRelation {
+    id: string
+    kind: string
+    source: Reference
+    target: Reference
+  }
+  export struct UnknownReasonUnitStructure {
+    id: string
+    uru_refs: [string]
+    relation_refs: [string]
+  }
+  export struct UnknownPlacement3D {
+    target: Reference
+    status: string
+    position: optional<[float]>
+  }
+  export struct UnknownSpatialConstraint {
+    kind: string
+    source: Reference
+    target: Reference
+    distance: optional<float>
+  }
+  export struct UnknownReasonUnitObject {
+    id: string
+    space: string
+    coordinate_frame: string
+    coordinate_unit: string
+    coordinate_bounds: optional<[[float]]>
+    uru_refs: [string]
+    urus_refs: [string]
+    ruo_refs: [string]
+    placements: [UnknownPlacement3D]
+    constraints: [UnknownSpatialConstraint]
+  }
+  export struct ReevaluationResult {
+    valid: bool
+    order: [string]
+  }
+  export fn CreateURU(id: string, origins: [Reference], cause: string, grounds: [Reference], dependencies: [string]) -> UnknownUnit {
+    return RCPUnknown::CreateUnknown(id, origins, cause, grounds, dependencies)
+  }
+  export fn Describe(unit: UnknownUnit, known: string, missing: string, evidence: [string], knowledge: [string], causal: [Reference]) -> UnknownInformation {
+    return UnknownInformation { id: unit.id, known_information: known, missing_information: missing, evidence_refs: evidence, knowledge_refs: knowledge, causal_refs: causal }
+  }
+  export fn Structure(id: string, units: [string], relations: [string]) -> UnknownReasonUnitStructure {
+    return UnknownReasonUnitStructure { id: id, uru_refs: units, relation_refs: relations }
+  }
+  export fn Relation(id: string, kind: string, source: Reference, target: Reference) -> UnknownRelation {
+    return UnknownRelation { id: id, kind: kind, source: source, target: target }
+  }
+  fn Has(ids: [string], id: string) -> bool {
+    for value in ids {
+      if value == id {
+        return true
+      }
+    }
+    return false
+  }
+  // Only structural dependencies determine order; the domain decides whether to reevaluate.
+  export fn ReevaluationOrder(structure: UnknownReasonUnitStructure, units: [UnknownUnit]) -> ReevaluationResult {
+    for unit in units {
+      if Has(structure.uru_refs, unit.id) {
+        for dependency in unit.dependencies {
+          let count = 0
+          for other in unit.dependencies {
+            if other == dependency {
+              count = count + 1
+            }
+          }
+          if count != 1 {
+            return ReevaluationResult { valid: false, order: [] }
+          }
+        }
+      }
+    }
+    let sorted = relation.sort_by(units, "id", false)
+    let ordered: [string] = []
+    let seen: [string] = []
+    for id in structure.uru_refs {
+      if Has(seen, id) {
+        return ReevaluationResult { valid: false, order: [] }
+      }
+      let next = array.builder()
+      for value in seen {
+        next.append(value)
+      }
+      next.append(id)
+      seen = next.finish()
+      let count = 0
+      for unit in units {
+        if unit.id == id {
+          count = count + 1
+        }
+      }
+      if count != 1 {
+        return ReevaluationResult { valid: false, order: [] }
+      }
+    }
+    if structure.uru_refs.length < 2 {
+      return ReevaluationResult { valid: false, order: [] }
+    }
+    while ordered.length < structure.uru_refs.length {
+      let chosen = ""
+      for unit in sorted {
+        if chosen == "" && Has(structure.uru_refs, unit.id) && !Has(ordered, unit.id) {
+          let ready = true
+          for dependency in unit.dependencies {
+            if !Has(structure.uru_refs, dependency) || !Has(ordered, dependency) {
+              ready = false
+            }
+          }
+          if ready {
+            chosen = unit.id
+          }
+        }
+      }
+      if chosen == "" {
+        return ReevaluationResult { valid: false, order: [] }
+      }
+      let next = array.builder()
+      for id in ordered {
+        next.append(id)
+      }
+      next.append(chosen)
+      ordered = next.finish()
+    }
+    return ReevaluationResult { valid: true, order: ordered }
+  }
+  export fn Unresolved(structure: UnknownReasonUnitStructure, units: [UnknownUnit]) -> ReevaluationResult {
+    let evaluated = ReevaluationOrder(structure, units)
+    let result = array.builder()
+    if evaluated.valid {
+      for id in evaluated.order {
+        for unit in units {
+          if unit.id == id && RCPUnknown::CurrentState(unit) != "RESOLVED" {
+            result.append(id)
+          }
+        }
+      }
+    }
+    return ReevaluationResult { valid: evaluated.valid, order: result.finish() }
+  }
+  export fn Impact(structure: UnknownReasonUnitStructure, units: [UnknownUnit], changed: string) -> ReevaluationResult {
+    let evaluated = ReevaluationOrder(structure, units)
+    if !evaluated.valid || !Has(structure.uru_refs, changed) {
+      return ReevaluationResult { valid: false, order: [] }
+    }
+    let affected = [changed]
+    let impacted = array.builder()
+    for id in evaluated.order {
+      if id != changed {
+        for unit in units {
+          if unit.id == id {
+            let found = false
+            for dependency in unit.dependencies {
+              if Has(affected, dependency) {
+                found = true
+              }
+            }
+            if found {
+              impacted.append(id)
+              let next = array.builder()
+              for value in affected {
+                next.append(value)
+              }
+              next.append(id)
+              affected = next.finish()
+            }
+          }
+        }
+      }
+    }
+    return ReevaluationResult { valid: true, order: impacted.finish() }
+  }
+  export fn ResolvedImpact(structure: UnknownReasonUnitStructure, units: [UnknownUnit], changed: string) -> ReevaluationResult {
+    let evaluated = Impact(structure, units, changed)
+    let result = array.builder()
+    if evaluated.valid {
+      for id in evaluated.order {
+        for unit in units {
+          if unit.id == id && RCPUnknown::CurrentState(unit) == "RESOLVED" {
+            result.append(id)
+          }
+        }
+      }
+    }
+    return ReevaluationResult { valid: evaluated.valid, order: result.finish() }
+  }
+  export fn UnknownPosition(target: Reference) -> UnknownPlacement3D {
+    return UnknownPlacement3D { target: target, status: "unknown", position: none }
+  }
+  export fn KnownPosition(target: Reference, x: float, y: float, z: float) -> UnknownPlacement3D {
+    return UnknownPlacement3D { target: target, status: "known", position: some([x, y, z]) }
+  }
+  export fn Object3D(id: string, space: string, frame: string, unit: string, bounds: optional<[[float]]>, urus: [string], structures: [string], origins: [string], placements: [UnknownPlacement3D], constraints: [UnknownSpatialConstraint]) -> UnknownReasonUnitObject {
+    return UnknownReasonUnitObject { id: id, space: space, coordinate_frame: frame, coordinate_unit: unit, coordinate_bounds: bounds, uru_refs: urus, urus_refs: structures, ruo_refs: origins, placements: placements, constraints: constraints }
+  }
+  export fn InformationRecord(value: UnknownInformation) -> Record {
+    let references = array.builder()
+    for id in value.evidence_refs {
+      references.append(Reference { kind: "Evidence", id: id })
+    }
+    for id in value.knowledge_refs {
+      references.append(Reference { kind: "Knowledge", id: id })
+    }
+    for reference in value.causal_refs {
+      references.append(reference)
+    }
+    return Record { reference: Reference { kind: "URU", id: value.id }, value_json: serialize.json(value), references: references.finish() }
+  }
+  export fn RelationRecord(value: UnknownRelation) -> Record {
+    return Record { reference: Reference { kind: "UnknownRelation", id: value.id }, value_json: serialize.json(value), references: [value.source, value.target] }
+  }
+  export fn StructureRecord(value: UnknownReasonUnitStructure) -> Record {
+    let references = array.builder()
+    for id in value.uru_refs {
+      references.append(Reference { kind: "URU", id: id })
+    }
+    for id in value.relation_refs {
+      references.append(Reference { kind: "UnknownRelation", id: id })
+    }
+    return Record { reference: Reference { kind: "URUS", id: value.id }, value_json: serialize.json(value), references: references.finish() }
+  }
+  export fn ObjectRecord(value: UnknownReasonUnitObject) -> Record {
+    let references = array.builder()
+    for id in value.uru_refs {
+      references.append(Reference { kind: "URU", id: id })
+    }
+    for id in value.urus_refs {
+      references.append(Reference { kind: "URUS", id: id })
+    }
+    for id in value.ruo_refs {
+      references.append(Reference { kind: "RUO", id: id })
+    }
+    return Record { reference: Reference { kind: "URUO", id: value.id }, value_json: serialize.json(value), references: references.finish() }
+  }
+}

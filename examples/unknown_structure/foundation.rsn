@@ -1,0 +1,72 @@
+module UnknownFoundation {
+  import RCPReference
+  import RCPUnknown
+  import RCPTransition
+  import RCPValidator
+  import RCPMessage
+  import UnknownStructure
+  struct ReasonRecord {
+    id: string
+    kind: string
+    content: string
+  }
+  struct KnowledgeRecord {
+    id: string
+    value: string
+  }
+  fn Units() -> [UnknownUnit] {
+    let origin = [Reference { kind: "RU", id: "ru:source" }]
+    let a = UnknownStructure::CreateURU("uru:a", origin, "MissingKnowledge", [], [])
+    let b = UnknownStructure::CreateURU("uru:b", origin, "Dependency", [], ["uru:a"])
+    let c = UnknownStructure::CreateURU("uru:c", origin, "Conflict", [], ["uru:a", "uru:b"])
+    return [c, a, b]
+  }
+  fn Graph() -> UnknownReasonUnitStructure {
+    return UnknownStructure::Structure("urus:graph", ["uru:c", "uru:a", "uru:b"], ["unknown-relation:ba", "unknown-relation:ca", "unknown-relation:cb", "unknown-relation:cause", "unknown-relation:block", "unknown-relation:related", "unknown-relation:conflict"])
+  }
+  fn Resolve(unit: UnknownUnit) -> UnknownUnit {
+    let evidence = [Reference { kind: "Evidence", id: "evidence:measurement" }]
+    let decision = RCPValidator::Decision(true, "example domain accepts measurement")
+    let active = RCPTransition::Advance(unit, "IN_PROGRESS", "", [], decision)
+    let candidate = RCPTransition::Advance(active, "CANDIDATE", "measurement", evidence, decision)
+    return RCPTransition::Advance(candidate, "RESOLVED", "measurement", evidence, decision)
+  }
+  calculation StructuralChecks -> bool {
+    let units = Units()
+    let graph = Graph()
+    let order = UnknownStructure::ReevaluationOrder(graph, units)
+    let impact = UnknownStructure::Impact(graph, units, "uru:a")
+    let cycleA = UnknownStructure::CreateURU("uru:a", units[0].origins, "Dependency", [], ["uru:c"])
+    let cycle = UnknownStructure::ReevaluationOrder(graph, [cycleA, units[0], units[2]])
+    let resolved = [Resolve(units[0]), Resolve(units[1]), Resolve(units[2])]
+    let resolvedImpact = UnknownStructure::ResolvedImpact(graph, resolved, "uru:a")
+    let decision = RCPValidator::Decision(true, "domain invalidates measurement")
+    let reopened = RCPTransition::Advance(resolved[0], "REOPENED", "", [], decision)
+    let reset = RCPTransition::Advance(reopened, "OPEN", "", [], decision)
+    let blocked = RCPTransition::BlockIfLimit(reset, 4, 4)
+    let pending = UnknownStructure::Unresolved(graph, [blocked, resolved[1], resolved[2]])
+    let duplicate = UnknownStructure::CreateURU("uru:c", units[0].origins, "Dependency", [], ["uru:b", "uru:b"])
+    result = resolvedImpact.valid && resolvedImpact.order == ["uru:b", "uru:c"] && UnknownStructure::Unresolved(graph, resolved).order == [] && pending.valid && pending.order == ["uru:c"] && !UnknownStructure::Impact(graph, units, "uru:absent").valid && !UnknownStructure::ReevaluationOrder(graph, [units[1], units[2], duplicate]).valid && units[0].history.length == 1 && order.valid && order.order == ["uru:a", "uru:b", "uru:c"] && impact.valid && impact.order == ["uru:b", "uru:c"] && !cycle.valid && UnknownStructure::Unresolved(graph, units).order == order.order
+  }
+  calculation SerializedUnknownStructure -> string {
+    let units = Units()
+    let graph = Graph()
+    let a = Reference { kind: "URU", id: "uru:a" }
+    let b = Reference { kind: "URU", id: "uru:b" }
+    let c = Reference { kind: "URU", id: "uru:c" }
+    let g = Reference { kind: "URUS", id: "urus:graph" }
+    let base = Record { reference: Reference { kind: "RU", id: "ru:source" }, value_json: serialize.json(ReasonRecord { id: "ru:source", kind: "proposition", content: "incomplete reasoning" }), references: [] }
+    let knowledge = Record { reference: Reference { kind: "Knowledge", id: "knowledge:source" }, value_json: serialize.json(KnowledgeRecord { id: "knowledge:source", value: "known facts" }), references: [] }
+    let info = UnknownStructure::Describe(units[1], "known facts", "missing measurement", [], ["knowledge:source"], [])
+    let r1 = UnknownStructure::Relation("unknown-relation:ba", "DEPENDS_ON", b, a)
+    let r2 = UnknownStructure::Relation("unknown-relation:ca", "DEPENDS_ON", c, a)
+    let r3 = UnknownStructure::Relation("unknown-relation:cb", "DEPENDS_ON", c, b)
+    let r4 = UnknownStructure::Relation("unknown-relation:cause", "CAUSED_BY", b, a)
+    let r5 = UnknownStructure::Relation("unknown-relation:block", "BLOCKS", a, Reference { kind: "RU", id: "ru:source" })
+    let r6 = UnknownStructure::Relation("unknown-relation:related", "RELATED_TO", a, c)
+    let r7 = UnknownStructure::Relation("unknown-relation:conflict", "CONFLICTS_WITH", b, c)
+    let space = UnknownStructure::Object3D("uruo:space", "abstract", "reasoning-frame", "unit", some([[-10.0, 10.0], [-10.0, 10.0], [-10.0, 10.0]]), ["uru:a", "uru:b", "uru:c"], ["urus:graph"], [], [UnknownStructure::KnownPosition(a, 1.0, 2.0, 3.0), UnknownStructure::UnknownPosition(b), UnknownStructure::UnknownPosition(c), UnknownStructure::UnknownPosition(g)], [UnknownSpatialConstraint { kind: "DISTANCE", source: a, target: b, distance: none }])
+    let records = [base, knowledge, UnknownStructure::InformationRecord(info), UnknownStructure::RelationRecord(r1), UnknownStructure::RelationRecord(r2), UnknownStructure::RelationRecord(r3), UnknownStructure::RelationRecord(r4), UnknownStructure::RelationRecord(r5), UnknownStructure::RelationRecord(r6), UnknownStructure::RelationRecord(r7), UnknownStructure::StructureRecord(graph), UnknownStructure::ObjectRecord(space)]
+    result = RCPMessage::Encode(RCPMessage::Build("message:unknown-structure", "dsn:a", "dsn:b", "UNKNOWN_REPORT", "conversation:unknown-structure", none, [], Payload { records: records, unknowns: units }))
+  }
+}

@@ -19,3 +19,7 @@ constructors and serializers using ordinary ReasonScript. See the
 `rcp/*.rsn` exports message/reference builders, UNKNOWN journals, structural
 transition checks and a domain validation-decision interface. Include these
 ordinary modules in a package source graph; see the [RCP API](../docs/rcp.md).
+
+`rcp/unknown_structure.rsn` adds URU descriptions, URUS constructors/order/impact
+helpers and minimal known/unknown 3D placements. See the
+[UNKNOWN structural model](../docs/unknown-reasoning-structure.md).

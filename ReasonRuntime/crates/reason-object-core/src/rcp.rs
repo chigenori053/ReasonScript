@@ -35,8 +35,12 @@ pub enum ReferenceKind {
     ExecutionBinding,
     ExecutionRelation,
     NativeObject,
+    URU,
+    URUS,
+    URUO,
+    UnknownRelation,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RCPReference {
     pub kind: ReferenceKind,
@@ -188,7 +192,7 @@ pub trait CandidateValidator {
 }
 #[derive(Default)]
 pub struct UnknownRegistry {
-    units: BTreeMap<String, UnknownUnit>,
+    pub(crate) units: BTreeMap<String, UnknownUnit>,
 }
 impl UnknownRegistry {
     pub fn get(&self, id: &str) -> Option<&UnknownUnit> {
@@ -203,17 +207,26 @@ impl UnknownRegistry {
     ) -> RCPResult<()> {
         unit.validate()?;
         context.validate()?;
+        if context.records.iter().any(|record| {
+            record.reference.id == unit.id && record.reference.kind != ReferenceKind::URU
+        }) {
+            return reject("UNKNOWN identity collides with another record kind");
+        }
         for reference in unit
             .origins
             .iter()
             .chain(&unit.grounds)
             .chain(unit.history.iter().flat_map(|r| &r.evidence))
         {
-            if !context
-                .records
-                .iter()
-                .any(|record| record.reference == *reference)
-            {
+            let present = if reference.kind == ReferenceKind::URU {
+                context.unknowns.iter().any(|unit| unit.id == reference.id)
+            } else {
+                context
+                    .records
+                    .iter()
+                    .any(|record| record.reference == *reference)
+            };
+            if !present {
                 return reject("UNKNOWN reference missing from context");
             }
         }
@@ -268,6 +281,15 @@ impl UnknownRegistry {
 
 impl RCPPayload {
     pub fn validate(&self) -> RCPResult<()> {
+        // UNKNOWN bodies are the authoritative URU identities, including when
+        // an optional URU information record describes that same identity.
+        let mut unknowns = BTreeMap::new();
+        for unit in &self.unknowns {
+            unit.validate()?;
+            if unknowns.insert(unit.id.clone(), unit).is_some() {
+                return reject("duplicate UNKNOWN identity");
+            }
+        }
         let mut index = BTreeMap::new();
         for record in &self.records {
             identity(&record.reference.id)?;
@@ -282,6 +304,13 @@ impl RCPPayload {
             }
         }
         let check = |reference: &RCPReference| -> RCPResult<()> {
+            if reference.kind == ReferenceKind::URU {
+                return if unknowns.contains_key(&reference.id) {
+                    Ok(())
+                } else {
+                    reject("dangling URU reference")
+                };
+            }
             if index.get(reference.id.as_str()).map(|r| &r.reference.kind) != Some(&reference.kind)
             {
                 return reject("dangling or mistyped reference");
@@ -290,6 +319,7 @@ impl RCPPayload {
         };
         for record in &self.records {
             crate::structure::validate_record(&index, record)?;
+            crate::unknown_structure::validate_record(&index, &unknowns, record)?;
             for reference in &record.references {
                 check(reference)?;
             }
@@ -322,7 +352,14 @@ impl RCPPayload {
                     "reason_unit_ref" | "source_ru" => Some(ReferenceKind::RU),
                     "evidence_refs" => Some(ReferenceKind::Evidence),
                     "execution_relation_refs" => Some(ReferenceKind::ExecutionRelation),
-                    "relation_refs" => Some(ReferenceKind::Relation),
+                    "relation_refs" => Some(if record.reference.kind == ReferenceKind::URUS {
+                        ReferenceKind::UnknownRelation
+                    } else {
+                        ReferenceKind::Relation
+                    }),
+                    "uru_refs" => Some(ReferenceKind::URU),
+                    "urus_refs" => Some(ReferenceKind::URUS),
+                    "ruo_refs" => Some(ReferenceKind::RUO),
                     "unit_refs" => Some(ReferenceKind::RU),
                     "structure_refs" => Some(ReferenceKind::RUS),
                     "knowledge_refs" => Some(ReferenceKind::Knowledge),
@@ -339,11 +376,15 @@ impl RCPPayload {
                 };
                 for id in values {
                     let id = id.as_str().ok_or("RCP-001: reference must be a string")?;
-                    let actual = &index
-                        .get(id)
-                        .ok_or("RCP-001: dangling embedded reference")?
-                        .reference
-                        .kind;
+                    let actual = if unknowns.contains_key(id) {
+                        &ReferenceKind::URU
+                    } else {
+                        &index
+                            .get(id)
+                            .ok_or("RCP-001: dangling embedded reference")?
+                            .reference
+                            .kind
+                    };
                     if kind.as_ref().is_some_and(|kind| kind != actual) {
                         return reject("mistyped embedded reference");
                     }
@@ -356,13 +397,12 @@ impl RCPPayload {
                 }
             }
         }
-        let mut unknowns = BTreeMap::new();
         for unit in &self.unknowns {
-            unit.validate()?;
-            if index.contains_key(unit.id.as_str())
-                || unknowns.insert(unit.id.clone(), unit).is_some()
+            if index
+                .get(unit.id.as_str())
+                .is_some_and(|record| record.reference.kind != ReferenceKind::URU)
             {
-                return reject("duplicate UNKNOWN identity");
+                return reject("UNKNOWN identity collides with another record kind");
             }
             for r in unit
                 .origins

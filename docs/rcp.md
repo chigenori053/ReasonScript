@@ -46,7 +46,8 @@ message ID, source/destination Domain DSNs, kind, correlation ID, nullable
 causation ID, trace and payload. Kinds are `REQUEST`, `RESULT`, `UNKNOWN_REPORT`.
 The payload contains `records` and `unknowns`. Each record holds a typed stable
 reference (`RU`, `RUS`, `RUO`, `Relation`, `Evidence`, `Knowledge`,
-`ExecutionState`, `ExecutionBinding`, `ExecutionRelation`, `NativeObject`), the complete
+`ExecutionState`, `ExecutionBinding`, `ExecutionRelation`, `NativeObject`,
+`URU`, `URUS`, `URUO`, `UnknownRelation`), the complete
 JSON object in `value`, and an explicit reference manifest. `value.id` must
 match the record identity. Unknown transport fields and unsupported enum or
 version values are rejected. Structural `value` bodies follow the
@@ -54,6 +55,11 @@ version values are rejected. Structural `value` bodies follow the
 preserved in `content`. Protocol 0.1 and its state/container encodings are rejected.
 
 All reference targets must accompany the payload and match their declared kind.
+`URU` references resolve to the authoritative `unknowns` bodies; optional same-ID
+information records add known/missing data without copying history. `URUS` and
+`URUO` records follow the [UNKNOWN structural model](unknown-reasoning-structure.md).
+The additional kinds preserve valid earlier 0.2 messages; older receivers must
+be upgraded before accepting UNKNOWN structures.
 Runtime embedded references must also appear in the manifest. KnowledgeSpace
 information can be supplied as `Knowledge` records with its original contents;
 Foundation does not define a new knowledge store or fetch external references.

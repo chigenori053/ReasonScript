@@ -5,6 +5,7 @@
 
 pub mod rcp;
 pub mod structure;
+pub mod unknown_structure;
 
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;

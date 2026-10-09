@@ -23,6 +23,7 @@ phase-completion reports are kept in Git history instead of the public docs.
 
 - [Installation](installation/README.md)
 - [Reasoning structural model](reasoning-structure.md) — RU, dimensionless RUS, 3D RUO and runtime compatibility.
+- [Unknown reasoning structures](unknown-reasoning-structure.md) — URU, URUS dependencies and minimal URUO.
 - [RCP Foundation](rcp.md) — reasoning messages, UNKNOWN lifecycle, and Domain DSN delivery.
 - [ReasonUnit Objects](reasonunit-object.md)
 - [Known limitations](releases/ReasonScript_v0_5_Known_Limitations.md)

@@ -499,3 +499,9 @@ package's `src/` graph and use ordinary imports and qualified calls. Candidate
 policy belongs to the domain; `Advance` accepts its `ValidationDecision` and
 preserves append-only UNKNOWN history through retry and reevaluation. See the
 [RCP API](rcp.md) for builders, allowed transitions and native validation.
+
+`UnknownStructure` in `rcp/unknown_structure.rsn` reuses the UNKNOWN unit API,
+adds information/relationship records and URUS dependency inspection, and builds
+minimal URUO with explicitly known or unknown 3D positions. Inspect the `valid`
+flag from source order/impact helpers before making domain decisions. See the
+[UNKNOWN structural model](unknown-reasoning-structure.md) for the full contract.

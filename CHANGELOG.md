@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Unknown Reasoning Structural Model Foundation v0.1
+
+- Reuse UnknownUnit/UnknownRegistry as URU identity and append-only lifecycle storage. Add same-ID information records for known/missing data and Evidence/Knowledge/causal references, with no second state journal or registry.
+- Add URUS with five typed relation kinds, dependency closure/cycle validation, deterministic reevaluation order, unresolved enumeration and transitive/resolved impact. Keep UnknownUnit.dependencies authoritative and domain reevaluation decisions in ReasonScript.
+- Add minimal URUO with explicit known versus null unknown 3D coordinates, coordinate bounds, original RUO links and basic spatial constraint references. Do not infer coordinates or integrate GeometryRuntime.
+- Extend RCP 0.2 reference/body schemas additively, preserving earlier valid messages and the existing RU/RUS/RUO definitions. Add shared source constructors, native routing tests and UNKNOWN Registry identity-collision checks.
+
 ### RCP Foundation P1
 
 - Extend RCP 0.2 UNKNOWN journals with retry, candidate rejection, `RESOLVED -> REOPENED -> OPEN` reevaluation and terminal unresolved `BLOCKED`. Preserve IDs, origins and all historical candidates/evidence; reject invalid or mutated commits atomically and require resolved dependents to reopen before their dependency.

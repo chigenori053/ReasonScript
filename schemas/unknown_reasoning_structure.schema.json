@@ -1,0 +1,622 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-unknown-structure/0.1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/URU"
+    },
+    {
+      "$ref": "#/$defs/URUInformation"
+    },
+    {
+      "$ref": "#/$defs/URUS"
+    },
+    {
+      "$ref": "#/$defs/URUO"
+    },
+    {
+      "$ref": "#/$defs/UnknownRelation"
+    }
+  ],
+  "$defs": {
+    "URUInformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "known_information",
+        "missing_information",
+        "evidence_refs",
+        "knowledge_refs",
+        "causal_refs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "known_information": {},
+        "missing_information": {},
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true,
+          "minItems": 0
+        },
+        "knowledge_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true,
+          "minItems": 0
+        },
+        "causal_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "id"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "Relation",
+                  "UnknownRelation"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[^\\s]+:[^\\s]*$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "UnknownRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "source",
+        "target"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "kind": {
+          "enum": [
+            "DEPENDS_ON",
+            "CAUSED_BY",
+            "BLOCKS",
+            "RELATED_TO",
+            "CONFLICTS_WITH"
+          ]
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "URU"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[^\\s]+:[^\\s]*$"
+            }
+          }
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "URU",
+                "RU",
+                "RUS",
+                "RUO"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[^\\s]+:[^\\s]*$"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "DEPENDS_ON",
+                  "CAUSED_BY",
+                  "RELATED_TO",
+                  "CONFLICTS_WITH"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "id"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "URU"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[^\\s]+:[^\\s]*$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "URUS": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "uru_refs",
+        "relation_refs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "uru_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true,
+          "minItems": 2
+        },
+        "relation_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true,
+          "minItems": 0
+        }
+      }
+    },
+    "unknownPlacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "status",
+        "position"
+      ],
+      "properties": {
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "URU",
+                "URUS"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[^\\s]+:[^\\s]*$"
+            }
+          }
+        },
+        "status": {
+          "enum": [
+            "known",
+            "unknown"
+          ]
+        },
+        "position": {
+          "anyOf": [
+            {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "number"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "known"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "position": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "position": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "unknownConstraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source",
+        "target",
+        "distance"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "ADJACENT",
+            "CONTAINS",
+            "DISTANCE"
+          ]
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "URU",
+                "URUS"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[^\\s]+:[^\\s]*$"
+            }
+          }
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "URU",
+                "URUS"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[^\\s]+:[^\\s]*$"
+            }
+          }
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "ADJACENT",
+                  "CONTAINS"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "distance": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "URUO": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space",
+        "coordinate_frame",
+        "coordinate_unit",
+        "coordinate_bounds",
+        "uru_refs",
+        "urus_refs",
+        "ruo_refs",
+        "placements",
+        "constraints"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "space": {
+          "enum": [
+            "physical",
+            "abstract"
+          ]
+        },
+        "coordinate_frame": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "coordinate_unit": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "coordinate_bounds": {
+          "anyOf": [
+            {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uru_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "urus_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true,
+          "minItems": 0
+        },
+        "ruo_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true,
+          "minItems": 0
+        },
+        "placements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unknownPlacement"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unknownConstraint"
+          }
+        }
+      }
+    },
+    "URU": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "origins",
+        "cause",
+        "grounds",
+        "dependencies",
+        "history"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "origins": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "id"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "RU",
+                  "RUS",
+                  "RUO"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[^\\s]+:[^\\s]*$"
+              }
+            }
+          },
+          "minItems": 1
+        },
+        "cause": {
+          "enum": [
+            "MissingKnowledge",
+            "MissingEvidence",
+            "Ambiguous",
+            "Conflict",
+            "Dependency"
+          ]
+        },
+        "grounds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          }
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/revision"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "evidence",
+        "candidate"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "OPEN",
+            "IN_PROGRESS",
+            "CANDIDATE",
+            "RESOLVED",
+            "REOPENED",
+            "BLOCKED"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        },
+        "candidate": {}
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "RU",
+            "RUS",
+            "RUO",
+            "Relation",
+            "Evidence",
+            "Knowledge",
+            "ExecutionState",
+            "ExecutionBinding",
+            "ExecutionRelation",
+            "NativeObject",
+            "URU",
+            "URUS",
+            "URUO",
+            "UnknownRelation"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        }
+      }
+    }
+  }
+}
