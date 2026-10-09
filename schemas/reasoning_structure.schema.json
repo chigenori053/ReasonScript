@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-reasoning-structure/0.1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/RU"
+    },
+    {
+      "$ref": "#/$defs/RUS"
+    },
+    {
+      "$ref": "#/$defs/RUO"
+    },
+    {
+      "$ref": "#/$defs/Relation"
+    }
+  ],
+  "$defs": {
+    "RU": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "content": {}
+      }
+    },
+    "RUS": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "unit_refs",
+        "relation_refs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "unit_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true,
+          "minItems": 2
+        },
+        "relation_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "RUO": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "space",
+        "coordinate_frame",
+        "coordinate_unit",
+        "unit_refs",
+        "structure_refs",
+        "relation_refs",
+        "placements"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "space": {
+          "enum": [
+            "physical",
+            "abstract"
+          ]
+        },
+        "coordinate_frame": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "coordinate_unit": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "unit_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "structure_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true
+        },
+        "relation_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          },
+          "uniqueItems": true
+        },
+        "placements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/placement"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "Relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "domain",
+        "kind",
+        "source_ref",
+        "target_ref",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "domain": {
+          "enum": [
+            "non_spatial",
+            "spatial_3d"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "source_ref": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "target_ref": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "content": {}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "domain": {
+                "const": "non_spatial"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "Dependency",
+                  "Cause",
+                  "Logical",
+                  "Hierarchy",
+                  "IsA",
+                  "PartOf",
+                  "Constraint",
+                  "Similar"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "domain": {
+                "const": "spatial_3d"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "Position",
+                  "Direction",
+                  "Distance",
+                  "Adjacent",
+                  "Contains",
+                  "Spatial"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "position",
+        "direction"
+      ],
+      "properties": {
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "id"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "RU",
+                "RUS"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[^\\s]+:[^\\s]*$"
+            }
+          }
+        },
+        "position": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

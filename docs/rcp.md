@@ -1,4 +1,4 @@
-# RCP Foundation v0.1
+# RCP Foundation — structural wire revision
 
 RCP exchanges complete RU, RUS and RUO records between registered reasoning
 Cores. Foundation v0.1 provides deterministic, bounded, in-process Domain DSN
@@ -14,13 +14,13 @@ Run the executable source example:
 ./reason workspace examples/rcp --json
 ./reason check examples/rcp/foundation.rsn --json
 ./reason run examples/rcp/foundation.rsn --json
-cargo build --manifest-path ReasonRuntime/Cargo.toml -p reasonscript-native-reasonunit-runtime
+cargo build --release --manifest-path ReasonRuntime/Cargo.toml -p reasonscript-native-reasonunit-runtime
 ```
 
 `SerializedRequest` contains a wire message built with ordinary `.rsn` structs
 and `serialize.json`. `FoundationChecks` exercises UNKNOWN policy. Copy the
 request into the `messages` array of a session, then pipe that session's JSON
-to `ReasonRuntime/target/debug/reasonunit-runtime-native rcp`, or save it as
+to `ReasonRuntime/target/release/reasonunit-runtime-native rcp`, or save it as
 `SESSION.json` and run `./reason rcp run SESSION.json --json`:
 
 ```json
@@ -38,26 +38,35 @@ A session owns all state for its lifetime; state does not persist across runs.
 
 ## Message and payload
 
-The wire contract is [rcp_message.schema.json](../schemas/rcp_message.schema.json).
-Messages require schema `reasonscript-rcp-message/0.1`, protocol version `0.1`,
+The current wire contract is [rcp_message.schema.json](../schemas/rcp_message.schema.json).
+Messages require schema `reasonscript-rcp-message/0.2`, protocol version `0.2`,
 message ID, source/destination Domain DSNs, kind, correlation ID, nullable
 causation ID, trace and payload. Kinds are `REQUEST`, `RESULT`, `UNKNOWN_REPORT`.
 The payload contains `records` and `unknowns`. Each record holds a typed stable
-reference (`RU`, `RUS`, `RUO`, `Relation`, `Evidence`, `Knowledge`), the complete
+reference (`RU`, `RUS`, `RUO`, `Relation`, `Evidence`, `Knowledge`,
+`ExecutionState`, `ExecutionBinding`, `ExecutionRelation`, `NativeObject`), the complete
 JSON object in `value`, and an explicit reference manifest. `value.id` must
 match the record identity. Unknown transport fields and unsupported enum or
-version values are rejected. Domain-specific fields inside `value` are preserved.
+version values are rejected. Structural `value` bodies follow the
+[RU/RUS/RUO model](reasoning-structure.md); domain-specific information is
+preserved in `content`. Protocol 0.1 and its state/container encodings are rejected.
 
 All reference targets must accompany the payload and match their declared kind.
 Runtime embedded references must also appear in the manifest. KnowledgeSpace
 information can be supplied as `Knowledge` records with its original contents;
 Foundation does not define a new knowledge store or fetch external references.
-Rust `RCPPayload::from_runtime_trace` adapts existing ReasonRuntime semantic
-traces (`context.reason_units = ru_rus_ruo`). `from_native_object` and
-`native_object` preserve and restore native RUO logical objects; runtime handles
+Rust `RCPPayload::from_runtime_trace` accepts only the versioned
+[structural trace schema](../schemas/reason_structure_trace.schema.json).
+`context.reason_units = rus_with_state` produces structural RU/RUS plus
+separate execution states, bindings and evidence relations. Record bodies
+are transferred unchanged; old trace fields and runtime kinds are rejected.
+`ReasonStructure::structural_payload()` exposes the same projection.
+`from_native_object` and
+`native_object` preserve and restore `NativeObject` logical containers; runtime handles
 are never sent. JSON object keys are sorted on encoding and array order is
 preserved. Domain extension values remain in their original bodies. The adapter transfers
 semantic records; the runtime trace container and its summary hashes remain local.
+State revisions never become RUS and containers never become 3D RUO implicitly.
 
 ## UNKNOWN lifecycle
 

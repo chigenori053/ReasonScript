@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import pytest
+import jsonschema
 
 from frontend.computation_ir import lower_program, validate_program
 from frontend.computation_ir.optimizer import optimize_program
@@ -197,17 +198,26 @@ def test_explicit_reason_units_preserve_results_and_add_layers_incrementally():
     }"""))
     runs = {
         mode: run_ir(ir, binary=HOST, reason_units=mode)
-        for mode in ("off", "ru", "ru_rus", "ru_rus_ruo")
+        for mode in ("off", "ru", "rus", "rus_with_state")
     }
     assert {json.dumps(run.calculation_results, sort_keys=True) for run in runs.values()} == {'{"Answer": 77}'}
     traces = {mode: run.metadata["reason_structure_trace"] for mode, run in runs.items()}
     assert traces["off"]["reason_units"] == []
     assert len(traces["ru"]["reason_units"]) == 3
-    assert traces["ru"]["reason_unit_states"] == []
-    assert len(traces["ru_rus"]["reason_unit_states"]) == 3
-    assert traces["ru_rus"]["reason_unit_objects"] == []
-    assert len(traces["ru_rus_ruo"]["reason_unit_objects"]) == 3
-    assert traces["ru"]["hashes"]["ru_sequence_hash"] == traces["ru_rus_ruo"]["hashes"]["ru_sequence_hash"]
+    assert traces["ru"]["execution_states"] == []
+    assert traces["ru"]["reason_structures"] == []
+    assert len(traces["rus"]["reason_structures"]) == 1
+    assert traces["rus"]["reason_structures"][0]["unit_refs"] == [unit["id"] for unit in traces["rus"]["reason_units"]]
+    assert traces["rus"]["execution_states"] == []
+    assert len(traces["rus_with_state"]["execution_states"]) == 3
+    assert len(traces["rus_with_state"]["execution_bindings"]) == 3
+    validator = jsonschema.Draft202012Validator(json.loads((ROOT / "schemas/reason_structure_trace.schema.json").read_text()))
+    for trace in traces.values():
+        validator.validate(trace)
+    assert all(trace["spatial_objects"] == [] for trace in traces.values())
+    assert all("reason_unit_states" not in trace and "reason_unit_objects" not in trace for trace in traces.values())
+    assert traces["ru"]["hashes"]["ru_sequence_hash"] == traces["rus_with_state"]["hashes"]["ru_sequence_hash"]
+    assert all("status" not in unit for unit in traces["rus_with_state"]["reason_units"])
 
 
 def test_executable_reason_units_extend_reason_structure_without_changing_results():
@@ -443,3 +453,11 @@ def test_new_trace_and_event_machine_interfaces_validate():
     for event in outcome.metadata["reasoning_trace"]:
         jsonschema.validate(event, event_schema)
     verify_trace(outcome.metadata["loop_trace"])
+
+
+@pytest.mark.parametrize("mode", ["ru_rus", "ru_rus_ruo"])
+def test_removed_structure_modes_are_rejected(mode):
+    ir = lower_program(parse("module M {\n calculation Answer {\n result = 1\n }\n}"))
+    outcome = run_ir(ir, binary=HOST, reason_units=mode)
+    assert not outcome.ok
+    assert "reason_units must be off, ru, rus, or rus_with_state" in outcome.error_message

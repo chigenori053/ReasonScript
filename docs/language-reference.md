@@ -448,11 +448,19 @@ Changes between loops and after the final loop are included in the journal.
 `reason run --trace=full` selects the earlier loop-snapshot format. Semantic
 reasoning steps are measured separately from loop iterations.
 
-The native runtime request can opt into explicit semantic structures with
-`context.reason_units`: `ru` records Reason Units, `ru_rus` also records
-immutable Reason Unit State revisions, and `ru_rus_ruo` additionally binds each
-unit, state, Evidence, and ReasonRelation in a Reason Unit Object. The default
-`off` mode preserves existing results, traces, and semantics.
+RU is a minimal Reason Unit, RUS a non-spatial Reason Unit Structure, and RUO
+a three-dimensional Reason Unit Object. RUS and RUO are different structure
+forms; execution-state revisions are separate. Use ordinary structs and the
+[structural model](reasoning-structure.md) to construct and serialize them.
+
+The native runtime request selects `context.reason_units`: `ru` records atomic
+Reason Units, `rus` also constructs a non-spatial RUS from two or more units,
+and `rus_with_state` additionally records separate execution snapshots and
+unit/state/evidence bindings. Runtime events do not construct 3D RUO without
+an explicit layout. Traces follow the versioned
+[structural trace schema](../schemas/reason_structure_trace.schema.json).
+The removed `ru_rus`/`ru_rus_ruo` modes and old trace representation are rejected.
+The default `off` mode preserves calculation semantics.
 
 Executable units use the separate `context.executable_reason_units` setting.
 `count` collects lifecycle and cost metrics, while `full` also returns typed

@@ -162,9 +162,10 @@ retains semantic counters but records no payloads. Disabling semantic events in
 the runtime request returns step `0` and emits no semantic events.
 
 Native runtime requests may independently set `context.reason_units` to `off`
-(the default), `ru`, `ru_rus`, or `ru_rus_ruo`. Enabled modes expose a
-`reason_structure_trace` with canonical IDs, Evidence and ReasonRelation links,
-immutable RUS revisions, and RUO lifecycle bindings. `runtime_metrics` includes
+(the default), `ru`, `rus`, or `rus_with_state`. Enabled modes expose a
+`reason_structure_trace` with canonical RU records and Evidence. `rus` adds
+non-spatial RUS membership; `rus_with_state` adds separate execution revisions,
+bindings and evidence links. Spatial RUO requires an explicit domain layout. `runtime_metrics` includes
 the corresponding counts, serialized allocation estimates, VM-instructions per
 RU, and SHA-256 sequence/graph hashes. Turning semantic event tracing off does
 not disable this explicit structure projection.

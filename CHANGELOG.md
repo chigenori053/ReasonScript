@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### RU/RUS/RUO Structural Model v0.1
+
+- Define RU as an atomic Reason Unit, RUS as a non-spatial Reason Unit Structure, and RUO as an explicitly placed 3D Reason Unit Object in physical or abstract space. Add typed membership, relation-domain and placement validation plus source-level constructors/evaluation.
+- Require structural RCP wire schema/protocol 0.2; remove protocol 0.1 and old runtime state/container encodings. Replace `ru_rus`/`ru_rus_ruo` modes with `rus`/`rus_with_state`, canonical RU/RUS records, and separate `ExecutionState`, `ExecutionBinding`, `ExecutionRelation` records. Replace misleading RUS/RUO state metrics and hashes with structural/execution names. Native `.ruo` APIs and frozen compatibility baselines remain unchanged. The 94-case reasoning-state regression preserves historical semantic hashes and checks full new-response determinism instead of requiring the removed response format.
+
 ### RCP Foundation v0.1
 
 - Add lossless RU/RUS/RUO message codecs, strict reference/version validation, UNKNOWN journals and candidate validation, and bounded deterministic Core delivery across Domain DSNs.

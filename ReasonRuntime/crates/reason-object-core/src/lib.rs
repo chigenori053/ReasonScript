@@ -4,6 +4,7 @@
 //! semantic identity never depends on an address, slot, worker, or tensor index.
 
 pub mod rcp;
+pub mod structure;
 
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;

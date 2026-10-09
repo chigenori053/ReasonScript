@@ -385,8 +385,8 @@ pub enum ReasonUnitMode {
     #[default]
     Off,
     Ru,
-    RuRus,
-    RuRusRuo,
+    Rus,
+    RusWithState,
 }
 
 impl ReasonUnitMode {
@@ -394,26 +394,26 @@ impl ReasonUnitMode {
         match value {
             "off" => Some(Self::Off),
             "ru" => Some(Self::Ru),
-            "ru_rus" => Some(Self::RuRus),
-            "ru_rus_ruo" => Some(Self::RuRusRuo),
+            "rus" => Some(Self::Rus),
+            "rus_with_state" => Some(Self::RusWithState),
             _ => None,
         }
     }
 
-    fn has_rus(self) -> bool {
-        matches!(self, Self::RuRus | Self::RuRusRuo)
+    fn has_execution_states(self) -> bool {
+        self == Self::RusWithState
     }
 
-    fn has_ruo(self) -> bool {
-        self == Self::RuRusRuo
+    fn has_execution_bindings(self) -> bool {
+        self == Self::RusWithState
     }
 
     fn as_str(self) -> &'static str {
         match self {
             Self::Off => "off",
             Self::Ru => "ru",
-            Self::RuRus => "ru_rus",
-            Self::RuRusRuo => "ru_rus_ruo",
+            Self::Rus => "rus",
+            Self::RusWithState => "rus_with_state",
         }
     }
 }
@@ -422,10 +422,10 @@ impl ReasonUnitMode {
 pub struct ReasonStructure {
     mode: ReasonUnitMode,
     units: Vec<serde_json::Value>,
-    states: Vec<serde_json::Value>,
-    objects: Vec<serde_json::Value>,
+    execution_states: Vec<serde_json::Value>,
+    execution_bindings: Vec<serde_json::Value>,
     evidence: Vec<serde_json::Value>,
-    relations: Vec<serde_json::Value>,
+    execution_relations: Vec<serde_json::Value>,
     executable_mode: ExecutableMode,
     executable_units: Vec<ExecutableReasonUnit>,
     executable_evidence: Vec<serde_json::Value>,
@@ -854,12 +854,7 @@ impl ReasonStructure {
         self.units.push(serde_json::json!({
             "id": ru_id,
             "kind": kind,
-            "input_state_ref": if self.mode.has_rus() && sequence > 1 { serde_json::Value::String(format!("rus:reasoning@rev{}", sequence - 2)) } else { serde_json::Value::Null },
-            "evidence_refs": [format!("evidence:reasoning:{sequence:08}")],
-            "relation_refs": [format!("relation:reasoning:{sequence:08}")],
-            "semantic_subject": subject,
-            "source_event_type": event_type,
-            "status": status,
+            "content": {"subject": subject, "event_type": event_type},
         }));
         let evidence_id = format!("evidence:reasoning:{sequence:08}");
         self.evidence.push(serde_json::json!({
@@ -869,48 +864,78 @@ impl ReasonStructure {
             "value": evidence_value,
             "source_ru": ru_id,
         }));
-        let relation_id = format!("relation:reasoning:{sequence:08}");
-        self.relations.push(serde_json::json!({
+        let relation_id = format!("execution-relation:reasoning:{sequence:08}");
+        self.execution_relations.push(serde_json::json!({
             "id": relation_id,
             "kind": relation_kind(event_type),
             "source_ref": ru_id,
             "target_ref": evidence_id,
         }));
 
-        if self.mode.has_rus() {
-            let revision = self.states.len();
-            self.states.push(serde_json::json!({
-                "id": format!("rus:reasoning@rev{revision}"),
+        if self.mode.has_execution_states() {
+            let revision = self.execution_states.len();
+            self.execution_states.push(serde_json::json!({
+                "id": format!("state:reasoning@rev{revision}"),
                 "revision": revision,
                 "changed_fields": changed_fields(event_type),
                 "goal_status": goal_status(event_type),
                 "semantic_subject": subject,
             }));
         }
-        if self.mode.has_ruo() {
-            self.objects.push(serde_json::json!({
-                "id": format!("ruo:reasoning:{sequence:08}"),
+        if self.mode.has_execution_bindings() {
+            self.execution_bindings.push(serde_json::json!({
+                "id": format!("binding:reasoning:{sequence:08}"),
                 "reason_unit_ref": ru_id,
-                "current_state_ref": format!("rus:reasoning@rev{}", sequence - 1),
+                "execution_state_ref": format!("state:reasoning@rev{}", sequence - 1),
                 "evidence_refs": [evidence_id],
-                "relation_refs": [relation_id],
+                "execution_relation_refs": [relation_id],
+                "status": status,
                 "lifecycle": ["CREATED", "ACTIVE", "COMPLETED"],
             }));
         }
     }
 
+    /// Materialize a non-spatial structure without inventing causal edges or a 3D layout.
+    fn structures(&self) -> Vec<serde_json::Value> {
+        if !matches!(
+            self.mode,
+            ReasonUnitMode::Rus | ReasonUnitMode::RusWithState
+        ) || self.units.len() < 2
+        {
+            return Vec::new();
+        }
+        vec![serde_json::json!({
+            "id":"rus:reasoning:structure",
+            "unit_refs":self.units.iter().map(|unit| unit["id"].clone()).collect::<Vec<_>>(),
+            "relation_refs":[],
+        })]
+    }
+
+    pub fn structural_payload(
+        &self,
+    ) -> Result<reasonscript_native_reasonunit_runtime::rcp::RCPPayload, String> {
+        reasonscript_native_reasonunit_runtime::rcp::RCPPayload::from_runtime_trace(&self.trace())
+    }
+
     pub fn trace(&self) -> serde_json::Value {
+        let structures = self.structures();
         serde_json::json!({
+            "schema": reasonscript_native_reasonunit_runtime::structure::TRACE_SCHEMA,
             "mode": self.mode.as_str(),
             "reason_units": self.units,
-            "reason_unit_states": self.states,
-            "reason_unit_objects": self.objects,
+            "reason_structures": structures,
+            "spatial_objects": [],
+            "relations": [],
             "evidence": self.evidence,
-            "relations": self.relations,
+            "execution_states": self.execution_states,
+            "execution_bindings": self.execution_bindings,
+            "execution_relations": self.execution_relations,
             "hashes": {
                 "ru_sequence_hash": ru_hash(&self.units),
-                "rus_transition_hash": rus_hash(&self.states),
-                "ruo_graph_hash": hash(&self.objects),
+                "reason_structure_hash": hash(&structures),
+                "spatial_object_hash": hash(&[]),
+                "execution_state_sequence_hash": state_hash(&self.execution_states),
+                "execution_binding_sequence_hash": hash(&self.execution_bindings),
                 "hypothesis_sequence_hash": hypothesis_hash(&self.units, &self.evidence),
             }
         })
@@ -940,17 +965,23 @@ impl ReasonStructure {
         let verified = self
             .units
             .iter()
-            .filter(|unit| unit["status"] == "VERIFIED")
+            .filter(|unit| {
+                classify(unit["content"]["event_type"].as_str().unwrap_or("")).1 == "VERIFIED"
+            })
             .count();
         let rejected = self
             .units
             .iter()
-            .filter(|unit| unit["status"] == "REJECTED")
+            .filter(|unit| {
+                classify(unit["content"]["event_type"].as_str().unwrap_or("")).1 == "REJECTED"
+            })
             .count();
         let completed = self
             .units
             .iter()
-            .filter(|unit| unit["status"] == "COMPLETED")
+            .filter(|unit| {
+                classify(unit["content"]["event_type"].as_str().unwrap_or("")).1 == "COMPLETED"
+            })
             .count();
         let executed = self.units.len();
         let mut metrics = serde_json::json!({
@@ -959,24 +990,21 @@ impl ReasonStructure {
             "ru_verified_count": verified,
             "ru_rejected_count": rejected,
             "ru_completed_count": completed,
-            "rus_created_count": self.states.len(),
-            "rus_transition_count": self.states.len().saturating_sub(1),
-            "rus_revision_count": self.states.len(),
-            "rus_snapshot_bytes": serialized_len(&self.states),
-            "ruo_created_count": self.objects.len(),
-            "ruo_updated_count": self.objects.len(),
-            "ruo_relation_count": self.relations.len(),
-            "ruo_evidence_link_count": self.objects.len(),
-            "reason_relation_created_count": self.relations.len(),
-            "reason_relation_traversal_count": 0,
+            "reason_structure_count": self.structures().len(),
+            "spatial_object_count": 0,
+            "execution_state_count": self.execution_states.len(),
+            "execution_state_transition_count": self.execution_states.len().saturating_sub(1),
+            "execution_binding_count": self.execution_bindings.len(),
+            "execution_relation_count": self.execution_relations.len(),
+            "structural_relation_count": 0,
             "ru_allocated_bytes": serialized_len(&self.units),
-            "rus_allocated_bytes": serialized_len(&self.states),
-            "ruo_allocated_bytes": serialized_len(&self.objects),
-            "relation_allocated_bytes": serialized_len(&self.relations),
+            "execution_state_bytes": serialized_len(&self.execution_states),
+            "execution_binding_bytes": serialized_len(&self.execution_bindings),
+            "execution_relation_bytes": serialized_len(&self.execution_relations),
             "ruvmr": if executed == 0 { serde_json::Value::Null } else { serde_json::json!(vm_instruction_count as f64 / executed as f64) },
             "ru_sequence_hash": ru_hash(&self.units),
-            "rus_transition_hash": rus_hash(&self.states),
-            "ruo_graph_hash": hash(&self.objects),
+            "execution_state_sequence_hash": state_hash(&self.execution_states),
+            "execution_binding_sequence_hash": hash(&self.execution_bindings),
             "hypothesis_sequence_hash": hypothesis_hash(&self.units, &self.evidence),
             "allocation_count": managed_allocation_count,
             "allocated_bytes": managed_base_bytes + executable_bytes as u64,
@@ -1220,14 +1248,10 @@ fn serialized_len(values: &[serde_json::Value]) -> usize {
 }
 
 fn ru_hash(units: &[serde_json::Value]) -> String {
-    let tuples: Vec<_> = units
-        .iter()
-        .map(|unit| serde_json::json!([unit["kind"], unit["status"], unit["semantic_subject"]]))
-        .collect();
-    hash(&tuples)
+    hash(units)
 }
 
-fn rus_hash(states: &[serde_json::Value]) -> String {
+fn state_hash(states: &[serde_json::Value]) -> String {
     let tuples: Vec<_> = states
         .iter()
         .map(|state| {
@@ -1248,8 +1272,8 @@ fn hypothesis_hash(units: &[serde_json::Value], evidence: &[serde_json::Value]) 
         .filter(|(unit, _)| matches!(unit["kind"].as_str(), Some("HYPOTHESIS" | "VERIFICATION")))
         .map(|(unit, evidence)| {
             serde_json::json!([
-                unit["source_event_type"],
-                unit["semantic_subject"],
+                unit["content"]["event_type"],
+                unit["content"]["subject"],
                 evidence["value"]
             ])
         })
@@ -1263,33 +1287,44 @@ mod tests {
     use crate::reasoning_state::{ReasonStateField, ReasonStateValue};
 
     #[test]
-    fn explicit_layers_are_incremental_and_deterministic() {
-        let event = |structure: &mut ReasonStructure| {
-            structure.record(
+    fn structural_modes_separate_state_and_never_invent_spatial_objects() {
+        for mode in [
+            ReasonUnitMode::Ru,
+            ReasonUnitMode::Rus,
+            ReasonUnitMode::RusWithState,
+        ] {
+            let mut runtime = ReasonStructure::new(mode);
+            runtime.record(
                 "HYPOTHESIS_VERIFIED",
                 &serde_json::json!(11),
-                &serde_json::json!({"divisible": true}),
+                &serde_json::json!(true),
             );
-        };
-        let mut ru = ReasonStructure::new(ReasonUnitMode::Ru);
-        let mut rus = ReasonStructure::new(ReasonUnitMode::RuRus);
-        let mut ruo = ReasonStructure::new(ReasonUnitMode::RuRusRuo);
-        event(&mut ru);
-        event(&mut rus);
-        event(&mut ruo);
-        assert_eq!(ru.trace()["reason_unit_states"], serde_json::json!([]));
-        assert_eq!(
-            rus.trace()["reason_unit_states"].as_array().unwrap().len(),
-            1
-        );
-        assert_eq!(
-            ruo.trace()["reason_unit_objects"].as_array().unwrap().len(),
-            1
-        );
-        assert_eq!(
-            rus.trace()["hashes"]["ru_sequence_hash"],
-            ruo.trace()["hashes"]["ru_sequence_hash"]
-        );
+            assert_eq!(runtime.trace()["reason_structures"], serde_json::json!([]));
+            runtime.record(
+                "TERMINATION_INFERRED",
+                &serde_json::json!(7),
+                &serde_json::json!(true),
+            );
+            let trace = runtime.trace();
+            assert!(trace.get("reason_unit_states").is_none());
+            assert!(trace.get("reason_unit_objects").is_none());
+            assert_eq!(trace["spatial_objects"], serde_json::json!([]));
+            assert_eq!(
+                trace["execution_states"].as_array().unwrap().len(),
+                if mode == ReasonUnitMode::RusWithState {
+                    2
+                } else {
+                    0
+                }
+            );
+            assert_eq!(
+                trace["reason_structures"].as_array().unwrap().len(),
+                if mode == ReasonUnitMode::Ru { 0 } else { 1 }
+            );
+            runtime.structural_payload().unwrap();
+        }
+        assert!(ReasonUnitMode::parse("ru_rus").is_none());
+        assert!(ReasonUnitMode::parse("ru_rus_ruo").is_none());
     }
 
     #[test]

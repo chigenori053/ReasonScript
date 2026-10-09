@@ -1,0 +1,105 @@
+module ReasoningStructure {
+  export struct Reference {
+    kind: string
+    id: string
+  }
+  export struct ReasonUnit {
+    id: string
+    kind: string
+    content: string
+  }
+  export struct ReasonUnitStructure {
+    id: string
+    unit_refs: [string]
+    relation_refs: [string]
+  }
+  export struct ReasonRelation {
+    id: string
+    domain: string
+    kind: string
+    source_ref: string
+    target_ref: string
+    content: string
+  }
+  export struct Placement3D {
+    target: Reference
+    position: [float]
+    direction: optional<[float]>
+  }
+  export struct ReasonUnitObject {
+    id: string
+    space: string
+    coordinate_frame: string
+    coordinate_unit: string
+    unit_refs: [string]
+    structure_refs: [string]
+    relation_refs: [string]
+    placements: [Placement3D]
+  }
+  export fn Unit(id: string, kind: string, content: string) -> ReasonUnit {
+    return ReasonUnit { id: id, kind: kind, content: content }
+  }
+  export fn Structure(id: string, units: [string], relations: [string]) -> ReasonUnitStructure {
+    return ReasonUnitStructure { id: id, unit_refs: units, relation_refs: relations }
+  }
+  export fn Object3D(id: string, space: string, frame: string, unit: string, units: [string], structures: [string], relations: [string], placements: [Placement3D]) -> ReasonUnitObject {
+    return ReasonUnitObject { id: id, space: space, coordinate_frame: frame, coordinate_unit: unit, unit_refs: units, structure_refs: structures, relation_refs: relations, placements: placements }
+  }
+  // Spatial evaluation belongs to the source; transport only validates the structure.
+  export fn SquaredDistance(a: Placement3D, b: Placement3D) -> float {
+    let dx = a.position[0] - b.position[0]
+    let dy = a.position[1] - b.position[1]
+    let dz = a.position[2] - b.position[2]
+    return dx * dx + dy * dy + dz * dz
+  }
+  fn RecordJson(kind: string, id: string, value: string, references: [Reference]) -> string {
+    return string.join("", ["{\"reference\":", serialize.json(Reference { kind: kind, id: id }), ",\"value\":", value, ",\"references\":", serialize.json(references), "}"])
+  }
+  export fn UnitRecord(unit: ReasonUnit) -> string {
+    return RecordJson("RU", unit.id, serialize.json(unit), [])
+  }
+  export fn StructureRecord(structure: ReasonUnitStructure) -> string {
+    let references = array.builder()
+    for id in structure.unit_refs {
+      references.append(Reference { kind: "RU", id: id })
+    }
+    for id in structure.relation_refs {
+      references.append(Reference { kind: "Relation", id: id })
+    }
+    return RecordJson("RUS", structure.id, serialize.json(structure), references.finish())
+  }
+  export fn ObjectRecord(object: ReasonUnitObject) -> string {
+    let references = array.builder()
+    for id in object.unit_refs {
+      references.append(Reference { kind: "RU", id: id })
+    }
+    for id in object.structure_refs {
+      references.append(Reference { kind: "RUS", id: id })
+    }
+    for id in object.relation_refs {
+      references.append(Reference { kind: "Relation", id: id })
+    }
+    return RecordJson("RUO", object.id, serialize.json(object), references.finish())
+  }
+  export fn RelationRecord(relation: ReasonRelation, endpoints: [Reference]) -> string {
+    return RecordJson("Relation", relation.id, serialize.json(relation), endpoints)
+  }
+  calculation SerializedStructureMessage -> string {
+    let a = Unit("ru:a", "proposition", "A implies B")
+    let b = Unit("ru:b", "condition", "B is true")
+    let logical = ReasonRelation { id: "relation:logical", domain: "non_spatial", kind: "Dependency", source_ref: a.id, target_ref: b.id, content: "logical dependency" }
+    let structure = Structure("rus:structure", [a.id, b.id], [logical.id])
+    let pa = Placement3D { target: Reference { kind: "RU", id: a.id }, position: [0.0, 0.0, 0.0], direction: some([1.0, 0.0, 0.0]) }
+    let pb = Placement3D { target: Reference { kind: "RU", id: b.id }, position: [1.0, 2.0, 3.0], direction: none }
+    let ps = Placement3D { target: Reference { kind: "RUS", id: structure.id }, position: [0.0, 0.0, 1.0], direction: none }
+    let spatial = ReasonRelation { id: "relation:spatial", domain: "spatial_3d", kind: "Adjacent", source_ref: a.id, target_ref: b.id, content: "adjacent in the abstract layout" }
+    let object = Object3D("ruo:spatial", "abstract", "frame:reasoning", "reasoning_unit", [a.id, b.id], [structure.id], [spatial.id], [pa, pb, ps])
+    let records = string.join("", [UnitRecord(a), ",", UnitRecord(b), ",", RelationRecord(logical, [Reference { kind: "RU", id: a.id }, Reference { kind: "RU", id: b.id }]), ",", StructureRecord(structure), ",", RelationRecord(spatial, [Reference { kind: "RU", id: a.id }, Reference { kind: "RU", id: b.id }]), ",", ObjectRecord(object)])
+    result = string.join("", ["{\"schema\":\"reasonscript-rcp-message/0.2\",\"protocol_version\":\"0.2\",\"message_id\":\"message:structure\",\"source\":\"dsn:a\",\"destination\":\"dsn:b\",\"kind\":\"REQUEST\",\"correlation_id\":\"conversation:structure\",\"causation_id\":null,\"trace\":[],\"payload\":{\"records\":[", records, "],\"unknowns\":[]}}"])
+  }
+  calculation StructuralChecks -> bool {
+    let a = Placement3D { target: Reference { kind: "RU", id: "ru:a" }, position: [0.0, 0.0, 0.0], direction: none }
+    let b = Placement3D { target: Reference { kind: "RU", id: "ru:b" }, position: [1.0, 2.0, 3.0], direction: none }
+    result = SquaredDistance(a, b) == 14.0
+  }
+}

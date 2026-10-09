@@ -1,5 +1,10 @@
 # ReasonUnit Object language integration
 
+This page describes the existing universal `.ruo` information-container API.
+It does not require three-dimensional coordinates. The formal structural RUO
+is defined by the [Reasoning Unit Structural Model](reasoning-structure.md);
+RCP 0.2 transfers these existing containers as `NativeObject`, distinct from RUO.
+
 Bind a canonical Object explicitly inside a model or compatibility module:
 
 ```reason

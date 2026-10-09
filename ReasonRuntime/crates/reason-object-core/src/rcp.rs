@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const VERSION: &str = "0.1";
-pub const SCHEMA: &str = "reasonscript-rcp-message/0.1";
+pub const VERSION: &str = "0.2";
+pub const SCHEMA: &str = "reasonscript-rcp-message/0.2";
 pub type RCPResult<T> = Result<T, String>;
 fn reject<T>(reason: &str) -> RCPResult<T> {
     Err(format!("RCP-001: {reason}"))
@@ -31,6 +31,10 @@ pub enum ReferenceKind {
     Relation,
     Evidence,
     Knowledge,
+    ExecutionState,
+    ExecutionBinding,
+    ExecutionRelation,
+    NativeObject,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -246,10 +250,7 @@ impl RCPPayload {
             if !record.value.is_object() {
                 return reject("record body must be an object");
             }
-            if index
-                .insert(record.reference.id.clone(), record.reference.kind.clone())
-                .is_some()
-            {
+            if index.insert(record.reference.id.as_str(), record).is_some() {
                 return reject("duplicate record identity");
             }
             if record.value.get("id").and_then(Value::as_str) != Some(&record.reference.id) {
@@ -257,18 +258,22 @@ impl RCPPayload {
             }
         }
         let check = |reference: &RCPReference| -> RCPResult<()> {
-            if index.get(&reference.id) != Some(&reference.kind) {
+            if index.get(reference.id.as_str()).map(|r| &r.reference.kind) != Some(&reference.kind)
+            {
                 return reject("dangling or mistyped reference");
             }
             Ok(())
         };
         for record in &self.records {
+            crate::structure::validate_record(&index, record)?;
             for reference in &record.references {
                 check(reference)?;
             }
             if let Some(logical) = record.value.get("native_logical") {
-                if record.reference.kind != ReferenceKind::RUO {
-                    return reject("native logical body requires RUO");
+                if record.reference.kind != ReferenceKind::NativeObject {
+                    return reject(
+                        "native logical body requires an explicit native container kind",
+                    );
                 }
                 let object = NativeReasonUnitObject::from_logical(logical.clone())
                     .map_err(|e| format!("RCP-001: {}", e.message))?;
@@ -289,10 +294,13 @@ impl RCPPayload {
             // Validate embedded runtime references as well as the transport manifest.
             for (key, value) in record.value.as_object().unwrap() {
                 let kind = match key.as_str() {
-                    "input_state_ref" | "current_state_ref" => Some(ReferenceKind::RUS),
+                    "execution_state_ref" => Some(ReferenceKind::ExecutionState),
                     "reason_unit_ref" | "source_ru" => Some(ReferenceKind::RU),
                     "evidence_refs" => Some(ReferenceKind::Evidence),
+                    "execution_relation_refs" => Some(ReferenceKind::ExecutionRelation),
                     "relation_refs" => Some(ReferenceKind::Relation),
+                    "unit_refs" => Some(ReferenceKind::RU),
+                    "structure_refs" => Some(ReferenceKind::RUS),
                     "knowledge_refs" => Some(ReferenceKind::Knowledge),
                     "source_ref" | "target_ref" => None,
                     _ => continue,
@@ -307,9 +315,11 @@ impl RCPPayload {
                 };
                 for id in values {
                     let id = id.as_str().ok_or("RCP-001: reference must be a string")?;
-                    let actual = index
+                    let actual = &index
                         .get(id)
-                        .ok_or("RCP-001: dangling embedded reference")?;
+                        .ok_or("RCP-001: dangling embedded reference")?
+                        .reference
+                        .kind;
                     if kind.as_ref().is_some_and(|kind| kind != actual) {
                         return reject("mistyped embedded reference");
                     }
@@ -325,7 +335,9 @@ impl RCPPayload {
         let mut unknowns = BTreeMap::new();
         for unit in &self.unknowns {
             unit.validate()?;
-            if index.contains_key(&unit.id) || unknowns.insert(unit.id.clone(), unit).is_some() {
+            if index.contains_key(unit.id.as_str())
+                || unknowns.insert(unit.id.clone(), unit).is_some()
+            {
                 return reject("duplicate UNKNOWN identity");
             }
             for r in unit
@@ -384,28 +396,58 @@ impl RCPPayload {
         }
         Ok(())
     }
-    /// Adapt the native ReasonRuntime semantic trace without changing any record.
+    /// Transport the current structural trace without legacy state/object coercions.
     pub fn from_runtime_trace(trace: &Value) -> RCPResult<Self> {
+        if trace.get("schema").and_then(Value::as_str) != Some(crate::structure::TRACE_SCHEMA) {
+            return reject("unsupported structural runtime trace");
+        }
+        let fields = trace
+            .as_object()
+            .ok_or("RCP-001: structural trace must be an object")?;
+        let allowed = [
+            "schema",
+            "mode",
+            "hashes",
+            "reason_units",
+            "reason_structures",
+            "spatial_objects",
+            "relations",
+            "evidence",
+            "execution_states",
+            "execution_bindings",
+            "execution_relations",
+        ];
+        if fields.keys().any(|key| !allowed.contains(&key.as_str())) {
+            return reject("unsupported structural trace field");
+        }
+        if let Some(mode) = trace.get("mode") {
+            if !matches!(mode.as_str(), Some("off" | "ru" | "rus" | "rus_with_state")) {
+                return reject("unsupported structural trace mode");
+            }
+        }
         let mut payload = Self {
             records: vec![],
             unknowns: vec![],
         };
         for (section, kind) in [
             ("reason_units", ReferenceKind::RU),
-            ("reason_unit_states", ReferenceKind::RUS),
-            ("reason_unit_objects", ReferenceKind::RUO),
-            ("evidence", ReferenceKind::Evidence),
+            ("reason_structures", ReferenceKind::RUS),
+            ("spatial_objects", ReferenceKind::RUO),
             ("relations", ReferenceKind::Relation),
+            ("evidence", ReferenceKind::Evidence),
+            ("execution_states", ReferenceKind::ExecutionState),
+            ("execution_bindings", ReferenceKind::ExecutionBinding),
+            ("execution_relations", ReferenceKind::ExecutionRelation),
         ] {
-            let records = trace
+            let values = trace
                 .get(section)
                 .and_then(Value::as_array)
-                .ok_or("RCP-001: missing runtime trace section")?;
-            for value in records {
+                .ok_or("RCP-001: missing structural trace section")?;
+            for value in values {
                 let id = value
                     .get("id")
                     .and_then(Value::as_str)
-                    .ok_or("RCP-001: missing runtime identity")?;
+                    .ok_or("RCP-001: missing structural identity")?;
                 payload.records.push(RCPRecord {
                     reference: RCPReference {
                         kind: kind.clone(),
@@ -423,8 +465,8 @@ impl RCPPayload {
             .collect();
         for record in &mut payload.records {
             for key in [
-                "input_state_ref",
-                "current_state_ref",
+                "execution_state_ref",
+                "execution_relation_refs",
                 "reason_unit_ref",
                 "source_ru",
                 "source_ref",
@@ -432,6 +474,8 @@ impl RCPPayload {
                 "evidence_refs",
                 "relation_refs",
                 "knowledge_refs",
+                "unit_refs",
+                "structure_refs",
             ] {
                 if let Some(value) = record.value.get(key) {
                     if value.is_null() {
@@ -442,13 +486,13 @@ impl RCPPayload {
                         .cloned()
                         .unwrap_or_else(|| vec![value.clone()]);
                     for value in values {
-                        let id = value.as_str().ok_or("RCP-001: invalid runtime reference")?;
-                        let kind = index
-                            .get(id)
-                            .ok_or("RCP-001: missing runtime reference target")?;
+                        let id = value
+                            .as_str()
+                            .ok_or("RCP-001: invalid structural reference")?;
+                        let kind = index.get(id).ok_or("RCP-001: missing structural target")?;
                         record.references.push(RCPReference {
-                            id: id.into(),
                             kind: kind.clone(),
+                            id: id.into(),
                         });
                     }
                 }
@@ -464,7 +508,7 @@ impl RCPPayload {
         let payload = Self {
             records: vec![RCPRecord {
                 reference: RCPReference {
-                    kind: ReferenceKind::RUO,
+                    kind: ReferenceKind::NativeObject,
                     id: object.object_id.as_str().into(),
                 },
                 value,
@@ -480,7 +524,7 @@ impl RCPPayload {
         let record = self
             .records
             .iter()
-            .find(|r| r.reference.id == id && r.reference.kind == ReferenceKind::RUO)
+            .find(|r| r.reference.id == id && r.reference.kind == ReferenceKind::NativeObject)
             .ok_or("RCP-001: native RUO missing")?;
         NativeReasonUnitObject::from_logical(
             record
@@ -633,6 +677,7 @@ impl RCPDispatcher {
                 .ok_or("RCP-001: unknown causation")?;
             if parent.destination != message.source
                 || parent.correlation_id != message.correlation_id
+                || parent.protocol_version != message.protocol_version
                 || message.trace != parent.trace
             {
                 return reject("causal route mismatch");

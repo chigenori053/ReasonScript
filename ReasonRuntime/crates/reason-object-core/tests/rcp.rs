@@ -8,11 +8,13 @@ fn reference(kind: ReferenceKind, id: &str) -> RCPReference {
 }
 fn payload() -> RCPPayload {
     RCPPayload::from_runtime_trace(&json!({
-        "reason_units":[{"id":"ru:1","evidence_refs":["evidence:1"],"relation_refs":["relation:1"],"status":"UNKNOWN"}],
-        "reason_unit_states":[{"id":"rus:1","revision":0}],
-        "reason_unit_objects":[{"id":"ruo:1","reason_unit_ref":"ru:1","current_state_ref":"rus:1","evidence_refs":["evidence:1"]}],
+        "schema":reasonscript_native_reasonunit_runtime::structure::TRACE_SCHEMA,
+        "reason_units":[{"id":"ru:1","kind":"query","content":{"question":"missing knowledge"}}],
+        "reason_structures":[],"spatial_objects":[],"relations":[],
+        "execution_states":[{"id":"state:1","revision":0,"changed_fields":[],"goal_status":"ACTIVE","semantic_subject":"question"}],
+        "execution_bindings":[{"id":"binding:1","reason_unit_ref":"ru:1","execution_state_ref":"state:1","evidence_refs":["evidence:1"],"execution_relation_refs":["execution-relation:1"],"status":"ACTIVE","lifecycle":["CREATED","ACTIVE"]}],
         "evidence":[{"id":"evidence:1","source_ru":"ru:1","value":{"score":0.25}}],
-        "relations":[{"id":"relation:1","source_ref":"ru:1","target_ref":"evidence:1"}]
+        "execution_relations":[{"id":"execution-relation:1","kind":"PRODUCES","source_ref":"ru:1","target_ref":"evidence:1"}]
     })).unwrap()
 }
 fn message() -> RCPMessage {
@@ -182,7 +184,7 @@ fn rcp_t08_reject_invalid() {
     assert!(RCPMessage::decode(&m.encode().unwrap(), 1).is_err());
     assert!(RCPMessage::decode(b"{}", 1024).is_err());
     let mut m = message();
-    m.protocol_version = "0.2".into();
+    m.protocol_version = "0.3".into();
     assert!(m.encode().is_err());
     let mut m = message();
     m.payload.records.pop();
@@ -191,7 +193,13 @@ fn rcp_t08_reject_invalid() {
     m.payload.records[0].reference.id = "ru:other".into();
     assert!(m.encode().is_err());
     let mut m = message();
-    m.payload.records[0].references[0].kind = ReferenceKind::Knowledge;
+    m.payload
+        .records
+        .iter_mut()
+        .find(|r| r.reference.kind == ReferenceKind::ExecutionBinding)
+        .unwrap()
+        .references[0]
+        .kind = ReferenceKind::Knowledge;
     assert!(m.encode().is_err());
     let mut p = payload();
     let mut u = unknown();
@@ -274,4 +282,65 @@ fn canonical_native_fixture_transfer() {
     let payload = RCPPayload::from_native_object(&object).unwrap();
     let restored = payload.native_object(object.object_id.as_str()).unwrap();
     assert_eq!(restored.logical, object.logical);
+}
+
+#[test]
+fn unknown_registry_accepts_each_structural_origin() {
+    let a = reference(ReferenceKind::RU, "ru:a");
+    let b = reference(ReferenceKind::RU, "ru:b");
+    let s = reference(ReferenceKind::RUS, "rus:structure");
+    let o = reference(ReferenceKind::RUO, "ruo:spatial");
+    let context = RCPPayload {
+        records: vec![
+            RCPRecord {
+                reference: a.clone(),
+                value: json!({"id":a.id,"kind":"proposition","content":"a"}),
+                references: vec![],
+            },
+            RCPRecord {
+                reference: b.clone(),
+                value: json!({"id":b.id,"kind":"condition","content":"b"}),
+                references: vec![],
+            },
+            RCPRecord {
+                reference: s.clone(),
+                value: json!({"id":s.id,"unit_refs":[a.id,b.id],"relation_refs":[]}),
+                references: vec![a.clone(), b.clone()],
+            },
+            RCPRecord {
+                reference: o.clone(),
+                value: json!({"id":o.id,"space":"abstract","coordinate_frame":"frame:test","coordinate_unit":"unit","unit_refs":[a.id,b.id],"structure_refs":[s.id],"relation_refs":[],"placements":[{"target":a,"position":[0,0,0],"direction":null},{"target":b,"position":[1,0,0],"direction":null},{"target":s,"position":[0,1,0],"direction":null}]}),
+                references: vec![a.clone(), b.clone(), s.clone()],
+            },
+        ],
+        unknowns: vec![],
+    };
+    context.validate().unwrap();
+    let mut registry = UnknownRegistry::default();
+    for (i, origin) in [a, s, o].into_iter().enumerate() {
+        let mut unit = unknown();
+        unit.id = format!("unknown:structural:{i}");
+        unit.origins = vec![origin];
+        registry.commit(unit.clone(), &context, &Policy).unwrap();
+        assert_eq!(registry.get(&unit.id), Some(&unit));
+    }
+}
+
+#[test]
+fn runtime_adapter_rejects_state_reference_to_evidence() {
+    let mut trace = serde_json::json!({"schema":reasonscript_native_reasonunit_runtime::structure::TRACE_SCHEMA,"reason_units":[{"id":"ru:1","kind":"query","content":"question"}],"reason_structures":[],"spatial_objects":[],"relations":[],"execution_states":[],"execution_bindings":[{"id":"binding:1","reason_unit_ref":"ru:1","execution_state_ref":"evidence:1","evidence_refs":[],"execution_relation_refs":[],"status":"ACTIVE","lifecycle":[]}],"evidence":[{"id":"evidence:1"}],"execution_relations":[]});
+    assert!(RCPPayload::from_runtime_trace(&trace).is_err());
+    trace["execution_bindings"] = serde_json::json!([]);
+    trace["mode"] = serde_json::json!("rus_with_state");
+    assert!(RCPPayload::from_runtime_trace(&trace).is_ok());
+    for mode in ["ru_rus", "ru_rus_ruo"] {
+        trace["mode"] = serde_json::json!(mode);
+        assert!(RCPPayload::from_runtime_trace(&trace).is_err());
+    }
+    trace["mode"] = serde_json::json!("rus_with_state");
+    trace["reason_unit_states"] = serde_json::json!([]);
+    assert!(RCPPayload::from_runtime_trace(&trace).is_err());
+    trace.as_object_mut().unwrap().remove("reason_unit_states");
+    trace["schema"] = serde_json::json!("old-runtime");
+    assert!(RCPPayload::from_runtime_trace(&trace).is_err());
 }

@@ -4,7 +4,7 @@ use serde_json::json;
 
 #[test]
 fn native_runtime_semantics_transfer_losslessly_between_domains() {
-    let mut runtime = ReasonStructure::new(ReasonUnitMode::RuRusRuo);
+    let mut runtime = ReasonStructure::new(ReasonUnitMode::RusWithState);
     runtime.record(
         "UNKNOWN_DETECTED",
         &json!("question"),
@@ -12,7 +12,15 @@ fn native_runtime_semantics_transfer_losslessly_between_domains() {
     );
     runtime.record("TERMINATION_INFERRED", &json!("answer"), &json!(true));
     let original = runtime.trace();
-    let payload = RCPPayload::from_runtime_trace(&original).unwrap();
+    let payload = runtime.structural_payload().unwrap();
+    assert!(payload
+        .records
+        .iter()
+        .any(|record| record.reference.kind == ReferenceKind::RUS));
+    assert!(!payload
+        .records
+        .iter()
+        .any(|record| record.reference.kind == ReferenceKind::RUO));
     let message = RCPMessage {
         schema: SCHEMA.into(),
         protocol_version: VERSION.into(),
@@ -43,9 +51,12 @@ fn native_runtime_semantics_transfer_losslessly_between_domains() {
     let receipt = dispatcher.receive("dsn:second").unwrap().remove(0);
     for (section, kind) in [
         ("reason_units", ReferenceKind::RU),
-        ("reason_unit_states", ReferenceKind::RUS),
-        ("reason_unit_objects", ReferenceKind::RUO),
+        ("execution_states", ReferenceKind::ExecutionState),
+        ("reason_structures", ReferenceKind::RUS),
+        ("spatial_objects", ReferenceKind::RUO),
+        ("execution_bindings", ReferenceKind::ExecutionBinding),
         ("evidence", ReferenceKind::Evidence),
+        ("execution_relations", ReferenceKind::ExecutionRelation),
         ("relations", ReferenceKind::Relation),
     ] {
         let transferred: Vec<_> = receipt

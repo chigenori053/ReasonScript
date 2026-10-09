@@ -61,8 +61,7 @@ module RCPFoundation {
   export struct ReasonRecord {
     id: string
     kind: string
-    semantic_subject: string
-    status: string
+    content: string
   }
   export struct RCPRecord {
     reference: RCPReference
@@ -86,11 +85,11 @@ module RCPFoundation {
     payload: RCPPayload
   }
   export fn Request(id: string, source: string, destination: string, correlation: string, payload: RCPPayload) -> RCPMessage {
-    return RCPMessage { schema: "reasonscript-rcp-message/0.1", protocol_version: "0.1", message_id: id, source: source, destination: destination, kind: "REQUEST", correlation_id: correlation, causation_id: none, trace: [], payload: payload }
+    return RCPMessage { schema: "reasonscript-rcp-message/0.2", protocol_version: "0.2", message_id: id, source: source, destination: destination, kind: "REQUEST", correlation_id: correlation, causation_id: none, trace: [], payload: payload }
   }
   calculation SerializedRequest -> string {
     let reference = RCPReference { kind: "RU", id: "ru:request" }
-    let record = RCPRecord { reference: reference, value: ReasonRecord { id: "ru:request", kind: "query", semantic_subject: "domain question", status: "UNKNOWN" }, references: [] }
+    let record = RCPRecord { reference: reference, value: ReasonRecord { id: "ru:request", kind: "query", content: "domain question" }, references: [] }
     let unit = CreateUnknown("unknown:request", [reference], "MissingKnowledge", [], [])
     let payload = RCPPayload { records: [record], unknowns: [unit] }
     result = serialize.json(Request("message:request", "dsn:a", "dsn:b", "conversation:request", payload))

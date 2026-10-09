@@ -297,7 +297,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         return fail_request(
             request_id,
             "RTH-PROTO-004",
-            "reason_units must be off, ru, ru_rus, or ru_rus_ruo",
+            "reason_units must be off, ru, rus, or rus_with_state",
         );
     };
     let executable_reason_unit_name = request
