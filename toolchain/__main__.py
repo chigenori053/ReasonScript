@@ -225,6 +225,10 @@ def main() -> int:
         from toolchain.tensor_cmd import run
         return run(args[1:], project_root)
 
+    if command == "rcp":
+        from toolchain.rcp_cmd import run
+        return run(args[1:], project_root)
+
     if command == "reasonunit-runtime":
         from toolchain.reasonunit_runtime_cmd import run
         return run(args[1:], project_root)
@@ -333,6 +337,7 @@ def _usage() -> None:
     print("  reasonunit-tensor Encode, validate, inspect, decode, select, convert, and verify Tensor payloads")
     print("  tensor        Import, inspect, and verify canonical .rstensor files")
     print("  reasonunit-runtime Load, query, revise, project, and validate native ReasonUnit Objects")
+    print("  rcp           Run a bounded native RCP Core communication session")
     print("  vision        Validate observations and construct RUO/Tensor vision artifacts")
     print("  geometry      Derive geometric state and relations from Vision observations")
     print("  visualization Project semantic scenes and render deterministic SVG artifacts")

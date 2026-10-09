@@ -1,0 +1,233 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "protocol_version",
+    "message_id",
+    "source",
+    "destination",
+    "kind",
+    "correlation_id",
+    "causation_id",
+    "trace",
+    "payload"
+  ],
+  "properties": {
+    "schema": {
+      "const": "reasonscript-rcp-message/0.1"
+    },
+    "protocol_version": {
+      "const": "0.1"
+    },
+    "message_id": {
+      "type": "string",
+      "pattern": "^[^\\s]+:[^\\s]*$"
+    },
+    "source": {
+      "type": "string",
+      "pattern": "^[^\\s]+:[^\\s]*$"
+    },
+    "destination": {
+      "type": "string",
+      "pattern": "^[^\\s]+:[^\\s]*$"
+    },
+    "kind": {
+      "enum": [
+        "REQUEST",
+        "RESULT",
+        "UNKNOWN_REPORT"
+      ]
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^[^\\s]+:[^\\s]*$"
+    },
+    "causation_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "trace": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[^\\s]+:[^\\s]*$"
+      },
+      "uniqueItems": true
+    },
+    "payload": {
+      "$ref": "#/$defs/payload"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reasonscript-rcp-message/0.1",
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "RU",
+            "RUS",
+            "RUO",
+            "Relation",
+            "Evidence",
+            "Knowledge"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        }
+      }
+    },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "evidence",
+        "candidate"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "OPEN",
+            "IN_PROGRESS",
+            "CANDIDATE",
+            "RESOLVED"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        },
+        "candidate": {}
+      }
+    },
+    "unknown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "origins",
+        "cause",
+        "grounds",
+        "dependencies",
+        "history"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[^\\s]+:[^\\s]*$"
+        },
+        "origins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          },
+          "minItems": 1
+        },
+        "cause": {
+          "enum": [
+            "MissingKnowledge",
+            "MissingEvidence",
+            "Ambiguous",
+            "Conflict",
+            "Dependency"
+          ]
+        },
+        "grounds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^\\s]+:[^\\s]*$"
+          }
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/revision"
+          },
+          "minItems": 1,
+          "maxItems": 4
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "value",
+        "references"
+      ],
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/reference"
+        },
+        "value": {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[^\\s]+:[^\\s]*$"
+            }
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reference"
+          }
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "records",
+        "unknowns"
+      ],
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/record"
+          },
+          "minItems": 1
+        },
+        "unknowns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unknown"
+          }
+        }
+      }
+    }
+  }
+}

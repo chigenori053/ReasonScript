@@ -22,6 +22,7 @@ phase-completion reports are kept in Git history instead of the public docs.
 ## Topics
 
 - [Installation](installation/README.md)
+- [RCP Foundation](rcp.md) — reasoning messages, UNKNOWN lifecycle, and Domain DSN delivery.
 - [ReasonUnit Objects](reasonunit-object.md)
 - [Known limitations](releases/ReasonScript_v0_5_Known_Limitations.md)
 - [Roadmap](roadmap.md)

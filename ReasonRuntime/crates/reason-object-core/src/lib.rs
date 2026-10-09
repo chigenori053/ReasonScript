@@ -3,6 +3,8 @@
 //! The core deliberately uses ordered collections and safe Rust only. Stable
 //! semantic identity never depends on an address, slot, worker, or tensor index.
 
+pub mod rcp;
+
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use serde_json::{json, Value};

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### RCP Foundation v0.1
+
+- Add lossless RU/RUS/RUO message codecs, strict reference/version validation, UNKNOWN journals and candidate validation, and bounded deterministic Core delivery across Domain DSNs.
+- Add source-level ReasonScript message/UNKNOWN construction and evaluation examples, native Runtime adapters, wire schema, and RCP-T01–T09 coverage. Existing syntax, MIRP behavior, and compatibility baselines are unchanged.
+
 ## [0.5.6.5] - 2026-09-29
 
 - Packaged the combined numeric/data foundation, native SVG plots, and Vision,

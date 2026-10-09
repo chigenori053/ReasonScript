@@ -9,6 +9,35 @@ use std::path::Path;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let operation = args.get(1).map(String::as_str).unwrap_or("verify-native");
+    if operation == "rcp" {
+        use std::io::Read;
+        let mut bytes = Vec::new();
+        let outcome = std::io::stdin()
+            .take(1_048_577)
+            .read_to_end(&mut bytes)
+            .map_err(|e| format!("RCP-001: {e}"))
+            .and_then(|_| {
+                if bytes.len() > 1_048_576 {
+                    return Err("RCP-001: session byte limit".into());
+                }
+                serde_json::from_slice::<reasonscript_native_reasonunit_runtime::rcp::RCPSession>(
+                    &bytes,
+                )
+                .map_err(|e| format!("RCP-001: {e}"))
+            })
+            .and_then(reasonscript_native_reasonunit_runtime::rcp::run_session);
+        match outcome {
+            Ok(value) => println!("{value}"),
+            Err(message) => {
+                println!(
+                    "{}",
+                    json!({"ok":false,"diagnostics":[{"code":"RCP-001","message":message}]})
+                );
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     if operation == "verify-native" {
         println!(
             "{}",

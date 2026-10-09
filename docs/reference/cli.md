@@ -495,3 +495,9 @@ The command uses three warmups and ten measured samples by default. It writes
 `artifacts/executable_ru_benchmark/`, plus the human-readable report under
 `docs/reports/`. `--quick` runs three cases with one sample to validate the
 harness without replacing the canonical artifacts.
+
+## RCP Foundation sessions
+
+`reason rcp run SESSION.json --json` runs deterministic native Core delivery
+with mandatory message, REQUEST, hop and byte limits. See the [RCP guide](../rcp.md)
+for the session format, wire schema and source-level UNKNOWN policy.

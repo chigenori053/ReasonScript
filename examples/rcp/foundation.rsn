@@ -1,0 +1,106 @@
+module RCPFoundation {
+  export struct RCPReference {
+    kind: string
+    id: string
+  }
+  export struct UnknownRevision {
+    state: string
+    evidence: [RCPReference]
+    candidate: optional<string>
+  }
+  export struct UnknownUnit {
+    id: string
+    origins: [RCPReference]
+    cause: string
+    grounds: [RCPReference]
+    dependencies: [string]
+    history: [UnknownRevision]
+  }
+  export fn CreateUnknown(id: string, origins: [RCPReference], cause: string, grounds: [RCPReference], dependencies: [string]) -> UnknownUnit {
+    return UnknownUnit { id: id, origins: origins, cause: cause, grounds: grounds, dependencies: dependencies, history: [UnknownRevision { state: "OPEN", evidence: [], candidate: none }] }
+  }
+  export fn CanTransition(current: string, next: string) -> bool {
+    return (current == "OPEN" && next == "IN_PROGRESS") || (current == "IN_PROGRESS" && next == "CANDIDATE") || (current == "CANDIDATE" && next == "RESOLVED")
+  }
+  // Domain evaluation remains source-level; the host validates references and journals.
+  export fn CandidateValid(candidate: string, evidence: [RCPReference]) -> bool {
+    let found = false
+    for item in evidence {
+      if item.id != "" && item.kind == "Evidence" {
+        found = true
+      }
+    }
+    return candidate != "" && found
+  }
+  export fn Advance(unit: UnknownUnit, next: string, candidate: string, evidence: [RCPReference]) -> UnknownUnit {
+    let last = ""
+    for revision in unit.history {
+      last = revision.state
+    }
+    if !CanTransition(last, next) {
+      return unit
+    }
+    if (next == "CANDIDATE" || next == "RESOLVED") && !CandidateValid(candidate, evidence) {
+      return unit
+    }
+    if next == "RESOLVED" && unit.history[2].candidate != some(candidate) {
+      return unit
+    }
+    let history = array.builder()
+    for revision in unit.history {
+      history.append(revision)
+    }
+    let candidateValue: optional<string> = none
+    if next == "CANDIDATE" || next == "RESOLVED" {
+      candidateValue = some(candidate)
+    }
+    history.append(UnknownRevision { state: next, evidence: evidence, candidate: candidateValue })
+    return UnknownUnit { id: unit.id, origins: unit.origins, cause: unit.cause, grounds: unit.grounds, dependencies: unit.dependencies, history: history.finish() }
+  }
+  // Each domain keeps its existing semantic record type inside value.
+  export struct ReasonRecord {
+    id: string
+    kind: string
+    semantic_subject: string
+    status: string
+  }
+  export struct RCPRecord {
+    reference: RCPReference
+    value: ReasonRecord
+    references: [RCPReference]
+  }
+  export struct RCPPayload {
+    records: [RCPRecord]
+    unknowns: [UnknownUnit]
+  }
+  export struct RCPMessage {
+    schema: string
+    protocol_version: string
+    message_id: string
+    source: string
+    destination: string
+    kind: string
+    correlation_id: string
+    causation_id: optional<string>
+    trace: [string]
+    payload: RCPPayload
+  }
+  export fn Request(id: string, source: string, destination: string, correlation: string, payload: RCPPayload) -> RCPMessage {
+    return RCPMessage { schema: "reasonscript-rcp-message/0.1", protocol_version: "0.1", message_id: id, source: source, destination: destination, kind: "REQUEST", correlation_id: correlation, causation_id: none, trace: [], payload: payload }
+  }
+  calculation SerializedRequest -> string {
+    let reference = RCPReference { kind: "RU", id: "ru:request" }
+    let record = RCPRecord { reference: reference, value: ReasonRecord { id: "ru:request", kind: "query", semantic_subject: "domain question", status: "UNKNOWN" }, references: [] }
+    let unit = CreateUnknown("unknown:request", [reference], "MissingKnowledge", [], [])
+    let payload = RCPPayload { records: [record], unknowns: [unit] }
+    result = serialize.json(Request("message:request", "dsn:a", "dsn:b", "conversation:request", payload))
+  }
+  calculation FoundationChecks -> bool {
+    let unit = CreateUnknown("unknown:1", [RCPReference { kind: "RU", id: "ru:1" }], "MissingEvidence", [], [])
+    let active = Advance(unit, "IN_PROGRESS", "", [])
+    let candidate = Advance(active, "CANDIDATE", "answer", [RCPReference { kind: "Evidence", id: "evidence:1" }])
+    let resolved = Advance(candidate, "RESOLVED", "answer", [RCPReference { kind: "Evidence", id: "evidence:1" }])
+    let invalid = Advance(unit, "RESOLVED", "answer", [RCPReference { kind: "Evidence", id: "evidence:1" }])
+    result = resolved.history[3].state == "RESOLVED" && resolved.origins == unit.origins && unit.history[0].state == "OPEN" && invalid.history[0].state == "OPEN" && !CanTransition("RESOLVED", "OPEN") && !CandidateValid("", [])
+  }
+}
