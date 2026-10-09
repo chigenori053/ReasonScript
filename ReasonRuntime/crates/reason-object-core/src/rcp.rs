@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
+pub const UNKNOWN_STRUCTURE_PROFILE: &str = "reasonscript-unknown-structure/0.1";
 pub const VERSION: &str = "0.2";
 pub const SCHEMA: &str = "reasonscript-rcp-message/0.2";
 pub type RCPResult<T> = Result<T, String>;
@@ -58,6 +59,36 @@ pub struct RCPRecord {
 pub struct RCPPayload {
     pub records: Vec<RCPRecord>,
     pub unknowns: Vec<UnknownUnit>,
+}
+impl RCPPayload {
+    /// Required profiles are derived from typed references, never trusted sender claims.
+    pub fn required_profiles(&self) -> BTreeSet<String> {
+        let extended = |r: &RCPReference| {
+            matches!(
+                r.kind,
+                ReferenceKind::URU
+                    | ReferenceKind::URUS
+                    | ReferenceKind::URUO
+                    | ReferenceKind::UnknownRelation
+            )
+        };
+        if self
+            .records
+            .iter()
+            .any(|r| extended(&r.reference) || r.references.iter().any(extended))
+            || self.unknowns.iter().any(|u| {
+                u.origins
+                    .iter()
+                    .chain(&u.grounds)
+                    .chain(u.history.iter().flat_map(|h| &h.evidence))
+                    .any(extended)
+            })
+        {
+            BTreeSet::from([UNKNOWN_STRUCTURE_PROFILE.to_string()])
+        } else {
+            BTreeSet::new()
+        }
+    }
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -674,22 +705,47 @@ pub struct RCPLimits {
 }
 pub struct RCPRouter {
     cores: BTreeMap<String, String>,
+    profiles: BTreeMap<String, BTreeSet<String>>,
 }
 impl Default for RCPRouter {
     fn default() -> Self {
         Self {
             cores: BTreeMap::new(),
+            profiles: BTreeMap::new(),
         }
     }
 }
 impl RCPRouter {
     pub fn register(&mut self, domain_dsn: String, core_id: String) -> RCPResult<()> {
+        self.register_with_profiles(domain_dsn, core_id, BTreeSet::new())
+    }
+    pub fn register_with_profiles(
+        &mut self,
+        domain_dsn: String,
+        core_id: String,
+        profiles: BTreeSet<String>,
+    ) -> RCPResult<()> {
         identity(&domain_dsn)?;
         identity(&core_id)?;
+        if profiles.iter().any(|p| p != UNKNOWN_STRUCTURE_PROFILE) {
+            return reject("unsupported receiver profile");
+        }
         if self.cores.contains_key(&domain_dsn) || self.cores.values().any(|id| id == &core_id) {
             return reject("duplicate Domain DSN or core");
         }
+        self.profiles.insert(domain_dsn.clone(), profiles);
         self.cores.insert(domain_dsn, core_id);
+        Ok(())
+    }
+    /// Sender preflight; dispatch repeats this check before any delivery mutation.
+    pub fn check_profiles(&self, destination: &str, payload: &RCPPayload) -> RCPResult<()> {
+        self.resolve(destination)?;
+        if !payload
+            .required_profiles()
+            .is_subset(&self.profiles[destination])
+        {
+            return reject("receiver does not support required structure profile");
+        }
         Ok(())
     }
     pub fn resolve(&self, domain_dsn: &str) -> RCPResult<&str> {
@@ -719,7 +775,8 @@ impl RCPDispatcher {
     pub fn dispatch(&mut self, bytes: &[u8]) -> RCPResult<()> {
         let mut message = RCPMessage::decode(bytes, self.limits.bytes)?;
         self.router.resolve(&message.source)?;
-        self.router.resolve(&message.destination)?;
+        self.router
+            .check_profiles(&message.destination, &message.payload)?;
         for dsn in &message.trace {
             self.router.resolve(dsn)?;
         }
@@ -782,6 +839,8 @@ impl RCPDispatcher {
 #[serde(deny_unknown_fields)]
 pub struct RCPSession {
     pub cores: BTreeMap<String, String>,
+    #[serde(default)]
+    pub profiles: BTreeMap<String, BTreeSet<String>>,
     pub limits: RCPSessionLimits,
     pub messages: Vec<RCPMessage>,
 }
@@ -801,8 +860,19 @@ pub fn run_session(session: RCPSession) -> RCPResult<Value> {
         hops: session.limits.hops,
         bytes: session.limits.bytes,
     });
+    if session
+        .profiles
+        .keys()
+        .any(|dsn| !session.cores.contains_key(dsn))
+    {
+        return reject("profile declaration for unregistered Domain DSN");
+    }
     for (dsn, core) in &session.cores {
-        dispatcher.router.register(dsn.clone(), core.clone())?;
+        dispatcher.router.register_with_profiles(
+            dsn.clone(),
+            core.clone(),
+            session.profiles.get(dsn).cloned().unwrap_or_default(),
+        )?;
     }
     for message in session.messages {
         dispatcher.dispatch(&message.encode()?)?;

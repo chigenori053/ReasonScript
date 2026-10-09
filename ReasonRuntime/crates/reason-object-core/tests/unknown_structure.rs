@@ -406,7 +406,11 @@ fn urs_t08_t09_lossless_deterministic_dispatch() {
             .unwrap();
         dispatcher
             .router
-            .register("dsn:b".into(), "core:b".into())
+            .register_with_profiles(
+                "dsn:b".into(),
+                "core:b".into(),
+                std::collections::BTreeSet::from([UNKNOWN_STRUCTURE_PROFILE.into()]),
+            )
             .unwrap();
         dispatcher.dispatch(&bytes).unwrap();
         let receipt = dispatcher.receive("dsn:b").unwrap().remove(0);
@@ -429,4 +433,77 @@ fn urs_reject_identity_collision_and_allow_uru_grounds_without_description() {
     unit.grounds = vec![r(ReferenceKind::URU, "uru:c")];
     registry.commit(unit.clone(), &p, &Domain).unwrap();
     assert_eq!(registry.get(&unit.id), Some(&unit));
+}
+
+#[test]
+fn profile_preflight_rejection_is_atomic_and_dependencies_are_authoritative() {
+    let mut p = payload();
+    let original_order = graph().reevaluation_order(&registry(&p)).unwrap();
+    let removed: Vec<_> = p
+        .records
+        .iter()
+        .filter(|r| {
+            r.reference.kind == ReferenceKind::UnknownRelation && r.value["kind"] == "DEPENDS_ON"
+        })
+        .map(|r| r.reference.id.clone())
+        .collect();
+    p.records.retain(|r| !removed.contains(&r.reference.id));
+    for record in &mut p.records {
+        record.references.retain(|r| !removed.contains(&r.id));
+        if record.reference.kind == ReferenceKind::URUS {
+            record.value["relation_refs"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|id| !removed.contains(&id.as_str().unwrap().to_string()));
+        }
+    }
+    p.validate().unwrap();
+    assert_eq!(
+        graph().reevaluation_order(&registry(&p)).unwrap(),
+        original_order
+    );
+    let mut d = RCPDispatcher::new(RCPLimits {
+        messages: 1,
+        requests: 1,
+        hops: 3,
+        bytes: 100000,
+    });
+    d.router.register("dsn:a".into(), "core:a".into()).unwrap();
+    d.router
+        .register("dsn:base".into(), "core:base".into())
+        .unwrap();
+    assert!(d
+        .router
+        .register_with_profiles(
+            "dsn:bad".into(),
+            "core:bad".into(),
+            std::collections::BTreeSet::from(["unknown/9".into()])
+        )
+        .is_err());
+    assert!(d.router.resolve("dsn:bad").is_err());
+    d.router
+        .register_with_profiles(
+            "dsn:b".into(),
+            "core:b".into(),
+            std::collections::BTreeSet::from([UNKNOWN_STRUCTURE_PROFILE.into()]),
+        )
+        .unwrap();
+    assert!(d.router.check_profiles("dsn:base", &p).is_err());
+    let mut m = RCPMessage {
+        schema: SCHEMA.into(),
+        protocol_version: VERSION.into(),
+        message_id: "message:profile".into(),
+        source: "dsn:a".into(),
+        destination: "dsn:base".into(),
+        kind: RCPKind::UnknownReport,
+        correlation_id: "conversation:profile".into(),
+        causation_id: None,
+        trace: vec![],
+        payload: p,
+    };
+    assert!(d.dispatch(&m.encode().unwrap()).is_err());
+    assert!(d.receive("dsn:base").unwrap().is_empty());
+    m.destination = "dsn:b".into();
+    d.dispatch(&m.encode().unwrap()).unwrap();
+    assert_eq!(d.receive("dsn:b").unwrap()[0].payload, m.payload);
 }

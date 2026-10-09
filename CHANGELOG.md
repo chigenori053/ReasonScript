@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### RCP 0.2 structure profile compatibility
+
+- Add explicit receiver structure-profile declarations and sender preflight. Reject UNKNOWN structural payloads before delivery to receivers without `reasonscript-unknown-structure/0.1`; omitted declarations retain base RCP 0.2 delivery. Keep message envelopes and protocol version unchanged.
+- Specify URU dependencies as the sole scheduling authority, with optional supplementary DEPENDS_ON relations. Verify transport without those relations and distinguish URUO structural acceptance from geometric truth.
+
 ### Unknown Reasoning Structural Model Foundation v0.1
 
 - Reuse UnknownUnit/UnknownRegistry as URU identity and append-only lifecycle storage. Add same-ID information records for known/missing data and Evidence/Knowledge/causal references, with no second state journal or registry.

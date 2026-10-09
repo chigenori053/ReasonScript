@@ -1307,6 +1307,17 @@
           }
         }
       }
+    },
+    "receiverProfiles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "reasonscript-unknown-structure/0.1"
+        ]
+      },
+      "description": "Supported structure profiles declared by a receiver; omission means base RCP 0.2 only."
     }
-  }
+  },
+  "$comment": "RCP 0.2 envelope is unchanged. URU, URUS, URUO and UnknownRelation references require receiver profile reasonscript-unknown-structure/0.1. Required profiles are derived from payload types; profile declarations belong to receiver registration, not sender claims."
 }

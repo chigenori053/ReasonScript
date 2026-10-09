@@ -69,7 +69,10 @@ are stored in URUS.
 Relations can describe those edges, but cannot introduce contradictory
 `DEPENDS_ON` edges. Other relations preserve domain claims; they do not silently
 add execution dependencies or establish that a claim is true. Declare any
-scheduling dependency explicitly in the URU body.
+scheduling dependency explicitly in the URU body. A dependency may have no
+`DEPENDS_ON` relation record: the relation list is supplementary and need not
+cover every dependency. Receivers must reconstruct dependency order from
+`payload.unknowns[*].dependencies`, never from relation records alone.
 
 The Rust structure API takes the existing `UnknownRegistry`:
 
@@ -117,6 +120,9 @@ or `DISTANCE`, and nullable `distance`. A supplied distance is finite and
 nonnegative; non-distance constraints use null. A null distance preserves an
 unknown spatial constraint value. Structural validation checks these shapes and
 references, without proving adjacency, containment or a measured distance.
+Even known positions do not make structural acceptance a geometric proof.
+A future GeometryRuntime/Domain adapter must perform separate semantic validation
+with domain tolerances and shapes; it must not weaken these structural checks.
 
 URUO does not implement coordinate inference, GeometryRuntime integration or
 3D visualization. URUO and URUS IDs remain separate from original RUO/RUS IDs.
@@ -144,7 +150,8 @@ RCP 0.2 retains its envelope, `records` / `unknowns` payload, and existing state
 semantics. This extension adds `URU`, `URUS`, `URUO`, `UnknownRelation` reference
 kinds and typed bodies; existing valid 0.2 messages remain valid. Receivers built
 before this extension reject the new kinds and must be upgraded to receive
-UNKNOWN structures. RCP Router/Dispatcher, byte/count limits, duplicate and
+UNKNOWN structures and declare `reasonscript-unknown-structure/0.1` at receiver
+registration. See [profile preflight](rcp.md#routing-and-causality). RCP Router/Dispatcher, byte/count limits, duplicate and
 causal-route checks are reused unchanged. RCP 0.1 remains rejected.
 
 ## Validation

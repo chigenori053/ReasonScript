@@ -59,7 +59,7 @@ All reference targets must accompany the payload and match their declared kind.
 information records add known/missing data without copying history. `URUS` and
 `URUO` records follow the [UNKNOWN structural model](unknown-reasoning-structure.md).
 The additional kinds preserve valid earlier 0.2 messages; older receivers must
-be upgraded before accepting UNKNOWN structures.
+declare `reasonscript-unknown-structure/0.1` before accepting UNKNOWN structures.
 Runtime embedded references must also appear in the manifest. KnowledgeSpace
 information can be supplied as `Knowledge` records with its original contents;
 Foundation does not define a new knowledge store or fetch external references.
@@ -163,6 +163,22 @@ RCP message protocol 0.1.
 
 `RCPRouter` registers Domain DSN/Core pairs. `RCPDispatcher` validates messages,
 resolves both endpoints and appends each delivery to the destination inbox.
+Register a base receiver with `register`, or use `register_with_profiles` with a
+set containing `UNKNOWN_STRUCTURE_PROFILE`. The session's optional `profiles`
+map declares supported profiles by destination DSN, for example:
+`"profiles": {"dsn:b": ["reasonscript-unknown-structure/0.1"]}`.
+Omission means base RCP 0.2 only. Unsupported profile names and declarations
+for unregistered domains are rejected. A receiver must actually implement every
+profile it declares; this local declaration is not a remote capability handshake.
+
+`RCPPayload::required_profiles` derives requirements from record kinds and typed
+references, including UNKNOWN grounds and historical evidence. Bare existing
+`unknowns` with base references need no new profile. Senders can call
+`RCPRouter::check_profiles(destination, payload)` before encoding/sending;
+dispatch repeats this check before mutating counters or inboxes. A new structure
+sent to an undeclared receiver is rejected, even if its protocol version is 0.2.
+Wire envelopes remain unchanged, so previous valid base messages still work.
+
 Message IDs are unique throughout a dispatcher lifetime. Message count, REQUEST
 count, trace hops and encoded byte limits are mandatory and enforced before
 mutation. A rejected message consumes no limit and produces no delivery.

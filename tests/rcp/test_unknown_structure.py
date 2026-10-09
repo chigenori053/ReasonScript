@@ -28,8 +28,9 @@ def source_message():
     assert messages[0] == messages[1]
     return messages[0]
 
-def deliver(native, message):
+def deliver(native, message, profiles=None):
     session = {"cores": {"dsn:a": "core:a", "dsn:b": "core:b"}, "limits": {"messages": 8, "requests": 8, "hops": 8, "bytes": 100000}, "messages": [message]}
+    session["profiles"] = {"dsn:b": ["reasonscript-unknown-structure/0.1"]} if profiles is None else profiles
     return subprocess.run([str(native), "rcp"], input=json.dumps(session), text=True, capture_output=True, timeout=30)
 
 def test_urs_t01_t03_t07_t08_source_models_and_lossless_transfer(native, source_message):
@@ -115,6 +116,38 @@ def test_urs_t02_t08_preserve_complete_uru_reevaluation_history(native, source_m
     for state in ("IN_PROGRESS", "CANDIDATE", "RESOLVED", "REOPENED", "OPEN", "BLOCKED"):
         has_candidate = state in ("CANDIDATE", "RESOLVED")
         a["history"].append({"state": state, "candidate": "answer" if has_candidate else None, "evidence": [evidence] if has_candidate else []})
+    result = deliver(native, message)
+    assert result.returncode == 0, result.stdout
+    assert json.loads(result.stdout)["deliveries"]["dsn:b"][0]["payload"] == message["payload"]
+
+
+@pytest.mark.parametrize("profiles", [{}, {"dsn:b": []}, {"dsn:b": ["reasonscript-unknown-structure/9"]}, {"dsn:missing": ["reasonscript-unknown-structure/0.1"]}])
+def test_receiver_profile_rejects_unsupported_structures(native, source_message, profiles):
+    result = deliver(native, source_message, profiles)
+    assert result.returncode == 1
+    assert json.loads(result.stdout)["ok"] is False
+
+
+def test_dependencies_transfer_without_relation_edges(native, source_message):
+    message = copy.deepcopy(source_message)
+    records = message["payload"]["records"]
+    removed = {r["reference"]["id"] for r in records if r["reference"]["kind"] == "UnknownRelation" and r["value"]["kind"] == "DEPENDS_ON"}
+    message["payload"]["records"] = [r for r in records if r["reference"]["id"] not in removed]
+    for record in message["payload"]["records"]:
+        record["references"] = [r for r in record["references"] if r["id"] not in removed]
+        if record["reference"]["kind"] == "URUS":
+            record["value"]["relation_refs"] = [r for r in record["value"]["relation_refs"] if r not in removed]
+    result = deliver(native, message)
+    assert result.returncode == 0, result.stdout
+    assert json.loads(result.stdout)["deliveries"]["dsn:b"][0]["payload"] == message["payload"]
+
+
+def test_uruo_acceptance_is_structural_not_geometric(native, source_message):
+    message = copy.deepcopy(source_message)
+    space = next(r["value"] for r in message["payload"]["records"] if r["reference"]["kind"] == "URUO")
+    for placement in space["placements"]:
+        placement.update(status="known", position=[0, 0, 0])
+    space["constraints"][0].update(kind="DISTANCE", distance=9)
     result = deliver(native, message)
     assert result.returncode == 0, result.stdout
     assert json.loads(result.stdout)["deliveries"]["dsn:b"][0]["payload"] == message["payload"]
