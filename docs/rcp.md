@@ -1,4 +1,4 @@
-# RCP Foundation — structural wire revision
+# RCP Foundation — P1 UNKNOWN lifecycle
 
 RCP exchanges complete RU, RUS and RUO records between registered reasoning
 Cores. Foundation v0.1 provides deterministic, bounded, in-process Domain DSN
@@ -12,13 +12,15 @@ Run the executable source example:
 
 ```sh
 ./reason workspace examples/rcp --json
-./reason check examples/rcp/foundation.rsn --json
-./reason run examples/rcp/foundation.rsn --json
+(cd examples/rcp && ../../reason check --json && ../../reason build)
+./reason run examples/rcp/foundation.rsn --entry SerializedRequest --json --trace=off
 cargo build --release --manifest-path ReasonRuntime/Cargo.toml -p reasonscript-native-reasonunit-runtime
 ```
 
 `SerializedRequest` contains a wire message built with ordinary `.rsn` structs
-and `serialize.json`. `FoundationChecks` exercises UNKNOWN policy. Copy the
+and the common `RCPMessage::Encode` builder. `FoundationChecks` exercises UNKNOWN
+policy; `SerializedReevaluation` contains an append-only retry, rejection,
+resolution, reopening and limit journal. Copy the
 request into the `messages` array of a session, then pipe that session's JSON
 to `ReasonRuntime/target/release/reasonunit-runtime-native rcp`, or save it as
 `SESSION.json` and run `./reason rcp run SESSION.json --json`:
@@ -68,23 +70,88 @@ preserved. Domain extension values remain in their original bodies. The adapter 
 semantic records; the runtime trace container and its summary hashes remain local.
 State revisions never become RUS and containers never become 3D RUO implicitly.
 
+## ReasonScript common API
+
+The ordinary modules in [standard_library/rcp](../standard_library/rcp/) are:
+
+| Module | API |
+| --- | --- |
+| `RCPReference` (`reference.rsn`) | Typed `Reference` |
+| `RCPUnknown` (`unknown.rsn`) | `UnknownUnit`, `UnknownRevision`, `CreateUnknown`, `CurrentState` |
+| `RCPTransition` (`transition.rsn`) | `CanTransition`, `Advance`, `BlockIfLimit` |
+| `RCPValidator` (`validator.rsn`) | `ValidationDecision`, `Decision` |
+| `RCPMessage` (`message.rsn`) | `Record`, `Payload`, `Message`, `Build`, `Request`, `Encode` |
+
+Include these source files in your package's `src/` graph, then import their
+modules. The repository example links to the same library sources in `src/`.
+Use qualified calls such as `RCPUnknown::CreateUnknown` and
+`RCPMessage::Request`. `Record.value_json` holds canonical JSON serialized from
+your domain's record type; the common API accepts RU, RUS, RUO and other record
+bodies without redefining the structural model. `Encode` emits the RCP 0.2 wire
+fields, including `value`, rather than the source helper field `value_json`.
+Rust rejects malformed raw bodies or references at the protocol boundary.
+
 ## UNKNOWN lifecycle
 
-UNKNOWN has an independent ID, RU/RUS/RUO origins, cause, grounds, dependency
-IDs and an append-only history. Causes are `MissingKnowledge`, `MissingEvidence`,
-`Ambiguous`, `Conflict`, `Dependency`. State transitions are exactly
-`OPEN -> IN_PROGRESS -> CANDIDATE -> RESOLVED`. Each candidate/resolution needs
-both a candidate value and evidence. A resolution preserves the candidate.
+UNKNOWN has an independent ID, immutable RU/RUS/RUO origins, cause, grounds,
+dependency IDs and an append-only history. Causes are `MissingKnowledge`,
+`MissingEvidence`, `Ambiguous`, `Conflict`, `Dependency`. Allowed edges are:
 
-The `.rsn` example exports construction, candidate evaluation and transition
-functions. Rejected transitions return the unchanged unit. Its sample evaluator
-accepts nonempty string candidates with evidence; applications supply their own
-semantic evaluator. The native `UnknownRegistry::commit` accepts source-produced
-revisions, validates references against a supplied payload, preserves the origin
-and earlier revisions, and calls a domain `CandidateValidator` at candidate and
-resolution boundaries. Failed validation leaves the registry unchanged. Dependencies
-must already be registered; resolution requires resolved dependencies. Payload
-validation rejects missing and cyclic UNKNOWN dependencies.
+| Current | Next | Use |
+| --- | --- | --- |
+| `OPEN` | `IN_PROGRESS` | Start evaluation |
+| `IN_PROGRESS` | `CANDIDATE` | Propose a candidate |
+| `CANDIDATE` | `RESOLVED` | Accept the same candidate |
+| `IN_PROGRESS` | `OPEN` | Retry |
+| `CANDIDATE` | `OPEN` | Reject and reevaluate |
+| `RESOLVED` | `REOPENED` | Invalidate evidence or request reevaluation |
+| `REOPENED` | `OPEN` | Start another evaluation cycle |
+| `OPEN`, `IN_PROGRESS` | `BLOCKED` | Execution limit reached |
+
+`BLOCKED` is terminal for this Foundation API and never counts as resolved.
+Direct `RESOLVED -> OPEN`, state skips and resumes from `BLOCKED` are rejected.
+Each candidate/resolution revision needs a candidate value and nonempty Evidence
+references. Resolution must retain the immediately preceding candidate; later
+cycles may propose different candidates. Other revisions have a null candidate.
+Old candidates, evidence and resolutions remain in earlier revisions, even when
+evidence is no longer semantically valid. Historical evidence records must still
+accompany the payload so their identities remain traceable. There is no four-
+revision limit; the message/session byte limits bound transport size.
+
+The Domain DSN decides semantic classification, candidate acceptance and evidence
+validity. Pass its `ValidationDecision` to `RCPTransition::Advance`; rejected
+candidates and illegal transitions return the unchanged unit. The example's
+`Evaluate` function accepts only `"answer"` with evidence and is not library policy.
+`BlockIfLimit` checks a caller-supplied nonnegative execution budget; it appends
+`BLOCKED` only when reached and only from an allowed state. Router communication
+limits remain independently enforced by Rust.
+
+Rust `UnknownRegistry::commit` accepts one source-produced appended revision,
+validates references and structural transition edges, and preserves identity,
+origins, metadata and all earlier history. A supplied domain `CandidateValidator`
+is called at candidate and resolution boundaries; there is no Rust default
+semantic policy. Every rejected commit leaves the registry unchanged. Dependencies
+must already be registered, and resolution requires resolved dependencies.
+Reopen resolved dependents before reopening their dependency; this prevents
+retaining a resolved unit whose dependency is no longer resolved. Rust does not
+automatically choose or cascade domain reevaluation. Payload validation rejects
+missing and cyclic UNKNOWN dependencies.
+
+## Structural and runtime compatibility
+
+Structural Model v0.1 remains fixed: RU is atomic, RUS is non-spatial, RUO has
+explicit 3D placement. Structural schemas and typed definitions are unchanged.
+The protocol remains RCP 0.2; existing forward-only UNKNOWN histories remain valid,
+with `REOPENED` and `BLOCKED` added to its state vocabulary.
+
+Removed runtime fields (`reason_unit_states`, `reason_unit_objects`), modes
+(`ru_rus`, `ru_rus_ruo`), old runtime record kinds and RCP message protocol 0.1
+remain rejected. Their remaining occurrences are migration documentation and
+negative tests. Historical lightweight-state diagnostic codes `RUS-*` identify
+a separate execution-state subsystem; they do not encode structural RUS.
+MIRP, `NativeObject` and `.ruo` persistence are outside this revision. The native
+session envelope's independent `reasonscript-rcp-session/0.1` label does not enable
+RCP message protocol 0.1.
 
 ## Routing and causality
 
@@ -121,3 +188,8 @@ identity/lifecycle, REQUEST/RESULT delivery, duplicate/cycle/limit rejection,
 determinism, malformed input and Domain DSN routing. Integration tests execute
 `.rsn` construction and policy in the Rust runtime and deliver its output through
 the native dispatcher.
+
+P1-T01–T10 additionally cover retry, candidate rejection, evidence invalidation,
+BLOCKED, immutable origins/history, domain-validator rejection, shared `.rsn`
+imports/builders, lossless reevaluation transport and determinism. Real networked
+Domain DSNs and Resolver Cores are not provided by the in-process test adapter.

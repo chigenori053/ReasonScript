@@ -1,5 +1,6 @@
+[package]
 name = "RCPFoundation"
 version = "0.1.0"
-language = "0.5"
-workspace = "1.0"
-edition = "2026"
+
+[source]
+entry = "foundation.rsn"

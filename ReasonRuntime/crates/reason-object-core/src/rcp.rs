@@ -85,6 +85,24 @@ pub enum UnknownState {
     InProgress,
     Candidate,
     Resolved,
+    Reopened,
+    Blocked,
+}
+impl UnknownState {
+    /// Protocol edges only; retry, invalidation and limit decisions belong to .rsn.
+    fn permits(&self, next: &Self) -> bool {
+        matches!(
+            (self, next),
+            (Self::Open, Self::InProgress | Self::Blocked)
+                | (
+                    Self::InProgress,
+                    Self::Candidate | Self::Open | Self::Blocked
+                )
+                | (Self::Candidate, Self::Resolved | Self::Open)
+                | (Self::Resolved, Self::Reopened)
+                | (Self::Reopened, Self::Open)
+        )
+    }
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -122,17 +140,11 @@ impl UnknownUnit {
         {
             return reject("UNKNOWN needs RU/RUS/RUO origins");
         }
-        let expected = [
-            UnknownState::Open,
-            UnknownState::InProgress,
-            UnknownState::Candidate,
-            UnknownState::Resolved,
-        ];
-        if self.history.is_empty() || self.history.len() > expected.len() {
-            return reject("invalid UNKNOWN history");
+        if self.history.first().map(|revision| &revision.state) != Some(&UnknownState::Open) {
+            return reject("UNKNOWN history must begin OPEN");
         }
-        for (revision, state) in self.history.iter().zip(expected) {
-            if revision.state != state {
+        for (index, revision) in self.history.iter().enumerate() {
+            if index > 0 && !self.history[index - 1].state.permits(&revision.state) {
                 return reject("invalid UNKNOWN transition");
             }
             if revision
@@ -142,10 +154,20 @@ impl UnknownUnit {
             {
                 return reject("candidate evidence has wrong kind");
             }
-            if matches!(state, UnknownState::Candidate | UnknownState::Resolved)
-                && (revision.candidate.is_none() || revision.evidence.is_empty())
-            {
-                return reject("candidate requires value and evidence");
+            if matches!(
+                revision.state,
+                UnknownState::Candidate | UnknownState::Resolved
+            ) {
+                if revision.candidate.is_none() || revision.evidence.is_empty() {
+                    return reject("candidate requires value and evidence");
+                }
+                if revision.state == UnknownState::Resolved
+                    && self.history[index - 1].candidate != revision.candidate
+                {
+                    return reject("resolved candidate changed");
+                }
+            } else if revision.candidate.is_some() {
+                return reject("candidate outside candidate/resolution revision");
             }
         }
         for r in self
@@ -155,12 +177,6 @@ impl UnknownUnit {
             .chain(self.history.iter().flat_map(|r| &r.evidence))
         {
             identity(&r.id)?;
-        }
-        if self.history.iter().take(2).any(|r| r.candidate.is_some()) {
-            return reject("premature candidate");
-        }
-        if self.history.len() == 4 && self.history[2].candidate != self.history[3].candidate {
-            return reject("resolved candidate changed");
         }
         Ok(())
     }
@@ -236,6 +252,14 @@ impl UnknownRegistry {
                 .any(|id| self.units[id].state() != Some(&UnknownState::Resolved))
         {
             return reject("unresolved UNKNOWN dependency");
+        }
+        if unit.state() != Some(&UnknownState::Resolved)
+            && self.units.values().any(|dependent| {
+                dependent.state() == Some(&UnknownState::Resolved)
+                    && dependent.dependencies.contains(&unit.id)
+            })
+        {
+            return reject("reopen resolved dependents before their dependency");
         }
         self.units.insert(unit.id.clone(), unit);
         Ok(())

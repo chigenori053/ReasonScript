@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### RCP Foundation P1
+
+- Extend RCP 0.2 UNKNOWN journals with retry, candidate rejection, `RESOLVED -> REOPENED -> OPEN` reevaluation and terminal unresolved `BLOCKED`. Preserve IDs, origins and all historical candidates/evidence; reject invalid or mutated commits atomically and require resolved dependents to reopen before their dependency.
+- Extract reusable ReasonScript reference, UNKNOWN, transition, validation-decision and heterogeneous message builders into `standard_library/rcp/`. Convert the example to a multi-source package using the common modules. Domain decisions remain in ReasonScript/Domain DSNs; Rust validates protocol structure, references, immutable history and delivery limits.
+- Fix validation of imported public struct types in function signatures and literals without adding syntax or exposing private types. Index shared-source symlinks by their package-local paths so workspace inspection works on the reusable example. Structural Model v0.1, MIRP, NativeObject and `.ruo` storage remain unchanged.
+
 ### RU/RUS/RUO Structural Model v0.1
 
 - Define RU as an atomic Reason Unit, RUS as a non-spatial Reason Unit Structure, and RUO as an explicitly placed 3D Reason Unit Object in physical or abstract space. Add typed membership, relation-domain and placement validation plus source-level constructors/evaluation.

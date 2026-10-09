@@ -490,3 +490,12 @@ reason help
 
 Prefer these machine-readable commands when generating code or validating an
 integration.
+
+## RCP source modules
+
+`standard_library/rcp/*.rsn` provides reusable `RCPReference`, `RCPUnknown`,
+`RCPTransition`, `RCPValidator` and `RCPMessage` modules. Include the files in a
+package's `src/` graph and use ordinary imports and qualified calls. Candidate
+policy belongs to the domain; `Advance` accepts its `ValidationDecision` and
+preserves append-only UNKNOWN history through retry and reevaluation. See the
+[RCP API](rcp.md) for builders, allowed transitions and native validation.

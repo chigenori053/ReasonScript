@@ -1,0 +1,40 @@
+module RCPTransition {
+  import RCPReference
+  import RCPUnknown
+  import RCPValidator
+  export fn CanTransition(current: string, next: string) -> bool {
+    return (current == "OPEN" && (next == "IN_PROGRESS" || next == "BLOCKED")) || (current == "IN_PROGRESS" && (next == "CANDIDATE" || next == "OPEN" || next == "BLOCKED")) || (current == "CANDIDATE" && (next == "RESOLVED" || next == "OPEN")) || (current == "RESOLVED" && next == "REOPENED") || (current == "REOPENED" && next == "OPEN")
+  }
+  export fn Advance(unit: UnknownUnit, next: string, candidate: string, evidence: [Reference], decision: ValidationDecision) -> UnknownUnit {
+    if !CanTransition(RCPUnknown::CurrentState(unit), next) {
+      return unit
+    }
+    let candidateValue: optional<string> = none
+    if next == "CANDIDATE" || next == "RESOLVED" {
+      if !decision.accepted || evidence.length == 0 {
+        return unit
+      }
+      if next == "RESOLVED" && unit.history[unit.history.length - 1].candidate != some(candidate) {
+        return unit
+      }
+      candidateValue = some(candidate)
+    }
+    for reference in evidence {
+      if reference.kind != "Evidence" || reference.id == "" {
+        return unit
+      }
+    }
+    let history = array.builder()
+    for revision in unit.history {
+      history.append(revision)
+    }
+    history.append(UnknownRevision { state: next, evidence: evidence, candidate: candidateValue })
+    return UnknownUnit { id: unit.id, origins: unit.origins, cause: unit.cause, grounds: unit.grounds, dependencies: unit.dependencies, history: history.finish() }
+  }
+  export fn BlockIfLimit(unit: UnknownUnit, used: int, limit: int) -> UnknownUnit {
+    if limit < 0 || used < limit {
+      return unit
+    }
+    return Advance(unit, "BLOCKED", "", [], RCPValidator::Decision(true, "execution limit reached"))
+  }
+}

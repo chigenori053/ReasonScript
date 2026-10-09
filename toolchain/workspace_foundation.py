@@ -501,7 +501,8 @@ def _file_kind(relative: str) -> str:
 
 
 def _relative_path(root: Path, path: Path) -> str:
-    return path.resolve().relative_to(root.resolve()).as_posix()
+    # Index the entry in this workspace, even when a shared source is symlinked.
+    return path.absolute().relative_to(root.resolve()).as_posix()
 
 
 def _stable_id(*parts: object) -> str:

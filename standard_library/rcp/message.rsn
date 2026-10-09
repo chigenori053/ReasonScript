@@ -1,0 +1,45 @@
+module RCPMessage {
+  import RCPReference
+  import RCPUnknown
+  // Record values are canonical JSON so domains can retain their own RU/RUS/RUO types.
+  export struct Record {
+    reference: Reference
+    value_json: string
+    references: [Reference]
+  }
+  export struct Payload {
+    records: [Record]
+    unknowns: [UnknownUnit]
+  }
+  export struct Message {
+    schema: string
+    protocol_version: string
+    message_id: string
+    source: string
+    destination: string
+    kind: string
+    correlation_id: string
+    causation_id: optional<string>
+    trace: [string]
+    payload: Payload
+  }
+  export fn Build(id: string, source: string, destination: string, kind: string, correlation: string, causation: optional<string>, trace: [string], payload: Payload) -> Message {
+    return Message { schema: "reasonscript-rcp-message/0.2", protocol_version: "0.2", message_id: id, source: source, destination: destination, kind: kind, correlation_id: correlation, causation_id: causation, trace: trace, payload: payload }
+  }
+  export fn Request(id: string, source: string, destination: string, correlation: string, payload: Payload) -> Message {
+    return Build(id, source, destination, "REQUEST", correlation, none, [], payload)
+  }
+  export fn RecordJson(record: Record) -> string {
+    return string.join("", ["{\"reference\":", serialize.json(record.reference), ",\"value\":", record.value_json, ",\"references\":", serialize.json(record.references), "}"])
+  }
+  export fn PayloadJson(payload: Payload) -> string {
+    let records = array.builder()
+    for record in payload.records {
+      records.append(RecordJson(record))
+    }
+    return string.join("", ["{\"records\":[", string.join(",", records.finish()), "],\"unknowns\":", serialize.json(payload.unknowns), "}"])
+  }
+  export fn Encode(message: Message) -> string {
+    return string.join("", ["{\"schema\":", serialize.json(message.schema), ",\"protocol_version\":", serialize.json(message.protocol_version), ",\"message_id\":", serialize.json(message.message_id), ",\"source\":", serialize.json(message.source), ",\"destination\":", serialize.json(message.destination), ",\"kind\":", serialize.json(message.kind), ",\"correlation_id\":", serialize.json(message.correlation_id), ",\"causation_id\":", serialize.json(message.causation_id), ",\"trace\":", serialize.json(message.trace), ",\"payload\":", PayloadJson(message.payload), "}"])
+  }
+}

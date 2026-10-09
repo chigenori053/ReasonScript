@@ -13,3 +13,9 @@ This directory is the stable distribution root for core ReasonScript standard-li
 `reasoning_structure.rsn` exports RU, RUS, RUO, typed endpoint/placement records,
 constructors and serializers using ordinary ReasonScript. See the
 [structural model](../docs/reasoning-structure.md) for invariants and compatibility.
+
+## RCP communication
+
+`rcp/*.rsn` exports message/reference builders, UNKNOWN journals, structural
+transition checks and a domain validation-decision interface. Include these
+ordinary modules in a package source graph; see the [RCP API](../docs/rcp.md).

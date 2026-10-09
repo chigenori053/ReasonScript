@@ -249,3 +249,42 @@ class LayerECompilerCompatibilityTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_imported_public_structs_validate_in_signatures_literals_and_arrays():
+    program = parse('''
+module SharedTypes {
+  export struct Item {
+    value: int
+  }
+}
+module Consumer {
+  import SharedTypes
+  fn Values(items: [Item]) -> Item {
+    return items[0]
+  }
+  calculation Answer {
+    result = Values([Item { value: 7 }]).value
+  }
+}
+''')
+    assert len(compile_program(program)) == 2
+
+
+def test_import_does_not_expose_private_struct_types():
+    import pytest
+    from frontend.language_surface.validation import SurfaceValidationError
+    with pytest.raises((SurfaceValidationError, SurfaceSyntaxError), match="unresolved composite type|NS-050"):
+        parse('''
+module PrivateTypes {
+  struct Secret {
+    value: int
+  }
+}
+module Consumer {
+  import PrivateTypes
+  fn Read(item: Secret) -> int {
+    return item.value
+  }
+}
+''')

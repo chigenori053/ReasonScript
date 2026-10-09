@@ -443,6 +443,14 @@ def _validate_module(module: ModuleNode) -> None:
                 f"ST-V002 {type(node).__name__} is invalid in module body"
             )
 
+    # Imported public structs participate in type/literal validation too.
+    if _CURRENT_NAMESPACE is not None:
+        for binding in _CURRENT_NAMESPACE.imports:
+            if binding.expose_unqualified:
+                for name, symbol in binding.exposed.items():
+                    if isinstance(symbol.node, StructDeclarationNode):
+                        symbols.setdefault(name, symbol.node)
+
     for node in module.body:
         if isinstance(node, RelationNode):
             if node.source not in symbols:

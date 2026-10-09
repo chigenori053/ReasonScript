@@ -187,3 +187,19 @@ def test_validation_ws_010_invalid_artifact_directory(tmp_path: Path) -> None:
     _write_manifest(tmp_path)
     tmp_path.joinpath("artifacts").write_text("not a directory\n", encoding="utf-8")
     assert "WS-010" in _diagnostic_codes(tmp_path)
+
+
+def test_shared_source_symlink_is_indexed_under_its_package_path(tmp_path):
+    import pytest
+    project = _make_project(tmp_path / "consumer")
+    shared = tmp_path / "shared.rsn"
+    shared.write_text("module Shared {\n  export fn Value() -> int { return 7 }\n}\n")
+    linked = project / "src" / "shared.rsn"
+    try:
+        linked.symlink_to(shared)
+    except OSError as error:
+        pytest.skip(f"source symlinks unavailable: {error}")
+    index = build_workspace_index(project)
+    assert index["diagnostics"] == []
+    assert any(item["path"] == "src/shared.rsn" for item in index["files"])
+    assert any(item["file"] == "src/shared.rsn" and item["name"] == "Shared" for item in index["modules"])

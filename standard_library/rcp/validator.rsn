@@ -1,0 +1,10 @@
+module RCPValidator {
+  // A Domain DSN supplies the semantic decision; the protocol supplies no policy.
+  export struct ValidationDecision {
+    accepted: bool
+    reason: string
+  }
+  export fn Decision(accepted: bool, reason: string) -> ValidationDecision {
+    return ValidationDecision { accepted: accepted, reason: reason }
+  }
+}

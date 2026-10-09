@@ -1,0 +1,6 @@
+module RCPReference {
+  export struct Reference {
+    kind: string
+    id: string
+  }
+}

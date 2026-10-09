@@ -111,7 +111,9 @@
             "OPEN",
             "IN_PROGRESS",
             "CANDIDATE",
-            "RESOLVED"
+            "RESOLVED",
+            "REOPENED",
+            "BLOCKED"
           ]
         },
         "evidence": {
@@ -173,8 +175,7 @@
           "items": {
             "$ref": "#/$defs/revision"
           },
-          "minItems": 1,
-          "maxItems": 4
+          "minItems": 1
         }
       }
     },

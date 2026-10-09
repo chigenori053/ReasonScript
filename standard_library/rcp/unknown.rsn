@@ -1,0 +1,26 @@
+module RCPUnknown {
+  import RCPReference
+  export struct UnknownRevision {
+    state: string
+    evidence: [Reference]
+    candidate: optional<string>
+  }
+  export struct UnknownUnit {
+    id: string
+    origins: [Reference]
+    cause: string
+    grounds: [Reference]
+    dependencies: [string]
+    history: [UnknownRevision]
+  }
+  export fn CreateUnknown(id: string, origins: [Reference], cause: string, grounds: [Reference], dependencies: [string]) -> UnknownUnit {
+    return UnknownUnit { id: id, origins: origins, cause: cause, grounds: grounds, dependencies: dependencies, history: [UnknownRevision { state: "OPEN", evidence: [], candidate: none }] }
+  }
+  export fn CurrentState(unit: UnknownUnit) -> string {
+    let state = ""
+    for revision in unit.history {
+      state = revision.state
+    }
+    return state
+  }
+}

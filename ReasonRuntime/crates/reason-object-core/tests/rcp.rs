@@ -344,3 +344,269 @@ fn runtime_adapter_rejects_state_reference_to_evidence() {
     trace["schema"] = serde_json::json!("old-runtime");
     assert!(RCPPayload::from_runtime_trace(&trace).is_err());
 }
+
+fn advance_revision(unit: &mut UnknownUnit, state: UnknownState, candidate: Option<Value>) {
+    unit.history.push(UnknownRevision {
+        state,
+        evidence: if candidate.is_some() {
+            vec![reference(ReferenceKind::Evidence, "evidence:1")]
+        } else {
+            vec![]
+        },
+        candidate,
+    });
+}
+
+#[test]
+fn p1_retry_rejection_reevaluation_and_blocked_preserve_journal() {
+    let mut registry = UnknownRegistry::default();
+    let mut unit = unknown();
+    registry.commit(unit.clone(), &payload(), &Policy).unwrap();
+    let states = [
+        UnknownState::InProgress,
+        UnknownState::Open,
+        UnknownState::InProgress,
+        UnknownState::Candidate,
+        UnknownState::Open,
+        UnknownState::InProgress,
+        UnknownState::Candidate,
+        UnknownState::Resolved,
+        UnknownState::Reopened,
+        UnknownState::Open,
+        UnknownState::InProgress,
+        UnknownState::Candidate,
+        UnknownState::Resolved,
+        UnknownState::Reopened,
+        UnknownState::Open,
+        UnknownState::Blocked,
+    ];
+    for state in states {
+        let previous = unit.clone();
+        let candidate = matches!(state, UnknownState::Candidate | UnknownState::Resolved)
+            .then(|| json!("answer"));
+        advance_revision(&mut unit, state, candidate);
+        registry.commit(unit.clone(), &payload(), &Policy).unwrap();
+        assert_eq!(unit.id, previous.id);
+        assert_eq!(unit.origins, previous.origins);
+        assert_eq!(unit.history[..previous.history.len()], previous.history);
+    }
+    assert_eq!(unit.state(), Some(&UnknownState::Blocked));
+    assert_ne!(unit.state(), Some(&UnknownState::Resolved));
+    assert_eq!(unit.history[4].candidate, Some(json!("answer")));
+    assert_eq!(unit.history[8].state, UnknownState::Resolved);
+    assert_eq!(
+        unit.history[8].evidence,
+        vec![reference(ReferenceKind::Evidence, "evidence:1")]
+    );
+    let mut invalid = unit.clone();
+    advance_revision(&mut invalid, UnknownState::Open, None);
+    assert!(registry.commit(invalid, &payload(), &Policy).is_err());
+    assert_eq!(registry.get(&unit.id), Some(&unit));
+}
+
+#[test]
+fn p1_all_transition_edges_and_invalid_commits_are_atomic() {
+    let paths = [
+        vec![UnknownState::Open],
+        vec![UnknownState::Open, UnknownState::InProgress],
+        vec![
+            UnknownState::Open,
+            UnknownState::InProgress,
+            UnknownState::Candidate,
+        ],
+        vec![
+            UnknownState::Open,
+            UnknownState::InProgress,
+            UnknownState::Candidate,
+            UnknownState::Resolved,
+        ],
+        vec![
+            UnknownState::Open,
+            UnknownState::InProgress,
+            UnknownState::Candidate,
+            UnknownState::Resolved,
+            UnknownState::Reopened,
+        ],
+        vec![UnknownState::Open, UnknownState::Blocked],
+    ];
+    let states = [
+        UnknownState::Open,
+        UnknownState::InProgress,
+        UnknownState::Candidate,
+        UnknownState::Resolved,
+        UnknownState::Reopened,
+        UnknownState::Blocked,
+    ];
+    for (source, path) in paths.iter().enumerate() {
+        for (target, next) in states.iter().enumerate() {
+            let mut registry = UnknownRegistry::default();
+            let mut unit = unknown();
+            registry.commit(unit.clone(), &payload(), &Policy).unwrap();
+            for state in &path[1..] {
+                let candidate = matches!(state, UnknownState::Candidate | UnknownState::Resolved)
+                    .then(|| json!("answer"));
+                advance_revision(&mut unit, state.clone(), candidate);
+                registry.commit(unit.clone(), &payload(), &Policy).unwrap();
+            }
+            let before = unit.clone();
+            let candidate = matches!(next, UnknownState::Candidate | UnknownState::Resolved)
+                .then(|| json!("answer"));
+            advance_revision(&mut unit, next.clone(), candidate);
+            let allowed = [
+                (0, 1),
+                (0, 5),
+                (1, 0),
+                (1, 2),
+                (1, 5),
+                (2, 0),
+                (2, 3),
+                (3, 4),
+                (4, 0),
+            ]
+            .contains(&(source, target));
+            assert_eq!(
+                registry.commit(unit.clone(), &payload(), &Policy).is_ok(),
+                allowed,
+                "{source} -> {target}"
+            );
+            assert_eq!(
+                registry.get(&before.id),
+                Some(if allowed { &unit } else { &before })
+            );
+        }
+    }
+}
+
+#[test]
+fn p1_domain_rejection_and_history_mutation_leave_registry_unchanged() {
+    let mut registry = UnknownRegistry::default();
+    let mut unit = unknown();
+    registry.commit(unit.clone(), &payload(), &Policy).unwrap();
+    advance_revision(&mut unit, UnknownState::InProgress, None);
+    registry.commit(unit.clone(), &payload(), &Policy).unwrap();
+    let before = unit.clone();
+    advance_revision(&mut unit, UnknownState::Candidate, Some(json!("wrong")));
+    assert!(registry.commit(unit, &payload(), &Policy).is_err());
+    assert_eq!(registry.get(&before.id), Some(&before));
+    let mut changed = before.clone();
+    changed.history[0]
+        .evidence
+        .push(reference(ReferenceKind::Evidence, "evidence:1"));
+    advance_revision(&mut changed, UnknownState::Open, None);
+    assert!(registry.commit(changed, &payload(), &Policy).is_err());
+    assert_eq!(registry.get(&before.id), Some(&before));
+}
+
+#[test]
+fn p1_blocked_dependency_cannot_resolve_and_reopening_requires_dependents_first() {
+    let mut registry = UnknownRegistry::default();
+    let mut origin = unknown();
+    registry
+        .commit(origin.clone(), &payload(), &Policy)
+        .unwrap();
+    let mut dependent = unknown();
+    dependent.id = "unknown:dependent".into();
+    dependent.dependencies = vec![origin.id.clone()];
+    registry
+        .commit(dependent.clone(), &payload(), &Policy)
+        .unwrap();
+    advance_revision(&mut origin, UnknownState::Blocked, None);
+    registry
+        .commit(origin.clone(), &payload(), &Policy)
+        .unwrap();
+    advance_revision(&mut dependent, UnknownState::InProgress, None);
+    registry
+        .commit(dependent.clone(), &payload(), &Policy)
+        .unwrap();
+    advance_revision(
+        &mut dependent,
+        UnknownState::Candidate,
+        Some(json!("answer")),
+    );
+    registry
+        .commit(dependent.clone(), &payload(), &Policy)
+        .unwrap();
+    let before = dependent.clone();
+    advance_revision(
+        &mut dependent,
+        UnknownState::Resolved,
+        Some(json!("answer")),
+    );
+    assert!(registry.commit(dependent, &payload(), &Policy).is_err());
+    assert_eq!(registry.get(&before.id), Some(&before));
+
+    let mut registry = UnknownRegistry::default();
+    let mut origin = unknown();
+    registry
+        .commit(origin.clone(), &payload(), &Policy)
+        .unwrap();
+    for state in [
+        UnknownState::InProgress,
+        UnknownState::Candidate,
+        UnknownState::Resolved,
+    ] {
+        let candidate = matches!(state, UnknownState::Candidate | UnknownState::Resolved)
+            .then(|| json!("answer"));
+        advance_revision(&mut origin, state, candidate);
+        registry
+            .commit(origin.clone(), &payload(), &Policy)
+            .unwrap();
+    }
+    let mut dependent = origin.clone();
+    dependent.id = "unknown:dependent".into();
+    dependent.dependencies = vec![origin.id.clone()];
+    let history = dependent.history.clone();
+    dependent.history.truncate(1);
+    registry
+        .commit(dependent.clone(), &payload(), &Policy)
+        .unwrap();
+    for revision in history.into_iter().skip(1) {
+        dependent.history.push(revision);
+        registry
+            .commit(dependent.clone(), &payload(), &Policy)
+            .unwrap();
+    }
+    let before = origin.clone();
+    advance_revision(&mut origin, UnknownState::Reopened, None);
+    assert!(registry
+        .commit(origin.clone(), &payload(), &Policy)
+        .is_err());
+    assert_eq!(registry.get(&before.id), Some(&before));
+    advance_revision(&mut dependent, UnknownState::Reopened, None);
+    registry.commit(dependent, &payload(), &Policy).unwrap();
+    registry.commit(origin, &payload(), &Policy).unwrap();
+}
+
+#[test]
+fn p1_reopening_does_not_revalidate_expired_domain_evidence() {
+    struct Expired;
+    impl CandidateValidator for Expired {
+        fn validate(&self, _: &UnknownUnit, _: &Value) -> RCPResult<()> {
+            Err("evidence expired".into())
+        }
+    }
+    let mut registry = UnknownRegistry::default();
+    let mut unit = unknown();
+    registry.commit(unit.clone(), &payload(), &Policy).unwrap();
+    for state in [
+        UnknownState::InProgress,
+        UnknownState::Candidate,
+        UnknownState::Resolved,
+    ] {
+        let candidate = matches!(state, UnknownState::Candidate | UnknownState::Resolved)
+            .then(|| json!("answer"));
+        advance_revision(&mut unit, state, candidate);
+        registry.commit(unit.clone(), &payload(), &Policy).unwrap();
+    }
+    advance_revision(&mut unit, UnknownState::Reopened, None);
+    registry.commit(unit.clone(), &payload(), &Expired).unwrap();
+    advance_revision(&mut unit, UnknownState::Open, None);
+    registry.commit(unit.clone(), &payload(), &Expired).unwrap();
+    advance_revision(&mut unit, UnknownState::InProgress, None);
+    registry.commit(unit.clone(), &payload(), &Expired).unwrap();
+    let before = unit.clone();
+    advance_revision(&mut unit, UnknownState::Candidate, Some(json!("answer")));
+    assert!(registry.commit(unit, &payload(), &Expired).is_err());
+    assert_eq!(registry.get(&before.id), Some(&before));
+    assert_eq!(before.history[3].candidate, Some(json!("answer")));
+}

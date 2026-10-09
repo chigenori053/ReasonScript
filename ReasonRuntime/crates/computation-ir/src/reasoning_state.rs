@@ -1,4 +1,4 @@
-//! Lightweight Runtime Reasoning State (Lightweight RUS v0.1).
+//! Runtime-owned execution state, separate from structural Reason Unit Structure.
 //!
 //! `RuntimeReasoningState` is the source of truth for the reasoning fields.
 //! Every mutation goes through [`RuntimeReasoningState::apply`], which diffs

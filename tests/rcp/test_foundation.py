@@ -15,9 +15,10 @@ def native():
 
 @pytest.fixture(scope="module")
 def source_result():
-    completed = subprocess.run([str(ROOT / "reason"), "run", "examples/rcp/foundation.rsn", "--json"], cwd=ROOT, check=True, capture_output=True, text=True, timeout=60)
+    subprocess.run([str(ROOT / "reason"), "build"], cwd=ROOT / "examples/rcp", check=True, capture_output=True, text=True, timeout=60)
+    completed = subprocess.run([str(ROOT / "reason"), "run", "examples/rcp/foundation.rsn", "--entry", "SerializedRequest", "--json", "--trace=off"], cwd=ROOT, check=True, capture_output=True, text=True, timeout=60)
     report = json.loads(completed.stdout)
-    assert report["ok"] and report["execution_mode"] == "integrated-rust"
+    assert report["status"] == "success" and report["execution_mode"] == "integrated-rust"
     return report["runtime_result"]["calculations"]
 
 def test_source_unknown_policy(source_result):
@@ -84,12 +85,17 @@ def test_structure_and_spatial_roundtrip(native, structural_result):
 
 
 @pytest.mark.parametrize("kind", ["RU", "RUS", "RUO"])
-def test_unknown_origins_each_structural_form(native, structural_result, kind):
+def test_unknown_origins_each_structural_form(native, structural_result, source_result, kind):
     import copy
     message = copy.deepcopy(structural_result)
     reference = next(record["reference"] for record in message["payload"]["records"] if record["reference"]["kind"] == kind)
     message["kind"] = "UNKNOWN_REPORT"
-    message["payload"]["unknowns"] = [{"id": "unknown:structural", "origins": [reference], "cause": "MissingKnowledge", "grounds": [], "dependencies": [], "history": [{"state": "OPEN", "evidence": [], "candidate": None}]}]
+    reevaluation = json.loads(source_result["SerializedReevaluation"])
+    unit = copy.deepcopy(reevaluation["payload"]["unknowns"][0])
+    unit["id"] = "unknown:structural"
+    unit["origins"] = [reference]
+    message["payload"]["records"].append(reevaluation["payload"]["records"][1])
+    message["payload"]["unknowns"] = [unit]
     result = deliver(native, message)
     assert result.returncode == 0, result.stdout
     assert json.loads(result.stdout)["deliveries"]["dsn:b"][0]["payload"]["unknowns"] == message["payload"]["unknowns"]
@@ -147,3 +153,72 @@ def test_removed_runtime_record_kinds_are_rejected(native, structural_result, ki
     result = deliver(native, message)
     assert result.returncode == 1
     assert "unknown variant" in json.loads(result.stdout)["diagnostics"][0]["message"]
+
+
+def test_p1_source_reevaluation_roundtrip_and_determinism(native, source_result):
+    message = json.loads(source_result["SerializedReevaluation"])
+    jsonschema.Draft202012Validator(json.loads((ROOT / "schemas/rcp_message.schema.json").read_text())).validate(message)
+    unit = message["payload"]["unknowns"][0]
+    assert [revision["state"] for revision in unit["history"]] == [
+        "OPEN", "IN_PROGRESS", "OPEN", "IN_PROGRESS", "CANDIDATE", "OPEN",
+        "IN_PROGRESS", "CANDIDATE", "RESOLVED", "REOPENED", "OPEN", "BLOCKED"]
+    assert unit["history"][4]["candidate"] == unit["history"][8]["candidate"] == "answer"
+    assert unit["history"][8]["evidence"] == unit["grounds"]
+    assert unit["origins"] == [{"kind": "RU", "id": "ru:request"}]
+    outputs = [deliver(native, message) for _ in range(2)]
+    assert all(result.returncode == 0 for result in outputs), outputs[0].stdout
+    assert outputs[0].stdout == outputs[1].stdout
+    assert json.loads(outputs[0].stdout)["deliveries"]["dsn:b"][0]["payload"] == message["payload"]
+
+
+@pytest.mark.parametrize("damage", ["skip_reopened", "resume_blocked", "changed_resolution", "candidate_on_retry"])
+def test_p1_reject_corrupted_reevaluation(native, source_result, damage):
+    import copy
+    message = copy.deepcopy(json.loads(source_result["SerializedReevaluation"]))
+    history = message["payload"]["unknowns"][0]["history"]
+    if damage == "skip_reopened":
+        del history[9]
+    elif damage == "resume_blocked":
+        history.append({"state": "OPEN", "candidate": None, "evidence": []})
+    elif damage == "changed_resolution":
+        history[8]["candidate"] = "different"
+    else:
+        history[2]["candidate"] = "premature"
+    result = deliver(native, message)
+    assert result.returncode == 1
+    assert json.loads(result.stdout)["ok"] is False
+
+
+def test_p1_common_builder_preserves_all_structural_records(native, structural_result, tmp_path):
+    """A separate .rsn consumer imports the common API with its own domain bodies."""
+    import shutil
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    for source in (ROOT / "standard_library/rcp").glob("*.rsn"):
+        shutil.copyfile(source, source_dir / source.name)
+    (tmp_path / "reason.toml").write_text('[package]\nname = "Consumer"\nversion = "0.1.0"\n[source]\nentry = "consumer.rsn"\n')
+    reference = lambda item: f'Reference {{ kind: {json.dumps(item["kind"])}, id: {json.dumps(item["id"])} }}'
+    records = []
+    for item in structural_result["payload"]["records"]:
+        references = ", ".join(reference(ref) for ref in item["references"])
+        value = json.dumps(json.dumps(item["value"], separators=(",", ":")))
+        records.append(f'Record {{ reference: {reference(item["reference"])}, value_json: {value}, references: [{references}] }}')
+    source = '''module Consumer {
+  import RCPReference
+  import RCPMessage
+  calculation Send {
+    result = RCPMessage::Encode(RCPMessage::Request("message:structure", "dsn:a", "dsn:b", "conversation:structure", Payload { records: RECORDS, unknowns: [] }))
+  }
+}
+'''.replace("RECORDS", "[" + ", ".join(records) + "]")
+    (tmp_path / "consumer.rsn").write_text(source)
+    command = [str(ROOT / "reason"), "run", "--entry", "Send", "--json", "--trace=off"]
+    runs = [subprocess.run(command, cwd=tmp_path, capture_output=True, text=True, check=True, timeout=60) for _ in range(2)]
+    reports = [json.loads(run.stdout) for run in runs]
+    messages = [json.loads(report["runtime_result"]["calculations"]["Send"]) for report in reports]
+    assert all(report["execution_mode"] == "integrated-rust" for report in reports)
+    assert messages[0] == messages[1]
+    assert messages[0]["payload"] == structural_result["payload"]
+    result = deliver(native, messages[0])
+    assert result.returncode == 0, result.stdout
+    assert json.loads(result.stdout)["deliveries"]["dsn:b"][0]["payload"] == messages[0]["payload"]
