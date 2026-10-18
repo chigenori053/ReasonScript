@@ -10,12 +10,12 @@ Linux.
 
 | Platform | Distribution status | Installation path |
 | --- | --- | --- |
-| macOS Apple Silicon (`arm64`) | v0.5.5.15 published package; v0.5.6.7 source or local release-class ZIP | GitHub Release ZIP or source |
+| macOS Apple Silicon (`arm64`) | v0.5.6.8 published package | GitHub Release ZIP or source |
 | Linux | No official prebuilt package; exercised by repository CI | Source only |
 | Windows 11 | No official package; device certification pending | Experimental source installer |
 
 The latest published macOS arm64 ZIP is attached to the
-[v0.5.5.15 GitHub Release](https://github.com/chigenori053/ReasonScript/releases/tag/v0.5.5.15).
+[v0.5.6.8 GitHub Release](https://github.com/chigenori053/ReasonScript/releases/tag/v0.5.6.8).
 Source-install instructions for other
 platforms do not imply release-package certification.
 
