@@ -84,7 +84,7 @@ def _write_payload(package: Path, target_platform: str) -> Path:
     payload = package / "payload"
     payload.mkdir(parents=True)
     ignored = shutil.ignore_patterns(
-        "__pycache__", "*.pyc", ".venv", "node_modules", ".git", "target",
+        "__pycache__", "*.pyc", ".venv", "node_modules", ".git", ".reason", "target",
         ".DS_Store", ".pytest_cache", ".mypy_cache", ".ruff_cache",
     )
     for name in DISTRIBUTION_TARGETS:
