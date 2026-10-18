@@ -197,7 +197,10 @@ def test_p1_common_builder_preserves_all_structural_records(native, structural_r
     for source in (ROOT / "standard_library/rcp").glob("*.rsn"):
         shutil.copyfile(source, source_dir / source.name)
     (tmp_path / "reason.toml").write_text('[package]\nname = "Consumer"\nversion = "0.1.0"\n[source]\nentry = "consumer.rsn"\n')
-    reference = lambda item: f'Reference {{ kind: {json.dumps(item["kind"])}, id: {json.dumps(item["id"])} }}'
+
+    def reference(item):
+        return f'Reference {{ kind: {json.dumps(item["kind"])}, id: {json.dumps(item["id"])} }}'
+
     records = []
     for item in structural_result["payload"]["records"]:
         references = ", ".join(reference(ref) for ref in item["references"])

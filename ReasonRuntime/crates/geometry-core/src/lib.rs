@@ -110,6 +110,25 @@ pub fn digest<T: Serialize + ?Sized>(value: &T) -> Result<String, String> {
         Sha256::digest(canonical(value)?.as_bytes())
     ))
 }
+/// Rebuild `value` with object keys in sorted order so digests do not depend on
+/// whether `serde_json` is built with `preserve_order` (feature unification
+/// enables it when this crate is built together with the runtime CLI).
+fn sort_keys(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let mut entries: Vec<_> = map.iter().collect();
+            entries.sort_by(|a, b| a.0.cmp(b.0));
+            Value::Object(
+                entries
+                    .into_iter()
+                    .map(|(k, v)| (k.clone(), sort_keys(v)))
+                    .collect(),
+            )
+        }
+        Value::Array(items) => Value::Array(items.iter().map(sort_keys).collect()),
+        other => other.clone(),
+    }
+}
 fn sorted_unique(values: &mut Vec<String>) {
     values.sort();
     values.dedup();
@@ -867,7 +886,7 @@ pub fn mirp_projection(state: &GeometryState) -> Value {
     relations.sort_by(|a, b| a["relation_id"].as_str().cmp(&b["relation_id"].as_str()));
     let graph = json!({"graph_id":format!("ruo:graph:{}",state.state_id),"units":units,"relations":relations,"root_refs":[],"lifecycle":"active","provenance":provenance(&state.provenance),"metadata":{"unknowns":state.unknowns,"conflicts":state.conflicts,"coordinate_systems":state.coordinate_systems}});
     let mut fragment = json!({"schema":"mra-mirp-graph-fragment/0.1","fragment_kind":"graph_fragment","graph":graph});
-    fragment["fragment_hash"] = json!(digest(&fragment).unwrap_or_default());
+    fragment["fragment_hash"] = json!(digest(&sort_keys(&fragment)).unwrap_or_default());
     fragment
 }
 
