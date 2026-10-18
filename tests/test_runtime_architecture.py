@@ -50,6 +50,18 @@ def test_dynamic_structures_isolated_and_strict():
     value['state']['unknowns'][0]['extra'] = 'rejected'
     assert not run_ir(ir, entry='Evaluate', inputs=value).ok
 
+def test_untyped_public_function_preserves_legacy_execution():
+    ir = lower_program(parse('''module Legacy {
+ pub fn Identity(value) { return value }
+ calculation Main {
+  result = Identity(42)
+ }
+}'''))
+    assert not ir['input_abi']['entries']
+    result = run_ir(ir)
+    assert result.ok and list(result.calculation_results.values()) == [42]
+    assert run_ir(ir, entry='Identity', inputs={'value': 42}).error_code == 'RTH-INPUT-001'
+
 @pytest.mark.parametrize('field,value', [('schema','reason-computation-ir/999'),('runtime_abi','reasonscript-runtime/999')])
 def test_native_rejects_incompatible_ir(field, value):
     ir = lower_program(parse(SOURCE));ir[field]=value
@@ -104,6 +116,8 @@ def test_dependency_closure_and_source_snapshot(tmp_path, monkeypatch):
 
 def test_dynamic_project_cli(tmp_path, monkeypatch):
     p=project(tmp_path);monkeypatch.chdir(p)
+    def compile_forbidden(*a, **kw): raise AssertionError('cache hit must not compile')
+    monkeypatch.setattr(build_cmd,'run',compile_forbidden)
     inputs=p/'input.json';inputs.write_text('{"xs":[10]}')
     from toolchain.__main__ import main
     import sys

@@ -524,6 +524,9 @@ execution; no Knowledge, Evidence, UNKNOWN or previous outcome is implicitly
 retained. Reasoning records use these same declared struct/array types and still
 pass through the application's existing verification functions.
 
+Legacy functions with untyped parameters remain callable from source; they are
+not exposed as dynamic input entries. Add parameter types to use the input ABI.
+
 The native host continues to accept supported legacy computation IR 0.1 and
 current IR 0.2 for explicitly supplied programs, and rejects other schema names.
 An explicit incompatible `runtime_abi` is rejected. New project builds include

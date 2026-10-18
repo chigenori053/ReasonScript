@@ -45,6 +45,9 @@ def input_contract(program):
         namespace = modules[module.name]
         for node in module.body:
             if isinstance(node, FunctionDeclarationNode) and node.visibility != Visibility.PRIVATE:
+                # Legacy untyped functions remain callable internally, not through the typed ABI.
+                if any(not isinstance(p, dict) for p in node.parameters):
+                    continue
                 entries[f'fn.{namespace}::{node.name}'] = {'parameters': {
                     p['name']: layout(p['type'], namespace) for p in node.parameters
                 }}

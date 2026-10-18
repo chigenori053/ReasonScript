@@ -26,7 +26,6 @@ def run(
     trace_config: dict | None = None,
     frozen: bool = False,
     inputs_path: str | None = None,
-    dependency_roots: tuple[Path, ...] = (),
 ) -> int:
     try:
         workspace = PackageGraphService().discover(project_root)
@@ -105,7 +104,10 @@ def _run_package(
 
     ir_dir = project_root / "target" / "ir"
     computation_path = project_root / "target" / "computation_ir" / "package.json"
-    if auto_build and not frozen:
+    from .compiled_ir import compilation_identity, canonical, sha
+    identity = None if frozen else compilation_identity(project_root, dependency_roots)
+    from .build_cmd import _load_cache
+    if auto_build and not frozen and _load_cache(project_root / "target") != sha(canonical(identity)):
         import contextlib
         import io
         from toolchain.build_cmd import run as build_package
@@ -149,7 +151,7 @@ def _run_package(
         return 2
     from .compiled_ir import ArtifactError, load, read_json
     try:
-        computation_ir = load(project_root, dependency_roots, frozen=frozen)
+        computation_ir = load(project_root, dependency_roots, frozen=frozen, identity=identity)
         inputs = read_json(Path(inputs_path).read_bytes()) if inputs_path is not None else None
         if inputs is not None and (not isinstance(inputs, dict) or entry is None):
             raise ArtifactError("RTH-INPUT-001", "--inputs requires a JSON object and --entry function")
