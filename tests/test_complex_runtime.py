@@ -86,6 +86,7 @@ def test_state_transition_determinism_and_trace_budget(ir):
     b=run_ir(ir,entry='Transition',inputs=inputs,trace_enabled=True)
     assert a.ok and a.calculation_results==b.calculation_results
     assert a.metadata['complex_trace']==b.metadata['complex_trace']
+    assert a.metadata['complex_trace'][0] in a.metadata['trace']
     out=unwrap(next(iter(a.calculation_results.values())))
     assert out['revision']==1 and out['amplitudes']==list(reversed(state['amplitudes']))
     c=run_ir(ir,entry='Transition',inputs=inputs,trace_enabled=True,trace_config={'max_bytes':1})
@@ -99,6 +100,8 @@ def test_state_transition_determinism_and_trace_budget(ir):
  ('Matrix',dict(a=[[]],b=[]),'CXR-SHAPE'),
  ('Matrix',dict(a=[[z(1j)],[z(1j),z(2j)]],b=[[z(1j)]]),'CXR-SHAPE'),
  ('Polar',dict(a={'re':'bad','im':0.0}),'RTH-INPUT-001'),
+ ('Polar',dict(a={'re':float('inf'),'im':0.0}),'IR-DECODE-001'),
+ ('Matrix',dict(a=[[z(1j)]]*65,b=[[z(1j)]]),'CXR-LIMIT'),
  ('Transition',dict(s={'amplitudes':[z(1j)],'revision':2**63-1},m=[[z(1+0j)]]),'CXR-OVERFLOW'),
 ])
 def test_numeric_and_shape_safety(ir,entry,inputs,code):

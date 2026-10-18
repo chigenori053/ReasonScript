@@ -71,6 +71,8 @@ fn run_main() -> ExitCode {
                 "profile": HOST_PROFILE,
                 "request_schema": REQUEST_SCHEMA,
                 "result_schema": RESULT_SCHEMA,
+                "runtime_abi": reasonscript_computation_ir::ir::RUNTIME_ABI,
+                "input_abi": "reasonscript-input/1.0",
                 "unsafe_blocks": 0,
             })
         );
@@ -461,6 +463,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             combined_trace.extend(tensor_trace.clone());
             combined_trace.extend(vision_trace.clone());
             combined_trace.extend(reasoning_trace.clone());
+            combined_trace.extend(vm.complex_trace());
             let mut results = serde_json::Map::new();
             for (name, value) in calculations {
                 results.insert(
