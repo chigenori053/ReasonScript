@@ -7,6 +7,7 @@ from frontend.language_surface.nodes import (
 VERSION = 'reasonscript-input/1.0'
 
 def input_contract(program):
+    from frontend.foundation.integration import COMPLEX_TYPES
     definitions = {}
     modules = {}
     for module in program.modules:
@@ -26,6 +27,8 @@ def input_contract(program):
         if isinstance(t, TupleTypeNode):
             return {'tuple': [layout(x, namespace) for x in t.element_types]}
         if isinstance(t, NamedTypeNode):
+            if t.name in COMPLEX_TYPES:
+                return {"struct": f"complex.{t.name}"}
             name = t.name.replace('::', '.')
             candidates = [n for n in definitions if n == name or n == f'{namespace}.{name}']
             if not candidates:
@@ -36,6 +39,7 @@ def input_contract(program):
 
     structs = {name: {'type_name': node.name, 'fields': {f.name: layout(f.field_type, namespace) for f in node.fields}}
                for name, (namespace, node) in definitions.items()}
+    structs.update({f"complex.{name}": {"type_name": name, "fields": {k: layout(t, "complex") for k,t in fields.items()}} for name, fields in COMPLEX_TYPES.items()})
     entries = {}
     for module in program.modules:
         namespace = modules[module.name]

@@ -8,6 +8,7 @@
 pub mod causal;
 pub mod causal_bridge;
 pub mod console_dispatch;
+pub mod complex_dispatch;
 pub mod foundation_dispatch;
 pub mod ir;
 pub mod input_abi;

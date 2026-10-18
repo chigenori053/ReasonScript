@@ -91,6 +91,7 @@ pub struct Vm<'a> {
     builder_appends: Cell<u64>,
     relation_rows_scanned: Cell<u64>,
     tensor_trace: RefCell<Vec<serde_json::Value>>,
+    complex_trace: RefCell<Vec<serde_json::Value>>,
     vision_trace: RefCell<Vec<serde_json::Value>>,
     reasoning_trace: RefCell<Vec<serde_json::Value>>,
     console_events: RefCell<Vec<crate::console_dispatch::ConsoleEvent>>,
@@ -256,6 +257,7 @@ impl<'a> Vm<'a> {
             builder_appends: Cell::new(0),
             relation_rows_scanned: Cell::new(0),
             tensor_trace: RefCell::new(Vec::new()),
+            complex_trace: RefCell::new(Vec::new()),
             vision_trace: RefCell::new(Vec::new()),
             reasoning_trace: RefCell::new(Vec::new()),
             console_events: RefCell::new(Vec::new()),
@@ -527,6 +529,10 @@ impl<'a> Vm<'a> {
             }
         }
         Ok(())
+    }
+
+    pub fn complex_trace(&self) -> Vec<serde_json::Value> {
+        self.complex_trace.borrow().clone()
     }
 
     pub fn tensor_trace(&self) -> Vec<serde_json::Value> {
@@ -1755,7 +1761,15 @@ impl<'a> Vm<'a> {
                     max_sequence_elements: self.max_sequence_elements,
                     max_artifact_bytes: self.max_artifact_text_bytes,
                 };
-                crate::foundation_dispatch::call(function_id, values, &context)
+                let result = crate::foundation_dispatch::call(function_id, values, &context)?;
+                if self.trace_enabled && !self.trace_suppressed.get() && function_id.starts_with("complex.") {
+                    let mut trace = self.complex_trace.borrow_mut();
+                    let sequence = trace.len() + 1;
+                    let event = serde_json::json!({"sequence": sequence, "operation": function_id,
+                        "result": crate::foundation_dispatch::serialize_json(&result)?});
+                    if self.reserve_trace(&event).is_some() { trace.push(event); }
+                }
+                Ok(result)
             }
             Expr::CallConsole {
                 function_id,

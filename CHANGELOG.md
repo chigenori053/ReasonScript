@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add `complex.*` scalar/vector/Hermitian/matrix/discrete-state operations as a specialized module sharing the native VM, Value containers, input ABI and bounded deterministic trace. Reject invalid dimensions, non-finite values, division by zero and overflow.
+
 - Verify project build identity, dependency/source freshness and IR bytes against an independent local trusted build record. Reject cache corruption and unknown native IR schemas or explicit incompatible runtime ABIs; retain raw IR 0.1/0.2 compatibility. Add explicit `reason run --frozen` snapshot execution. Old project targets require rebuilding.
 - Add typed `reasonscript-input/1.0` public function entries through the existing native VM and `reason run --entry ... --inputs ...`; fresh JSON primitives/arrays/structs separate request data from compiled code.
 

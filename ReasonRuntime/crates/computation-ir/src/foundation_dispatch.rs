@@ -62,6 +62,9 @@ fn family(function_id: &str) -> &'static str {
 }
 
 pub fn call(function_id: &str, args: Vec<Value>, context: &FoundationContext<'_>) -> VResult {
+    if function_id.starts_with("complex.") {
+        return crate::complex_dispatch::call(function_id, args);
+    }
     let family = family(function_id);
     let Some((minimum, maximum)) = arity(function_id) else {
         return Err(RuntimeError::new(

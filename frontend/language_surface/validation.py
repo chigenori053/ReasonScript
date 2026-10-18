@@ -25,6 +25,7 @@ from frontend.relation.integration import (
 )
 from frontend.foundation.integration import (
     ARTIFACT_RESULT_FIELDS,
+    COMPLEX_TYPES,
     ARTIFACT_RESULT_TYPE,
     FOUNDATION_NAMESPACES,
     FoundationSemanticError,
@@ -311,6 +312,8 @@ RUNTIME_RESULT_TYPES = {
     "Tensor",
     "TensorArtifactReceipt",
     "ArtifactResult",
+    "Complex",
+    "ComplexState",
     "VisionObservation",
     "VisionBuildResult",
     # RUO-N2 opaque values are first-class surface types. They expose no
@@ -2177,6 +2180,11 @@ def _expression_type(
             return object_type.element_types[index]
         if isinstance(object_type, (ArrayTypeNode, SetTypeNode, MapTypeNode, TupleTypeNode)) and value.member == "length":
             return PrimitiveTypeNode(PrimitiveKind.INT)
+        if isinstance(object_type, NamedTypeNode) and object_type.name in COMPLEX_TYPES:
+            field_type = COMPLEX_TYPES[object_type.name].get(value.member)
+            if field_type is None:
+                raise SurfaceValidationError(f"TV-9 unknown field {value.member} on {object_type.name}")
+            return field_type
         if (
             object_type == NamedTypeNode(ARTIFACT_RESULT_TYPE)
             and not isinstance(symbols.get(ARTIFACT_RESULT_TYPE), StructDeclarationNode)

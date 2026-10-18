@@ -225,6 +225,7 @@ def _run_package(
             + runtime_result["loop_trace"]
             + runtime_result["vision_trace"]
             + runtime_result.get("reasoning_trace", [])
+            + runtime_result.get("complex_trace", [])
         )
     print(json.dumps(result, indent=2))
     return 0

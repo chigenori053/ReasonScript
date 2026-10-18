@@ -32,10 +32,16 @@ from frontend.language_surface.nodes import (
     UnaryOperator,
 )
 
-FOUNDATION_NAMESPACES = frozenset({"math", "sequence", "serialize", "artifact"})
+FOUNDATION_NAMESPACES = frozenset({"math", "sequence", "serialize", "artifact", "complex"})
 
 # name -> (minimum, maximum) argument count.
 FOUNDATION_SIGNATURES: dict[str, tuple[int, int]] = {
+    "complex.scalar": (2, 2),
+    "complex.add": (2, 2), "complex.sub": (2, 2), "complex.mul": (2, 2), "complex.div": (2, 2),
+    "complex.conjugate": (1, 1), "complex.abs": (1, 1), "complex.phase": (1, 1),
+    "complex.vector_add": (2, 2), "complex.vector_sub": (2, 2), "complex.scale": (2, 2),
+    "complex.inner": (2, 2), "complex.matmul": (2, 2),
+    "complex.state": (1, 1), "complex.transition": (2, 2),
     "math.abs": (1, 1),
     "math.min": (2, 2),
     "math.max": (2, 2),
@@ -54,7 +60,7 @@ FOUNDATION_SIGNATURES: dict[str, tuple[int, int]] = {
     "artifact.write_text": (2, 3),
 }
 
-_FAMILY = {"math": "MATH", "sequence": "SEQ", "serialize": "SER", "artifact": "ART"}
+_FAMILY = {"math": "MATH", "sequence": "SEQ", "serialize": "SER", "artifact": "ART", "complex": "CXR"}
 
 ARTIFACT_RESULT_TYPE = "ArtifactResult"
 ARTIFACT_RESULT_FIELDS = {
@@ -78,6 +84,12 @@ _FLOAT = PrimitiveTypeNode(PrimitiveKind.FLOAT)
 _BOOL = PrimitiveTypeNode(PrimitiveKind.BOOL)
 _STRING = PrimitiveTypeNode(PrimitiveKind.STRING)
 _NUMERIC = frozenset({_INT, _FLOAT})
+
+
+COMPLEX_TYPES = {
+    "Complex": {"re": _FLOAT, "im": _FLOAT},
+    "ComplexState": {"amplitudes": ArrayTypeNode(NamedTypeNode("Complex")), "revision": _INT},
+}
 
 
 class FoundationSemanticError(ValueError):
@@ -150,6 +162,26 @@ def foundation_call_type(name: str, argument_types: list[Any], unknown: Any) -> 
                 f"{family}-003", f"{name} argument {index + 1} must be {description}"
             )
 
+    if name.startswith("complex."):
+        scalar = NamedTypeNode("Complex")
+        vector = ArrayTypeNode(scalar)
+        matrix = ArrayTypeNode(vector)
+        state = NamedTypeNode("ComplexState")
+        if name == "complex.scalar":
+            for index in range(2): require(index, _NUMERIC, "Int or Float")
+            return scalar
+        expected = {
+            "complex.vector_add": [vector, vector], "complex.vector_sub": [vector, vector],
+            "complex.scale": [vector, scalar], "complex.inner": [vector, vector],
+            "complex.matmul": [matrix, matrix], "complex.state": [vector],
+            "complex.transition": [state, matrix],
+        }.get(name, [scalar] * len(argument_types))
+        for index, ty in enumerate(expected): require(index, frozenset({ty}), str(ty))
+        if name in {"complex.abs", "complex.phase"}: return _FLOAT
+        if name in {"complex.vector_add", "complex.vector_sub", "complex.scale"}: return vector
+        if name == "complex.matmul": return matrix
+        if name in {"complex.state", "complex.transition"}: return state
+        return scalar
     if name.startswith("math."):
         for index in range(len(argument_types)):
             require(index, _NUMERIC, "Int or Float")

@@ -145,7 +145,7 @@ def execute_rust_ir(
         )
     calculations = outcome.calculation_results or {}
     result_value = next(reversed(calculations.values()), None) if calculations else None
-    return {
+    result = {
         "schema_version": "reasonscript-integrated-runtime/0.1",
         "status": "success",
         "result": result_value,
@@ -165,6 +165,10 @@ def execute_rust_ir(
             "operations": list(trace_unsupported),
         }] if trace_unsupported else []),
     }
+
+    if outcome.metadata.get("complex_trace"):
+        result["complex_trace"] = outcome.metadata["complex_trace"]
+    return result
 
 
 def unsupported_rust_operations(ir_document: dict[str, Any]) -> tuple[str, ...]:

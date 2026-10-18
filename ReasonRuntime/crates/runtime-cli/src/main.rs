@@ -498,6 +498,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                         "trace": combined_trace,
                         "loop_trace": loop_trace,
                         "tensor_trace": tensor_trace,
+                        "complex_trace": vm.complex_trace(),
                         "vision_trace": vision_trace,
                         "reasoning_trace": reasoning_trace,
                         "reason_structure_trace": reason_structure_trace,

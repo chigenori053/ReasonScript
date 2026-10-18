@@ -505,3 +505,47 @@ adds information/relationship records and URUS dependency inspection, and builds
 minimal URUO with explicitly known or unknown 3D positions. Inspect the `valid`
 flag from source order/impact helpers before making domain decisions. See the
 [UNKNOWN structural model](unknown-reasoning-structure.md) for the full contract.
+
+## ComplexRuntime
+
+`complex.*` uses the normal Rust VM and its ordinary values. `Complex` has finite
+`float` fields `re` and `im`; `ComplexState` has `amplitudes: [Complex]` and a
+nonnegative `revision: int`. These builtin type names are reserved for this
+contract. Vector and matrix types are `[Complex]` and `[[Complex]]`.
+
+| Function | Result |
+| --- | --- |
+| `complex.scalar(re, im)` | Complex; numeric components are converted to Float |
+| `complex.add(a, b)`, `sub(a, b)`, `mul(a, b)`, `div(a, b)` | Complex arithmetic |
+| `complex.conjugate(a)` | Complex conjugate |
+| `complex.abs(a)`, `complex.phase(a)` | Magnitude and phase in radians; phase of zero is 0 |
+| `complex.vector_add(a, b)`, `vector_sub(a, b)` | Elementwise equal-length vector operations |
+| `complex.scale(vector, scalar)` | Scaled vector |
+| `complex.inner(a, b)` | Hermitian product `sum(conjugate(a[i]) * b[i])` |
+| `complex.matmul(a, b)` | Matrix product in fixed row/column/reduction order |
+| `complex.state(amplitudes)` | Nonempty state with revision 0 |
+| `complex.transition(state, matrix)` | `matrix * amplitudes`, revision incremented by one |
+
+```reasonscript
+module Rotation {
+  pub fn Rotate(state: ComplexState) -> ComplexState {
+    let i = complex.scalar(0.0, 1.0)
+    return complex.transition(state, [[i]])
+  }
+}
+```
+
+Vectors contain at most 4096 elements. Matrices are nonempty, rectangular and at
+most 64 by 64; transitions require a square matrix matching the state dimension.
+Inputs can also enter through the typed dynamic input ABI as ordinary objects,
+for example `{"state":{"amplitudes":[{"re":1.0,"im":0.0}],"revision":0}}`.
+
+`CXR-*` diagnostics distinguish type/arity errors, dimension mismatch, resource
+limits, zero division and non-finite/overflow results. Existing finite IEEE-754
+underflow behavior is retained. Numerical reference tests use relative/absolute
+tolerance `1e-12`; bitwise equality across different platform math libraries is
+not promised. On a fixed environment, operation order and trace are deterministic.
+When native tracing is enabled, `complex_trace` records sequence, operation and
+canonical serialized result, respecting the shared trace byte budget. With trace
+off it allocates no operation journal. ComplexRuntime contains no MRA Knowledge,
+Evidence, causality or adoption rules.
