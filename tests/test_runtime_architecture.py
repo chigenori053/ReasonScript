@@ -110,3 +110,15 @@ def test_dynamic_project_cli(tmp_path, monkeypatch):
     monkeypatch.setattr(sys,'argv',['reason','run','--entry','Mutate','--inputs',str(inputs),'--trace=off'])
     with contextlib.redirect_stdout(io.StringIO()) as buf:assert main() == 0
     assert json.loads(buf.getvalue())['runtime_result']['result'] == 11
+
+def test_pinned_build_rejects_rollback_and_force_repairs(tmp_path):
+    p=project(tmp_path)
+    old=(p/'target/runtime/build_manifest.json').read_bytes()
+    old_ir=(p/'target/computation_ir/package.json').read_bytes()
+    src=p/'src/main.rsn';src.write_text(src.read_text().replace('42','43'))
+    with contextlib.redirect_stdout(io.StringIO()):assert build_cmd.run(p) == 0
+    (p/'target/runtime/build_manifest.json').write_bytes(old)
+    (p/'target/computation_ir/package.json').write_bytes(old_ir)
+    with pytest.raises(ArtifactError,match='trusted selected'):load(p,frozen=True)
+    with contextlib.redirect_stdout(io.StringIO()):assert build_cmd.run(p,force=True) == 0
+    assert load(p)

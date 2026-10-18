@@ -507,14 +507,14 @@ for the session format, wire schema and source-level UNKNOWN policy.
 Project `reason run` checks the selected sources, dependency closure, manifest,
 compiler build, runtime binary, IR format and content against a local trusted
 build record. Missing or stale builds are compiled before execution. Modified or
-corrupt cached artifacts fail with `RTH-IR-*` diagnostics; rebuild explicitly to
+corrupt cached artifacts fail with `RTH-IR-*` diagnostics; use `reason build --force` to
 replace them. Pre-revision build directories require one rebuild.
 
 `reason run --frozen` executes the previously built project without comparing it
 to current sources. It still verifies the trusted build record, artifact hash,
 IR schema and runtime ABI. This is an explicit snapshot mode; it does not mean
 that the artifact represents current source. The source tree and
-`.reason/trusted-builds/` are trusted publisher inputs; `target/` is untrusted
+`.reason/` (the selected-build pin and build records) are trusted publisher inputs; `target/` is untrusted
 cache storage. A writer able to replace both source/trust records and cache is
 outside this local trust boundary. Copy the trust record with an authenticated
 publisher channel when distributing a frozen project.

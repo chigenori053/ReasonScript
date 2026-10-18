@@ -73,6 +73,7 @@ def publish(project: Path, identity: dict[str, Any], raw: bytes) -> None:
     atomic_write(project/'target/runtime/build_manifest.json', canonical(record))
     atomic_write(project/'.reason/trusted-builds'/f'{key}.json', canonical(record))
     atomic_write(project/'target/.reason_build_cache', key.encode())
+    atomic_write(project/'.reason/current-build', key.encode())
 
 def load(project: Path, dependency_roots: tuple[Path, ...] = (), *, frozen: bool = False, identity: dict[str, Any] | None = None) -> dict[str, Any]:
     from frontend.computation_ir import validate_program
@@ -81,6 +82,8 @@ def load(project: Path, dependency_roots: tuple[Path, ...] = (), *, frozen: bool
         key = record['key']
         if not isinstance(key, str) or len(key) != 64 or any(c not in '0123456789abcdef' for c in key):
             raise ValueError('invalid build identity key')
+        if (project/'.reason/current-build').read_text() != key:
+            raise ArtifactError('RTH-IR-INTEGRITY', 'cache build differs from the trusted selected build')
         trusted = read_json((project/'.reason/trusted-builds'/f'{key}.json').read_bytes())
         if record != trusted or key != sha(canonical(record['identity'])):
             raise ArtifactError('RTH-IR-INTEGRITY', 'build manifest does not match the trusted local build record')

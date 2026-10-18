@@ -116,7 +116,7 @@ def main() -> int:
 
     if command == "build":
         from toolchain.build_cmd import run
-        return run(project_root, package=package)
+        return run(project_root, package=package, force="--force" in args[1:])
 
     if command == "run":
         from toolchain.run_cmd import run

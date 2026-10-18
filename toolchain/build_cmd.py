@@ -23,7 +23,7 @@ def _load_cache(target: Path) -> str:
     return p.read_text(encoding="utf-8").strip() if p.exists() else ""
 
 
-def run(project_root: Path, package: str | None = None) -> int:
+def run(project_root: Path, package: str | None = None, *, force: bool = False) -> int:
     try:
         workspace = PackageGraphService().discover(project_root)
     except WorkspaceError as error:
@@ -43,7 +43,7 @@ def run(project_root: Path, package: str | None = None) -> int:
             except WorkspaceError as error:
                 _print_workspace_error(error)
                 return 1
-            rc = _run_package(node.path, dependency_roots=_dependency_roots(graph, package_name))
+            rc = _run_package(node.path, dependency_roots=_dependency_roots(graph, package_name), force=force)
             if rc != 0:
                 return rc
             compiled += 1
@@ -53,10 +53,10 @@ def run(project_root: Path, package: str | None = None) -> int:
     if package is not None and package != workspace.default_package.name:
         _print_workspace_error(WorkspaceError(f"unknown package: {package}"))
         return 1
-    return _run_package(workspace.default_package.path)
+    return _run_package(workspace.default_package.path, force=force)
 
 
-def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) -> int:
+def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = (), *, force: bool = False) -> int:
     try:
         manifest = Manifest.load(project_root)
     except ManifestError as e:
@@ -82,7 +82,7 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
     )
     from .compiled_ir import canonical, sha
     current_key = sha(canonical(identity))
-    if _load_cache(target) == current_key:
+    if not force and _load_cache(target) == current_key:
         try:
             load_compiled_ir(project_root, dependency_roots, identity=identity)
         except ArtifactError as error:
