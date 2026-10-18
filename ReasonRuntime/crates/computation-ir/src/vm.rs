@@ -596,6 +596,50 @@ impl<'a> Vm<'a> {
         &self,
         program: &Program,
     ) -> Result<Vec<(String, Value)>, RuntimeError> {
+        self.initialize_objects(program)?;
+        let mut calculations: Vec<(String, Value)> = Vec::new();
+        self.active_calculations.borrow_mut().clear();
+        for calculation_id in &program.calculations {
+            let function = *self.functions.get(calculation_id.as_str()).ok_or_else(|| {
+                RuntimeError::new(
+                    "RT-CALL-001",
+                    format!("unknown calculation: {calculation_id}"),
+                )
+            })?;
+            let mut env_map: HashMap<String, Value> = calculations
+                .iter()
+                .map(|(name, value)| (name.clone(), value.clone()))
+                .collect();
+            env_map.extend(self.reasoning_bindings.clone());
+            env_map.extend(
+                self.reason_objects
+                    .borrow()
+                    .iter()
+                    .map(|(name, value)| (name.clone(), value.clone())),
+            );
+            let env = Rc::new(RefCell::new(env_map));
+            match self.run_function(function, &env, 0)? {
+                Outcome::Result(value) => {
+                    self.active_calculations.borrow_mut().push(value.clone());
+                    calculations.push((calculation_id.clone(), value));
+                }
+                Outcome::NoValue => {}
+                Outcome::Return(_) => {
+                    return Err(RuntimeError::new(
+                        "IR-EXEC-005",
+                        format!("calculation {calculation_id} used return instead of result"),
+                    ))
+                }
+            }
+            // A calculation boundary is not a tensor ownership boundary:
+            // optimizer/autograd state can still retain handles referenced by
+            // subsequent calculations.  The VM owns one fresh TensorStore per
+            // program run, so defer collection until that store is dropped.
+        }
+        Ok(calculations)
+    }
+
+    fn initialize_objects(&self, program: &Program) -> Result<(), RuntimeError> {
         let mut object_bindings = HashMap::new();
         if !program.reason_object_bindings.is_empty() && !self.filesystem_read {
             return Err(RuntimeError::new(
@@ -651,46 +695,7 @@ impl<'a> Vm<'a> {
             );
         }
         *self.reason_objects.borrow_mut() = object_bindings;
-        let mut calculations: Vec<(String, Value)> = Vec::new();
-        self.active_calculations.borrow_mut().clear();
-        for calculation_id in &program.calculations {
-            let function = *self.functions.get(calculation_id.as_str()).ok_or_else(|| {
-                RuntimeError::new(
-                    "RT-CALL-001",
-                    format!("unknown calculation: {calculation_id}"),
-                )
-            })?;
-            let mut env_map: HashMap<String, Value> = calculations
-                .iter()
-                .map(|(name, value)| (name.clone(), value.clone()))
-                .collect();
-            env_map.extend(self.reasoning_bindings.clone());
-            env_map.extend(
-                self.reason_objects
-                    .borrow()
-                    .iter()
-                    .map(|(name, value)| (name.clone(), value.clone())),
-            );
-            let env = Rc::new(RefCell::new(env_map));
-            match self.run_function(function, &env, 0)? {
-                Outcome::Result(value) => {
-                    self.active_calculations.borrow_mut().push(value.clone());
-                    calculations.push((calculation_id.clone(), value));
-                }
-                Outcome::NoValue => {}
-                Outcome::Return(_) => {
-                    return Err(RuntimeError::new(
-                        "IR-EXEC-005",
-                        format!("calculation {calculation_id} used return instead of result"),
-                    ))
-                }
-            }
-            // A calculation boundary is not a tensor ownership boundary:
-            // optimizer/autograd state can still retain handles referenced by
-            // subsequent calculations.  The VM owns one fresh TensorStore per
-            // program run, so defer collection until that store is dropped.
-        }
-        Ok(calculations)
+        Ok(())
     }
 
     fn push_temporary_root(&self, value: Value) {
