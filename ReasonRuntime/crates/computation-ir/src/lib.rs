@@ -10,6 +10,7 @@ pub mod causal_bridge;
 pub mod console_dispatch;
 pub mod foundation_dispatch;
 pub mod ir;
+pub mod input_abi;
 pub mod numeric;
 pub mod optimizer_dispatch;
 pub mod reason_structure;

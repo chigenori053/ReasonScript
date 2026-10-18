@@ -495,3 +495,36 @@ interfaces, use:
 - `golden/` — expected observable behavior.
 
 Do not infer current behavior from old release plans or implementation reports.
+
+## Dynamic input entries
+
+Public functions retain their parameter types in the compiled input ABI
+`reasonscript-input/1.0`. They can be invoked with `reason run --entry Name
+--inputs request.json` without generating source for each request:
+
+```reasonscript
+module Scoring {
+  struct Request {
+    score: float
+    adjustments: [float]
+  }
+  pub fn Evaluate(request: Request) -> float {
+    return request.score + request.adjustments[0]
+  }
+}
+```
+
+An input is `{"request":{"score":4.5,"adjustments":[2.0]}}`. Integers, finite
+floats, strings, Booleans, arrays and recursively typed structs use ordinary JSON
+values. Tuples use fixed-length arrays; optionals use null or their inner value.
+Opaque handles and unsupported types are rejected. Struct fields and argument
+names must match exactly. Input decoding constructs fresh values for each
+execution; no Knowledge, Evidence, UNKNOWN or previous outcome is implicitly
+retained. Reasoning records use these same declared struct/array types and still
+pass through the application's existing verification functions.
+
+The native host continues to accept supported legacy computation IR 0.1 and
+current IR 0.2 for explicitly supplied programs, and rejects other schema names.
+An explicit incompatible `runtime_abi` is rejected. New project builds include
+`reasonscript-runtime/1.0` and a verified build record; legacy raw IR without the
+ABI field remains a caller-supplied program, without source freshness guarantees.

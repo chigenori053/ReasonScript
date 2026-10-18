@@ -77,6 +77,8 @@ def execute_rust_ir(
     max_call_depth: int | None = None,
     trace_config: dict[str, Any] | None = None,
     max_loop_iterations: int | None = None,
+    entry: str | None = None,
+    inputs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     from frontend.computation_ir.rust_bridge import find_binary, run_ir
 
@@ -119,6 +121,7 @@ def execute_rust_ir(
             trace_enabled=trace_enabled,
             **({"trace_config": trace_config} if trace_config is not None and not trace_unsupported else {}),
             limits=limits,
+            **({"entry": entry, "inputs": inputs} if entry is not None or inputs is not None else {}),
         )
     except subprocess.TimeoutExpired as error:
         raise RustDispatchError(

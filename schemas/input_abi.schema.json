@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/input_abi.schema.json",
+  "title": "Compiled typed input ABI 1.0",
+  "type": "object",
+  "required": ["version", "entries", "structs"],
+  "properties": {
+    "version": {"const": "reasonscript-input/1.0"},
+    "entries": {"type": "object", "additionalProperties": {
+      "type": "object", "required": ["parameters"],
+      "properties": {"parameters": {"$ref": "#/$defs/fields"}}, "additionalProperties": false
+    }},
+    "structs": {"type": "object", "additionalProperties": {
+      "type": "object", "required": ["type_name", "fields"],
+      "properties": {"type_name": {"type": "string"}, "fields": {"$ref": "#/$defs/fields"}}, "additionalProperties": false
+    }}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "fields": {"type": "object", "additionalProperties": {"$ref": "#/$defs/type"}},
+    "type": {"oneOf": [
+      {"enum": ["Int", "Float", "String", "Bool", "Null"]},
+      {"type": "object", "required": ["array"], "properties": {"array": {"$ref": "#/$defs/type"}}, "additionalProperties": false},
+      {"type": "object", "required": ["optional"], "properties": {"optional": {"$ref": "#/$defs/type"}}, "additionalProperties": false},
+      {"type": "object", "required": ["tuple"], "properties": {"tuple": {"type": "array", "items": {"$ref": "#/$defs/type"}}}, "additionalProperties": false},
+      {"type": "object", "required": ["struct"], "properties": {"struct": {"type": "string"}}, "additionalProperties": false},
+      {"type": "object", "required": ["unsupported"], "properties": {"unsupported": {"type": "string"}}, "additionalProperties": false}
+    ]}
+  }
+}

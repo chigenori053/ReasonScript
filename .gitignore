@@ -8,3 +8,5 @@ build/
 *.swp
 __pycache__/
 *.pyc
+
+.reason/

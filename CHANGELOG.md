@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Verify project build identity, dependency/source freshness and IR bytes against an independent local trusted build record. Reject cache corruption and unknown native IR schemas or explicit incompatible runtime ABIs; retain raw IR 0.1/0.2 compatibility. Add explicit `reason run --frozen` snapshot execution. Old project targets require rebuilding.
+- Add typed `reasonscript-input/1.0` public function entries through the existing native VM and `reason run --entry ... --inputs ...`; fresh JSON primitives/arrays/structs separate request data from compiled code.
+
 ## [0.5.6.7] - 2026-10-10
 
 - Package the structural RU/RUS/RUO model, RCP Foundation P1, UNKNOWN structures and receiver profile compatibility for macOS arm64. Retain RCP 0.2; UNKNOWN structural receivers must declare `reasonscript-unknown-structure/0.1`.

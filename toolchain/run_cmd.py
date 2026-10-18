@@ -24,6 +24,9 @@ def run(
     filesystem_write: bool = False,
     auto_build: bool = False,
     trace_config: dict | None = None,
+    frozen: bool = False,
+    inputs_path: str | None = None,
+    dependency_roots: tuple[Path, ...] = (),
 ) -> int:
     try:
         workspace = PackageGraphService().discover(project_root)
@@ -33,6 +36,8 @@ def run(
     except ManifestError as error:
         print(f"Error:\n\n{error}")
         return 1
+
+    from .build_cmd import _dependency_roots
 
     if workspace.is_workspace:
         try:
@@ -49,6 +54,8 @@ def run(
             filesystem_write=filesystem_write,
             auto_build=auto_build,
             trace_config=trace_config,
+            frozen=frozen, inputs_path=inputs_path,
+            dependency_roots=_dependency_roots(workspace.graph, node.name),
         )
 
     if package is not None and package != workspace.default_package.name:
@@ -63,6 +70,7 @@ def run(
         filesystem_write=filesystem_write,
         auto_build=auto_build,
         trace_config=trace_config,
+        frozen=frozen, inputs_path=inputs_path,
     )
 
 
@@ -76,6 +84,9 @@ def _run_package(
     filesystem_write: bool = False,
     auto_build: bool = False,
     trace_config: dict | None = None,
+    frozen: bool = False,
+    inputs_path: str | None = None,
+    dependency_roots: tuple[Path, ...] = (),
 ) -> int:
     try:
         manifest = Manifest.load(project_root)
@@ -84,17 +95,17 @@ def _run_package(
         return 1
 
     try:
-        sources = package_sources(project_root, manifest)
+        sources = [] if frozen else package_sources(project_root, manifest)
     except SourceSelectionError as error:
         print(f"Error:\n\n{error.code}\n\n{error}")
         return 1
-    if not sources:
+    if not sources and not frozen:
         print("Error:\n\nNoSourceFiles\n\nsrc/ contains no .rsn files.")
         return 1
 
     ir_dir = project_root / "target" / "ir"
     computation_path = project_root / "target" / "computation_ir" / "package.json"
-    if auto_build and (not ir_dir.is_dir() or not any(ir_dir.glob("*.json")) or not computation_path.is_file()):
+    if auto_build and not frozen:
         import contextlib
         import io
         from toolchain.build_cmd import run as build_package
@@ -136,15 +147,17 @@ def _run_package(
             )
         )
         return 2
+    from .compiled_ir import ArtifactError, load, read_json
     try:
-        computation_ir = json.loads(computation_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as error:
+        computation_ir = load(project_root, dependency_roots, frozen=frozen)
+        inputs = read_json(Path(inputs_path).read_bytes()) if inputs_path is not None else None
+        if inputs is not None and (not isinstance(inputs, dict) or entry is None):
+            raise ArtifactError("RTH-INPUT-001", "--inputs requires a JSON object and --entry function")
+    except (ArtifactError, OSError, ValueError) as error:
         print(json.dumps({"status": "failure", "diagnostics": [{
-            "code": "RTH-IR-002",
-            "severity": "error",
-            "category": "runtime.native",
-            "message": f"built computation IR is invalid: {error}",
-        }]}, indent=2))
+            "code": getattr(error, "code", "RTH-INPUT-001"), "severity": "error",
+            "category": "runtime.native", "message": str(error),
+        }]}))
         return 2
 
     from toolchain.runtime_dispatch import RustDispatchError, execute_rust_ir
@@ -156,6 +169,7 @@ def _run_package(
             filesystem_read,
             filesystem_write,
             backend=manifest.backend,
+            **({"entry": entry, "inputs": inputs} if inputs is not None else {}),
             include_trace=include_trace,
             max_call_depth=manifest.max_call_depth,
             trace_config=trace_config,
@@ -167,7 +181,9 @@ def _run_package(
 
     calculations = runtime_result["calculations"]
     selected_entry_name: str | None = None
-    if entry is not None:
+    if inputs is not None:
+        selected_entry_name = next(iter(calculations), None)
+    elif entry is not None:
         entry_name = entry.rsplit("::", 1)[-1].rsplit(".", 1)[-1]
         if entry_name not in calculations:
             available = ("\n\nAvailable calculations:\n" + "\n".join(f"  - {name}" for name in sorted(calculations.keys()))) if calculations else ""

@@ -74,6 +74,8 @@ def run_ir(
     executable_reason_units: str = "off",
     benchmark_metrics: bool = False,
     limits: dict[str, int] | None = None,
+    entry: str | None = None,
+    inputs: dict[str, Any] | None = None,
 ) -> RustRunResult:
     resolved = binary or find_binary()
     if resolved is None:
@@ -105,6 +107,8 @@ def run_ir(
             "backend": backend,
         },
     }
+    if entry is not None or inputs is not None:
+        request.update(entry=entry, inputs=inputs)
     completed = subprocess.run(
         [str(resolved)],
         input=json.dumps(request),

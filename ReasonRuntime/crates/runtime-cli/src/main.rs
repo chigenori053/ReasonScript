@@ -419,7 +419,12 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
     vm.configure_reasoning_state(reasoning_state_mode);
     vm.configure_state_causality(state_causality_mode);
     let execution_started = Instant::now();
-    match vm.run_calculations(&program) {
+    let execution = match (request.get("entry"), request.get("inputs")) {
+        (None, None) => vm.run_calculations(&program),
+        (Some(entry), Some(inputs)) if entry.is_string() => vm.run_entry(&program, entry.as_str().unwrap(), inputs),
+        _ => Err(reasonscript_computation_ir::RuntimeError::new("RTH-INPUT-001", "entry and inputs must be supplied together")),
+    };
+    match execution {
         Ok(calculations) => {
             let runtime_execution_ns = execution_started.elapsed().as_nanos() as u64;
             let causal_bridge = match causal_source {

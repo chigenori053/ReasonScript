@@ -639,6 +639,23 @@ impl<'a> Vm<'a> {
         Ok(calculations)
     }
 
+    /// The request host constructs a fresh VM for each execution.
+    pub fn run_entry(&self, program: &Program, entry: &str, inputs: &serde_json::Value) -> Result<Vec<(String, Value)>, RuntimeError> {
+        let (id, mut values) = crate::input_abi::arguments(program, entry, inputs)?;
+        let function = self.functions.get(id.as_str()).ok_or_else(|| RuntimeError::new("RTH-INPUT-001", "unknown input entry"))?;
+        if function.parameters.len() != values.len() || function.parameters.iter().any(|name| !values.contains_key(name)) {
+            return Err(RuntimeError::new("RTH-INPUT-001", "input layout does not match function parameters"));
+        }
+        self.initialize_objects(program)?;
+        values.extend(self.reasoning_bindings.clone());
+        values.extend(self.reason_objects.borrow().iter().map(|(k,v)| (k.clone(),v.clone())));
+        let env = Rc::new(RefCell::new(values));
+        match self.run_function(function, &env, 0)? {
+            Outcome::Return(value) | Outcome::Result(value) => Ok(vec![(id, value)]),
+            Outcome::NoValue => Err(RuntimeError::new("RT-CALL-004", "input entry returned no value")),
+        }
+    }
+
     fn initialize_objects(&self, program: &Program) -> Result<(), RuntimeError> {
         let mut object_bindings = HashMap::new();
         if !program.reason_object_bindings.is_empty() && !self.filesystem_read {

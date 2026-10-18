@@ -17,11 +17,17 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
+pub const RUNTIME_ABI: &str = "reasonscript-runtime/1.0";
+
 pub const SCHEMA: &str = "reason-computation-ir/0.2";
 
 #[derive(Debug, Deserialize)]
 pub struct Program {
     pub schema: String,
+    #[serde(default)]
+    pub runtime_abi: Option<String>,
+    #[serde(default)]
+    pub input_abi: Option<serde_json::Value>,
     #[serde(default)]
     pub package: Option<String>,
     pub calculations: Vec<String>,
@@ -435,5 +441,13 @@ impl Expr {
 }
 
 pub fn decode(source: &str) -> Result<Program, serde_json::Error> {
-    serde_json::from_str(source)
+    let program: Program = serde_json::from_str(source)?;
+    // 0.1 remains the explicitly supported pre-enum wire format.
+    if !matches!(program.schema.as_str(), SCHEMA | "reason-computation-ir/0.1") {
+        return Err(<serde_json::Error as serde::de::Error>::custom("unsupported computation IR schema"));
+    }
+    if program.runtime_abi.as_deref().is_some_and(|abi| abi != RUNTIME_ABI) {
+        return Err(<serde_json::Error as serde::de::Error>::custom("incompatible runtime ABI"));
+    }
+    Ok(program)
 }

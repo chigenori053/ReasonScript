@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://reasonscript.dev/schemas/compiled_build.schema.json",
+  "title": "Trusted local compiled build record 1.0",
+  "type": "object",
+  "required": ["schema", "identity", "key", "artifact_sha256"],
+  "properties": {
+    "schema": {"const": "reasonscript-compiled-build/1.0"},
+    "key": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "required": ["schema", "version", "compiler", "python", "runtime_binary", "runtime_abi", "ir_schema", "serialization", "options", "packages"],
+      "properties": {
+        "schema": {"const": "reasonscript-compiled-build/1.0"},
+        "version": {"type": "string"}, "compiler": {"type": "string"}, "python": {"type": "string"},
+        "runtime_binary": {"type": ["string", "null"]},
+        "runtime_abi": {"const": "reasonscript-runtime/1.0"}, "ir_schema": {"const": "reason-computation-ir/0.2"},
+        "serialization": {"const": "json/1"}, "options": {"type": "object"}, "packages": {"type": "array"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

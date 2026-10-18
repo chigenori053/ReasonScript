@@ -15,40 +15,12 @@ from .workspace import (
 )
 
 _CACHE_KEY_FILE = ".reason_build_cache"
-_BUILD_FORMAT_VERSION = "runtime-consolidation-phase2-uera8-optimizer"
-
-
-def _cache_key(
-    project_root: Path,
-    dependency_roots: tuple[Path, ...] = (),
-    *,
-    project_sources: tuple[Path, ...] = (),
-) -> str:
-    import hashlib
-
-    h = hashlib.sha256()
-    h.update(_BUILD_FORMAT_VERSION.encode("utf-8"))
-    for root in (project_root, *dependency_roots):
-        manifest_path = root / "reason.toml"
-        if manifest_path.exists():
-            h.update(str(manifest_path).encode("utf-8"))
-            h.update(manifest_path.read_bytes())
-        sources = project_sources if root == project_root and project_sources else tuple(
-            sorted((root / "src").rglob("*.rsn"))
-        )
-        for src in sources:
-            h.update(str(src).encode("utf-8"))
-            h.update(src.read_bytes())
-    return h.hexdigest()
+from .compiled_ir import ArtifactError, compilation_key as _cache_key, compilation_identity, load as load_compiled_ir, publish
 
 
 def _load_cache(target: Path) -> str:
     p = target / _CACHE_KEY_FILE
     return p.read_text(encoding="utf-8").strip() if p.exists() else ""
-
-
-def _save_cache(target: Path, key: str) -> None:
-    (target / _CACHE_KEY_FILE).write_text(key, encoding="utf-8")
 
 
 def run(project_root: Path, package: str | None = None) -> int:
@@ -101,12 +73,21 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
         return 1
 
     target = project_root / "target"
-    current_key = _cache_key(
+    source_contents = {path: path.read_bytes() for path in sources}
+    identity = compilation_identity(
         project_root,
         dependency_roots,
         project_sources=tuple(sources),
+        project_contents=source_contents,
     )
+    from .compiled_ir import canonical, sha
+    current_key = sha(canonical(identity))
     if _load_cache(target) == current_key:
+        try:
+            load_compiled_ir(project_root, dependency_roots, identity=identity)
+        except ArtifactError as error:
+            print(f"Error:\n\n{error.code}: {error}")
+            return 1
         print("Nothing to build (up to date).")
         return 0
 
@@ -119,7 +100,7 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
 
     try:
         result = compile_package_sources(
-            [(src_path.read_text(encoding="utf-8"), src_path) for src_path in sources]
+            [(source_contents[src_path].decode("utf-8"), src_path) for src_path in sources]
         )
     except PipelineError as e:
         print(f"Error:\n\n{e.code}: {e.message}")
@@ -201,7 +182,10 @@ def _run_package(project_root: Path, dependency_roots: tuple[Path, ...] = ()) ->
         json.dumps(runtime_support, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
-    _save_cache(target, current_key)
+    if compilation_identity(project_root, dependency_roots) != identity:
+        print("Error:\n\nRTH-IR-STALE: compilation inputs changed during build; retry reason build")
+        return 1
+    publish(project_root, identity, computation_path.read_bytes())
     print(f"Build succeeded. {len(sources)} file(s) compiled.")
     return 0
 

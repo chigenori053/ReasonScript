@@ -188,8 +188,11 @@ def lower_program(program: ProgramNode) -> dict[str, Any]:
                     _lower_function(item.name, (), item.body, scope)
                 )
                 calculation_ids.append(item.name)
+    from .input_abi import input_contract
     return {
+        "input_abi": input_contract(program),
         "schema": SCHEMA,
+        "runtime_abi": "reasonscript-runtime/1.0",
         "package": program.package.name if program.package is not None else None,
         "calculations": calculation_ids,
         "functions": functions,

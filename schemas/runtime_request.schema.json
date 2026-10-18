@@ -9,6 +9,8 @@
     "request_id": {"type": "string", "minLength": 1},
     "operation": {"const": "execute"},
     "program": {"type": "object"},
+    "entry": {"type": "string", "minLength": 1},
+    "inputs": {"type": "object"},
     "context": {
       "type": "object",
       "required": ["resource_root", "capabilities", "limits", "trace", "numeric_mode"],
@@ -71,5 +73,6 @@
       "additionalProperties": false
     }
   },
+  "dependentRequired": {"entry": ["inputs"], "inputs": ["entry"]},
   "additionalProperties": false
 }
