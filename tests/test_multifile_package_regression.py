@@ -157,12 +157,13 @@ def test_project_run_executes_built_computation_ir_without_reparsing_source(
     _write_project(tmp_path)
     assert build_cmd.run(tmp_path) == 0
     capsys.readouterr()
-    # The source remains present for package identity, but is deliberately
-    # invalid after the build. A successful run proves the Rust path consumed
-    # target/computation_ir/package.json rather than recompiling source.
+    # Current-source execution rejects stale IR; explicit frozen execution
+    # consumes the pinned artifact without parsing the changed source.
     (tmp_path / "src/train.rsn").write_text("not valid ReasonScript\n", encoding="utf-8")
 
-    assert run(tmp_path, entry="Train::Main") == 0
+    assert run(tmp_path, entry="Train::Main") == 2
+    assert "RTH-IR-STALE" in capsys.readouterr().out
+    assert run(tmp_path, entry="Train::Main", frozen=True) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["execution_mode"] == "integrated-rust"
     assert payload["runtime_result"]["result"] == 42
