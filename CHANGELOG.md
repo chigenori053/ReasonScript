@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Speed up the native VM by resolving each function's block layout once per run instead of hashing block ids on every call, block visit and jump, and by resolving call targets without formatting their ids (about 1.3–1.6x on loop- and call-heavy programs). Reorder `tensor.matmul` loops for row-contiguous access (about 2.4x on 400x400) while keeping results bit-identical. Results, diagnostics and traces are unchanged.
+
 ## [0.5.6.8] - 2026-10-19
 
 - Add `complex.*` scalar/vector/Hermitian/matrix/discrete-state operations as a specialized module sharing the native VM, Value containers, input ABI and bounded deterministic trace. Reject invalid dimensions, non-finite values, division by zero and overflow.

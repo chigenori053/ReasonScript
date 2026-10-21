@@ -17,7 +17,7 @@ use std::rc::Rc;
 use crate::causal_bridge::{
     project as project_causal, CausalBridgeProjection, CausalObservationSource,
 };
-use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
+use crate::ir::{Expr, Function, Instruction, Pattern, Program, Terminator};
 use crate::reason_structure::{
     ExecutableKind, ExecutableMode, ReasonStructure, ReasonUnitMode, ReasonUnitSource,
     TerminalStatus,
@@ -63,8 +63,72 @@ pub enum Outcome {
 pub const DEFAULT_MAX_LOOP_ITERATIONS: u64 = 10_000;
 pub const DEFAULT_MAX_CALL_DEPTH: u32 = 128;
 
+/// A `Function` with its block layout resolved once at VM construction,
+/// so the block-walk loop indexes blocks, successor targets, and loop-guard
+/// counters by position instead of hashing block-id strings on every call,
+/// visit, and jump.
+struct PreparedFunction<'a> {
+    function: &'a Function,
+    /// Index into `function.blocks`; `None` when the entry id is unknown.
+    entry: Option<usize>,
+    /// Per block, the terminator's successor indices in declaration order
+    /// (`jump` target; `branch` then/else; `match` arm targets), `None`
+    /// for an unknown id so the jump still reports IR-EXEC-006.
+    successors: Vec<Vec<Option<usize>>>,
+    traceable: bool,
+}
+
+impl<'a> PreparedFunction<'a> {
+    fn new(function: &'a Function) -> Self {
+        // Last block wins on a duplicate id, as with the former per-call
+        // `HashMap` collect.
+        let index: HashMap<&str, usize> = function
+            .blocks
+            .iter()
+            .enumerate()
+            .map(|(position, block)| (block.id.as_str(), position))
+            .collect();
+        let successors = function
+            .blocks
+            .iter()
+            .map(|block| {
+                let targets: Vec<&str> = match &block.terminator {
+                    Terminator::Jump { target } => vec![target],
+                    Terminator::Branch {
+                        then, else_target, ..
+                    } => vec![then, else_target],
+                    Terminator::Match { arms, .. } => {
+                        arms.iter().map(|arm| arm.target.as_str()).collect()
+                    }
+                    _ => Vec::new(),
+                };
+                targets
+                    .into_iter()
+                    .map(|target| index.get(target).copied())
+                    .collect()
+            })
+            .collect();
+        let traceable = function.blocks.iter().any(|block| {
+            block
+                .instructions
+                .iter()
+                .any(|instruction| matches!(instruction, Instruction::TraceLoopStart { .. }))
+        });
+        PreparedFunction {
+            function,
+            entry: index.get(function.entry_block.as_str()).copied(),
+            successors,
+            traceable,
+        }
+    }
+}
+
 pub struct Vm<'a> {
-    functions: HashMap<&'a str, &'a Function>,
+    functions: Vec<PreparedFunction<'a>>,
+    function_ids: HashMap<&'a str, usize>,
+    /// `fn.<name>` ids keyed by `<name>`, so a call site resolves its
+    /// callee without formatting the prefixed id first.
+    callable_functions: HashMap<&'a str, usize>,
     max_loop_iterations: u64,
     max_call_depth: u32,
     max_sequence_elements: usize,
@@ -206,10 +270,20 @@ impl<'a> Vm<'a> {
         max_call_depth: u32,
         max_loop_iterations: u64,
     ) -> Self {
-        let functions = program
+        let functions: Vec<PreparedFunction<'a>> = program
             .functions
             .iter()
-            .map(|function| (function.id.as_str(), function))
+            .map(PreparedFunction::new)
+            .collect();
+        let function_ids: HashMap<&'a str, usize> = program
+            .functions
+            .iter()
+            .enumerate()
+            .map(|(position, function)| (function.id.as_str(), position))
+            .collect();
+        let callable_functions = function_ids
+            .iter()
+            .filter_map(|(id, &position)| id.strip_prefix("fn.").map(|name| (name, position)))
             .collect();
         let mut tensors = reasonscript_tensor_core::TensorStore::with_numeric_mode(numeric_mode);
         tensors.configure_context(
@@ -220,6 +294,8 @@ impl<'a> Vm<'a> {
         );
         Vm {
             functions,
+            function_ids,
+            callable_functions,
             max_loop_iterations,
             max_call_depth,
             max_sequence_elements: crate::foundation_dispatch::DEFAULT_MAX_SEQUENCE_ELEMENTS,
@@ -606,12 +682,16 @@ impl<'a> Vm<'a> {
         let mut calculations: Vec<(String, Value)> = Vec::new();
         self.active_calculations.borrow_mut().clear();
         for calculation_id in &program.calculations {
-            let function = *self.functions.get(calculation_id.as_str()).ok_or_else(|| {
-                RuntimeError::new(
-                    "RT-CALL-001",
-                    format!("unknown calculation: {calculation_id}"),
-                )
-            })?;
+            let function = self
+                .function_ids
+                .get(calculation_id.as_str())
+                .map(|&position| &self.functions[position])
+                .ok_or_else(|| {
+                    RuntimeError::new(
+                        "RT-CALL-001",
+                        format!("unknown calculation: {calculation_id}"),
+                    )
+                })?;
             let mut env_map: HashMap<String, Value> = calculations
                 .iter()
                 .map(|(name, value)| (name.clone(), value.clone()))
@@ -648,8 +728,9 @@ impl<'a> Vm<'a> {
     /// The request host constructs a fresh VM for each execution.
     pub fn run_entry(&self, program: &Program, entry: &str, inputs: &serde_json::Value) -> Result<Vec<(String, Value)>, RuntimeError> {
         let (id, mut values) = crate::input_abi::arguments(program, entry, inputs)?;
-        let function = self.functions.get(id.as_str()).ok_or_else(|| RuntimeError::new("RTH-INPUT-001", "unknown input entry"))?;
-        if function.parameters.len() != values.len() || function.parameters.iter().any(|name| !values.contains_key(name)) {
+        let function = self.function_ids.get(id.as_str()).map(|&position| &self.functions[position]).ok_or_else(|| RuntimeError::new("RTH-INPUT-001", "unknown input entry"))?;
+        let parameters = &function.function.parameters;
+        if parameters.len() != values.len() || parameters.iter().any(|name| !values.contains_key(name)) {
             return Err(RuntimeError::new("RTH-INPUT-001", "input layout does not match function parameters"));
         }
         self.initialize_objects(program)?;
@@ -727,39 +808,36 @@ impl<'a> Vm<'a> {
 
     fn run_function(
         &self,
-        function: &Function,
+        prepared: &PreparedFunction<'a>,
         env: &Rc<RefCell<HashMap<String, Value>>>,
         call_depth: u32,
     ) -> Result<Outcome, RuntimeError> {
-        let traceable = function.blocks.iter().any(|block| {
-            block
-                .instructions
-                .iter()
-                .any(|instruction| matches!(instruction, Instruction::TraceLoopStart { .. }))
-        });
-        let _frame_guard = FrameGuard::new(self, env, traceable);
-        let blocks: HashMap<&str, &Block> = function
-            .blocks
-            .iter()
-            .map(|block| (block.id.as_str(), block))
-            .collect();
-        let mut current = function.entry_block.as_str();
-        let mut visits: HashMap<String, u64> = HashMap::new();
-        loop {
-            let count = visits.entry(current.to_string()).or_insert(0);
-            *count += 1;
-            if *count > self.max_loop_iterations {
-                return Err(RuntimeError::new(
-                    "RT-LOOP-001",
-                    format!(
-                        "loop iteration limit exceeded: {}",
-                        self.max_loop_iterations
-                    ),
-                ));
+        let function = prepared.function;
+        let _frame_guard = FrameGuard::new(self, env, prepared.traceable);
+        let loop_limit_exceeded = || {
+            RuntimeError::new(
+                "RT-LOOP-001",
+                format!(
+                    "loop iteration limit exceeded: {}",
+                    self.max_loop_iterations
+                ),
+            )
+        };
+        let Some(mut current) = prepared.entry else {
+            // The entry visit is counted before the block is resolved.
+            if self.max_loop_iterations == 0 {
+                return Err(loop_limit_exceeded());
             }
-            let block = blocks.get(current).ok_or_else(|| {
-                RuntimeError::new("IR-EXEC-006", format!("unknown block: {current}"))
-            })?;
+            return Err(unknown_block(&function.entry_block));
+        };
+        let mut visits = vec![0_u64; function.blocks.len()];
+        loop {
+            visits[current] += 1;
+            if visits[current] > self.max_loop_iterations {
+                return Err(loop_limit_exceeded());
+            }
+            let block = &function.blocks[current];
+            let successors = &prepared.successors[current];
             for instruction in &block.instructions {
                 self.vm_instruction_count
                     .set(self.vm_instruction_count.get() + 1);
@@ -768,7 +846,7 @@ impl<'a> Vm<'a> {
             }
             match &block.terminator {
                 Terminator::Jump { target } => {
-                    current = self.resolve_block_id(&blocks, target)?;
+                    current = successors[0].ok_or_else(|| unknown_block(target))?;
                 }
                 Terminator::Branch {
                     condition,
@@ -786,8 +864,12 @@ impl<'a> Vm<'a> {
                             ))
                         }
                     };
-                    current =
-                        self.resolve_block_id(&blocks, if taken { then } else { else_target })?;
+                    let (successor, target) = if taken {
+                        (successors[0], then)
+                    } else {
+                        (successors[1], else_target)
+                    };
+                    current = successor.ok_or_else(|| unknown_block(target))?;
                 }
                 Terminator::Result { value } => {
                     let value = self.eval_expr(value, env, call_depth)?;
@@ -807,8 +889,8 @@ impl<'a> Vm<'a> {
                 }
                 Terminator::Match { subject, arms } => {
                     let subject_value = self.eval_expr(subject, env, call_depth)?;
-                    let mut matched_target: Option<&str> = None;
-                    for arm in arms {
+                    let mut matched_arm: Option<usize> = None;
+                    for (arm_index, arm) in arms.iter().enumerate() {
                         let Some(bindings) = match_pattern(&arm.pattern, &subject_value) else {
                             continue;
                         };
@@ -845,7 +927,7 @@ impl<'a> Vm<'a> {
                                     self.trace_assign(name, old.as_ref(), value);
                                 }
                             }
-                            matched_target = Some(arm.target.as_str());
+                            matched_arm = Some(arm_index);
                             break;
                         }
                         let mut env_mut = env.borrow_mut();
@@ -860,13 +942,14 @@ impl<'a> Vm<'a> {
                             }
                         }
                     }
-                    let Some(target) = matched_target else {
+                    let Some(arm_index) = matched_arm else {
                         return Err(RuntimeError::new(
                             "RT-MATCH-001",
                             "no match arm satisfied the value",
                         ));
                     };
-                    current = self.resolve_block_id(&blocks, target)?;
+                    current = successors[arm_index]
+                        .ok_or_else(|| unknown_block(&arms[arm_index].target))?;
                 }
             }
         }
@@ -909,21 +992,6 @@ impl<'a> Vm<'a> {
         }
 
         self.tensors.borrow_mut().collect(&roots);
-    }
-
-    fn resolve_block_id<'b>(
-        &self,
-        blocks: &HashMap<&'b str, &'b Block>,
-        target: &'b str,
-    ) -> Result<&'b str, RuntimeError> {
-        if blocks.contains_key(target) {
-            Ok(target)
-        } else {
-            Err(RuntimeError::new(
-                "IR-EXEC-006",
-                format!("unknown block: {target}"),
-            ))
-        }
     }
 
     fn execute_instruction(
@@ -1839,10 +1907,14 @@ impl<'a> Vm<'a> {
         env: &Rc<RefCell<HashMap<String, Value>>>,
         call_depth: u32,
     ) -> Result<Value, RuntimeError> {
-        let function_id = format!("fn.{name}");
-        let function = *self.functions.get(function_id.as_str()).ok_or_else(|| {
-            RuntimeError::new("RT-CALL-001", format!("unknown runtime function: {name}"))
-        })?;
+        let prepared = self
+            .callable_functions
+            .get(name)
+            .map(|&position| &self.functions[position])
+            .ok_or_else(|| {
+                RuntimeError::new("RT-CALL-001", format!("unknown runtime function: {name}"))
+            })?;
+        let function = prepared.function;
         if argument_exprs.len() != function.parameters.len() {
             return Err(RuntimeError::new(
                 "RT-CALL-002",
@@ -1862,11 +1934,24 @@ impl<'a> Vm<'a> {
             self.push_temporary_root(val.clone());
             arguments.push(val);
         }
-        let mut local_env: HashMap<String, Value> = self.reason_objects.borrow().clone();
-        local_env.extend(self.reasoning_bindings.clone());
+        let reason_objects = self.reason_objects.borrow();
+        let mut local_env: HashMap<String, Value> = HashMap::with_capacity(
+            reason_objects.len() + self.reasoning_bindings.len() + function.parameters.len(),
+        );
+        local_env.extend(
+            reason_objects
+                .iter()
+                .map(|(name, value)| (name.clone(), value.clone())),
+        );
+        drop(reason_objects);
+        local_env.extend(
+            self.reasoning_bindings
+                .iter()
+                .map(|(name, value)| (name.clone(), value.clone())),
+        );
         local_env.extend(function.parameters.iter().cloned().zip(arguments));
         let local_env = Rc::new(RefCell::new(local_env));
-        let outcome = self.run_function(function, &local_env, call_depth + 1)?;
+        let outcome = self.run_function(prepared, &local_env, call_depth + 1)?;
         match outcome {
             Outcome::Return(value) => {
                 self.push_temporary_root(value.clone());
@@ -1882,6 +1967,10 @@ impl<'a> Vm<'a> {
             )),
         }
     }
+}
+
+fn unknown_block(target: &str) -> RuntimeError {
+    RuntimeError::new("IR-EXEC-006", format!("unknown block: {target}"))
 }
 
 fn trace_env(env: &HashMap<String, Value>) -> serde_json::Value {
@@ -2437,6 +2526,51 @@ mod tests {
         }"#;
         let error = run(ir).expect_err("must fail");
         assert_eq!(error.code, "RT-ARITH-001");
+    }
+
+    #[test]
+    fn unknown_block_targets_report_ir_exec_006_when_reached() {
+        let program = |entry: &str, condition: bool| {
+            format!(
+                r#"{{
+                "schema": "reason-computation-ir/0.1",
+                "calculations": ["Answer"],
+                "functions": [{{
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "{entry}",
+                    "blocks": [{{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {{
+                            "kind": "branch",
+                            "condition": {{"op": "const", "kind": "bool", "value": {condition}}},
+                            "then": "missing",
+                            "else": "b2"
+                        }}
+                    }}, {{
+                        "id": "b2",
+                        "instructions": [],
+                        "terminator": {{
+                            "kind": "result",
+                            "value": {{"op": "const", "kind": "int", "value": 1}}
+                        }}
+                    }}]
+                }}]
+            }}"#
+            )
+        };
+        // An unknown target is only an error on the path that takes it.
+        assert_eq!(
+            run(&program("b1", false)).expect("else path is valid"),
+            vec![("Answer".to_string(), Value::Int(1))]
+        );
+        let error = run(&program("b1", true)).expect_err("then path is unknown");
+        assert_eq!(error.code, "IR-EXEC-006");
+        assert_eq!(error.message, "unknown block: missing");
+        let error = run(&program("absent", false)).expect_err("entry is unknown");
+        assert_eq!(error.code, "IR-EXEC-006");
+        assert_eq!(error.message, "unknown block: absent");
     }
 
     #[test]
