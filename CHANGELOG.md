@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Remove the unreferenced `Legacy/` tree: the standalone Elixir prototype runtime (`Legacy/elixir_runtime`) and its committed SQLite session/node data (`Legacy/runtime_data`). No toolchain, runtime, test, CI or distribution path used it.
 - Security: the Playground backend now listens on `127.0.0.1` only, rejects requests whose `Origin` is not a local IDE page (`localhost`, `127.0.0.1`, `[::1]`, Tauri; extend with `REASONSCRIPT_PLAYGROUND_ALLOWED_ORIGINS`), restricts CORS to those origins, and limits `/api/import` and `/api/diff` paths to the Playground export and baseline directories.
 - Security: the VS Code extension requires a trusted workspace, makes `reasonscript.executablePath` machine-scoped, no longer runs `reason` launchers from parent directories or outside the workspace folders, runs its package-graph helper with `python3 -I`, and rejects cmd.exe metacharacters in Windows command arguments.
 
