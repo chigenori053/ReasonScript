@@ -67,6 +67,14 @@ export function findOnPath(binaryName: string): string | undefined {
   return undefined;
 }
 
+function isInsideWorkspaceFolder(candidate: string): boolean {
+  const resolved = path.resolve(candidate);
+  return (vscode.workspace.workspaceFolders ?? []).some((folder) => {
+    const relative = path.relative(path.resolve(folder.uri.fsPath), resolved);
+    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  });
+}
+
 export function resolveReasonExecutable(): ResolvedExecutable {
   // 1. VSCode 設定で明示指定されている場合はそれを優先
   const config = vscode.workspace.getConfiguration("reasonscript");
@@ -76,35 +84,35 @@ export function resolveReasonExecutable(): ResolvedExecutable {
     return { path: configured, exists, source: "config" };
   }
 
-  // 2. ワークスペースルートまたはその親にある `reason` スクリプトを探す
-  const root = detectWorkspaceRoot();
-  if (root) {
-    const candidateParent = path.join(root.fsPath, "..", "reason");
-    if (fs.existsSync(candidateParent)) {
-      return { path: candidateParent, exists: true, source: "workspace" };
+  // 2./3. Workspace-local launchers are repository content. Only run them in a
+  // trusted workspace, and never look outside the opened workspace folders: a
+  // `reason` in a parent or shared directory (e.g. /tmp) could belong to anyone.
+  if (vscode.workspace.isTrusted) {
+    const root = detectWorkspaceRoot();
+    if (root && isInsideWorkspaceFolder(root.fsPath)) {
+      const candidateInRoot = path.join(root.fsPath, "reason");
+      if (fs.existsSync(candidateInRoot)) {
+        return { path: candidateInRoot, exists: true, source: "workspace" };
+      }
     }
-    const candidateInRoot = path.join(root.fsPath, "reason");
-    if (fs.existsSync(candidateInRoot)) {
-      return { path: candidateInRoot, exists: true, source: "workspace" };
-    }
-  }
 
-  // 3. 単一 .rsn ファイルのアクティブドキュメント親階層から探索
-  const document = vscode.workspace.textDocuments.find(
-    (candidate) => candidate.languageId === "reasonscript" && candidate.uri.scheme === "file"
-  ) ?? vscode.window.activeTextEditor?.document;
-  if (document?.uri.scheme === "file") {
-    let current = path.dirname(document.uri.fsPath);
-    while (true) {
-      const candidate = path.join(current, "reason");
-      if (fs.existsSync(candidate)) {
-        return { path: candidate, exists: true, source: "document" };
+    // 単一 .rsn ファイルのアクティブドキュメント親階層から探索（ワークスペースフォルダ内に限定）
+    const document = vscode.workspace.textDocuments.find(
+      (candidate) => candidate.languageId === "reasonscript" && candidate.uri.scheme === "file"
+    ) ?? vscode.window.activeTextEditor?.document;
+    if (document?.uri.scheme === "file") {
+      let current = path.dirname(document.uri.fsPath);
+      while (isInsideWorkspaceFolder(current)) {
+        const candidate = path.join(current, "reason");
+        if (fs.existsSync(candidate)) {
+          return { path: candidate, exists: true, source: "document" };
+        }
+        const parent = path.dirname(current);
+        if (parent === current) {
+          break;
+        }
+        current = parent;
       }
-      const parent = path.dirname(current);
-      if (parent === current) {
-        break;
-      }
-      current = parent;
     }
   }
 

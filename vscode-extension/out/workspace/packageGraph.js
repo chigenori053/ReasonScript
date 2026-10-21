@@ -35,19 +35,28 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadPackageGraph = loadPackageGraph;
 const childProcess = __importStar(require("child_process"));
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 const workspace_1 = require("./workspace");
 function loadPackageGraph() {
     const cwd = (0, workspace_1.commandCwd)();
     if (!cwd) {
         return Promise.resolve(undefined);
     }
+    const toolchainRoot = resolveToolchainRoot();
+    if (!toolchainRoot) {
+        return Promise.resolve(undefined);
+    }
+    // `-I` keeps the workspace (cwd) and PYTHON* variables off sys.path, so a
+    // `toolchain/` package inside an opened repository is never imported.
     const script = [
-        "import json",
+        "import json, sys",
+        "sys.path.insert(0, sys.argv[1])",
         "from toolchain.workspace import load_package_graph",
-        "print(json.dumps(load_package_graph('.').to_dict()))"
+        "print(json.dumps(load_package_graph(sys.argv[2]).to_dict()))"
     ].join("; ");
     return new Promise((resolve) => {
-        childProcess.execFile("python3", ["-c", script], { cwd }, (error, stdout) => {
+        childProcess.execFile("python3", ["-I", "-c", script, toolchainRoot, cwd], { cwd }, (error, stdout) => {
             if (error) {
                 resolve(undefined);
                 return;
@@ -60,5 +69,18 @@ function loadPackageGraph() {
             }
         });
     });
+}
+function resolveToolchainRoot() {
+    const resolved = (0, workspace_1.resolveReasonExecutable)();
+    if (!resolved.exists) {
+        return undefined;
+    }
+    try {
+        const root = path.dirname(fs.realpathSync(resolved.path));
+        return fs.existsSync(path.join(root, "toolchain", "workspace.py")) ? root : undefined;
+    }
+    catch {
+        return undefined;
+    }
 }
 //# sourceMappingURL=packageGraph.js.map

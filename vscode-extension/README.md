@@ -36,6 +36,16 @@ extension first, so the VSIX never relies on a stale `out/` directory.
 
 Open a folder containing a `reason.toml` or `reason.workspace.toml` file, or open a standalone `.rsn` file. The extension activates automatically when opening `.rsn` files and starts the ReasonScript Language Server via `reason lsp --stdio`.
 
+The extension runs only in trusted workspaces. It finds the `reason` executable in
+this order:
+
+1. `reasonscript.executablePath` from user (machine) settings. Workspace
+   settings cannot override it.
+2. A `reason` launcher at the workspace root, or in a directory between an open
+   `.rsn` file and its workspace folder. Directories outside the opened
+   workspace folders are never searched.
+3. `reason` on `PATH`.
+
 Available commands (via Command Palette):
 
 - `ReasonScript: Restart Language Server`

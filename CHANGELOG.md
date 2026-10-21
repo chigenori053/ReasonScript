@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Security: the Playground backend now listens on `127.0.0.1` only, rejects requests whose `Origin` is not a local IDE page (`localhost`, `127.0.0.1`, `[::1]`, Tauri; extend with `REASONSCRIPT_PLAYGROUND_ALLOWED_ORIGINS`), restricts CORS to those origins, and limits `/api/import` and `/api/diff` paths to the Playground export and baseline directories.
+- Security: the VS Code extension requires a trusted workspace, makes `reasonscript.executablePath` machine-scoped, no longer runs `reason` launchers from parent directories or outside the workspace folders, runs its package-graph helper with `python3 -I`, and rejects cmd.exe metacharacters in Windows command arguments.
+
 ## [0.5.6.8] - 2026-10-19
 
 - Add `complex.*` scalar/vector/Hermitian/matrix/discrete-state operations as a specialized module sharing the native VM, Value containers, input ABI and bounded deterministic trace. Reject invalid dimensions, non-finite values, division by zero and overflow.

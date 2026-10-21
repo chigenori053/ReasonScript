@@ -5,6 +5,13 @@ import { commandCwd, isProjectWorkspace, reasonExecutable } from "../workspace/w
 
 export type ToolchainCommand = "build" | "run" | "test" | "check";
 
+// cmd.exe interprets these even inside double quotes (or ends the quoting).
+const WINDOWS_SHELL_METACHARACTERS = /["%!^&|<>\r\n]/;
+
+function quoteWindowsArgument(value: string): string {
+  return /[\s()]/.test(value) ? `"${value}"` : value;
+}
+
 console.log("[ReasonScript] toolchain module loaded");
 
 let _outputChannels: Record<ToolchainCommand, vscode.OutputChannel> | undefined;
@@ -60,9 +67,23 @@ export function runToolchain(
       args.push(document.uri.fsPath);
     }
   }
-  channel.appendLine(`$ ${reasonExecutable()} ${args.join(" ")}`);
+  const executable = reasonExecutable();
+  const useShell = process.platform === "win32";
+  const unsafe = useShell ? [executable, ...args].find((value) => WINDOWS_SHELL_METACHARACTERS.test(value)) : undefined;
+  if (unsafe !== undefined) {
+    channel.appendLine("Error:");
+    channel.appendLine("");
+    channel.appendLine(`UnsafeCommandArgument: ${unsafe}`);
+    updateStatus(command, 1, statusBar);
+    return Promise.resolve(1);
+  }
+  channel.appendLine(`$ ${executable} ${args.join(" ")}`);
   return new Promise((resolve) => {
-    const child = childProcess.spawn(reasonExecutable(), args, { cwd, shell: process.platform === "win32" });
+    // On Windows the `reason` launcher is a .bat/.cmd file, which Node only
+    // starts through cmd.exe; arguments are validated above and quoted here.
+    const child = useShell
+      ? childProcess.spawn(quoteWindowsArgument(executable), args.map(quoteWindowsArgument), { cwd, shell: true })
+      : childProcess.spawn(executable, args, { cwd });
     child.stdout.on("data", (data) => channel.append(data.toString()));
     child.stderr.on("data", (data) => channel.append(data.toString()));
     child.on("error", (error) => {

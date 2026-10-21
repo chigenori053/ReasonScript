@@ -64,7 +64,7 @@ def cmd_backend() -> int:
     uvicorn = str(venv_uvicorn) if venv_uvicorn.exists() else "uvicorn"
     env = {"PYTHONPATH": str(REPO_ROOT)}
     rc = run(
-        [uvicorn, "playground.backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+        [uvicorn, "playground.backend.main:app", "--host", "127.0.0.1", "--port", "8000", "--reload"],
         env=env,
     )
     return rc
@@ -87,7 +87,7 @@ def cmd_ide() -> int:
 def cmd_ide_ui() -> int:
     print("=== ide-ui: launching Official ReasonScript IDE UI (port 5173) ===\n")
     return run(
-        ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"],
+        ["npm", "run", "dev", "--", "--host", "127.0.0.1", "--port", "5173"],
         cwd=REPO_ROOT / "apps" / "reasonscript-ide" / "ui",
     )
 

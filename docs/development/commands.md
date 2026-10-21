@@ -94,7 +94,7 @@ Launch the official IDE UI dev server only (port 5173).
 python3 scripts/dev.py ide-ui
 ```
 
-Runs: `npm run dev -- --host 0.0.0.0 --port 5173` in `apps/reasonscript-ide/ui/`
+Runs: `npm run dev -- --host 127.0.0.1 --port 5173` in `apps/reasonscript-ide/ui/`
 
 ---
 

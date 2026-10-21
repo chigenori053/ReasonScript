@@ -39,6 +39,11 @@ exports.runToolchain = runToolchain;
 const childProcess = __importStar(require("child_process"));
 const vscode = __importStar(require("vscode"));
 const workspace_1 = require("../workspace/workspace");
+// cmd.exe interprets these even inside double quotes (or ends the quoting).
+const WINDOWS_SHELL_METACHARACTERS = /["%!^&|<>\r\n]/;
+function quoteWindowsArgument(value) {
+    return /[\s()]/.test(value) ? `"${value}"` : value;
+}
 console.log("[ReasonScript] toolchain module loaded");
 let _outputChannels;
 function getOutputChannels() {
@@ -81,9 +86,23 @@ function runToolchain(command, statusBar, packageName) {
             args.push(document.uri.fsPath);
         }
     }
-    channel.appendLine(`$ ${(0, workspace_1.reasonExecutable)()} ${args.join(" ")}`);
+    const executable = (0, workspace_1.reasonExecutable)();
+    const useShell = process.platform === "win32";
+    const unsafe = useShell ? [executable, ...args].find((value) => WINDOWS_SHELL_METACHARACTERS.test(value)) : undefined;
+    if (unsafe !== undefined) {
+        channel.appendLine("Error:");
+        channel.appendLine("");
+        channel.appendLine(`UnsafeCommandArgument: ${unsafe}`);
+        updateStatus(command, 1, statusBar);
+        return Promise.resolve(1);
+    }
+    channel.appendLine(`$ ${executable} ${args.join(" ")}`);
     return new Promise((resolve) => {
-        const child = childProcess.spawn((0, workspace_1.reasonExecutable)(), args, { cwd, shell: process.platform === "win32" });
+        // On Windows the `reason` launcher is a .bat/.cmd file, which Node only
+        // starts through cmd.exe; arguments are validated above and quoted here.
+        const child = useShell
+            ? childProcess.spawn(quoteWindowsArgument(executable), args.map(quoteWindowsArgument), { cwd, shell: true })
+            : childProcess.spawn(executable, args, { cwd });
         child.stdout.on("data", (data) => channel.append(data.toString()));
         child.stderr.on("data", (data) => channel.append(data.toString()));
         child.on("error", (error) => {

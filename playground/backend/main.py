@@ -73,6 +73,7 @@ from playground.backend.language_audit import (
     write_language_audit_reports,
 )
 from playground.backend.reasoning_overview import build_reasoning_overview_view_model
+from playground.backend.security import LOCAL_ORIGIN_REGEX, LocalOriginGuard, allowed_extra_origins
 from playground.backend.workspace import WorkspacePathError
 from toolchain.reasoning_runtime import run_reasoning_runtime
 
@@ -134,12 +135,15 @@ KNOWN_SEVERITIES = {"error", "warning", "info"}
 
 app = FastAPI(title="ReasonScript Playground")
 
+# The backend reads and writes local files, so only local IDE pages may call it.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=sorted(allowed_extra_origins()),
+    allow_origin_regex=LOCAL_ORIGIN_REGEX,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
+app.add_middleware(LocalOriginGuard)
 
 
 # ---------------------------------------------------------------------------
@@ -808,10 +812,17 @@ def _write_artifacts(directory: Path, artifacts: dict[str, Any]) -> None:
     (directory / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+class ArtifactPathError(ValueError):
+    """Raised when an artifact path is outside the Playground artifact directories."""
+
+
 def _read_artifacts(path: str) -> dict[str, Any]:
     artifact_dir = Path(path)
     if not artifact_dir.is_absolute():
         artifact_dir = REPO_ROOT / artifact_dir
+    artifact_dir = artifact_dir.resolve()
+    if not any(artifact_dir.is_relative_to(base.resolve()) for base in (EXPORTS_DIR, BASELINE_DIR)):
+        raise ArtifactPathError(f"artifact path must be inside {EXPORTS_DIR} or {BASELINE_DIR}: {path}")
     artifacts: dict[str, Any] = {}
     for key, filename in ARTIFACT_FILES.items():
         file_path = artifact_dir / filename
@@ -1130,7 +1141,10 @@ def export_endpoint(req: SourceRequest) -> dict[str, Any]:
 @app.post("/api/import")
 @app.post("/import")
 def import_endpoint(req: ArtifactPathRequest) -> dict[str, Any]:
-    artifacts = _read_artifacts(req.path)
+    try:
+        artifacts = _read_artifacts(req.path)
+    except ArtifactPathError as exc:
+        return {"ok": False, "path": req.path, "errors": [_make_error("ArtifactPath", str(exc))]}
     response = _artifact_response(artifacts)
     response["path"] = artifacts.get("path")
     return response
@@ -1139,8 +1153,11 @@ def import_endpoint(req: ArtifactPathRequest) -> dict[str, Any]:
 @app.post("/api/diff")
 @app.post("/diff")
 def diff_endpoint(req: DiffRequest) -> dict[str, Any]:
-    a = _artifact_from_payload(req.a)
-    b = _artifact_from_payload(req.b)
+    try:
+        a = _artifact_from_payload(req.a)
+        b = _artifact_from_payload(req.b)
+    except ArtifactPathError as exc:
+        return {"ok": False, "errors": [_make_error("ArtifactPath", str(exc))]}
     return _diff_artifacts(a, b)
 
 

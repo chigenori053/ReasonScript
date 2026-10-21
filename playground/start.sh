@@ -24,7 +24,7 @@ sleep 1
 echo "▶ Backend 起動 (port 8000)..."
 cd "$REPO_ROOT"
 PYTHONPATH="$REPO_ROOT" "$VENV/bin/uvicorn" playground.backend.main:app \
-  --host 0.0.0.0 --port 8000 --reload &
+  --host 127.0.0.1 --port 8000 --reload &
 BACKEND_PID=$!
 
 # --- frontend dev server ---
