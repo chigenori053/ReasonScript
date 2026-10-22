@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Store native VM variables in per-function frame slots resolved once from the IR, instead of hashing names on every read and assignment, and root only Tensor-reaching values during evaluation. Loop- and call-heavy programs run about 1.7–2.1x faster; results, diagnostics and traces are unchanged.
 - Make native traces opt-in for `reason run`: without `--trace` no trace is recorded, and bare `--trace` selects delta. Recording dominated run time on loop-heavy programs (about 579 ms versus 10 ms for 9,000 iterations). Scripts that read `trace` from `reason run --json` must now pass `--trace`. The runtime request protocol default is unchanged.
 - Write runtime-host result envelopes without deep-copying trace arrays or formatting through `Display`, measure trace budgets without buffering events, and stream state-hash leaves into SHA-256. Delta traces run about 1.9x faster with byte-identical output.
 - Speed up the native VM by resolving each function's block layout once per run instead of hashing block ids on every call, block visit and jump, and by resolving call targets without formatting their ids (about 1.3–1.6x on loop- and call-heavy programs). Reorder `tensor.matmul` loops for row-contiguous access (about 2.4x on 400x400) while keeping results bit-identical. Results, diagnostics and traces are unchanged.

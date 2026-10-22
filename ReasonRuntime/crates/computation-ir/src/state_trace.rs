@@ -123,7 +123,7 @@ pub struct TraceState {
 }
 
 impl TraceState {
-    pub fn new(env: &HashMap<String, Value>) -> Self {
+    pub fn new<'v>(env: impl IntoIterator<Item = (&'v str, &'v Value)>) -> Self {
         let mut result = Self::default();
         for (name, value) in env {
             result.assign(name, None, value);
