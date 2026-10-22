@@ -458,7 +458,9 @@ impl<'a> Vm<'a> {
         if !self.trace_enabled || self.trace_suppressed.get() {
             return None;
         }
-        let bytes = serde_json::to_vec(event).ok()?.len();
+        let mut counter = ByteCounter(0);
+        serde_json::to_writer(&mut counter, event).ok()?;
+        let bytes = counter.0;
         if bytes
             > self
                 .trace_config
@@ -1966,6 +1968,21 @@ impl<'a> Vm<'a> {
                 format!("function {name} used result instead of return"),
             )),
         }
+    }
+}
+
+/// Counts serialized bytes so trace budgeting measures an event's exact
+/// JSON size without materializing a throwaway buffer.
+struct ByteCounter(usize);
+
+impl std::io::Write for ByteCounter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 += bytes.len();
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
     }
 }
 

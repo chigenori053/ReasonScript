@@ -17,8 +17,12 @@ from toolchain.__main__ import main
 from toolchain.runtime_dispatch import execute_rust_ir
 
 
-def test_json_requests_trace_and_result_output_is_runtime_value(
-    tmp_path: Path, monkeypatch
+@pytest.mark.parametrize(
+    ("trace", "include_trace", "mode"),
+    [(None, False, "off"), ("delta", True, "delta"), ("sampled", True, "sampled"), ("off", False, "off")],
+)
+def test_trace_is_opt_in_and_result_output_is_runtime_value(
+    tmp_path: Path, monkeypatch, trace: str | None, include_trace: bool, mode: str
 ) -> None:
     observed: dict[str, object] = {}
 
@@ -28,12 +32,23 @@ def test_json_requests_trace_and_result_output_is_runtime_value(
 
     monkeypatch.setattr(reason_cli, "_run_result", fake_run_result)
     output = tmp_path / "result.json"
-    args = Namespace(file="fixture.rsn", compiler_mode="normal", trace=False, json=True,
+    args = Namespace(file="fixture.rsn", compiler_mode="normal", trace=trace, json=True,
                      allow_read=False, allow_write=False, result_output=str(output), out=None)
 
     assert reason_cli.cmd_run(args) == 0
-    assert observed["include_trace"] is True
+    assert observed["include_trace"] is include_trace
+    assert observed["trace_config"] == {"mode": mode}
     assert json.loads(output.read_text(encoding="utf-8")) == 3
+
+
+@pytest.mark.parametrize(
+    ("args", "mode"),
+    [([], "off"), (["--trace"], "delta"), (["--trace=full"], "full"), (["--trace=off"], "off")],
+)
+def test_package_run_trace_is_opt_in(args: list[str], mode: str) -> None:
+    from toolchain.__main__ import _trace_config
+
+    assert _trace_config(["program.rsn", *args]) == {"mode": mode}
 
 
 def test_trace_unsupported_operations_are_reported_without_blocking_execution(

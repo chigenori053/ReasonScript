@@ -427,7 +427,9 @@ def _command_usage(command: str) -> None:
 
 
 def _trace_config(args: list[str]) -> dict:
-    config = {"mode": next((arg.split("=", 1)[1] for arg in args if arg.startswith("--trace=")), "delta")}
+    # Tracing is opt-in; bare --trace selects delta.
+    mode = "delta" if "--trace" in args else "off"
+    config = {"mode": next((arg.split("=", 1)[1] for arg in args if arg.startswith("--trace=")), mode)}
     for name in ("checkpoint_interval", "max_bytes"):
         value = _option_arg(args, f"--trace-{name.replace('_', '-')}")
         if value is not None:

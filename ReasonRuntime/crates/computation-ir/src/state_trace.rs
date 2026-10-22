@@ -302,13 +302,18 @@ fn xor(target: &mut [u8; 32], value: &[u8; 32]) {
 }
 
 fn hash_tree(path: &[String], value: &Json, result: &mut [u8; 32]) {
-    let marker = match value {
-        Json::Array(items) => json!({"array_length": items.len()}),
-        Json::Object(_) => json!({"object": true}),
-        scalar => scalar.clone(),
-    };
-    let encoded = serde_json::to_vec(&(path, marker)).expect("JSON state leaf");
-    xor(result, &Sha256::digest(encoded).into());
+    // Stream the leaf encoding straight into the hasher; the bytes match
+    // serializing `(path, marker)` to a buffer first.
+    let mut hasher = Sha256::new();
+    match value {
+        Json::Array(items) => {
+            serde_json::to_writer(&mut hasher, &(path, json!({"array_length": items.len()})))
+        }
+        Json::Object(_) => serde_json::to_writer(&mut hasher, &(path, json!({"object": true}))),
+        scalar => serde_json::to_writer(&mut hasher, &(path, scalar)),
+    }
+    .expect("JSON state leaf");
+    xor(result, &hasher.finalize().into());
     match value {
         Json::Array(items) => {
             for (index, item) in items.iter().enumerate() {

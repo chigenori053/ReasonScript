@@ -18,7 +18,7 @@
 
 use std::env;
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::process::ExitCode;
 
 use reasonscript_computation_ir::causal::{
@@ -112,7 +112,7 @@ fn run_legacy(source: &str) -> ExitCode {
                 "calculation_results": results,
                 "console_output": vm.console_events(),
             });
-            println!("{payload}");
+            emit(&payload);
             ExitCode::SUCCESS
         }
         Err(error) => fail(&error.code, &error.message),
@@ -459,11 +459,12 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
             let reason_structure_trace = vm.reason_structure_trace();
             let reason_unit_trace = vm.reason_unit_trace();
             let tensor_metadata = vm.tensor_metadata();
+            let complex_trace = vm.complex_trace();
             let mut combined_trace = loop_trace.clone();
-            combined_trace.extend(tensor_trace.clone());
-            combined_trace.extend(vision_trace.clone());
-            combined_trace.extend(reasoning_trace.clone());
-            combined_trace.extend(vm.complex_trace());
+            combined_trace.extend(tensor_trace.iter().cloned());
+            combined_trace.extend(vision_trace.iter().cloned());
+            combined_trace.extend(reasoning_trace.iter().cloned());
+            combined_trace.extend(complex_trace.iter().cloned());
             let mut results = serde_json::Map::new();
             for (name, value) in calculations {
                 results.insert(
@@ -486,42 +487,64 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
                     runtime_execution_ns.into(),
                 )]);
             }
-            println!(
-                "{}",
-                serde_json::json!({
-                    "schema": RESULT_SCHEMA,
-                    "request_id": request_id,
-                    "ok": true,
-                    "execution_mode": "rust",
-                    "calculation_results": results,
+            let mut payload = serde_json::json!({
+                "schema": RESULT_SCHEMA,
+                "request_id": request_id,
+                "ok": true,
+                "execution_mode": "rust",
+                "calculation_results": results,
+                "console_output": vm.console_events(),
+                "diagnostics": [],
+                "metadata": {
+                    "host_profile": HOST_PROFILE,
+                    "trace": null,
+                    "loop_trace": null,
+                    "tensor_trace": null,
+                    "complex_trace": null,
+                    "vision_trace": null,
+                    "reasoning_trace": null,
+                    "reason_structure_trace": reason_structure_trace,
+                    "reason_unit_trace": reason_unit_trace,
+                    "causal_trace": causal_trace,
+                    "causal_bridge": causal_bridge,
+                    "state_causality": state_causality,
+                    "reasoning_state": reasoning_state,
+                    "tensor_metadata": tensor_metadata,
                     "console_output": vm.console_events(),
-                    "diagnostics": [],
-                    "metadata": {
-                        "host_profile": HOST_PROFILE,
-                        "trace": combined_trace,
-                        "loop_trace": loop_trace,
-                        "tensor_trace": tensor_trace,
-                        "complex_trace": vm.complex_trace(),
-                        "vision_trace": vision_trace,
-                        "reasoning_trace": reasoning_trace,
-                        "reason_structure_trace": reason_structure_trace,
-                        "reason_unit_trace": reason_unit_trace,
-                        "causal_trace": causal_trace,
-                        "causal_bridge": causal_bridge,
-                        "state_causality": state_causality,
-                        "reasoning_state": reasoning_state,
-                        "tensor_metadata": tensor_metadata,
-                        "console_output": vm.console_events(),
-                        "reason_object_metadata": [],
-                        "trace_diagnostics": vm.trace_diagnostics(),
-                        "runtime_metrics": runtime_metrics,
-                    },
-                })
-            );
+                    "reason_object_metadata": [],
+                    "trace_diagnostics": vm.trace_diagnostics(),
+                    "runtime_metrics": runtime_metrics,
+                },
+            });
+            // Trace arrays can hold many events; move them into their
+            // placeholders rather than letting `json!` deep-copy each one.
+            let metadata = &mut payload["metadata"];
+            for (key, events) in [
+                ("trace", combined_trace),
+                ("loop_trace", loop_trace),
+                ("tensor_trace", tensor_trace),
+                ("complex_trace", complex_trace),
+                ("vision_trace", vision_trace),
+                ("reasoning_trace", reasoning_trace),
+            ] {
+                metadata[key] = serde_json::Value::Array(events);
+            }
+            emit(&payload);
             ExitCode::SUCCESS
         }
         Err(error) => fail_runtime_request(request_id, &error),
     }
+}
+
+/// Writes one JSON envelope line to stdout. Serializing straight into a
+/// buffered stdout avoids `Display`'s per-fragment formatter writes, which
+/// dominate the cost of large trace payloads; the bytes are identical.
+fn emit(payload: &serde_json::Value) {
+    let mut out = io::BufWriter::with_capacity(1 << 16, io::stdout().lock());
+    serde_json::to_writer(&mut out, payload).expect("runtime envelope is serializable");
+    out.write_all(b"\n")
+        .and_then(|()| out.flush())
+        .expect("failed to write runtime envelope to stdout");
 }
 
 fn limit(limits: &serde_json::Map<String, serde_json::Value>, name: &str, default: usize) -> usize {
@@ -569,7 +592,7 @@ fn fail(code: &str, message: &str) -> ExitCode {
         "error_code": code,
         "error_message": message,
     });
-    println!("{payload}");
+    emit(&payload);
     ExitCode::FAILURE
 }
 
@@ -619,7 +642,7 @@ fn fail_request_with_location(
             "reason_object_metadata": [],
         },
     });
-    println!("{payload}");
+    emit(&payload);
     ExitCode::FAILURE
 }
 use std::time::Instant;
