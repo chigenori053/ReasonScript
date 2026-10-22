@@ -901,16 +901,24 @@ pub fn matmul(left: &TensorData, right: &TensorData) -> Result<(Vec<usize>, Dtyp
         ));
     }
     let mut data = vec![0.0; m * n];
-    for row in 0..m {
-        for col in 0..n {
-            let mut sum = 0.0;
-            for inner in 0..k {
-                sum += left.data[row * k + inner] * right.data[inner * n + col];
-            }
-            data[row * n + col] = sum;
-        }
+    for (row, output) in data.chunks_exact_mut(n.max(1)).take(m).enumerate() {
+        matmul_row(&left.data[row * k..(row + 1) * k], &right.data, n, output);
     }
     Ok((vec![m, n], promote(left.dtype, right.dtype), data))
+}
+
+/// Accumulates one output row in `inner`-outer / `col`-inner order, so
+/// `right` is read row-contiguously instead of striding down its columns.
+/// Every output element still receives its products in the same
+/// `inner in 0..k` sequence starting from `0.0`, so the result is
+/// bit-identical to the per-element dot product.
+fn matmul_row(left_row: &[f64], right: &[f64], n: usize, output: &mut [f64]) {
+    for (inner, &scale) in left_row.iter().enumerate() {
+        let right_row = &right[inner * n..(inner + 1) * n];
+        for (sum, &value) in output.iter_mut().zip(right_row) {
+            *sum += scale * value;
+        }
+    }
 }
 
 /// Parallelizes across output *rows*; each row's `k`-length inner dot
@@ -941,13 +949,12 @@ pub fn matmul_parallel(
         .into_par_iter()
         .map(|row| {
             let mut row_data = vec![0.0; n];
-            for (col, output) in row_data.iter_mut().enumerate() {
-                let mut sum = 0.0;
-                for inner in 0..k {
-                    sum += left.data[row * k + inner] * right.data[inner * n + col];
-                }
-                *output = sum;
-            }
+            matmul_row(
+                &left.data[row * k..(row + 1) * k],
+                &right.data,
+                n,
+                &mut row_data,
+            );
             row_data
         })
         .collect();
@@ -1033,6 +1040,38 @@ mod tests {
         assert_eq!(shape_seq, shape_par);
         assert_eq!(dtype_seq, dtype_par);
         assert_eq!(data_seq, data_par);
+    }
+
+    #[test]
+    fn matmul_is_bitwise_equal_to_per_element_dot_product() {
+        let left = tensor(
+            vec![7, 11],
+            Dtype::F64,
+            (0..7 * 11)
+                .map(|v| ((v * 37 % 23) as f64 - 11.0) * 0.137)
+                .collect(),
+        );
+        let right = tensor(
+            vec![11, 5],
+            Dtype::F64,
+            (0..11 * 5)
+                .map(|v| ((v * 19 % 29) as f64 - 14.0) / 3.0)
+                .collect(),
+        );
+        let (shape, _, data) = matmul(&left, &right).unwrap();
+        assert_eq!(shape, vec![7, 5]);
+        for row in 0..7 {
+            for col in 0..5 {
+                let mut sum = 0.0;
+                for inner in 0..11 {
+                    sum += left.data[row * 11 + inner] * right.data[inner * 5 + col];
+                }
+                assert_eq!(data[row * 5 + col].to_bits(), sum.to_bits());
+            }
+        }
+        let empty = tensor(vec![3, 0], Dtype::F64, Vec::new());
+        let wide = tensor(vec![0, 4], Dtype::F64, Vec::new());
+        assert_eq!(matmul(&empty, &wide).unwrap().2, vec![0.0; 12]);
     }
 
     #[test]

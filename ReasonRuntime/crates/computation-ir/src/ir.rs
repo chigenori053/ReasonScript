@@ -13,6 +13,7 @@
 //! `Pattern` vocabulary consumed by its `arms` -- see `schema.py`'s
 //! `PATTERN_KINDS` for the shared shape.
 
+use std::cell::Cell;
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
@@ -20,6 +21,14 @@ use serde::Deserialize;
 pub const RUNTIME_ABI: &str = "reasonscript-runtime/1.0";
 
 pub const SCHEMA: &str = "reason-computation-ir/0.2";
+
+/// Frame slot of a node that names a variable before the VM assigns one
+/// (see `crate::frame`). Slots are runtime-only and never serialized.
+pub const UNRESOLVED_SLOT: u32 = u32::MAX;
+
+fn unresolved_slot() -> Cell<u32> {
+    Cell::new(UNRESOLVED_SLOT)
+}
 
 #[derive(Debug, Deserialize)]
 pub struct Program {
@@ -65,7 +74,12 @@ pub struct Block {
 #[serde(tag = "op")]
 pub enum Instruction {
     #[serde(rename = "assign")]
-    Assign { target: String, expr: Expr },
+    Assign {
+        target: String,
+        expr: Expr,
+        #[serde(skip, default = "unresolved_slot")]
+        target_slot: Cell<u32>,
+    },
     #[serde(rename = "index_assign")]
     IndexAssign {
         collection: Expr,
@@ -81,7 +95,12 @@ pub enum Instruction {
     #[serde(rename = "expr")]
     Expr { expr: Expr },
     #[serde(rename = "trace_loop_start")]
-    TraceLoopStart { loop_id: String, counter: String },
+    TraceLoopStart {
+        loop_id: String,
+        counter: String,
+        #[serde(skip, default = "unresolved_slot")]
+        counter_slot: Cell<u32>,
+    },
     #[serde(rename = "trace_loop_end")]
     TraceLoopEnd {
         loop_id: String,
@@ -179,6 +198,8 @@ pub enum Expr {
     #[serde(rename = "local")]
     Local {
         name: String,
+        #[serde(skip, default = "unresolved_slot")]
+        slot: Cell<u32>,
         #[serde(default)]
         source_span: Option<serde_json::Value>,
     },
@@ -279,6 +300,8 @@ pub enum Expr {
     RelationFilter {
         source: Box<Expr>,
         binding: String,
+        #[serde(skip, default = "unresolved_slot")]
+        binding_slot: Cell<u32>,
         predicate: Box<Expr>,
         #[serde(default)]
         source_span: Option<serde_json::Value>,

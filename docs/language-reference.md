@@ -443,7 +443,8 @@ runtime configuration. Array and struct assignments preserve reference/alias
 semantics. Tensor values are opaque handles; convert them explicitly with
 `tensor.scalar` or `tensor.to_array` when a plain result is needed.
 
-Native traces default to delta mode. Loop boundaries flush changed paths and
+`reason run` records a native trace only when `--trace` is given; bare
+`--trace` selects delta mode. Loop boundaries flush changed paths and
 incremental state hashes; checkpoints periodically retain a full visible state.
 Changes between loops and after the final loop are included in the journal.
 `reason run --trace=full` selects the earlier loop-snapshot format. Semantic

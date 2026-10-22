@@ -105,15 +105,17 @@ Executes a standalone source file or a package project.
 ## Native execution traces
 
 ```sh
+./reason run program.rsn --json --trace
 ./reason run program.rsn --json --trace=delta
-./reason run program.rsn --trace=off
 ./reason run program.rsn --json --trace=full
 ./reason run program.rsn --json --trace=sampled
 ./reason run program.rsn --trace=delta --trace-checkpoint-interval 100 --trace-max-bytes 104857600
 ```
 
-Delta is the default; bare `--trace` also selects delta. It records changed paths
-instead of complete before/after states for every iteration. Full mode retains
+`reason run` records no trace unless you pass `--trace`; bare `--trace` selects
+delta. Recording a trace can take far longer than the computation itself on
+loop-heavy programs, so enable it only when you need the journal. Delta records
+changed paths instead of complete before/after states for every iteration. Full mode retains
 the previous `previous_state` / `updated_state` loop-snapshot interface. Sampled
 mode retains the first 100 events, every 100th event, and the final 100 events;
 gaps are intentional and are not a complete replay log. Off records no trace

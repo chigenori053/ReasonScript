@@ -17,7 +17,8 @@ use std::rc::Rc;
 use crate::causal_bridge::{
     project as project_causal, CausalBridgeProjection, CausalObservationSource,
 };
-use crate::ir::{Block, Expr, Function, Instruction, Pattern, Program, Terminator};
+use crate::frame::{layout_function, Frame, SlotLayout};
+use crate::ir::{Expr, Function, Instruction, Pattern, Program, Terminator};
 use crate::reason_structure::{
     ExecutableKind, ExecutableMode, ReasonStructure, ReasonUnitMode, ReasonUnitSource,
     TerminalStatus,
@@ -63,8 +64,83 @@ pub enum Outcome {
 pub const DEFAULT_MAX_LOOP_ITERATIONS: u64 = 10_000;
 pub const DEFAULT_MAX_CALL_DEPTH: u32 = 128;
 
+/// A `Function` with its block layout resolved once at VM construction,
+/// so the block-walk loop indexes blocks, successor targets, and loop-guard
+/// counters by position instead of hashing block-id strings on every call,
+/// visit, and jump.
+struct PreparedFunction<'a> {
+    function: &'a Function,
+    layout: Rc<SlotLayout>,
+    /// Frame slot of each parameter, in declaration order.
+    parameter_slots: Vec<u32>,
+    /// Index into `function.blocks`; `None` when the entry id is unknown.
+    entry: Option<usize>,
+    /// Per block, the terminator's successor indices in declaration order
+    /// (`jump` target; `branch` then/else; `match` arm targets), `None`
+    /// for an unknown id so the jump still reports IR-EXEC-006.
+    successors: Vec<Vec<Option<usize>>>,
+    traceable: bool,
+}
+
+impl<'a> PreparedFunction<'a> {
+    fn new(function: &'a Function) -> Self {
+        // Last block wins on a duplicate id, as with the former per-call
+        // `HashMap` collect.
+        let index: HashMap<&str, usize> = function
+            .blocks
+            .iter()
+            .enumerate()
+            .map(|(position, block)| (block.id.as_str(), position))
+            .collect();
+        let successors = function
+            .blocks
+            .iter()
+            .map(|block| {
+                let targets: Vec<&str> = match &block.terminator {
+                    Terminator::Jump { target } => vec![target],
+                    Terminator::Branch {
+                        then, else_target, ..
+                    } => vec![then, else_target],
+                    Terminator::Match { arms, .. } => {
+                        arms.iter().map(|arm| arm.target.as_str()).collect()
+                    }
+                    _ => Vec::new(),
+                };
+                targets
+                    .into_iter()
+                    .map(|target| index.get(target).copied())
+                    .collect()
+            })
+            .collect();
+        let traceable = function.blocks.iter().any(|block| {
+            block
+                .instructions
+                .iter()
+                .any(|instruction| matches!(instruction, Instruction::TraceLoopStart { .. }))
+        });
+        let layout = layout_function(function);
+        let parameter_slots = function
+            .parameters
+            .iter()
+            .map(|name| layout.slot_of(name).expect("parameters are laid out first"))
+            .collect();
+        PreparedFunction {
+            function,
+            layout: Rc::new(layout),
+            parameter_slots,
+            entry: index.get(function.entry_block.as_str()).copied(),
+            successors,
+            traceable,
+        }
+    }
+}
+
 pub struct Vm<'a> {
-    functions: HashMap<&'a str, &'a Function>,
+    functions: Vec<PreparedFunction<'a>>,
+    function_ids: HashMap<&'a str, usize>,
+    /// `fn.<name>` ids keyed by `<name>`, so a call site resolves its
+    /// callee without formatting the prefixed id first.
+    callable_functions: HashMap<&'a str, usize>,
     max_loop_iterations: u64,
     max_call_depth: u32,
     max_sequence_elements: usize,
@@ -99,10 +175,14 @@ pub struct Vm<'a> {
     filesystem_read: bool,
     filesystem_write: bool,
     backend: String,
-    active_frames: RefCell<Vec<Rc<RefCell<HashMap<String, Value>>>>>,
+    active_frames: RefCell<Vec<Env>>,
     active_calculations: RefCell<Vec<Value>>,
     temporary_roots: RefCell<Vec<Value>>,
 }
+
+/// A function frame shared between the running block walk, Tensor root
+/// collection (`active_frames`), and relation-filter predicate scopes.
+type Env = Rc<RefCell<Frame>>;
 
 struct FrameGuard<'a, 'v> {
     vm: &'a Vm<'v>,
@@ -110,12 +190,12 @@ struct FrameGuard<'a, 'v> {
 }
 
 impl<'a, 'v> FrameGuard<'a, 'v> {
-    fn new(vm: &'a Vm<'v>, env: &Rc<RefCell<HashMap<String, Value>>>, traceable: bool) -> Self {
+    fn new(vm: &'a Vm<'v>, env: &Env, traceable: bool) -> Self {
         vm.active_frames.borrow_mut().push(env.clone());
         let traced = matches!(vm.trace_config.mode, TraceMode::Delta | TraceMode::Sampled)
             && !vm.trace_suppressed.get();
         if traced && traceable {
-            let mut state = TraceState::new(&env.borrow());
+            let mut state = TraceState::new(env.borrow().iter());
             let id = vm.trace_frame_id.get() + 1;
             vm.trace_frame_id.set(id);
             state.frame_id = id;
@@ -206,10 +286,20 @@ impl<'a> Vm<'a> {
         max_call_depth: u32,
         max_loop_iterations: u64,
     ) -> Self {
-        let functions = program
+        let functions: Vec<PreparedFunction<'a>> = program
             .functions
             .iter()
-            .map(|function| (function.id.as_str(), function))
+            .map(PreparedFunction::new)
+            .collect();
+        let function_ids: HashMap<&'a str, usize> = program
+            .functions
+            .iter()
+            .enumerate()
+            .map(|(position, function)| (function.id.as_str(), position))
+            .collect();
+        let callable_functions = function_ids
+            .iter()
+            .filter_map(|(id, &position)| id.strip_prefix("fn.").map(|name| (name, position)))
             .collect();
         let mut tensors = reasonscript_tensor_core::TensorStore::with_numeric_mode(numeric_mode);
         tensors.configure_context(
@@ -220,6 +310,8 @@ impl<'a> Vm<'a> {
         );
         Vm {
             functions,
+            function_ids,
+            callable_functions,
             max_loop_iterations,
             max_call_depth,
             max_sequence_elements: crate::foundation_dispatch::DEFAULT_MAX_SEQUENCE_ELEMENTS,
@@ -382,7 +474,9 @@ impl<'a> Vm<'a> {
         if !self.trace_enabled || self.trace_suppressed.get() {
             return None;
         }
-        let bytes = serde_json::to_vec(event).ok()?.len();
+        let mut counter = ByteCounter(0);
+        serde_json::to_writer(&mut counter, event).ok()?;
+        let bytes = counter.0;
         if bytes
             > self
                 .trace_config
@@ -606,24 +700,28 @@ impl<'a> Vm<'a> {
         let mut calculations: Vec<(String, Value)> = Vec::new();
         self.active_calculations.borrow_mut().clear();
         for calculation_id in &program.calculations {
-            let function = *self.functions.get(calculation_id.as_str()).ok_or_else(|| {
-                RuntimeError::new(
-                    "RT-CALL-001",
-                    format!("unknown calculation: {calculation_id}"),
-                )
-            })?;
-            let mut env_map: HashMap<String, Value> = calculations
+            let function = self
+                .function_ids
+                .get(calculation_id.as_str())
+                .map(|&position| &self.functions[position])
+                .ok_or_else(|| {
+                    RuntimeError::new(
+                        "RT-CALL-001",
+                        format!("unknown calculation: {calculation_id}"),
+                    )
+                })?;
+            let mut frame = Frame::new(function.layout.clone());
+            for (name, value) in &calculations {
+                frame.insert(name, value.clone());
+            }
+            for (name, value) in self
+                .reasoning_bindings
                 .iter()
-                .map(|(name, value)| (name.clone(), value.clone()))
-                .collect();
-            env_map.extend(self.reasoning_bindings.clone());
-            env_map.extend(
-                self.reason_objects
-                    .borrow()
-                    .iter()
-                    .map(|(name, value)| (name.clone(), value.clone())),
-            );
-            let env = Rc::new(RefCell::new(env_map));
+                .chain(self.reason_objects.borrow().iter())
+            {
+                frame.insert(name, value.clone());
+            }
+            let env = Rc::new(RefCell::new(frame));
             match self.run_function(function, &env, 0)? {
                 Outcome::Result(value) => {
                     self.active_calculations.borrow_mut().push(value.clone());
@@ -647,15 +745,25 @@ impl<'a> Vm<'a> {
 
     /// The request host constructs a fresh VM for each execution.
     pub fn run_entry(&self, program: &Program, entry: &str, inputs: &serde_json::Value) -> Result<Vec<(String, Value)>, RuntimeError> {
-        let (id, mut values) = crate::input_abi::arguments(program, entry, inputs)?;
-        let function = self.functions.get(id.as_str()).ok_or_else(|| RuntimeError::new("RTH-INPUT-001", "unknown input entry"))?;
-        if function.parameters.len() != values.len() || function.parameters.iter().any(|name| !values.contains_key(name)) {
+        let (id, values) = crate::input_abi::arguments(program, entry, inputs)?;
+        let function = self.function_ids.get(id.as_str()).map(|&position| &self.functions[position]).ok_or_else(|| RuntimeError::new("RTH-INPUT-001", "unknown input entry"))?;
+        let parameters = &function.function.parameters;
+        if parameters.len() != values.len() || parameters.iter().any(|name| !values.contains_key(name)) {
             return Err(RuntimeError::new("RTH-INPUT-001", "input layout does not match function parameters"));
         }
         self.initialize_objects(program)?;
-        values.extend(self.reasoning_bindings.clone());
-        values.extend(self.reason_objects.borrow().iter().map(|(k,v)| (k.clone(),v.clone())));
-        let env = Rc::new(RefCell::new(values));
+        let mut frame = Frame::new(function.layout.clone());
+        for (name, value) in values {
+            frame.insert(&name, value);
+        }
+        for (name, value) in self
+            .reasoning_bindings
+            .iter()
+            .chain(self.reason_objects.borrow().iter())
+        {
+            frame.insert(name, value.clone());
+        }
+        let env = Rc::new(RefCell::new(frame));
         match self.run_function(function, &env, 0)? {
             Outcome::Return(value) | Outcome::Result(value) => Ok(vec![(id, value)]),
             Outcome::NoValue => Err(RuntimeError::new("RT-CALL-004", "input entry returned no value")),
@@ -721,45 +829,54 @@ impl<'a> Vm<'a> {
         Ok(())
     }
 
-    fn push_temporary_root(&self, value: Value) {
-        self.temporary_roots.borrow_mut().push(value);
+    /// Roots an in-flight value for Tensor collection. Only values that can
+    /// reach a Tensor handle are kept: `collect_tensor_ids` ignores every
+    /// other variant, so rooting scalars would only cost a clone and drop.
+    fn push_temporary_root(&self, value: &Value) {
+        if matches!(
+            value,
+            Value::Tensor(_)
+                | Value::Array(_)
+                | Value::ArrayBuilder(_)
+                | Value::Struct(_)
+                | Value::Optional(Some(_))
+        ) {
+            self.temporary_roots.borrow_mut().push(value.clone());
+        }
     }
 
     fn run_function(
         &self,
-        function: &Function,
-        env: &Rc<RefCell<HashMap<String, Value>>>,
+        prepared: &PreparedFunction<'a>,
+        env: &Env,
         call_depth: u32,
     ) -> Result<Outcome, RuntimeError> {
-        let traceable = function.blocks.iter().any(|block| {
-            block
-                .instructions
-                .iter()
-                .any(|instruction| matches!(instruction, Instruction::TraceLoopStart { .. }))
-        });
-        let _frame_guard = FrameGuard::new(self, env, traceable);
-        let blocks: HashMap<&str, &Block> = function
-            .blocks
-            .iter()
-            .map(|block| (block.id.as_str(), block))
-            .collect();
-        let mut current = function.entry_block.as_str();
-        let mut visits: HashMap<String, u64> = HashMap::new();
-        loop {
-            let count = visits.entry(current.to_string()).or_insert(0);
-            *count += 1;
-            if *count > self.max_loop_iterations {
-                return Err(RuntimeError::new(
-                    "RT-LOOP-001",
-                    format!(
-                        "loop iteration limit exceeded: {}",
-                        self.max_loop_iterations
-                    ),
-                ));
+        let function = prepared.function;
+        let _frame_guard = FrameGuard::new(self, env, prepared.traceable);
+        let loop_limit_exceeded = || {
+            RuntimeError::new(
+                "RT-LOOP-001",
+                format!(
+                    "loop iteration limit exceeded: {}",
+                    self.max_loop_iterations
+                ),
+            )
+        };
+        let Some(mut current) = prepared.entry else {
+            // The entry visit is counted before the block is resolved.
+            if self.max_loop_iterations == 0 {
+                return Err(loop_limit_exceeded());
             }
-            let block = blocks.get(current).ok_or_else(|| {
-                RuntimeError::new("IR-EXEC-006", format!("unknown block: {current}"))
-            })?;
+            return Err(unknown_block(&function.entry_block));
+        };
+        let mut visits = vec![0_u64; function.blocks.len()];
+        loop {
+            visits[current] += 1;
+            if visits[current] > self.max_loop_iterations {
+                return Err(loop_limit_exceeded());
+            }
+            let block = &function.blocks[current];
+            let successors = &prepared.successors[current];
             for instruction in &block.instructions {
                 self.vm_instruction_count
                     .set(self.vm_instruction_count.get() + 1);
@@ -768,7 +885,7 @@ impl<'a> Vm<'a> {
             }
             match &block.terminator {
                 Terminator::Jump { target } => {
-                    current = self.resolve_block_id(&blocks, target)?;
+                    current = successors[0].ok_or_else(|| unknown_block(target))?;
                 }
                 Terminator::Branch {
                     condition,
@@ -786,8 +903,12 @@ impl<'a> Vm<'a> {
                             ))
                         }
                     };
-                    current =
-                        self.resolve_block_id(&blocks, if taken { then } else { else_target })?;
+                    let (successor, target) = if taken {
+                        (successors[0], then)
+                    } else {
+                        (successors[1], else_target)
+                    };
+                    current = successor.ok_or_else(|| unknown_block(target))?;
                 }
                 Terminator::Result { value } => {
                     let value = self.eval_expr(value, env, call_depth)?;
@@ -807,8 +928,8 @@ impl<'a> Vm<'a> {
                 }
                 Terminator::Match { subject, arms } => {
                     let subject_value = self.eval_expr(subject, env, call_depth)?;
-                    let mut matched_target: Option<&str> = None;
-                    for arm in arms {
+                    let mut matched_arm: Option<usize> = None;
+                    for (arm_index, arm) in arms.iter().enumerate() {
                         let Some(bindings) = match_pattern(&arm.pattern, &subject_value) else {
                             continue;
                         };
@@ -817,7 +938,7 @@ impl<'a> Vm<'a> {
                             bindings
                                 .into_iter()
                                 .map(|(name, value)| {
-                                    let old = env_mut.insert(name.clone(), value);
+                                    let old = env_mut.insert(&name, value);
                                     (name, old)
                                 })
                                 .collect()
@@ -845,14 +966,14 @@ impl<'a> Vm<'a> {
                                     self.trace_assign(name, old.as_ref(), value);
                                 }
                             }
-                            matched_target = Some(arm.target.as_str());
+                            matched_arm = Some(arm_index);
                             break;
                         }
                         let mut env_mut = env.borrow_mut();
                         for (name, old_value) in previous {
                             match old_value {
                                 Some(value) => {
-                                    env_mut.insert(name, value);
+                                    env_mut.insert(&name, value);
                                 }
                                 None => {
                                     env_mut.remove(&name);
@@ -860,13 +981,14 @@ impl<'a> Vm<'a> {
                             }
                         }
                     }
-                    let Some(target) = matched_target else {
+                    let Some(arm_index) = matched_arm else {
                         return Err(RuntimeError::new(
                             "RT-MATCH-001",
                             "no match arm satisfied the value",
                         ));
                     };
-                    current = self.resolve_block_id(&blocks, target)?;
+                    current = successors[arm_index]
+                        .ok_or_else(|| unknown_block(&arms[arm_index].target))?;
                 }
             }
         }
@@ -911,30 +1033,19 @@ impl<'a> Vm<'a> {
         self.tensors.borrow_mut().collect(&roots);
     }
 
-    fn resolve_block_id<'b>(
-        &self,
-        blocks: &HashMap<&'b str, &'b Block>,
-        target: &'b str,
-    ) -> Result<&'b str, RuntimeError> {
-        if blocks.contains_key(target) {
-            Ok(target)
-        } else {
-            Err(RuntimeError::new(
-                "IR-EXEC-006",
-                format!("unknown block: {target}"),
-            ))
-        }
-    }
-
     fn execute_instruction(
         &self,
         instruction: &Instruction,
-        env: &Rc<RefCell<HashMap<String, Value>>>,
+        env: &Env,
         call_depth: u32,
     ) -> Result<(), RuntimeError> {
         match instruction {
-            Instruction::TraceLoopStart { loop_id, counter } => {
-                let iteration = match env.borrow().get(counter) {
+            Instruction::TraceLoopStart {
+                loop_id,
+                counter,
+                counter_slot,
+            } => {
+                let iteration = match env.borrow().get_slot(counter_slot.get(), counter) {
                     Some(Value::Int(value)) => *value + 1,
                     _ => {
                         return Err(RuntimeError::new(
@@ -944,7 +1055,7 @@ impl<'a> Vm<'a> {
                     }
                 };
                 env.borrow_mut()
-                    .insert(counter.clone(), Value::Int(iteration));
+                    .set_slot(counter_slot.get(), counter, Value::Int(iteration));
                 self.loop_iterations.set(self.loop_iterations.get() + 1);
                 if !self.trace_suppressed.get() {
                     match self.trace_config.mode {
@@ -1022,10 +1133,15 @@ impl<'a> Vm<'a> {
                 }
                 Ok(())
             }
-            Instruction::Assign { target, expr } => {
+            Instruction::Assign {
+                target,
+                expr,
+                target_slot,
+            } => {
                 let value = self.eval_expr(expr, env, call_depth)?;
-                self.trace_assign(target, env.borrow().get(target), &value);
-                env.borrow_mut().insert(target.clone(), value);
+                let slot = target_slot.get();
+                self.trace_assign(target, env.borrow().get_slot(slot, target), &value);
+                env.borrow_mut().set_slot(slot, target, value);
                 Ok(())
             }
             Instruction::Expr { expr } => {
@@ -1039,9 +1155,9 @@ impl<'a> Vm<'a> {
             } => {
                 let _guard = TempRootGuard::new(self);
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
-                self.push_temporary_root(collection_value.clone());
+                self.push_temporary_root(&collection_value);
                 let index_value = self.eval_expr(index, env, call_depth)?;
-                self.push_temporary_root(index_value.clone());
+                self.push_temporary_root(&index_value);
                 let new_value = self.eval_expr(expr, env, call_depth)?;
                 match &collection_value {
                     Value::Array(items) => {
@@ -1082,7 +1198,7 @@ impl<'a> Vm<'a> {
             } => {
                 let _guard = TempRootGuard::new(self);
                 let owner = self.eval_expr(object, env, call_depth)?;
-                self.push_temporary_root(owner.clone());
+                self.push_temporary_root(&owner);
                 let new_value = self.eval_expr(expr, env, call_depth)?;
                 match &owner {
                     Value::Struct(struct_value) => {
@@ -1113,12 +1229,7 @@ impl<'a> Vm<'a> {
         }
     }
 
-    fn eval_expr(
-        &self,
-        expr: &Expr,
-        env: &Rc<RefCell<HashMap<String, Value>>>,
-        call_depth: u32,
-    ) -> Result<Value, RuntimeError> {
+    fn eval_expr(&self, expr: &Expr, env: &Env, call_depth: u32) -> Result<Value, RuntimeError> {
         self.eval_expr_inner(expr, env, call_depth)
             .map_err(|error| error.with_source_location(expr.source_span()))
     }
@@ -1126,20 +1237,24 @@ impl<'a> Vm<'a> {
     fn eval_expr_inner(
         &self,
         expr: &Expr,
-        env: &Rc<RefCell<HashMap<String, Value>>>,
+        env: &Env,
         call_depth: u32,
     ) -> Result<Value, RuntimeError> {
         match expr {
             Expr::Const { kind, value, .. } => const_value(kind, value),
-            Expr::Local { name, .. } => env.borrow().get(name).cloned().ok_or_else(|| {
-                RuntimeError::new("RT-NAME-001", format!("unknown runtime name: {name}"))
-            }),
+            Expr::Local { name, slot, .. } => env
+                .borrow()
+                .get_slot(slot.get(), name)
+                .cloned()
+                .ok_or_else(|| {
+                    RuntimeError::new("RT-NAME-001", format!("unknown runtime name: {name}"))
+                }),
             Expr::Array { elements, .. } => {
                 let _guard = TempRootGuard::new(self);
                 let mut items = Vec::with_capacity(elements.len());
                 for element in elements {
                     let val = self.eval_expr(element, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
+                    self.push_temporary_root(&val);
                     items.push(val);
                 }
                 Ok(Value::Array(Rc::new(RefCell::new(items))))
@@ -1151,7 +1266,7 @@ impl<'a> Vm<'a> {
                 let mut evaluated = HashMap::new();
                 for (name, field_expr) in fields {
                     let val = self.eval_expr(field_expr, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
+                    self.push_temporary_root(&val);
                     evaluated.insert(name.clone(), val);
                 }
                 Ok(Value::Struct(Rc::new(StructValue {
@@ -1186,7 +1301,7 @@ impl<'a> Vm<'a> {
             } => {
                 let _guard = TempRootGuard::new(self);
                 let left_value = self.eval_expr(left, env, call_depth)?;
-                self.push_temporary_root(left_value.clone());
+                self.push_temporary_root(&left_value);
                 let right_value = self.eval_expr(right, env, call_depth)?;
                 eval_binary(operator, left_value, right_value)
             }
@@ -1198,7 +1313,7 @@ impl<'a> Vm<'a> {
             } => {
                 let _guard = TempRootGuard::new(self);
                 let left_value = self.eval_expr(left, env, call_depth)?;
-                self.push_temporary_root(left_value.clone());
+                self.push_temporary_root(&left_value);
                 let right_value = self.eval_expr(right, env, call_depth)?;
                 eval_comparison(operator, left_value, right_value)
             }
@@ -1224,7 +1339,7 @@ impl<'a> Vm<'a> {
             } => {
                 let _guard = TempRootGuard::new(self);
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
-                self.push_temporary_root(collection_value.clone());
+                self.push_temporary_root(&collection_value);
                 let index_value = self.eval_expr(index, env, call_depth)?;
                 index_value_lookup(collection_value, index_value)
             }
@@ -1241,7 +1356,7 @@ impl<'a> Vm<'a> {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
                     let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
+                    self.push_temporary_root(&val);
                     values.push(val);
                 }
                 let result =
@@ -1282,7 +1397,7 @@ impl<'a> Vm<'a> {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
                     let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
+                    self.push_temporary_root(&val);
                     values.push(val);
                 }
                 let (result, trace) = crate::vision_dispatch::call(
@@ -1306,7 +1421,7 @@ impl<'a> Vm<'a> {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
                     let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
+                    self.push_temporary_root(&val);
                     values.push(val);
                 }
                 let result = crate::ruo_dispatch::call(function_id, values.clone())?;
@@ -1331,7 +1446,7 @@ impl<'a> Vm<'a> {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
                     let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
+                    self.push_temporary_root(&val);
                     values.push(val);
                 }
                 crate::optimizer_dispatch::call(function_id, values, &self.tensors)
@@ -1374,7 +1489,7 @@ impl<'a> Vm<'a> {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
                     let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
+                    self.push_temporary_root(&val);
                     values.push(val);
                 }
                 crate::relation_dispatch::call(function_id, values)
@@ -1382,6 +1497,7 @@ impl<'a> Vm<'a> {
             Expr::RelationFilter {
                 source,
                 binding,
+                binding_slot,
                 predicate,
                 ..
             } => {
@@ -1462,7 +1578,9 @@ impl<'a> Vm<'a> {
                                 RuntimeError::new(code, "invalid native causal relation")
                             })?;
                     }
-                    scoped.borrow_mut().insert(binding.clone(), row.clone());
+                    scoped
+                        .borrow_mut()
+                        .set_slot(binding_slot.get(), binding, row.clone());
                     self.relation_rows_scanned
                         .set(self.relation_rows_scanned.get() + 1);
                     match self.eval_expr(predicate, &scoped, call_depth)? {
@@ -1570,7 +1688,7 @@ impl<'a> Vm<'a> {
             } => {
                 let _guard = TempRootGuard::new(self);
                 let owner = self.eval_expr(builder, env, call_depth)?;
-                self.push_temporary_root(owner.clone());
+                self.push_temporary_root(&owner);
                 let Value::ArrayBuilder(builder) = &owner else {
                     return Err(RuntimeError::new(
                         "COLL-004",
@@ -1646,7 +1764,7 @@ impl<'a> Vm<'a> {
                 let mut values = Vec::with_capacity(3);
                 for argument in arguments {
                     let value = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(value.clone());
+                    self.push_temporary_root(&value);
                     values.push(value);
                 }
                 let Value::String(event_type) = &values[0] else {
@@ -1669,7 +1787,7 @@ impl<'a> Vm<'a> {
             } => {
                 let _guard = TempRootGuard::new(self);
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
-                self.push_temporary_root(collection_value.clone());
+                self.push_temporary_root(&collection_value);
                 let item_value = self.eval_expr(item, env, call_depth)?;
                 match collection_value {
                     Value::Array(items) => {
@@ -1691,7 +1809,7 @@ impl<'a> Vm<'a> {
             } => {
                 let _guard = TempRootGuard::new(self);
                 let collection_value = self.eval_expr(collection, env, call_depth)?;
-                self.push_temporary_root(collection_value.clone());
+                self.push_temporary_root(&collection_value);
                 let item_value = self.eval_expr(item, env, call_depth)?;
                 match collection_value {
                     Value::Array(items) => {
@@ -1711,7 +1829,7 @@ impl<'a> Vm<'a> {
             Expr::CallArrayConcat { left, right, .. } => {
                 let _guard = TempRootGuard::new(self);
                 let left_value = self.eval_expr(left, env, call_depth)?;
-                self.push_temporary_root(left_value.clone());
+                self.push_temporary_root(&left_value);
                 let right_value = self.eval_expr(right, env, call_depth)?;
                 match (left_value, right_value) {
                     (Value::Array(left_items), Value::Array(right_items)) => {
@@ -1738,7 +1856,7 @@ impl<'a> Vm<'a> {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
                     let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
+                    self.push_temporary_root(&val);
                     values.push(val);
                 }
                 crate::string_dispatch::call(function_id, values)
@@ -1752,7 +1870,7 @@ impl<'a> Vm<'a> {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
                     let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
+                    self.push_temporary_root(&val);
                     values.push(val);
                 }
                 let context = crate::foundation_dispatch::FoundationContext {
@@ -1780,7 +1898,7 @@ impl<'a> Vm<'a> {
                 let mut values = Vec::with_capacity(arguments.len());
                 for argument in arguments {
                     let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(val.clone());
+                    self.push_temporary_root(&val);
                     values.push(val);
                 }
                 crate::console_dispatch::dispatch(function_id, &values, &self.console_events)
@@ -1818,7 +1936,7 @@ impl<'a> Vm<'a> {
             } => {
                 let _guard = TempRootGuard::new(self);
                 let actual_value = self.eval_expr(actual, env, call_depth)?;
-                self.push_temporary_root(actual_value.clone());
+                self.push_temporary_root(&actual_value);
                 let expected_value = self.eval_expr(expected, env, call_depth)?;
                 if actual_value == expected_value {
                     Ok(Value::Null)
@@ -1836,13 +1954,17 @@ impl<'a> Vm<'a> {
         &self,
         name: &str,
         argument_exprs: &[Expr],
-        env: &Rc<RefCell<HashMap<String, Value>>>,
+        env: &Env,
         call_depth: u32,
     ) -> Result<Value, RuntimeError> {
-        let function_id = format!("fn.{name}");
-        let function = *self.functions.get(function_id.as_str()).ok_or_else(|| {
-            RuntimeError::new("RT-CALL-001", format!("unknown runtime function: {name}"))
-        })?;
+        let prepared = self
+            .callable_functions
+            .get(name)
+            .map(|&position| &self.functions[position])
+            .ok_or_else(|| {
+                RuntimeError::new("RT-CALL-001", format!("unknown runtime function: {name}"))
+            })?;
+        let function = prepared.function;
         if argument_exprs.len() != function.parameters.len() {
             return Err(RuntimeError::new(
                 "RT-CALL-002",
@@ -1859,17 +1981,31 @@ impl<'a> Vm<'a> {
         let mut arguments = Vec::with_capacity(argument_exprs.len());
         for argument_expr in argument_exprs {
             let val = self.eval_expr(argument_expr, env, call_depth)?;
-            self.push_temporary_root(val.clone());
+            self.push_temporary_root(&val);
             arguments.push(val);
         }
-        let mut local_env: HashMap<String, Value> = self.reason_objects.borrow().clone();
-        local_env.extend(self.reasoning_bindings.clone());
-        local_env.extend(function.parameters.iter().cloned().zip(arguments));
-        let local_env = Rc::new(RefCell::new(local_env));
-        let outcome = self.run_function(function, &local_env, call_depth + 1)?;
+        let mut frame = Frame::new(prepared.layout.clone());
+        for (name, value) in self
+            .reason_objects
+            .borrow()
+            .iter()
+            .chain(&self.reasoning_bindings)
+        {
+            frame.insert(name, value.clone());
+        }
+        for ((name, &slot), argument) in function
+            .parameters
+            .iter()
+            .zip(&prepared.parameter_slots)
+            .zip(arguments)
+        {
+            frame.set_slot(slot, name, argument);
+        }
+        let local_env = Rc::new(RefCell::new(frame));
+        let outcome = self.run_function(prepared, &local_env, call_depth + 1)?;
         match outcome {
             Outcome::Return(value) => {
-                self.push_temporary_root(value.clone());
+                self.push_temporary_root(&value);
                 Ok(value)
             }
             Outcome::NoValue => Err(RuntimeError::new(
@@ -1884,14 +2020,33 @@ impl<'a> Vm<'a> {
     }
 }
 
-fn trace_env(env: &HashMap<String, Value>) -> serde_json::Value {
+/// Counts serialized bytes so trace budgeting measures an event's exact
+/// JSON size without materializing a throwaway buffer.
+struct ByteCounter(usize);
+
+impl std::io::Write for ByteCounter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 += bytes.len();
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn unknown_block(target: &str) -> RuntimeError {
+    RuntimeError::new("IR-EXEC-006", format!("unknown block: {target}"))
+}
+
+fn trace_env(env: &Frame) -> serde_json::Value {
     let mut visible = std::collections::BTreeMap::new();
-    for (name, value) in env {
+    for (name, value) in env.iter() {
         if name.starts_with("__for_") || name.starts_with("__trace_") || name.starts_with("__opt_")
         {
             continue;
         }
-        visible.insert(name.clone(), to_json(value));
+        visible.insert(name.to_owned(), to_json(value));
     }
     serde_json::to_value(visible).expect("trace environment is JSON-compatible")
 }
@@ -2437,6 +2592,102 @@ mod tests {
         }"#;
         let error = run(ir).expect_err("must fail");
         assert_eq!(error.code, "RT-ARITH-001");
+    }
+
+    #[test]
+    fn unknown_block_targets_report_ir_exec_006_when_reached() {
+        let program = |entry: &str, condition: bool| {
+            format!(
+                r#"{{
+                "schema": "reason-computation-ir/0.1",
+                "calculations": ["Answer"],
+                "functions": [{{
+                    "id": "Answer",
+                    "parameters": [],
+                    "entry_block": "{entry}",
+                    "blocks": [{{
+                        "id": "b1",
+                        "instructions": [],
+                        "terminator": {{
+                            "kind": "branch",
+                            "condition": {{"op": "const", "kind": "bool", "value": {condition}}},
+                            "then": "missing",
+                            "else": "b2"
+                        }}
+                    }}, {{
+                        "id": "b2",
+                        "instructions": [],
+                        "terminator": {{
+                            "kind": "result",
+                            "value": {{"op": "const", "kind": "int", "value": 1}}
+                        }}
+                    }}]
+                }}]
+            }}"#
+            )
+        };
+        // An unknown target is only an error on the path that takes it.
+        assert_eq!(
+            run(&program("b1", false)).expect("else path is valid"),
+            vec![("Answer".to_string(), Value::Int(1))]
+        );
+        let error = run(&program("b1", true)).expect_err("then path is unknown");
+        assert_eq!(error.code, "IR-EXEC-006");
+        assert_eq!(error.message, "unknown block: missing");
+        let error = run(&program("absent", false)).expect_err("entry is unknown");
+        assert_eq!(error.code, "IR-EXEC-006");
+        assert_eq!(error.message, "unknown block: absent");
+    }
+
+    #[test]
+    fn slot_frames_see_injected_results_and_report_unbound_names() {
+        let ir = |read: &str| {
+            format!(
+                r#"{{
+                "schema": "reason-computation-ir/0.1",
+                "calculations": ["A", "B"],
+                "functions": [{{
+                    "id": "A",
+                    "parameters": [],
+                    "entry_block": "a",
+                    "blocks": [{{
+                        "id": "a",
+                        "instructions": [],
+                        "terminator": {{"kind": "result", "value": {{"op": "const", "kind": "int", "value": 2}}}}
+                    }}]
+                }}, {{
+                    "id": "B",
+                    "parameters": [],
+                    "entry_block": "b",
+                    "blocks": [{{
+                        "id": "b",
+                        "instructions": [{{
+                            "op": "assign",
+                            "target": "y",
+                            "expr": {{
+                                "op": "binary", "operator": "Multiply",
+                                "left": {{"op": "local", "name": "{read}"}},
+                                "right": {{"op": "const", "kind": "int", "value": 3}}
+                            }}
+                        }}],
+                        "terminator": {{"kind": "result", "value": {{"op": "local", "name": "y"}}}}
+                    }}]
+                }}]
+            }}"#
+            )
+        };
+        // An earlier calculation's result is injected by name into the
+        // later calculation's frame and read through its slot.
+        assert_eq!(
+            run(&ir("A")).expect("A is bound in B"),
+            vec![
+                ("A".to_string(), Value::Int(2)),
+                ("B".to_string(), Value::Int(6)),
+            ]
+        );
+        let error = run(&ir("missing")).expect_err("name is never bound");
+        assert_eq!(error.code, "RT-NAME-001");
+        assert_eq!(error.message, "unknown runtime name: missing");
     }
 
     #[test]

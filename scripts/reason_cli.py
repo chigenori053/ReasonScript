@@ -170,15 +170,16 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    # Delta is the native trace default; --trace=off avoids payload recording.
-    trace_config = {"mode": args.trace or "delta"}
+    # Tracing is opt-in: recording dominates run time on loop-heavy programs.
+    # Bare --trace selects delta.
+    trace_config = {"mode": args.trace or "off"}
     for name in ("checkpoint_interval", "max_bytes"):
         value = getattr(args, f"trace_{name}", None)
         if value is not None:
             if value < 0:
                 raise CliFileSystemError(f"--trace-{name.replace('_', '-')} must be nonnegative")
             trace_config[name] = value
-    result = _run_result(Path(args.file), args.compiler_mode, include_trace=args.trace != "off", allow_read=args.allow_read, allow_write=args.allow_write, trace_config=trace_config)
+    result = _run_result(Path(args.file), args.compiler_mode, include_trace=trace_config["mode"] != "off", allow_read=args.allow_read, allow_write=args.allow_write, trace_config=trace_config)
     if args.result_output and result.get("ok"):
         runtime_result = result.get("runtime_result")
         if not isinstance(runtime_result, dict) or "result" not in runtime_result:

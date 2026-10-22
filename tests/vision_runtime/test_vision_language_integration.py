@@ -86,7 +86,7 @@ def test_rust_dispatch_and_atomic_ruo_tensor_publication(tmp_path: Path) -> None
     project = tmp_path / "project"
     shutil.copytree(FIXTURE, project)
     source = project / "vision_pipeline.rsn"
-    status, result = _run_reason("run", str(source), "--allow-read", "--allow-write")
+    status, result = _run_reason("run", str(source), "--allow-read", "--allow-write", "--trace")
     assert status == 0 and result["runtime_result"]["result"]["status"] == "committed"
     assert [item["operation"] for item in result["runtime_result"]["vision_trace"]] == ["vision_infer", "vision_build_ruo"]
 

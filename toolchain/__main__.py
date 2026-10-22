@@ -365,7 +365,8 @@ def _command_usage(command: str) -> None:
         print("Options:")
         print("  --entry <entry>    Specify calculation entry point (e.g. Main or Module::Calc)")
         print("  --package <pkg>    Target a specific workspace package")
-        print("  --trace=MODE       off, delta (default), full, or sampled")
+        print("  --trace[=MODE]     Record a trace: off (default), delta, full, or sampled;")
+        print("                     bare --trace selects delta")
         print("  --allow-read       Grant read permissions to runtime resource root")
         print("  --allow-write      Grant write permissions to runtime resource root")
         print("  --json             Emit execution results and traces in machine-readable JSON")
@@ -427,7 +428,9 @@ def _command_usage(command: str) -> None:
 
 
 def _trace_config(args: list[str]) -> dict:
-    config = {"mode": next((arg.split("=", 1)[1] for arg in args if arg.startswith("--trace=")), "delta")}
+    # Tracing is opt-in; bare --trace selects delta.
+    mode = "delta" if "--trace" in args else "off"
+    config = {"mode": next((arg.split("=", 1)[1] for arg in args if arg.startswith("--trace=")), mode)}
     for name in ("checkpoint_interval", "max_bytes"):
         value = _option_arg(args, f"--trace-{name.replace('_', '-')}")
         if value is not None:
