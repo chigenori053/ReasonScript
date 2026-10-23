@@ -60,7 +60,7 @@ def install(prefix: Path, json_output: bool) -> int:
         temp.mkdir()
         for name in DISTRIBUTION_TARGETS:
             source = ROOT / name
-            shutil.copytree(source, temp / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".venv", "node_modules", ".git", "target"))
+            shutil.copytree(source, temp / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".venv", "node_modules", ".git", ".reason", "target"))
         for name in ("reason", "VERSION", "pyproject.toml", "LICENSE"):
             if (ROOT / name).is_file():
                 shutil.copy2(ROOT / name, temp / name)

@@ -4,11 +4,34 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+
+import pytest
 
 from toolchain.distribution_validation import COMPONENTS, normalize_project_identifier
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture
+def local_build_state():
+    with tempfile.TemporaryDirectory(prefix="distribution-test-", dir=ROOT / "examples") as directory:
+        project = Path(directory)
+        (project / "source.txt").write_text("distributable source", encoding="utf-8")
+        for relative in (".reason", "nested/.reason", "target"):
+            state = project / relative
+            state.mkdir(parents=True)
+            (state / "local-only.json").write_text("{}", encoding="utf-8")
+        yield project.relative_to(ROOT)
+
+
+def _assert_no_local_build_state(root: Path, project: Path) -> None:
+    copied = root / project
+    assert (copied / "source.txt").read_text(encoding="utf-8") == "distributable source"
+    assert not (copied / ".reason").exists()
+    assert not (copied / "nested/.reason").exists()
+    assert not (copied / "target").exists()
 
 
 def _install(tmp_path: Path) -> tuple[Path, dict]:
@@ -21,9 +44,10 @@ def _install(tmp_path: Path) -> tuple[Path, dict]:
     return home, json.loads((home / "install_manifest.json").read_text(encoding="utf-8"))
 
 
-def test_dc_001_to_003_distribution_import_closure(tmp_path):
+def test_dc_001_to_003_distribution_import_closure(tmp_path, local_build_state):
     home, _ = _install(tmp_path)
     installed = home / "current"
+    _assert_no_local_build_state(installed, local_build_state)
     assert (installed / "playground/backend/main.py").is_file()  # DC-001
     code = "import playground.backend.main, scripts.reason_cli; print(playground.backend.main.__file__)"
     env = os.environ.copy()
@@ -159,7 +183,7 @@ def test_installed_vision_language_pipeline_publishes_ruo_tensors(tmp_path):
     assert (project / "output/solar-observation.ruo").is_file()
 
 
-def test_development_update_package_contains_native_vision_runtime(tmp_path):
+def test_development_update_package_contains_native_vision_runtime(tmp_path, local_build_state):
     output = tmp_path / "dist"
     result = subprocess.run(
         [sys.executable, str(ROOT / "scripts/build_update_package.py"), "--out", str(output),
@@ -170,6 +194,7 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     package = Path(json.loads(result.stdout)["path"])
+    _assert_no_local_build_state(package / "payload", local_build_state)
     assert (package / "payload/LICENSE").is_file()
     assert (package / "payload/ReasonRuntime/crates/vision-core/Cargo.toml").is_file()
     assert (package / "payload/ReasonRuntime/crates/reason-object-core/Cargo.toml").is_file()
@@ -202,6 +227,7 @@ def test_development_update_package_contains_native_vision_runtime(tmp_path):
     assert installed.returncode in {0, 1}, installed.stdout + installed.stderr
     report = json.loads(installed.stdout)
     assert report["status"] == "success"
+    _assert_no_local_build_state(fresh / "current", local_build_state)
     assert report["reason_version"] == (ROOT / "VERSION").read_text(
         encoding="utf-8"
     ).strip()
