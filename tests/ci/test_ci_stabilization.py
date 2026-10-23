@@ -49,6 +49,19 @@ def test_canonical_ci_and_github_test_share_the_full_test_platform():
     assert len(pytest_paths) == len(set(pytest_paths))
 
 
+def test_release_builds_and_validates_tagged_package_before_publishing():
+    content = _workflow("release.yml")
+    build = content.index("python3 scripts/build_update_package.py")
+    validate = content.index("./reason update package-validate")
+    extension = content.index("run: npm run package")
+    publish = content.index("softprops/action-gh-release@")
+    assert build < validate < extension < publish
+    assert '--package-class release --expected-commit "${GITHUB_SHA}"' in content
+    assert "dist/reasonscript-*.zip" in content
+    assert "release/${" not in content
+    assert "fail_on_unmatched_files: true" in content
+
+
 def test_integration_target_includes_native_causality_boundaries():
     steps = test_platform._steps_for("integration", quick=False, passthrough=[])
 

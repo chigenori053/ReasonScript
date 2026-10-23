@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [0.5.6.9] - 2026-10-24
+
+- Fix GitHub Lint E731 in the RCP structural-record consumer test.
+- Build and validate the official macOS arm64 install/update ZIP from the tagged source before publishing a GitHub Release.
 - Store native VM variables in per-function frame slots resolved once from the IR, instead of hashing names on every read and assignment, and root only Tensor-reaching values during evaluation. Loop- and call-heavy programs run about 1.7–2.1x faster; results, diagnostics and traces are unchanged.
 - Make native traces opt-in for `reason run`: without `--trace` no trace is recorded, and bare `--trace` selects delta. Recording dominated run time on loop-heavy programs (about 579 ms versus 10 ms for 9,000 iterations). Scripts that read `trace` from `reason run --json` must now pass `--trace`. The runtime request protocol default is unchanged.
 - Write runtime-host result envelopes without deep-copying trace arrays or formatting through `Display`, measure trace budgets without buffering events, and stream state-hash leaves into SHA-256. Delta traces run about 1.9x faster with byte-identical output.

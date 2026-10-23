@@ -25,16 +25,26 @@ jobs:
       - run: python3 -m pip install -r requirements-dev.txt
       - run: npm ci
         working-directory: vscode-extension
-      - run: npm run package
-        working-directory: vscode-extension
       - run: python3 scripts/test_platform.py release-check --quick
+      - name: Build official install and update package
+        shell: bash
+        run: |
+          test "${GITHUB_REF_NAME}" = "v$(cat VERSION)"
+          python3 scripts/build_update_package.py \
+            --version "$(cat VERSION)" \
+            --platform macos --architecture arm64 --format zip \
+            --package-class release --expected-commit "${GITHUB_SHA}" \
+            --out dist --json
+          ./reason update package-validate "dist/reasonscript-$(cat VERSION)-macos-arm64.zip" --json
       - name: Validate tag and package checksums
         shell: bash
         run: |
           test "${GITHUB_REF_NAME}" = "v$(cat VERSION)"
-          cd "release/${GITHUB_REF_NAME}"
-          shasum -a 256 -c "reasonscript-$(cat ../../VERSION)-macos-arm64.zip.sha256"
-          shasum -a 256 "reasonscript-$(cat ../../VERSION)-macos-arm64.manifest.json" | cut -d ' ' -f 1 | diff - "reasonscript-$(cat ../../VERSION)-macos-arm64.manifest.sha256"
+          cd dist
+          shasum -a 256 -c "reasonscript-$(cat ../VERSION)-macos-arm64.zip.sha256"
+          shasum -a 256 "reasonscript-$(cat ../VERSION)-macos-arm64.manifest.json" | cut -d ' ' -f 1 | diff - "reasonscript-$(cat ../VERSION)-macos-arm64.manifest.sha256"
+      - run: npm run package
+        working-directory: vscode-extension
       - uses: actions/upload-artifact@v4
         with:
           name: release-artifacts
@@ -43,15 +53,16 @@ jobs:
             docs
             golden
             vscode-extension/reasonscript-0.1.7.vsix
-            release/${{ github.ref_name }}/reasonscript-*.zip
-            release/${{ github.ref_name }}/reasonscript-*.sha256
-            release/${{ github.ref_name }}/reasonscript-*.manifest.json
+            dist/reasonscript-*.zip
+            dist/reasonscript-*.sha256
+            dist/reasonscript-*.manifest.json
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
-            release/${{ github.ref_name }}/reasonscript-*.zip
-            release/${{ github.ref_name }}/reasonscript-*.sha256
-            release/${{ github.ref_name }}/reasonscript-*.manifest.json
+            dist/reasonscript-*.zip
+            dist/reasonscript-*.sha256
+            dist/reasonscript-*.manifest.json
             vscode-extension/reasonscript-0.1.7.vsix
