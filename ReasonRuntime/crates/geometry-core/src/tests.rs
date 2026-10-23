@@ -38,6 +38,21 @@ fn prim(kind: &str, parameters: Value) -> Primitive {
     }
 }
 #[test]
+fn mirp_fragment_hash_matches_canonical_graph() {
+    let input = serde_json::from_str(include_str!(
+        "../../../../tests/fixtures/vision_language/observation.json"
+    ))
+    .unwrap();
+    let observation = reasonscript_vision_runtime::spatial::observe_spatial(&input).unwrap();
+    let mut state = from_visual(&observation).unwrap();
+    derive_relations(&mut state, &Tolerance::default(), 100.0).unwrap();
+    assert_eq!(
+        mirp_projection(&state)["fragment_hash"],
+        "sha256:30e484fb0f7314387749e10cd15ad6f58f60ed8ead96fdf0cea44ad41a771fe9"
+    );
+}
+
+#[test]
 fn foundation_and_canonical() {
     let a = from_visual(&obs()).unwrap();
     let mut reversed = obs();

@@ -867,6 +867,8 @@ pub fn mirp_projection(state: &GeometryState) -> Value {
     relations.sort_by(|a, b| a["relation_id"].as_str().cmp(&b["relation_id"].as_str()));
     let graph = json!({"graph_id":format!("ruo:graph:{}",state.state_id),"units":units,"relations":relations,"root_refs":[],"lifecycle":"active","provenance":provenance(&state.provenance),"metadata":{"unknowns":state.unknowns,"conflicts":state.conflicts,"coordinate_systems":state.coordinate_systems}});
     let mut fragment = json!({"schema":"mra-mirp-graph-fragment/0.1","fragment_kind":"graph_fragment","graph":graph});
+    // Workspace feature unification can enable serde_json's insertion ordering.
+    fragment.sort_all_objects();
     fragment["fragment_hash"] = json!(digest(&fragment).unwrap_or_default());
     fragment
 }
