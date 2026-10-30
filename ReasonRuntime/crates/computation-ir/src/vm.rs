@@ -745,7 +745,11 @@ impl<'a> Vm<'a> {
 
     /// The request host constructs a fresh VM for each execution.
     pub fn run_entry(&self, program: &Program, entry: &str, inputs: &serde_json::Value) -> Result<Vec<(String, Value)>, RuntimeError> {
-        let (id, values) = crate::input_abi::arguments(program, entry, inputs)?;
+        self.run_entry_with_limits(program, entry, inputs, crate::input_abi::InputLimits::default())
+    }
+
+    pub fn run_entry_with_limits(&self, program: &Program, entry: &str, inputs: &serde_json::Value, limits: crate::input_abi::InputLimits) -> Result<Vec<(String, Value)>, RuntimeError> {
+        let (id, values) = crate::input_abi::arguments_with_limits(program, entry, inputs, limits)?;
         let function = self.function_ids.get(id.as_str()).map(|&position| &self.functions[position]).ok_or_else(|| RuntimeError::new("RTH-INPUT-001", "unknown input entry"))?;
         let parameters = &function.function.parameters;
         if parameters.len() != values.len() || parameters.iter().any(|name| !values.contains_key(name)) {

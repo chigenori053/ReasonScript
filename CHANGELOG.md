@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add optional bounded `max_input_elements` and `max_input_bytes` typed-entry
+  admission limits, with preflight checks before allocating VM input values.
+  Existing request versions, entry APIs, default element/depth limits and input
+  type/shape validation remain unchanged.
+
 ## [0.5.6.9] - 2026-10-24
 
 - Fix GitHub Lint E731 in the RCP structural-record consumer test.

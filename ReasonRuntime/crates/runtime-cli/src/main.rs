@@ -197,6 +197,15 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
         .get("limits")
         .and_then(serde_json::Value::as_object)
         .unwrap();
+    let max_input_elements = match input_limit(limits, "max_input_elements", reasonscript_computation_ir::input_abi::MAX_INPUT_ELEMENTS) {
+        Ok(value) => value.unwrap_or(reasonscript_computation_ir::input_abi::DEFAULT_MAX_INPUT_ELEMENTS),
+        Err(message) => return fail_request(request_id, "RTH-PROTO-004", &message),
+    };
+    let max_input_bytes = match input_limit(limits, "max_input_bytes", reasonscript_computation_ir::input_abi::MAX_INPUT_BYTES) {
+        Ok(value) => value,
+        Err(message) => return fail_request(request_id, "RTH-PROTO-004", &message),
+    };
+    let input_limits = reasonscript_computation_ir::input_abi::InputLimits { max_elements: max_input_elements, max_bytes: max_input_bytes };
     let mut tensor_policy = TensorPolicy::default();
     tensor_policy.max_rank = limit(limits, "max_rank", tensor_policy.max_rank);
     tensor_policy.max_elements = limit(limits, "max_elements", tensor_policy.max_elements);
@@ -423,7 +432,7 @@ fn run_request(request: &serde_json::Value) -> ExitCode {
     let execution_started = Instant::now();
     let execution = match (request.get("entry"), request.get("inputs")) {
         (None, None) => vm.run_calculations(&program),
-        (Some(entry), Some(inputs)) if entry.is_string() => vm.run_entry(&program, entry.as_str().unwrap(), inputs),
+        (Some(entry), Some(inputs)) if entry.is_string() => vm.run_entry_with_limits(&program, entry.as_str().unwrap(), inputs, input_limits),
         _ => Err(reasonscript_computation_ir::RuntimeError::new("RTH-INPUT-001", "entry and inputs must be supplied together")),
     };
     match execution {
@@ -583,6 +592,17 @@ fn read_source(path: Option<&str>) -> Result<String, String> {
             Ok(buffer)
         }
         Some(path) => fs::read_to_string(path).map_err(|error| format!("{path}: {error}")),
+    }
+}
+
+fn input_limit(limits: &serde_json::Map<String, serde_json::Value>, name: &str, maximum: usize) -> Result<Option<usize>, String> {
+    match limits.get(name) {
+        None => Ok(None),
+        Some(value) => value.as_u64()
+            .and_then(|n| usize::try_from(n).ok())
+            .filter(|&n| n > 0 && n <= maximum)
+            .map(Some)
+            .ok_or_else(|| format!("{name} must be an integer in 1..={maximum}")),
     }
 }
 

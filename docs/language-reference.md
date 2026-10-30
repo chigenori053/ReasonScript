@@ -528,6 +528,23 @@ pass through the application's existing verification functions.
 Legacy functions with untyped parameters remain callable from source; they are
 not exposed as dynamic input entries. Add parameter types to use the input ABI.
 
+Typed input admission defaults to 100,000 scalar/container elements and depth
+64. The native request may set `context.limits.max_input_elements` (1 through
+10,000,000) and `max_input_bytes` (1 through 1,073,741,824). Both are optional;
+omitting them preserves the existing element limit and absence of a byte cap.
+The byte cap counts the compact JSON encoding of the `inputs` object, including
+UTF-8 string bytes. Invalid limit settings return `RTH-PROTO-004`; inputs over
+the selected bounds return `RTH-INPUT-001`, before typed VM values are allocated.
+Depth, exact field names, primitive types and fresh-value isolation still apply.
+The byte cap does not bound parsing the enclosing transport request or total
+process memory; callers must retain their transport and process resource limits.
+For example, `{"max_input_elements":5000000,"max_input_bytes":536870912}`
+admits larger declared records without removing either bound.
+
+Rust embedders can use `Vm::run_entry_with_limits` and
+`input_abi::arguments_with_limits` with `input_abi::InputLimits`. Existing
+`run_entry` and `arguments` signatures retain their default behavior.
+
 The native host continues to accept supported legacy computation IR 0.1 and
 current IR 0.2 for explicitly supplied programs, and rejects other schema names.
 An explicit incompatible `runtime_abi` is rejected. New project builds include
