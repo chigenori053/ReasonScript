@@ -203,7 +203,9 @@ always finite: ReasonScript has no `NaN` or infinity values.
 
 Comparisons between `int` and `float` (`1 < 1.5`, `2.0 >= 2`, `3 == 3.0`)
 compare exact mathematical values, so an `int` is never rounded before it is
-compared. Other comparisons still require operands of the same type.
+compared. Other comparisons still require operands of the same type. Strings support
+ordering (`<`, `<=`, `>`, `>=`) lexicographically by Unicode code point,
+without locale-dependent collation.
 
 `==` on floats is exact: `0.1 + 0.2 == 0.3` is `false`, because neither side is
 exactly representable in binary floating point. Use

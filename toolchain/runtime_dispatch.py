@@ -41,6 +41,8 @@ def execute_rust_program(
     max_call_depth: int | None = None,
     trace_config: dict[str, Any] | None = None,
     max_loop_iterations: int | None = None,
+    max_input_elements: int | None = None,
+    max_input_bytes: int | None = None,
 ) -> dict[str, Any]:
     from frontend.computation_ir import LoweringError, lower_program
     from frontend.computation_ir.optimizer import optimize_program
@@ -63,6 +65,8 @@ def execute_rust_program(
         max_call_depth=max_call_depth,
         trace_config=trace_config,
         max_loop_iterations=max_loop_iterations,
+        max_input_elements=max_input_elements,
+        max_input_bytes=max_input_bytes,
     )
 
 
@@ -77,6 +81,8 @@ def execute_rust_ir(
     max_call_depth: int | None = None,
     trace_config: dict[str, Any] | None = None,
     max_loop_iterations: int | None = None,
+    max_input_elements: int | None = None,
+    max_input_bytes: int | None = None,
     entry: str | None = None,
     inputs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -107,7 +113,12 @@ def execute_rust_ir(
     # `[runtime] max_call_depth` / `max_loop_iterations`) overrides it.
     limits = {
         key: value
-        for key, value in (("max_call_depth", max_call_depth), ("max_loop_iterations", max_loop_iterations))
+        for key, value in (
+            ("max_call_depth", max_call_depth),
+            ("max_loop_iterations", max_loop_iterations),
+            ("max_input_elements", max_input_elements),
+            ("max_input_bytes", max_input_bytes),
+        )
         if value is not None
     }
     try:

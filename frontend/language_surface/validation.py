@@ -2147,14 +2147,15 @@ def _expression_type(
             raise SurfaceValidationError(
                 "TYPE-V005 comparison operands must have the same type"
             )
-        numeric = {
+        orderable = {
             PrimitiveTypeNode(PrimitiveKind.INT),
             PrimitiveTypeNode(PrimitiveKind.FLOAT),
+            PrimitiveTypeNode(PrimitiveKind.STRING),
         }
         if value.operator not in {
             ComparisonOperator.EQUAL,
             ComparisonOperator.NOT_EQUAL,
-        } and left not in numeric:
+        } and left not in orderable:
             raise SurfaceValidationError(
                 "CV-2 comparison operands must be comparable"
             )

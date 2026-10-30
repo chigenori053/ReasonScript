@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Prefer the optimized local release host over a debug build, retaining explicit
+  host overrides and debug-only fallback.
+- Add an indexed MRA graph-inference example with stable proof ordering and
+  evidence/revision revalidation; replace repeated full scans with sorted
+  lookups and expose bounded input-node/byte limits through `reason.toml`.
+- Accept same-type string ordering in source validation, matching the existing
+  native/reference runtime and relation sort order (Unicode code points).
+
 - Add optional bounded `max_input_elements` and `max_input_bytes` typed-entry
   admission limits, with preflight checks before allocating VM input values.
   Existing request versions, entry APIs, default element/depth limits and input

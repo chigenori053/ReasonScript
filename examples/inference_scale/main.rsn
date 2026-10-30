@@ -1,0 +1,252 @@
+// Adapted from MRA_Test remediation/model_b_bound.rsn; stable sorted indexes
+// replace repeated full scans. Evidence and revision checks remain mandatory.
+module UnifiedB {
+  export struct Unit {
+    unit_id: string
+    unit_kind: string
+    semantic_status: string
+    state_representation: string
+    evidence: [string]
+    dependencies: [string]
+    proof_path: [string]
+    revision: int
+    provenance: [string]
+    validation_status: string
+    subject: int
+    object: int
+    predicate: int
+    polarity: int
+    current_revision: int
+    negative_evidence: [string]
+    revoked: bool
+  }
+  export struct Result {
+    status: string
+    dependencies: [string]
+    proof_path: [string]
+    all_paths: [[string]]
+    admitted: bool
+    resource_limit: bool
+  }
+  export struct Walk {
+    node: int
+    path: [string]
+    deps: [string]
+    verified: bool
+  }
+  export struct EvidenceBinding {
+    evidence_id: string
+    unit_id: string
+    subject: int
+    predicate: int
+    object: int
+    polarity: int
+    revision: int
+  }
+  fn EvidenceTrusted(unit: Unit, evidence_id: string, trusted: [EvidenceBinding]) -> bool {
+    let low = 0
+    let high = trusted.length
+    while low < high {
+      let mid = int((low + high) / 2)
+      if trusted[mid].unit_id < unit.unit_id {
+        low = mid + 1
+      } else {
+        high = mid
+      }
+    }
+    while low < trusted.length {
+      let binding = trusted[low]
+      if binding.unit_id != unit.unit_id {
+        break
+      }
+      if binding.evidence_id == evidence_id && binding.subject == unit.subject && binding.predicate == unit.predicate && binding.object == unit.object && binding.polarity == unit.polarity && binding.revision == unit.revision {
+        return true
+      }
+      low = low + 1
+    }
+    return false
+  }
+  fn Append(values: [string], value: string) -> [string] {
+    let result = array.builder()
+    for item in values {
+      result.append(item)
+    }
+    result.append(value)
+    return result.finish()
+  }
+  fn Has(values: [string], value: string) -> bool {
+    for x in values {
+      if x == value {
+        return true
+      }
+    }
+    return false
+  }
+  pub fn Classify(unit: Unit, trusted: [EvidenceBinding]) -> string {
+    return ClassifyIndexed(unit,relation.sort_by(trusted,"unit_id",false))
+  }
+  fn ClassifyIndexed(unit: Unit, trusted: [EvidenceBinding]) -> string {
+    if unit.revoked || unit.revision < 1 || unit.revision != unit.current_revision || unit.provenance.length == 0 || unit.semantic_status == "INVALID" {
+      return "INVALID"
+    }
+    if unit.semantic_status == "VERIFIED" {
+      if unit.evidence.length == 0 {
+        return "INVALID"
+      }
+      for e in unit.evidence {
+        if !EvidenceTrusted(unit,e,trusted) {
+          return "INVALID"
+        }
+      }
+    }
+    if unit.semantic_status == "CONTRADICTED" || unit.negative_evidence.length > 0 {
+      return "CONTRADICTED"
+    }
+    if unit.semantic_status == "VERIFIED" || unit.semantic_status == "UNKNOWN" || unit.semantic_status == "HYPOTHESIS" {
+      return unit.semantic_status
+    }
+    return "INVALID"
+  }
+  pub fn VerifyProof(units: [Unit], trusted: [EvidenceBinding], start: int, goal: int, path: [string], depth: int) -> bool {
+    if path.length == 0 || path.length > depth {
+      return false
+    }
+    let ordered = relation.sort_by(units,"unit_id",false)
+    let bindings = relation.sort_by(trusted,"unit_id",false)
+    let cur = start
+    for uid in path {
+      let low = 0
+      let high = ordered.length
+      while low < high {
+        let mid = int((low + high) / 2)
+        if ordered[mid].unit_id < uid {
+          low = mid + 1
+        } else {
+          high = mid
+        }
+      }
+      if low == ordered.length {
+        return false
+      }
+      let u = ordered[low]
+      if u.unit_id != uid {
+        return false
+      }
+      if low + 1 < ordered.length {
+        if ordered[low + 1].unit_id == uid {
+          return false
+        }
+      }
+      if u.subject != cur || u.predicate != 1 || u.polarity != 1 || ClassifyIndexed(u,bindings) != "VERIFIED" {
+        return false
+      }
+      cur = u.object
+    }
+    return cur == goal
+  }
+  pub fn Derive(units: [Unit], trusted: [EvidenceBinding], entities: [int], start: int, goal: int, depth: int, path_budget: int) -> Result {
+    let has_start = false
+    let has_goal = false
+    for entity in entities {
+      if entity == start {
+        has_start = true
+      }
+      if entity == goal {
+        has_goal = true
+      }
+    }
+    if !has_start || !has_goal || depth < 1 || path_budget < 1 {
+      return Result { status: "INVALID", dependencies: [], proof_path: [], all_paths: [], admitted: false, resource_limit: false }
+    }
+    // Stable subject order preserves the original order of paths per node.
+    let ordered_ids = relation.sort_by(units,"unit_id",false)
+    let previous = ""
+    let first = true
+    for u in ordered_ids {
+      if !first && previous == u.unit_id {
+        return Result { status: "INVALID", dependencies: [], proof_path: [], all_paths: [], admitted: false, resource_limit: false }
+      }
+      previous = u.unit_id
+      first = false
+    }
+    let ordered = relation.sort_by(units,"subject",false)
+    let bindings = relation.sort_by(trusted,"unit_id",false)
+    let labels = array.builder()
+    for u in ordered {
+      labels.append(ClassifyIndexed(u,bindings))
+    }
+    let states: [string] = labels.finish()
+    let frontier: [Walk] = [Walk { node: start, path: [], deps: [], verified: true }]
+    let dependencies: [string] = []
+    let proof: [string] = []
+    let paths = array.builder()
+    let path_count = 0
+    let any_path = false
+    let step = 0
+    while step < depth {
+      let next = array.builder()
+      let count = 0
+      for w in frontier {
+        let index = 0
+        let high = ordered.length
+        while index < high {
+          let mid = int((index + high) / 2)
+          if ordered[mid].subject < w.node {
+            index = mid + 1
+          } else {
+            high = mid
+          }
+        }
+        while index < ordered.length {
+          let u = ordered[index]
+          if u.subject != w.node {
+            break
+          }
+          let state = states[index]
+          index = index + 1
+          if u.subject == w.node && u.predicate == 1 && u.polarity == 1 && (state == "VERIFIED" || state == "UNKNOWN" || state == "HYPOTHESIS") {
+            let path: [string] = Append(w.path,u.unit_id)
+            let deps: [string] = w.deps
+            if state != "VERIFIED" && !Has(deps,u.unit_id) {
+              deps = Append(deps,u.unit_id)
+            }
+            let known = w.verified && state == "VERIFIED"
+            if u.object == goal {
+              any_path = true
+              paths.append(path)
+              path_count = path_count + 1
+              for dep in deps {
+                if !Has(dependencies,dep) {
+                  dependencies = Append(dependencies,dep)
+                }
+              }
+              if known && proof.length == 0 {
+                proof = path
+              }
+            }
+            next.append(Walk { node: u.object, path: path, deps: deps, verified: known })
+            count = count + 1
+            if count > path_budget || path_count > path_budget {
+              return Result { status: "UNKNOWN", dependencies: dependencies, proof_path: [], all_paths: [], admitted: false, resource_limit: true }
+            }
+          }
+        }
+      }
+      frontier = next.finish()
+      step = step + 1
+    }
+    let status = "UNKNOWN"
+    if any_path {
+      status = "HYPOTHESIS"
+    }
+    if proof.length > 0 && VerifyProof(units,trusted,start,goal,proof,depth) {
+      status = "VERIFIED"
+    }
+    for u in units {
+      if u.subject == start && u.object == goal && u.predicate == 1 && u.polarity == 0 - 1 && ClassifyIndexed(u,bindings) == "VERIFIED" && any_path {
+        status = "CONTRADICTED"
+      }
+    }
+    return Result { status: status, dependencies: dependencies, proof_path: proof, all_paths: paths.finish(), admitted: true, resource_limit: false }
+  }
+}

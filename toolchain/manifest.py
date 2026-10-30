@@ -30,7 +30,7 @@ KNOWN_SECTION_KEYS = {
     "source": {"entry"},
     "artifacts": {"directory"},
     "compiler": {"language_core", "platform"},
-    "runtime": {"backend", "max_call_depth", "max_loop_iterations"},
+    "runtime": {"backend", "max_call_depth", "max_loop_iterations", "max_input_elements", "max_input_bytes"},
 }
 
 
@@ -52,6 +52,8 @@ class Manifest:
     # contract, the same way `backend` already is).
     max_call_depth: int | None = None
     max_loop_iterations: int | None = None
+    max_input_elements: int | None = None
+    max_input_bytes: int | None = None
     dependencies: dict[str, object] = field(default_factory=dict)
     identifier: str | None = None
     project_name: str | None = None
@@ -193,7 +195,7 @@ class Manifest:
                 f"Unknown runtime backend '{backend}'. "
                 f"Supported: {', '.join(sorted(SUPPORTED_BACKENDS))}"
             )
-        for limit_key in ("max_call_depth", "max_loop_iterations"):
+        for limit_key in ("max_call_depth", "max_loop_iterations", "max_input_elements", "max_input_bytes"):
             limit_value = runtime.get(limit_key)
             if limit_value is not None and (
                 isinstance(limit_value, bool)
@@ -201,6 +203,10 @@ class Manifest:
                 or limit_value < 1
             ):
                 raise ManifestError(f"runtime.{limit_key} must be a positive integer")
+
+        for key, ceiling in (("max_input_elements", 10_000_000), ("max_input_bytes", 1_073_741_824)):
+            if runtime.get(key, 1) > ceiling:
+                raise ManifestError(f"runtime.{key} must be <= {ceiling}")
 
         # Validate [dependencies] & [capabilities]
         dependencies = data.get("dependencies", {})
@@ -218,6 +224,8 @@ class Manifest:
             backend=backend,
             max_call_depth=runtime.get("max_call_depth"),
             max_loop_iterations=runtime.get("max_loop_iterations"),
+            max_input_elements=runtime.get("max_input_elements"),
+            max_input_bytes=runtime.get("max_input_bytes"),
             dependencies=dict(dependencies),
             identifier=pkg_identifier,
             project_name=proj_name,

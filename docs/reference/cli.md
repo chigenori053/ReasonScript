@@ -386,6 +386,8 @@ platform = "0.2"               # platform version
 backend = "RuntimeReal"        # "RuntimeReal" or "HybridRuntime"
 max_call_depth = 100           # optional positive integer recursion limit
 max_loop_iterations = 100000   # optional positive integer; default 10000 block visits per call
+max_input_elements = 5000000   # optional 1..10000000; default 100000 typed input nodes
+max_input_bytes = 536870912    # optional 1..1073741824; compact inputs JSON bytes
 
 [dependencies]
 # package dependencies
@@ -399,6 +401,13 @@ max_loop_iterations = 100000   # optional positive integer; default 10000 block 
 without requiring `src/main.rsn`. When `[source]` is present, `entry` is
 required, must remain inside the project root, is compiled first, and does
 not exclude sibling modules under `src/`.
+
+Input limits apply to typed `--entry`/`--inputs` calls. The byte limit is checked
+following transport parsing, before VM input construction. It does not bound
+process RSS. The native bridge has an independent 30-second watchdog; set
+`REASONSCRIPT_RUNTIME_TIMEOUT` to a positive number of seconds for longer runs.
+See [large graph inference](../guides/large-inference.md) for indexed traversal
+and independent input, execution, and path budgets.
 
 #### Diagnostic Policy:
 - Truly unknown sections outside known tables (`package`, `project`, `source`, `artifacts`, `compiler`, `runtime`, `dependencies`, `capabilities`) emit `UserWarning: Unknown sections in reason.toml: <sections>`.
