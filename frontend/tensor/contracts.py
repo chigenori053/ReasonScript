@@ -33,32 +33,40 @@ class TensorFunctionContract:
     lowering_policy: str = "native"
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "function_id": self.function_id,
-            "qualified_name": self.function_id,
-            "namespace": "tensor",
-            "name": self.function_id.split(".", 1)[1],
-            "version": self.version,
-            "inputs": list(self.inputs),
-            "output": self.output,
-            "shape_policy": self.shape_policy,
-            "dtype_policy": self.dtype_policy,
-            "device_policy": self.device_policy,
-            "broadcasting_policy": self.broadcasting_policy,
-            "deterministic": self.deterministic,
-            "side_effects": self.side_effects,
-            "backend": self.backend_policy,
-            "diagnostic_policy": self.diagnostic_policy,
-            "artifact_policy": self.artifact_policy,
-            "callable": True,
-            "argument_contract": list(self.argument_contract),
-            "return_contract": dict(self.return_contract),
-            "backend_operation": self.backend_operation or self.function_id.split(".", 1)[1],
-            "lowering_policy": self.lowering_policy,
-        }
+        return _contract_to_dict(self)
+
+
+def _contract_to_dict(contract) -> dict[str, Any]:
+    return {
+        "function_id": contract.function_id,
+        "qualified_name": contract.function_id,
+        "namespace": "tensor",
+        "name": contract.function_id.split(".", 1)[1],
+        "version": contract.version,
+        "inputs": list(contract.inputs),
+        "output": contract.output,
+        "shape_policy": contract.shape_policy,
+        "dtype_policy": contract.dtype_policy,
+        "device_policy": contract.device_policy,
+        "broadcasting_policy": contract.broadcasting_policy,
+        "deterministic": contract.deterministic,
+        "side_effects": contract.side_effects,
+        "backend": contract.backend_policy,
+        "diagnostic_policy": contract.diagnostic_policy,
+        "artifact_policy": contract.artifact_policy,
+        "callable": True,
+        "argument_contract": list(contract.argument_contract),
+        "return_contract": dict(contract.return_contract),
+        "backend_operation": contract.backend_operation or contract.function_id.split(".", 1)[1],
+        "lowering_policy": contract.lowering_policy,
+    }
 
 
 def tensor_function_contracts() -> dict[str, TensorFunctionContract]:
+    return _build_contracts(TensorFunctionContract)
+
+
+def _build_contracts(contract_type):
     v02 = {
         "slice", "narrow", "gather", "random_uniform", "random_normal",
         "random_bernoulli", "random_permutation", "load", "save",
@@ -83,7 +91,7 @@ def tensor_function_contracts() -> dict[str, TensorFunctionContract]:
     for policy, names in groups.items():
         for name in names.split():
             function_id = f"tensor.{name}"
-            result[function_id] = TensorFunctionContract(
+            result[function_id] = contract_type(
                 function_id=function_id,
                 inputs=("data_or_shape",) if name in {"create", "zeros", "ones", "full"} else ("value",),
                 output=_contract_output(name),

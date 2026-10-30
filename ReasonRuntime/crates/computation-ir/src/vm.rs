@@ -1233,6 +1233,21 @@ impl<'a> Vm<'a> {
         }
     }
 
+    fn eval_arguments(
+        &self,
+        arguments: &[Expr],
+        env: &Env,
+        call_depth: u32,
+    ) -> Result<Vec<Value>, RuntimeError> {
+        let mut values = Vec::with_capacity(arguments.len());
+        for argument in arguments {
+            let value = self.eval_expr(argument, env, call_depth)?;
+            self.push_temporary_root(&value);
+            values.push(value);
+        }
+        Ok(values)
+    }
+
     fn eval_expr(&self, expr: &Expr, env: &Env, call_depth: u32) -> Result<Value, RuntimeError> {
         self.eval_expr_inner(expr, env, call_depth)
             .map_err(|error| error.with_source_location(expr.source_span()))
@@ -1357,12 +1372,7 @@ impl<'a> Vm<'a> {
                 source_span,
             } => {
                 let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(arguments.len());
-                for argument in arguments {
-                    let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(&val);
-                    values.push(val);
-                }
+                let values = self.eval_arguments(arguments, env, call_depth)?;
                 let result =
                     crate::tensor_dispatch::call(function_id, values.clone(), &self.tensors)
                         .map_err(|error| error.with_source_location(source_span.as_ref()))?;
@@ -1398,12 +1408,7 @@ impl<'a> Vm<'a> {
                 ..
             } => {
                 let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(arguments.len());
-                for argument in arguments {
-                    let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(&val);
-                    values.push(val);
-                }
+                let values = self.eval_arguments(arguments, env, call_depth)?;
                 let (result, trace) = crate::vision_dispatch::call(
                     function_id,
                     &values,
@@ -1422,12 +1427,7 @@ impl<'a> Vm<'a> {
                 ..
             } => {
                 let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(arguments.len());
-                for argument in arguments {
-                    let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(&val);
-                    values.push(val);
-                }
+                let values = self.eval_arguments(arguments, env, call_depth)?;
                 let result = crate::ruo_dispatch::call(function_id, values.clone())?;
                 for value in &values {
                     if matches!(value, Value::ReasonObject(_) | Value::ReasonTransaction(_)) {
@@ -1447,12 +1447,7 @@ impl<'a> Vm<'a> {
                 source_span,
             } => {
                 let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(arguments.len());
-                for argument in arguments {
-                    let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(&val);
-                    values.push(val);
-                }
+                let values = self.eval_arguments(arguments, env, call_depth)?;
                 crate::optimizer_dispatch::call(function_id, values, &self.tensors)
                     // Optimizer dispatch previously discarded the expression
                     // span, making TSF-001 impossible to locate in source.
@@ -1490,12 +1485,7 @@ impl<'a> Vm<'a> {
                 ..
             } => {
                 let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(arguments.len());
-                for argument in arguments {
-                    let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(&val);
-                    values.push(val);
-                }
+                let values = self.eval_arguments(arguments, env, call_depth)?;
                 crate::relation_dispatch::call(function_id, values)
             }
             Expr::RelationFilter {
@@ -1765,12 +1755,7 @@ impl<'a> Vm<'a> {
                     ));
                 }
                 let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(3);
-                for argument in arguments {
-                    let value = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(&value);
-                    values.push(value);
-                }
+                let values = self.eval_arguments(arguments, env, call_depth)?;
                 let Value::String(event_type) = &values[0] else {
                     return Err(RuntimeError::new(
                         "REASON-EVENT-001",
@@ -1857,12 +1842,7 @@ impl<'a> Vm<'a> {
                 ..
             } => {
                 let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(arguments.len());
-                for argument in arguments {
-                    let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(&val);
-                    values.push(val);
-                }
+                let values = self.eval_arguments(arguments, env, call_depth)?;
                 crate::string_dispatch::call(function_id, values)
             }
             Expr::CallFoundation {
@@ -1871,12 +1851,7 @@ impl<'a> Vm<'a> {
                 ..
             } => {
                 let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(arguments.len());
-                for argument in arguments {
-                    let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(&val);
-                    values.push(val);
-                }
+                let values = self.eval_arguments(arguments, env, call_depth)?;
                 let context = crate::foundation_dispatch::FoundationContext {
                     resource_root: &self.resource_root,
                     filesystem_write: self.filesystem_write,
@@ -1899,12 +1874,7 @@ impl<'a> Vm<'a> {
                 ..
             } => {
                 let _guard = TempRootGuard::new(self);
-                let mut values = Vec::with_capacity(arguments.len());
-                for argument in arguments {
-                    let val = self.eval_expr(argument, env, call_depth)?;
-                    self.push_temporary_root(&val);
-                    values.push(val);
-                }
+                let values = self.eval_arguments(arguments, env, call_depth)?;
                 crate::console_dispatch::dispatch(function_id, &values, &self.console_events)
             }
             Expr::CallCast { name, argument, .. } => {
@@ -1982,12 +1952,7 @@ impl<'a> Vm<'a> {
             ));
         }
         let _args_guard = TempRootGuard::new(self);
-        let mut arguments = Vec::with_capacity(argument_exprs.len());
-        for argument_expr in argument_exprs {
-            let val = self.eval_expr(argument_expr, env, call_depth)?;
-            self.push_temporary_root(&val);
-            arguments.push(val);
-        }
+        let arguments = self.eval_arguments(argument_exprs, env, call_depth)?;
         let mut frame = Frame::new(prepared.layout.clone());
         for (name, value) in self
             .reason_objects

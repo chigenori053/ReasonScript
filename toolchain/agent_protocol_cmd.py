@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from toolchain.cli_args import option_value as _option_value, path_arg as _first_path_arg
+
 from toolchain.agent_protocol import (
     agent_report,
     render_json,
@@ -51,29 +53,7 @@ def run(command: str, args: list[str], project_root: Path) -> int:
 
 
 def _path_arg(args: list[str], default: Path) -> Path:
-    skip_next = False
-    for arg in args:
-        if skip_next:
-            skip_next = False
-            continue
-        if arg in {"--json", "--artifacts-generated"}:
-            continue
-        if arg in {"--task", "--status", "--tests-passed", "--out"}:
-            skip_next = True
-            continue
-        if arg.startswith("--"):
-            continue
-        return Path(arg)
-    return default
-
-
-def _option_value(args: list[str], option: str) -> str | None:
-    if option not in args:
-        return None
-    index = args.index(option)
-    if index + 1 >= len(args):
-        return None
-    return args[index + 1]
+    return _first_path_arg(args, default, value_options=("--task", "--status", "--tests-passed", "--out"))
 
 
 def _int_option(args: list[str], option: str) -> int:

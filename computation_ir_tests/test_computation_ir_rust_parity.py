@@ -313,5 +313,25 @@ module Main {
         self.assert_parity(source)
 
 
+@unittest.skipUnless(_BINARY is not None, "reason-computation-runtime binary not built")
+class ArgumentEvaluationOrderTests(unittest.TestCase):
+    def test_nested_calls_evaluate_left_to_right(self):
+        source = '''module Ordering {
+ fn Mark(x: int) -> int {
+  runtime.print(x)
+  return x
+ }
+ fn Combine(a: int, b: int) -> int { return a * 10 + b }
+ calculation Answer {
+  let maximum = math.max(Mark(1), Mark(2))
+  result = Combine(Mark(3), Mark(4)) + maximum
+ }
+}'''
+        outcome = run_ir(lower_program(parse(source)), binary=_BINARY)
+        self.assertTrue(outcome.ok, outcome.error_message)
+        self.assertEqual(outcome.calculation_results['Answer'], 36)
+        self.assertEqual([event['message'] for event in outcome.console_output], ['1','2','3','4'])
+
+
 if __name__ == "__main__":
     unittest.main()

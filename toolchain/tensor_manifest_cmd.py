@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from toolchain.cli_args import option_value as _option_value
+
 from toolchain.tensor_manifest import (
     DEFAULT_BASELINE_PATH,
     build_manifest,
@@ -42,12 +44,3 @@ def run(command: str, args: list[str], project_root: Path) -> int:
         print("ReasonScript Tensor function manifest")
         print(f"functions: {manifest['function_count']}")
     return 0
-
-
-def _option_value(args: list[str], option: str) -> str | None:
-    if option not in args:
-        return None
-    index = args.index(option)
-    if index + 1 >= len(args):
-        return None
-    return args[index + 1]

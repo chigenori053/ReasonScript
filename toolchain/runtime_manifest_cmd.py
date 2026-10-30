@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from toolchain.cli_args import option_value as _option_value
+
 from toolchain.runtime_manifest import (
     DEFAULT_BASELINE_PATH,
     build_manifest,
@@ -42,10 +44,3 @@ def run(command: str, args: list[str], project_root: Path) -> int:
         print("ReasonScript Runtime consolidation manifest")
         print(f"operations: {operations}")
     return 0
-
-
-def _option_value(args: list[str], option: str) -> str | None:
-    if option not in args:
-        return None
-    index = args.index(option)
-    return args[index + 1] if index + 1 < len(args) else None

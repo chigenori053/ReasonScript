@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from toolchain.cli_args import option_value as _option_value, path_arg as _path_arg
+
 from toolchain.diagnostics import render_diagnostics
 from toolchain.golden import run_corpus, stable_json, update_corpus
 
@@ -34,29 +36,3 @@ def run(command: str, args: list[str], project_root: Path) -> int:
         if summary["failed"]:
             print(render_diagnostics(result["diagnostics"]["diagnostics"]))
     return 0 if result["summary"]["failed"] == 0 else 1
-
-
-def _path_arg(args: list[str], default: Path) -> Path:
-    skip_next = False
-    for arg in args:
-        if skip_next:
-            skip_next = False
-            continue
-        if arg in {"--json"}:
-            continue
-        if arg == "--out":
-            skip_next = True
-            continue
-        if arg.startswith("--"):
-            continue
-        return Path(arg)
-    return default
-
-
-def _option_value(args: list[str], option: str) -> str | None:
-    if option not in args:
-        return None
-    index = args.index(option)
-    if index + 1 >= len(args):
-        return None
-    return args[index + 1]

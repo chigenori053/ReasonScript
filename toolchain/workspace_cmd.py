@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from toolchain.cli_args import option_value as _option_value, path_arg as _path_arg
+
 from .workspace_foundation import (
     build_workspace_index,
     stable_json,
@@ -74,32 +76,6 @@ def _print_summary(summary: dict[str, object]) -> None:
     print(f"Calculations: {summary['calculations']}")
     print(f"Dependencies: {summary['dependencies']}")
     print(f"Diagnostics: {summary['diagnostics']}")
-
-
-def _path_arg(args: list[str], default: Path) -> Path:
-    skip_next = False
-    for arg in args:
-        if skip_next:
-            skip_next = False
-            continue
-        if arg in {"--json"}:
-            continue
-        if arg == "--out":
-            skip_next = True
-            continue
-        if arg.startswith("--"):
-            continue
-        return Path(arg)
-    return default
-
-
-def _option_value(args: list[str], option: str) -> str | None:
-    if option not in args:
-        return None
-    index = args.index(option)
-    if index + 1 >= len(args):
-        return None
-    return args[index + 1]
 
 
 def _exit_code(index: dict[str, object]) -> int:
