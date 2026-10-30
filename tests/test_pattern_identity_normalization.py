@@ -1,22 +1,14 @@
 import json
 from pathlib import Path
 
-from frontend.language_surface.integration import compile_program
-from frontend.language_surface.parser import parse
-from playground.backend.engine import build_execution_plan, extract_knowledge, simulate
+from tests.semantic_pipeline_support import pipeline
+
 
 FIXTURE_DIR = Path(__file__).parent
 
 
 def _pipeline(name: str):
-    ir = compile_program(parse((FIXTURE_DIR / name).read_text()))[0]
-    simulation = simulate(ir)
-    return {
-        "ir": ir,
-        "plan": build_execution_plan(ir),
-        "simulation": simulation,
-        "knowledge": extract_knowledge(ir, simulation),
-    }
+    return pipeline((FIXTURE_DIR / name).read_text())
 
 
 def _selected_transition(result):

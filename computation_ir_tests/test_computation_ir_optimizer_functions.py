@@ -19,53 +19,15 @@ from __future__ import annotations
 import math
 import unittest
 
-from frontend.computation_ir import interpret_program, lower_program, validate_program
-from frontend.computation_ir.rust_bridge import find_binary, run_ir
-from frontend.integrated_computation_runtime import IntegratedRuntimeError, LoopLimitError, execute_program
+from computation_ir_tests.parity_support import SourceParityMixin, BINARY as _BINARY, python_outcome, rust_outcome
+
+from frontend.computation_ir.rust_bridge import run_ir
+from frontend.integrated_computation_runtime import execute_program
 from frontend.language_surface import parse
 from frontend.language_surface.parser import SurfaceSyntaxError
-from frontend.tensor import TensorError
-
-_BINARY = find_binary()
 
 
-def _lower(source: str):
-    return lower_program(parse(source))
-
-
-def _python_outcome(source: str):
-    ir = _lower(source)
-    try:
-        result = interpret_program(ir)
-    except (IntegratedRuntimeError, LoopLimitError) as error:
-        return None, getattr(error, "code", None)
-    except TensorError as error:
-        return None, error.diagnostic.code
-    return dict(result.calculation_results), None
-
-
-def _rust_outcome(source: str):
-    ir = _lower(source)
-    outcome = run_ir(ir, binary=_BINARY)
-    if outcome.ok:
-        return outcome.calculation_results, None
-    return None, outcome.error_code
-
-
-class OptimizerParityMixin:
-    def assert_parity(self, source: str):
-        ir = _lower(source)
-        self.assertEqual(validate_program(ir), [])
-        python_results, python_error = _python_outcome(source)
-        if _BINARY is not None:
-            rust_results, rust_error = _rust_outcome(source)
-            self.assertEqual(python_error, rust_error, f"error code mismatch for:\n{source}")
-            if python_error is None:
-                self.assertEqual(python_results, rust_results, f"result mismatch for:\n{source}")
-        return python_results, python_error
-
-
-class OptimizerMathTests(OptimizerParityMixin, unittest.TestCase):
+class OptimizerMathTests(SourceParityMixin, unittest.TestCase):
     def test_sgd_step_matches_closed_form(self):
         results, error = self.assert_parity(
             """
@@ -234,16 +196,17 @@ class OptimizerMathTests(OptimizerParityMixin, unittest.TestCase):
         # valid floating-point evaluation paths. Every individual
         # optimizer *op* is still proven bit-exact by the single-call
         # tests elsewhere in this file.
-        python_results, python_error = _python_outcome(source)
+        ir = self.prepare_ir(source)
+        python_results, python_error = python_outcome(ir)
         self.assertIsNone(python_error)
         self.assertAlmostEqual(python_results["Answer"][0], 2.0, delta=0.1)
         if _BINARY is not None:
-            rust_results, rust_error = _rust_outcome(source)
+            rust_results, rust_error = rust_outcome(ir)
             self.assertIsNone(rust_error)
             self.assertAlmostEqual(rust_results["Answer"][0], python_results["Answer"][0], places=9)
 
 
-class OptimizerErrorParityTests(OptimizerParityMixin, unittest.TestCase):
+class OptimizerErrorParityTests(SourceParityMixin, unittest.TestCase):
     def test_step_zero_is_rejected(self):
         _results, error = self.assert_parity(
             """

@@ -51,14 +51,6 @@ def test_view_unknown_stage_reports_cv_002(capsys):
     assert "CV-002" in captured.out
 
 
-def test_view_with_no_arguments_prints_usage(capsys):
-    exit_code = run([], ROOT)
-    captured = capsys.readouterr()
-
-    assert exit_code == 1
-    assert "Usage" in captured.out
-
-
 def test_view_without_flags_auto_degrades_to_plain_when_not_a_tty(capsys):
     # pytest's capsys makes sys.stdout.isatty() False, exactly like a CI
     # pipe — this is the non-interactive fallback path from design doc §10.

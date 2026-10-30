@@ -2,26 +2,16 @@ from pathlib import Path
 
 import pytest
 
-from frontend.language_surface import (
-    StructBindingPatternNode,
-    StructPatternNode,
-    compile_program,
-)
+from frontend.language_surface import StructBindingPatternNode, StructPatternNode
 from frontend.language_surface.parser import SurfaceSyntaxError, parse
-from playground.backend.engine import build_execution_plan, extract_knowledge, simulate
+
+from tests.semantic_pipeline_support import pipeline
 
 FIXTURE_DIR = Path(__file__).parent
 
 
 def _pipeline(name: str):
-    ir = compile_program(parse((FIXTURE_DIR / name).read_text()))[0]
-    simulation = simulate(ir)
-    return {
-        "ir": ir,
-        "plan": build_execution_plan(ir),
-        "simulation": simulation,
-        "knowledge": extract_knowledge(ir, simulation),
-    }
+    return pipeline((FIXTURE_DIR / name).read_text())
 
 
 def _transition(result, transition_id: str):
