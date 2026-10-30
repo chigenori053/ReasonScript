@@ -46,6 +46,7 @@ pub fn arity(function_id: &str) -> Option<(usize, usize)> {
         "math.min" | "math.max" => (2, 2),
         "math.approx_equal" => (3, 3),
         "sequence.range" => (3, 3),
+        "graph.summarize" => (7, 7),
         "serialize.json" => (1, 1),
         "artifact.write_text" => (2, 3),
         _ => return None,
@@ -55,6 +56,7 @@ pub fn arity(function_id: &str) -> Option<(usize, usize)> {
 fn family(function_id: &str) -> &'static str {
     match function_id.split('.').next().unwrap_or_default() {
         "math" => "MATH",
+        "graph" => "GRAPH",
         "sequence" => "SEQ",
         "serialize" => "SER",
         _ => "ART",
@@ -87,6 +89,7 @@ pub fn call(function_id: &str, args: Vec<Value>, context: &FoundationContext<'_>
         ));
     }
     match function_id.split_once('.').map(|(namespace, _)| namespace) {
+        Some("graph") => crate::graph_dispatch::summarize(&args),
         Some("math") => call_math(function_id, &args),
         Some("sequence") => sequence_range(&args, context.max_sequence_elements),
         Some("serialize") => serialize_json(&args[0]).map(|text| Value::String(Rc::from(text))),

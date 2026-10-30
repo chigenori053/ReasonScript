@@ -249,4 +249,9 @@ module UnifiedB {
     }
     return Result { status: status, dependencies: dependencies, proof_path: proof, all_paths: paths.finish(), admitted: true, resource_limit: false }
   }
+  // Summary semantics: exact status/dependency set and one verified witness.
+  pub fn Summarize(units: [Unit], trusted: [EvidenceBinding], entities: [int], start: int, goal: int, depth: int, work_budget: int) -> GraphSummary {
+    return graph.summarize(units,trusted,entities,start,goal,depth,work_budget)
+  }
+
 }

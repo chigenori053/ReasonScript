@@ -411,6 +411,7 @@ ambient behavior:
 - `array.builder()` — transient bulk array construction with `append` and `finish`.
 - `reasoning.event` — semantic reasoning steps and evidence.
 - `string.*` — string operations.
+- `graph.summarize` — evidence-bound reachability, unknown-dependency union, and a verified witness without path enumeration.
 - `complex.*` — bounded complex scalar/vector/matrix arithmetic and typed state transitions.
 - `math.*` — scalar math (`abs`, `min`, `max`, `floor`, `ceil`, `round`,
   `sqrt`, `sin`, `cos`, `tan`, `log`, `exp`, `approx_equal`).

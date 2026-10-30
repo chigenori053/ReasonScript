@@ -1,5 +1,6 @@
 """Language-to-runtime integration for the foundation namespaces.
 
+- ``graph.summarize``: bounded evidence-bound graph summaries without walk enumeration.
 - ``math.*``: scalar math over Int/Float values, independent of Tensors.
 - ``sequence.range(start, end, step)``: bounded numeric sequences.
 - ``serialize.json(value)``: canonical in-language JSON serialization.
@@ -32,10 +33,11 @@ from frontend.language_surface.nodes import (
     UnaryOperator,
 )
 
-FOUNDATION_NAMESPACES = frozenset({"math", "sequence", "serialize", "artifact", "complex"})
+FOUNDATION_NAMESPACES = frozenset({"math", "sequence", "serialize", "artifact", "complex", "graph"})
 
 # name -> (minimum, maximum) argument count.
 FOUNDATION_SIGNATURES: dict[str, tuple[int, int]] = {
+    "graph.summarize": (7, 7),
     "complex.scalar": (2, 2),
     "complex.add": (2, 2), "complex.sub": (2, 2), "complex.mul": (2, 2), "complex.div": (2, 2),
     "complex.conjugate": (1, 1), "complex.abs": (1, 1), "complex.phase": (1, 1),
@@ -60,7 +62,7 @@ FOUNDATION_SIGNATURES: dict[str, tuple[int, int]] = {
     "artifact.write_text": (2, 3),
 }
 
-_FAMILY = {"math": "MATH", "sequence": "SEQ", "serialize": "SER", "artifact": "ART", "complex": "CXR"}
+_FAMILY = {"math": "MATH", "sequence": "SEQ", "serialize": "SER", "artifact": "ART", "complex": "CXR", "graph": "GRAPH"}
 
 ARTIFACT_RESULT_TYPE = "ArtifactResult"
 ARTIFACT_RESULT_FIELDS = {
@@ -89,6 +91,16 @@ _NUMERIC = frozenset({_INT, _FLOAT})
 COMPLEX_TYPES = {
     "Complex": {"re": _FLOAT, "im": _FLOAT},
     "ComplexState": {"amplitudes": ArrayTypeNode(NamedTypeNode("Complex")), "revision": _INT},
+}
+
+
+FOUNDATION_TYPES = {
+    **COMPLEX_TYPES,
+    "GraphSummary": {
+        "status": _STRING, "dependencies": ArrayTypeNode(_STRING),
+        "proof_path": ArrayTypeNode(_STRING), "admitted": _BOOL,
+        "resource_limit": _BOOL, "work": _INT,
+    },
 }
 
 
@@ -162,6 +174,15 @@ def foundation_call_type(name: str, argument_types: list[Any], unknown: Any) -> 
                 f"{family}-003", f"{name} argument {index + 1} must be {description}"
             )
 
+    if name == "graph.summarize":
+        for index in range(3):
+            actual = argument_types[index]
+            if actual is not unknown and not isinstance(actual, ArrayTypeNode):
+                raise FoundationSemanticError("GRAPH-003", f"{name} argument {index + 1} must be Array")
+        require(2, frozenset({ArrayTypeNode(_INT)}), "Array<Int>")
+        for index in range(3, 7):
+            require(index, frozenset({_INT}), "Int")
+        return NamedTypeNode("GraphSummary")
     if name.startswith("complex."):
         scalar = NamedTypeNode("Complex")
         vector = ArrayTypeNode(scalar)

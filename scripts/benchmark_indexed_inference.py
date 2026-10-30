@@ -32,6 +32,7 @@ def main():
     parser.add_argument('--seeds', nargs='+', type=int, default=[401, 402, 403])
     parser.add_argument('--sizes', nargs='+', type=int, default=[10000, 100000])
     parser.add_argument('--depths', nargs='+', type=int, default=[2, 4, 8, 16])
+    parser.add_argument('--summary', action='store_true', help='Use compressed summary semantics; compare status and dependency set to the frozen oracle')
     parser.add_argument('--repeats', type=int, default=3)
     parser.add_argument('--host', type=Path, default=ROOT/'ReasonRuntime/target/release/reason-runtime-host')
     parser.add_argument('--source', type=Path, default=ROOT/'examples/inference_scale/main.rsn')
@@ -56,13 +57,16 @@ def main():
                         inputs.update(depth=depth)
                         if family == 'math':
                             inputs['goal'] = 2**depth
+                        if args.summary:
+                            inputs.pop('path_budget', None)
+                            inputs['work_budget'] = 100_000_000
                         for repeat in range(args.repeats):
                             start = time.perf_counter()
                             row = dict(family=family, seed=seed, size=size, depth=depth,
                                        repeat=repeat, source_sha256=source_hash, host_sha256=host_hash,
                                        input_sha256=digest(path), oracle_sha256=digest(oracle_path))
                             try:
-                                result = run_ir(ir, binary=host, entry='UnifiedB::Derive', inputs=inputs,
+                                result = run_ir(ir, binary=host, entry='UnifiedB::Summarize' if args.summary else 'UnifiedB::Derive', inputs=inputs,
                                     semantic_events=False, benchmark_metrics=True,
                                     limits=dict(max_input_elements=5_000_000,
                                                 max_input_bytes=536_870_912,
@@ -71,7 +75,8 @@ def main():
                                 valid = bool(result.ok and value['admitted'] and not value['resource_limit']
                                              and value['status'] == oracle['status']
                                              and sorted(value['dependencies']) == oracle['unknown_dependencies']
-                                             and value['all_paths'] == oracle['proof_paths'])
+                                             and (args.summary or value['all_paths'] == oracle['proof_paths'])
+                                             and (not value['proof_path'] or value['proof_path'] in oracle['proof_paths']))
                                 row.update(valid=valid, result=value, error_code=result.error_code,
                                            metadata=result.metadata)
                             except subprocess.TimeoutExpired:

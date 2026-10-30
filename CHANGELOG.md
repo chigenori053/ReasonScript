@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add native `graph.summarize` and typed `GraphSummary` results for exact bounded-walk
+  status, unknown-dependency union, and a shortest verified witness using linear
+  graph traversal instead of path enumeration. Add the `UnifiedB::Summarize` entry,
+  deterministic work limits that discard partial conclusions, and 200k/250k-unit
+  sparse/branching stress measurements with wall-time/RSS watchdogs. Exhaustive
+  `Derive` path semantics and runtime admission defaults remain unchanged.
+
 - Prefer the optimized local release host over a debug build, retaining explicit
   host overrides and debug-only fallback.
 - Add an indexed MRA graph-inference example with stable proof ordering and

@@ -6,5 +6,5 @@ entry = "main.rsn"
 [runtime]
 backend = "RuntimeReal"
 max_loop_iterations = 10000000
-max_input_elements = 5000000
+max_input_elements = 10000000
 max_input_bytes = 536870912

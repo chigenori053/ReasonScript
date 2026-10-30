@@ -19,6 +19,16 @@ This page is a practical index; exact Tensor signatures are available from
 The reasoning calls operate on typed `Goal`, `State`, `Constraint`,
 `ReasonGraph`, and `ExecutionPlan` bindings.
 
+## Evidence-bound graph summaries
+
+`graph.summarize(units, trusted, entities, start, goal, depth, work_budget)` returns
+`GraphSummary { status, dependencies, proof_path, admitted, resource_limit, work }`
+through the native Rust runtime. It computes exact bounded-walk status and the
+unknown-dependency union, with one shortest verified witness, without enumerating
+all walks. Evidence remains bound to the unit's complete proposition and revision.
+Work exhaustion discards partial conclusions. See [large graph inference](guides/large-inference.md)
+for record fields, ordering, resource limits, and reproducible stress measurements.
+
 ## Tensor
 
 Tensor dtypes are `bool`, `i32`, `i64`, `f32`, and `f64`; the current backend is

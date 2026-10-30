@@ -11,6 +11,7 @@ pub mod console_dispatch;
 pub mod complex_dispatch;
 pub mod foundation_dispatch;
 mod frame;
+pub mod graph_dispatch;
 pub mod ir;
 pub mod input_abi;
 pub mod numeric;
