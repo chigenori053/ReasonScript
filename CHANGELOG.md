@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## [0.5.6.10] - 2026-10-31
+
+- Consolidate native argument evaluation while preserving order, Tensor roots,
+  diagnostics and traces; share Tensor contract construction and CLI argument readers.
+- Load public Python Tensor reference exports on demand, retaining type identity,
+  equality, pickle and reload compatibility. Share reference reasoning payloads and
+  console handling while retaining adapter-specific conversion and validation.
+- Consolidate repeated regression-test setup and remove the confirmed duplicate
+  CLI case; retain behavior and compatibility coverage.
 
 - Add native `graph.summarize` and typed `GraphSummary` results for exact bounded-walk
   status, unknown-dependency union, and a shortest verified witness using linear
