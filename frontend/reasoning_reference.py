@@ -8,6 +8,10 @@ from typing import Any
 
 
 PROFILE = "reasonscript-reasoning-core/1.0"
+_ENGINE_LABELS = {
+    "search": "SearchEngine", "simulate": "SemanticSimulationEngine",
+    "predict": "PredictionEngine", "plan": "PlanningEngine",
+}
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -23,18 +27,8 @@ def call_reasoning(function_id: str, argument: Any, *, backend: str = "RuntimeRe
         raise ReasoningReferenceError("RI-1", f"unknown Runtime operation: {function_id}")
     label = _request_label(argument)
     execution_plan = _execution_plan(operation, label) if operation in {"search", "plan"} else None
-    if operation == "search":
-        inner = {"goal": label, "found": True, "cost": 1.0, "confidence": 1.0, "trace": ["search"]}
-        engine = f"{backend} SearchEngine"
-    elif operation == "simulate":
-        inner = {"success": True, "final_state": label, "confidence": 1.0, "trace": ["simulate"]}
-        engine = f"{backend} SemanticSimulationEngine"
-    elif operation == "predict":
-        inner = {"predicted_state": label, "confidence": 1.0, "evidence": ["predict"]}
-        engine = f"{backend} PredictionEngine"
-    else:
-        inner = {"goal": label, "success": True, "cost": 1.0, "steps": ["step-1"]}
-        engine = f"{backend} PlanningEngine"
+    inner = _reasoning_payload(operation, label)
+    engine = _engine_name(operation, backend)
     return {"some": inner}, {
         "operation": function_id,
         "backend": backend,
@@ -71,3 +65,17 @@ def _execution_plan(operation: str, target: str) -> dict[str, Any]:
         "evidence_refs": [f"{operation}:trace"],
         "planner_version": "runtime-integration/0.2",
     }
+
+
+def _reasoning_payload(operation: str, label: str) -> dict[str, Any]:
+    if operation == "search":
+        return {"goal": label, "found": True, "cost": 1.0, "confidence": 1.0, "trace": ["search"]}
+    if operation == "simulate":
+        return {"success": True, "final_state": label, "confidence": 1.0, "trace": ["simulate"]}
+    if operation == "predict":
+        return {"predicted_state": label, "confidence": 1.0, "evidence": ["predict"]}
+    return {"goal": label, "success": True, "cost": 1.0, "steps": ["step-1"]}
+
+
+def _engine_name(operation: str, backend: str) -> str:
+    return f"{backend} {_ENGINE_LABELS[operation]}"

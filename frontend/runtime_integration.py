@@ -12,6 +12,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from frontend.reasoning_reference import _execution_plan as _execution_plan, _reasoning_payload, _engine_name
+
 EXECUTION_ARCHITECTURE_SCHEMA = "reasonscript-execution-architecture/1.2"
 REASONING_TRACE_SCHEMA = "reasonscript-reasoning-trace/1.0"
 PLATFORM_DIAGNOSTIC_SCHEMA = "reasonscript-platform-diagnostic/1.0"
@@ -1609,18 +1611,10 @@ def hybrid_runtime_registry() -> RuntimeEngineRegistry:
 
 class DeterministicSearchEngine:
     def __init__(self, backend: str):
-        self.engine_name = f"{backend} SearchEngine"
+        self.engine_name = _engine_name("search", backend)
 
     def search(self, request: SearchRequest) -> SearchResult:
-        value = RuntimeValue.struct(
-            {
-                "goal": RuntimeValue.string(_request_label(request.value)),
-                "found": RuntimeValue.bool(True),
-                "cost": RuntimeValue.float(1.0),
-                "confidence": RuntimeValue.float(1.0),
-                "trace": RuntimeValue.array([RuntimeValue.string("search")]),
-            }
-        )
+        value = RuntimeValue.struct({k: _plain_value(v) for k, v in _reasoning_payload("search", _request_label(request.value)).items()})
         return SearchResult(
             value,
             ("search:start", "search:complete"),
@@ -1630,50 +1624,30 @@ class DeterministicSearchEngine:
 
 class DeterministicSimulationEngine:
     def __init__(self, backend: str):
-        self.engine_name = f"{backend} SemanticSimulationEngine"
+        self.engine_name = _engine_name("simulate", backend)
 
     def simulate(self, request: SimulationRequest) -> SimulationResult:
-        value = RuntimeValue.struct(
-            {
-                "success": RuntimeValue.bool(True),
-                "final_state": RuntimeValue.string(_request_label(request.value)),
-                "confidence": RuntimeValue.float(1.0),
-                "trace": RuntimeValue.array([RuntimeValue.string("simulate")]),
-            }
-        )
+        value = RuntimeValue.struct({k: _plain_value(v) for k, v in _reasoning_payload("simulate", _request_label(request.value)).items()})
         return SimulationResult(value, ("simulate:start", "simulate:complete"))
 
 
 class DeterministicPredictionEngine:
     def __init__(self, backend: str):
-        self.engine_name = f"{backend} PredictionEngine"
+        self.engine_name = _engine_name("predict", backend)
 
     def predict(self, request: PredictionRequest) -> PredictionResult:
-        value = RuntimeValue.struct(
-            {
-                "predicted_state": RuntimeValue.string(_request_label(request.value)),
-                "confidence": RuntimeValue.float(1.0),
-                "evidence": RuntimeValue.array([RuntimeValue.string("predict")]),
-            }
-        )
+        value = RuntimeValue.struct({k: _plain_value(v) for k, v in _reasoning_payload("predict", _request_label(request.value)).items()})
         return PredictionResult(value, ("predict:start", "predict:complete"))
 
 
 class DeterministicPlanningEngine:
     def __init__(self, backend: str):
-        self.engine_name = f"{backend} PlanningEngine"
+        self.engine_name = _engine_name("plan", backend)
 
     def plan(self, request: PlanningRequest) -> PlanningResult:
         label = _request_label(request.value)
         plan = _execution_plan("plan", label)
-        value = RuntimeValue.struct(
-            {
-                "goal": RuntimeValue.string(label),
-                "success": RuntimeValue.bool(True),
-                "cost": RuntimeValue.float(1.0),
-                "steps": RuntimeValue.array([RuntimeValue.string("step-1")]),
-            }
-        )
+        value = RuntimeValue.struct({k: _plain_value(v) for k, v in _reasoning_payload("plan", label).items()})
         return PlanningResult(value, ("plan:start", "plan:complete"), plan)
 
 
@@ -1877,24 +1851,6 @@ def _validate_request_type(operation: str, value: RuntimeValue) -> str | None:
             f"{RuntimeIntegrationErrorCode.REASONING_TYPE_CONVERSION_FAILED}: {error}"
         )
     return None
-
-
-def _execution_plan(operation: str, target: str) -> dict[str, Any]:
-    return {
-        "schema_version": "execution-plan/0.1",
-        "selected_steps": [
-            {
-                "step_id": f"{operation}-step-1",
-                "transition_id": f"{operation}-transition",
-                "source": "runtime",
-                "target": target,
-            }
-        ],
-        "alternative_paths": [],
-        "expected_cost": 1.0,
-        "evidence_refs": [f"{operation}:trace"],
-        "planner_version": "runtime-integration/0.2",
-    }
 
 
 def _request_label(value: RuntimeValue) -> str:

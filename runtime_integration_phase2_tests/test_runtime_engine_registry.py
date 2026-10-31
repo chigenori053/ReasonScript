@@ -191,3 +191,20 @@ class RuntimeIntegrationPhase2Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_legacy_reasoning_keeps_label_conversion_and_fresh_result_types():
+    from frontend.reasoning_reference import call_reasoning
+    from frontend.runtime_integration import SearchRequest, SearchResult, RuntimeStruct
+
+    # The legacy adapter treats an empty name as a printable struct; the IR ABI
+    # accepts it as the label. Sharing payload construction must not merge these.
+    registry = runtime_real_registry()
+    request = SearchRequest(RuntimeValue.struct({'name': RuntimeValue.string('')}))
+    first = registry.search_engine.search(request)
+    assert type(first) is SearchResult
+    assert isinstance(first.value.value, RuntimeStruct)
+    assert runtime_value_to_plain(first.value)['goal'] == "{'name': ''}"
+    assert call_reasoning('runtime.search', {'name': ''})[0]['some']['goal'] == ''
+    first.execution_plan['selected_steps'].clear()
+    assert len(registry.search_engine.search(request).execution_plan['selected_steps']) == 1

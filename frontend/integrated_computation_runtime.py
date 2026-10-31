@@ -152,6 +152,39 @@ class RuntimeOptionalValue:
     value: Any = None
 
 
+def _format_console_value(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        text = str(value)
+        if "." in text or "e" in text or "inf" in text:
+            return text
+        return f"{text}.0"
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "[" + ", ".join(_format_console_value(item) for item in value) + "]"
+    if isinstance(value, RuntimeStruct):
+        parts = [f"{k}: {_format_console_value(v)}" for k, v in sorted(value.fields.items())]
+        return "{" + ", ".join(parts) + "}"
+    if isinstance(value, RuntimeEnumValue):
+        return f"{value.enum_name}.{value.variant_name}"
+    if isinstance(value, RuntimeOptionalValue):
+        return f"Some({_format_console_value(value.value)})" if value.has_value else "None"
+    return str(value)
+
+
+def _write_console(function_id: str, arguments: list[Any]) -> None:
+    import sys
+    stream = sys.stderr if function_id in ("Console.warn", "Console.error") else sys.stdout
+    stream.write(" ".join(_format_console_value(arg) for arg in arguments) + "\n")
+    stream.flush()
+
+
 @dataclass
 class RuntimeFunction:
     node: FunctionDeclarationNode
@@ -936,8 +969,6 @@ def _expression(
         )
     if isinstance(value, RuntimeCallExpressionNode):
         if value.kind == RuntimeCallKind.PRINT:
-            import sys
-            from frontend.computation_ir.interpreter import _format_console_value
             arguments = [
                 _expression(
                     arg, env, runtime, vision_runtime,
@@ -945,10 +976,7 @@ def _expression(
                 )
                 for arg in value.arguments
             ]
-            line = " ".join(_format_console_value(arg) for arg in arguments)
-            sys.stdout.write(line + "\n")
-            sys.stdout.flush()
-            return None
+            return _write_console("Console.log", arguments)
         argument = _expression(
             value.arguments[0], env, runtime, vision_runtime,
             functions, max_call_depth, call_depth,
@@ -1045,8 +1073,6 @@ def _expression(
             return call_string(string_function, *arguments)
         console_function = console_call_name(value)
         if console_function is not None:
-            import sys
-            from frontend.computation_ir.interpreter import _format_console_value
             arguments = [
                 _expression(
                     argument, env, runtime, vision_runtime,
@@ -1054,12 +1080,7 @@ def _expression(
                 )
                 for argument in value.arguments
             ]
-            is_stderr = console_function in ("Console.warn", "Console.error")
-            stream = sys.stderr if is_stderr else sys.stdout
-            line = " ".join(_format_console_value(arg) for arg in arguments)
-            stream.write(line + "\n")
-            stream.flush()
-            return None
+            return _write_console(console_function, arguments)
         if (
             isinstance(value.callee, MemberAccessNode)
             and isinstance(value.callee.object, IdentifierNode)
